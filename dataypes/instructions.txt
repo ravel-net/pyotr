@@ -1,0 +1,19 @@
+# Access postgres user
+sudo -u postgres -i
+
+# Connect to a database
+psql -h localhost -p 5432 -U postgres test
+
+# Add sql file
+psql -d test -a -f complex.sql
+
+# Setting password
+sudo -u postgres -i
+\password postgres
+(default pass is mubashir)
+
+
+# Makefile compiles the type
+# Databuilt is .sql
+# Need postgres server before it
+sudo apt install postgresql-server-dev-13

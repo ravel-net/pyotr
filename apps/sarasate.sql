@@ -8,6 +8,9 @@ CREATE UNLOGGED TABLE sarasate (
        id  integer PRIMARY KEY
 );
 
+/* Add inet_faure data type */
+-- \i /home/vagrant/Faure_clones/Faure/dataypes/inet_faure_2/inet_faure.sql;
+
 /* DEMOs - ctables
  * Policy1: Static Routes, Filter
  * dest: IP prefix
@@ -16,7 +19,7 @@ CREATE UNLOGGED TABLE sarasate (
  */
 DROP TABLE IF EXISTS policy1 CASCADE;
 CREATE UNLOGGED TABLE policy1(
-       dest TEXT,
+       dest inet_faure,
        path TEXT,
        condition TEXT[]
 );
@@ -32,7 +35,7 @@ INSERT INTO Policy1 (dest, path, condition) VALUES
  */
 DROP TABLE IF EXISTS Policy2 CASCADE;
 create table Policy2 ( 
-       dest TEXT, 
+       dest inet_faure, 
        path TEXT, 
        flag TEXT, 
        condition TEXT[]
@@ -45,14 +48,14 @@ INSERT INTO Policy2 (dest, path, flag, condition) VALUES
 
 /* Instance 1 */
 DROP TABLE IF EXISTS instance1 CASCADE;
-create table instance1 ( DEST TEXT, PATH TEXT,CONDITION TEXT []);
+create table instance1 ( DEST inet_faure, PATH TEXT,CONDITION TEXT []);
 insert into instance1 ( DEST,PATH, CONDITION) values 
 ('1.2.3.4','[ABC]','{"[ABC] == [ABC]"}'),
 ('5.6.7.8','[AC]','{"5.6.7.8 != 1.2.3.5", "5.6.7.8 != 1.2.3.4"}');
 
 /* Instance 2: contradictary*/
 DROP TABLE IF EXISTS instance2 CASCADE;
-create table instance2 ( DEST TEXT, PATH TEXT,CONDITION TEXT []);
+create table instance2 ( DEST inet_faure, PATH TEXT,CONDITION TEXT []);
 insert into instance2 ( DEST,PATH, CONDITION) values 
 ('1.2.3.4','[AC]','{"[AC] == [ABC]"}'),
 ('1.2.3.5','[ADC]','{"1.2.3.5 != 1.2.3.5", "1.2.3.5 != 1.2.3.4"}');
@@ -85,7 +88,7 @@ $$ LANGUAGE SQL;
 
 --DROP FUNCTION If EXISTS equal(text, text) CASCADE;
 
-CREATE OR REPLACE FUNCTION equal(col1 TEXT, col2 TEXT)
+CREATE OR REPLACE FUNCTION c_equal(col1 TEXT, col2 TEXT)
 returns boolean as
 $$
 select 
@@ -99,7 +102,7 @@ CASE WHEN col1 = col2 THEN True
 $$LANGUAGE SQL;
 
 
-CREATE OR REPLACE FUNCTION not_equal(col1 TEXT, col2 TEXT)
+CREATE OR REPLACE FUNCTION c_not_equal(col1 TEXT, col2 TEXT)
 returns boolean as
 $$
 select 
@@ -114,7 +117,7 @@ CASE
 
 $$LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION geq(col1 TEXT, col2 TEXT)
+CREATE OR REPLACE FUNCTION c_geq(col1 TEXT, col2 TEXT)
 returns boolean as
 $$
 select 
@@ -129,7 +132,7 @@ CASE
 
 $$LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION leq(col1 TEXT, col2 TEXT)
+CREATE OR REPLACE FUNCTION c_leq(col1 TEXT, col2 TEXT)
 returns boolean as
 $$
 select 
@@ -144,7 +147,7 @@ CASE
 
 $$LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION greater(col1 TEXT, col2 TEXT)
+CREATE OR REPLACE FUNCTION c_greater(col1 TEXT, col2 TEXT)
 returns boolean as
 $$
 select 
@@ -159,7 +162,7 @@ CASE
 
 $$LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION less(col1 TEXT, col2 TEXT)
+CREATE OR REPLACE FUNCTION c_less(col1 TEXT, col2 TEXT)
 returns boolean as
 $$
 select 

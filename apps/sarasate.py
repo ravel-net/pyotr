@@ -59,37 +59,37 @@ class RelaAlgConsole(AppConsole):
                 args = w.split('!=')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "not_equal({}, {}) and".format(left, right) 
+                defined_where_clause = defined_where_clause + "c_not_equal({}, {}) and".format(left, right) 
             elif '<>' in w:
                 args = w.split('<>')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "not_equal({}, {}) and ".format(left, right) 
+                defined_where_clause = defined_where_clause + "c_not_equal({}, {}) and ".format(left, right) 
             elif '<=' in w:
                 args = w.split('<=')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "leq({}, {}) and ".format(left, right)
+                defined_where_clause = defined_where_clause + "c_leq({}, {}) and ".format(left, right)
             elif '>=' in w:
                 args = w.split('>=')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "geq({}, {}) and ".format(left, right)
+                defined_where_clause = defined_where_clause + "c_geq({}, {}) and ".format(left, right)
             elif '<' in w:
                 args = w.split('<')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "less({}, {}) and ".format(left, right)
+                defined_where_clause = defined_where_clause + "c_less({}, {}) and ".format(left, right)
             elif '>' in w:
                 args = w.split('>')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "greater({}, {}) and ".format(left, right)
+                defined_where_clause = defined_where_clause + "c_greater({}, {}) and ".format(left, right)
             elif '=' in w:
                 args = w.split('=')
                 left = args[0].strip()
                 right = args[1].strip()
-                defined_where_clause = defined_where_clause + "equal({}, {}) and ".format(left, right)
+                defined_where_clause = defined_where_clause + "c_equal({}, {}) and ".format(left, right)
 
         defined_where_clause = defined_where_clause[:-4]  # remove final 'and'      
 
