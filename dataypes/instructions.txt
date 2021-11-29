@@ -9,6 +9,7 @@ psql -d test -a -f complex.sql
 
 # Setting password
 sudo -u postgres -i
+sudo passwd postgres
 \password postgres
 (default pass is mubashir)
 
