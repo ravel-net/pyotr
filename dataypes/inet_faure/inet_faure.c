@@ -13,6 +13,7 @@
 #include <arpa/inet.h>
 
 #include "access/stratnum.h"
+#include <ctype.h>
 #include "catalog/pg_opfamily.h"
 #include "catalog/pg_type.h"
 #include "common/hashfn.h"
@@ -83,10 +84,10 @@ network_in(char *src, bool is_cidr)
 	dst = (inet_faure *) palloc0(sizeof(inet_faure));
 
     // TODO: Not assigning default value to the header right now. Think what the default value should be
-	c_variables(dst) = '0'; // denotes a lack of value. TODO: Add a boolean flag instead of this
+	strcpy(c_variables(dst), "0"); // denotes a lack of value. TODO: Add a boolean flag instead of this
 	// if it is a c-variable
-	if (src[0] == 'x' || src[0] == 'y') {
-		c_variables(dst) = src[0];
+	if (isalpha(src[0])) { // TODO: Find another format for this
+		strcpy(c_variables(dst), src);
 	}
 	/*
 	 * First, check to see if this is an IPv6 or IPv4 address.  IPv6 addresses
@@ -133,11 +134,10 @@ network_out(inet_faure *src, bool is_cidr)
 {
 	char		tmp[sizeof("xxxx:xxxx:xxxx:xxxx:xxxx:xxxx:255.255.255.255/128")];
 	char	   *dst;
-	int			len;
 
     // c-variable
-    if (src->inet_data.c_var != '0') {
-        dst = psprintf("%c", src->inet_data.c_var);
+    if (strcmp(c_variables(src),"0") != 0) {
+        dst = psprintf("%s", c_variables(src));
 		PG_RETURN_CSTRING(dst);
     }
     else {
@@ -312,7 +312,7 @@ static int32
 network_cmp_internal(inet_faure *a1, inet_faure *a2)
 {
     // TODO: Decide what to do in case of c-variables. Currently we return 2 and default to true whenever 2 is returned (to preserve tuples that contain c-vars). But this approach does not work if we have something like NOT (condition)
-    if (a1->inet_data.c_var != '0' || a2->inet_data.c_var != '0') {
+    if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         return 2;
     }
 	if (ip_family(a1) == ip_family(a2))
@@ -821,7 +821,8 @@ is_var(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 
-	PG_RETURN_BOOL(a1->inet_data.c_var != '0');
+	// PG_RETURN_BOOL(a1->inet_data.c_var != "0");
+	PG_RETURN_BOOL(strcmp(c_variables(a1),"0") != 0);
 }
 
 
