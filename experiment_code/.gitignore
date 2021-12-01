@@ -1,0 +1,5 @@
+__pycache__
+.vscode
+rib.20210610.0000.bz2
+rib*.txt
+.DS_Store
