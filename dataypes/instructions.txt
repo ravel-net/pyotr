@@ -18,3 +18,7 @@ sudo passwd postgres
 # Databuilt is .sql
 # Need postgres server before it
 sudo apt install postgresql-server-dev-13
+
+# Run sql file
+make
+psql -U postgres -d test -a -f /home/vagrant/Faure_clones/pyotr/dataypes/inet_faure/inet_faure.sql
