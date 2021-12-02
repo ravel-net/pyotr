@@ -90,6 +90,10 @@ CREATE TABLE test_inet_faure (
 
 -- data for user-defined types are just strings in the proper textual
 -- representation.
+INSERT INTO test_inet_faure VALUES ('asd','225.242.0.0/24');
+INSERT INTO test_inet_faure VALUES ('asd','192.168.2.1');
+INSERT INTO test_inet_faure VALUES ('asd','1.0.0.0/24');
+INSERT INTO test_inet_faure VALUES ('asd','3.8.0.0/14');
 
 INSERT INTO test_inet_faure VALUES ('225.242.0.0/24', '192.168.2.1');
 INSERT INTO test_inet_faure VALUES ('x', '192.168.2.1');
@@ -232,14 +236,15 @@ INSERT INTO test_inet_faure VALUES ('y', 'x');
 -- CREATE INDEX test_cplx_ind ON test_inet_faure
 --    USING btree(a inet_faure_abs_ops);
 
-SELECT * from test_inet_faure where a = '192.168.100.1';
-SELECT * from test_inet_faure where a = '192.168.100.2';
-SELECT * from test_inet_faure where a < '192.168.100.20';
-SELECT * from test_inet_faure where a < '192.168.99.20';
-SELECT * from test_inet_faure where a > '192.168.99.20';
-SELECT * from test_inet_faure where a > '192.168.100.0';
-SELECT * from test_inet_faure where a > '192.168.100.0';
-SELECT * from test_inet_faure where NOT (a = '192.168.100.0');
+SELECT * from test_inet_faure;
+SELECT * from test_inet_faure where b = '192.168.100.1/24';
+SELECT * from test_inet_faure where b = '1.0.0.0/24';
+-- SELECT * from test_inet_faure where a < '192.168.100.20';
+-- SELECT * from test_inet_faure where a < '192.168.99.20';
+-- SELECT * from test_inet_faure where a > '192.168.99.20';
+-- SELECT * from test_inet_faure where a > '192.168.100.0';
+-- SELECT * from test_inet_faure where a > '192.168.100.0';
+-- SELECT * from test_inet_faure where NOT (a = '192.168.100.0');
 
 
 -- clean up the example

@@ -313,7 +313,8 @@ network_cmp_internal(inet_faure *a1, inet_faure *a2)
 {
     // TODO: Decide what to do in case of c-variables. Currently we return 2 and default to true whenever 2 is returned (to preserve tuples that contain c-vars). But this approach does not work if we have something like NOT (condition)
     if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
-        return 2;
+		// fprintf(stderr, "c-var\n");
+		return 0;
     }
 	if (ip_family(a1) == ip_family(a2))
 	{
@@ -321,6 +322,8 @@ network_cmp_internal(inet_faure *a1, inet_faure *a2)
 
 		order = bitncmp(ip_addr(a1), ip_addr(a2),
 						Min(ip_bits(a1), ip_bits(a2)));
+		// fprintf(stderr, "order: %d\n", order);
+		// fprintf(stderr, "order: %d\n", order);
 		if (order != 0)
 			return order;
 		order = ((int) ip_bits(a1)) - ((int) ip_bits(a2));
@@ -341,8 +344,8 @@ network_cmp(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
-        PG_RETURN_INT32(0);
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+        PG_RETURN_BOOL(true);
     }
 	PG_RETURN_INT32(return_val);
 }
@@ -731,7 +734,7 @@ c_less(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         PG_RETURN_BOOL(true);
     }
 
@@ -747,7 +750,7 @@ c_leq(PG_FUNCTION_ARGS)
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
 
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         PG_RETURN_BOOL(true);
     }
 
@@ -762,7 +765,7 @@ c_equal(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         PG_RETURN_BOOL(true);
     }
 
@@ -777,7 +780,7 @@ c_geq(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         PG_RETURN_BOOL(true);
     }
 
@@ -792,7 +795,7 @@ c_greater(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         PG_RETURN_BOOL(true);
     }
 
@@ -807,7 +810,7 @@ c_not_equal(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
     int32 return_val = network_cmp_internal(a1,a2);
-    if (return_val == 2) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
         PG_RETURN_BOOL(true);
     }
 
