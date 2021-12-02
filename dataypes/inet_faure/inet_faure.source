@@ -174,6 +174,8 @@ CREATE FUNCTION c_greater(inet_faure, inet_faure) RETURNS bool
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION c_not_equal(inet_faure, inet_faure) RETURNS bool
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION inet_faureor(inet_faure, inet_faure) RETURNS inet_faure
+   AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 
 CREATE OPERATOR < (
    leftarg = inet_faure, rightarg = inet_faure, procedure = c_less,
@@ -211,6 +213,11 @@ CREATE OPERATOR > (
    restrict = scalargtsel, join = scalargtjoinsel
 );
 
+CREATE OPERATOR | (
+   leftarg = inet_faure, rightarg = inet_faure, procedure = inet_faureor,
+   commutator = | --, negator = <= ,
+   -- restrict = scalargtsel, join = scalargtjoinsel
+);
 -- create the support function too
 CREATE FUNCTION network_cmp(inet_faure, inet_faure) RETURNS int4
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
@@ -239,6 +246,7 @@ INSERT INTO test_inet_faure VALUES ('y', 'x');
 SELECT * from test_inet_faure;
 SELECT * from test_inet_faure where b = '192.168.100.1/24';
 SELECT * from test_inet_faure where b = '1.0.0.0/24';
+SELECT a | b from test_inet_faure;
 -- SELECT * from test_inet_faure where a < '192.168.100.20';
 -- SELECT * from test_inet_faure where a < '192.168.99.20';
 -- SELECT * from test_inet_faure where a > '192.168.99.20';
@@ -248,5 +256,5 @@ SELECT * from test_inet_faure where b = '1.0.0.0/24';
 
 
 -- clean up the example
---DROP TABLE test_inet_faure;
---DROP TYPE inet_faure CASCADE;
+DROP TABLE test_inet_faure;
+DROP TYPE inet_faure CASCADE;

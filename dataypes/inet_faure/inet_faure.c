@@ -1900,37 +1900,46 @@ is_var(PG_FUNCTION_ARGS)
 // 	PG_RETURN_INET_P(dst);
 // }
 
+PG_FUNCTION_INFO_V1(inet_faureor);
 
-// Datum
-// inetor(PG_FUNCTION_ARGS)
-// {
-// 	inet	   *ip = PG_GETARG_INET_PP(0);
-// 	inet	   *ip2 = PG_GETARG_INET_PP(1);
-// 	inet	   *dst;
+Datum
+inet_faureor(PG_FUNCTION_ARGS)
+{
+	inet_faure	   *ip = PG_GETARG_INET_PP(0);
+	inet_faure	   *ip2 = PG_GETARG_INET_PP(1);
+	inet_faure	   *dst;
 
-// 	dst = (inet *) palloc0(sizeof(inet));
+	dst = (inet_faure *) palloc0(sizeof(inet_faure));
 
-// 	if (ip_family(ip) != ip_family(ip2))
-// 		ereport(ERROR,
-// 				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
-// 				 errmsg("cannot OR inet values of different sizes")));
-// 	else
-// 	{
-// 		int			nb = ip_addrsize(ip);
-// 		unsigned char *pip = ip_addr(ip);
-// 		unsigned char *pip2 = ip_addr(ip2);
-// 		unsigned char *pdst = ip_addr(dst);
 
-// 		while (nb-- > 0)
-// 			pdst[nb] = pip[nb] | pip2[nb];
-// 	}
-// 	ip_bits(dst) = Max(ip_bits(ip), ip_bits(ip2));
+	if (strcmp(c_variables(ip),"0") != 0 || strcmp(c_variables(ip2),"0") != 0) {
+        // c_variables(dst) = "or-ed";
+		strcpy(c_variables(dst), "or-ed");
 
-// 	ip_family(dst) = ip_family(ip);
-// 	SET_INET_VARSIZE(dst);
+		PG_RETURN_INET_P(dst);
+    }
 
-// 	PG_RETURN_INET_P(dst);
-// }
+	if (ip_family(ip) != ip_family(ip2))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cannot OR inet values of different sizes")));
+	else
+	{
+		int			nb = ip_addrsize(ip);
+		unsigned char *pip = ip_addr(ip);
+		unsigned char *pip2 = ip_addr(ip2);
+		unsigned char *pdst = ip_addr(dst);
+
+		while (nb-- > 0)
+			pdst[nb] = pip[nb] | pip2[nb];
+	}
+	ip_bits(dst) = Max(ip_bits(ip), ip_bits(ip2));
+
+	strcpy(c_variables(dst), "0");
+	ip_family(dst) = ip_family(ip);
+	SET_INET_VARSIZE(dst);
+	PG_RETURN_INET_P(dst);
+}
 
 
 // static inet *
