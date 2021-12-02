@@ -5,12 +5,32 @@ from psycopg2.extras import execute_values
 import re
 import time
 from remove_contradiction import rem_contrad
-from gen_r_table import create_index_source_dest_fid
+#from gen_r_table import create_index_source_dest_fid
 
 host = '127.0.0.1'
 user = 'postgres'
 password = 'mubashir'
 database = 'test'
+
+def create_index_source_dest_fid(tablename = 'rib1000_r'):
+    """
+    create index for source, dest and fid attributes in the R table
+
+    @param tablename: The name of the R table
+    """
+    conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+    cur = conn.cursor()
+
+    sql = "CREATE INDEX index_source_dest_fid_{}\
+            ON public.{} USING btree\
+            (fid varchar_ops ASC NULLS LAST, \
+            source varchar_ops ASC NULLS LAST, \
+            dest varchar_ops ASC NULLS LAST) \
+            TABLESPACE pg_default;".format(tablename, tablename)
+    cur.execute(sql)
+    conn.commit()
+    conn.close()
+
 
 def q6(r_table = 'rib1000_r', f_table='f_table_rib1000', output='t1_rib1000'):
     """

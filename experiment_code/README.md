@@ -6,7 +6,7 @@
 
 Source: route-views2.oregon-ix.net
 
-Date: 2021-06-10 10:00
+Date: 2021-06-10 10:00 (http://archive.routeviews.org/bgpdata/2021.06/RIBS/rib.20210610.1000.bz2)
 
 The format of RIB file:
 

@@ -1,0 +1,12 @@
+queries_on_r_2.py is run with python2 since db.py is in python2
+
+# get python2 pip
+curl https://bootstrap.pypa.io/pip/2.7/get-pip.py --output get-pip.py
+sudo python2 get-pip.py
+
+# get packages
+sudo pip install db.py
+sudo pip install psycopg2-binary
+sudo pip install tqdm
+sudo pip install z3
+
