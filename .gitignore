@@ -9,3 +9,4 @@ dataypes/complex_int_faure/complex.sql
 dataypes/int_faure/int_faure.sql
 experiment_code/string_rib1000_results.txt
 *.swp
+dataypes/int_faure/.vscode/settings.json
