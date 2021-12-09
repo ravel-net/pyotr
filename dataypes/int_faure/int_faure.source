@@ -174,56 +174,54 @@ SELECT bool_int4_faure(int4_faure_bool(a)) FROM test_int4_faure;
 
 -- first, define the required operators
 
--- CREATE FUNCTION c_less(int4_faure, int4_faure) RETURNS bool
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
--- CREATE FUNCTION c_leq(int4_faure, int4_faure) RETURNS bool
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
--- CREATE FUNCTION c_equal(int4_faure, int4_faure) RETURNS bool
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
--- CREATE FUNCTION c_geq(int4_faure, int4_faure) RETURNS bool
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
--- CREATE FUNCTION c_greater(int4_faure, int4_faure) RETURNS bool
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
--- CREATE FUNCTION c_not_equal(int4_faure, int4_faure) RETURNS bool
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
--- CREATE FUNCTION int4_faureor(int4_faure, int4_faure) RETURNS int4_faure
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_lt(int4_faure, int4_faure) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_le(int4_faure, int4_faure) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_eq(int4_faure, int4_faure) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_ge(int4_faure, int4_faure) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_gt(int4_faure, int4_faure) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_ne(int4_faure, int4_faure) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
 
--- CREATE OPERATOR < (
---    leftarg = int4_faure, rightarg = int4_faure, procedure = c_less,
---    -- commutator = > , negator = >= ,
---    restrict = scalarltsel, join = scalarltjoinsel
--- );
--- CREATE OPERATOR <= (
---    leftarg = int4_faure, rightarg = int4_faure, procedure = c_leq,
---    -- commutator = >= , negator = > ,
---    restrict = scalarlesel, join = scalarlejoinsel
--- );
--- CREATE OPERATOR = (
---    leftarg = int4_faure, rightarg = int4_faure, procedure = c_equal,
---    commutator = = ,
---    -- leave out negator since we didn't create <> operator
---    -- negator = <> ,
---    restrict = eqsel, join = eqjoinsel
--- );
+CREATE OPERATOR < (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_lt,
+   -- commutator = > , negator = >= ,
+   restrict = scalarltsel, join = scalarltjoinsel
+);
+CREATE OPERATOR <= (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_le,
+   -- commutator = >= , negator = > ,
+   restrict = scalarlesel, join = scalarlejoinsel
+);
+CREATE OPERATOR = (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_eq,
+   commutator = = ,
+   -- leave out negator since we didn't create <> operator
+   -- negator = <> ,
+   restrict = eqsel, join = eqjoinsel
+);
 
--- CREATE OPERATOR >= (
---    leftarg = int4_faure, rightarg = int4_faure, procedure = c_geq,
---    -- commutator = <= , negator = < ,
---    restrict = scalargesel, join = scalargejoinsel
--- );
+CREATE OPERATOR >= (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_ge,
+   -- commutator = <= , negator = < ,
+   restrict = scalargesel, join = scalargejoinsel
+);
 
--- CREATE OPERATOR <> (
---    leftarg = int4_faure, rightarg = int4_faure, procedure = c_not_equal,
---    -- commutator = <= , negator = < ,
---    restrict = neqsel, join = neqjoinsel
--- );
+CREATE OPERATOR <> (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_ne,
+   -- commutator = <= , negator = < ,
+   restrict = neqsel, join = neqjoinsel
+);
 
--- CREATE OPERATOR > (
---    leftarg = int4_faure, rightarg = int4_faure, procedure = c_greater,
---    -- commutator = < , negator = <= ,
---    restrict = scalargtsel, join = scalargtjoinsel
--- );
+CREATE OPERATOR > (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_gt,
+   -- commutator = < , negator = <= ,
+   restrict = scalargtsel, join = scalargtjoinsel
+);
 
 -- CREATE OPERATOR | (
 --    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faureor,
@@ -265,6 +263,12 @@ SELECT bool_int4_faure(int4_faure_bool(a)) FROM test_int4_faure;
 -- SELECT * from test_int4_faure where a > '192.168.100.0';
 -- SELECT * from test_int4_faure where a > '192.168.100.0';
 -- SELECT * from test_int4_faure where NOT (a = '192.168.100.0');
+SELECT * FROM test_int4_faure where b = '192';
+SELECT * FROM test_int4_faure where b < '192';
+SELECT * FROM test_int4_faure where b <= '192';
+SELECT * FROM test_int4_faure where b > '192';
+SELECT * FROM test_int4_faure where b >= '192';
+SELECT * FROM test_int4_faure where b <> '192';
 
 
 -- clean up the example

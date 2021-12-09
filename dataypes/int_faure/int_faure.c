@@ -47,6 +47,18 @@
 
 PG_MODULE_MAGIC;
 
+
+int4_faure* int4_faure_new(int32 i, char* c_var) { 
+  int4_faure * p = (int4_faure *) palloc(sizeof(int4_faure));
+  p->integer = i;
+  strncpy(p->c_var, c_var, 20);
+  return p;
+}
+
+bool is_cvar(int4_faure* c) {
+	return (strcmp(C_VAR(c),"0") != 0);
+}
+
 // #define Int2VectorSize(n)	(offsetof(int2vector, values) + (n) * sizeof(int16))
 
 // typedef struct
@@ -364,7 +376,7 @@ PG_FUNCTION_INFO_V1(int4_faure_bool);
 Datum
 int4_faure_bool(PG_FUNCTION_ARGS)
 {
-	if (PG_GETARG_INT32_FAURE(0) == 0)
+	if (PG_GETARG_INT32_INT_FAURE(0) == 0)
 		PG_RETURN_BOOL(false);
 	else
 		PG_RETURN_BOOL(true);
@@ -396,59 +408,83 @@ bool_int4_faure(PG_FUNCTION_ARGS)
 //  *		intge			- returns 1 iff arg1 >= arg2
 //  */
 
-// Datum
-// int4eq(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
+PG_FUNCTION_INFO_V1(int4_faure_eq);
+Datum
+int4_faure_eq(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
 
-// 	PG_RETURN_BOOL(arg1 == arg2);
-// }
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer == arg2->integer);
+}
 
-// Datum
-// int4ne(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
+PG_FUNCTION_INFO_V1(int4_faure_ne);
+Datum
+int4_faure_ne(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
 
-// 	PG_RETURN_BOOL(arg1 != arg2);
-// }
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(true);
 
-// Datum
-// int4lt(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
+	PG_RETURN_BOOL(arg1->integer != arg2->integer);
+}
 
-// 	PG_RETURN_BOOL(arg1 < arg2);
-// }
+PG_FUNCTION_INFO_V1(int4_faure_lt);
+Datum
+int4_faure_lt(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
 
-// Datum
-// int4le(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(true);
 
-// 	PG_RETURN_BOOL(arg1 <= arg2);
-// }
+	PG_RETURN_BOOL(arg1->integer < arg2->integer);
+}
 
-// Datum
-// int4gt(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
+PG_FUNCTION_INFO_V1(int4_faure_le);
+Datum
+int4_faure_le(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
 
-// 	PG_RETURN_BOOL(arg1 > arg2);
-// }
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(true);
 
-// Datum
-// int4ge(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
+	PG_RETURN_BOOL(arg1->integer <= arg2->integer);
+}
 
-// 	PG_RETURN_BOOL(arg1 >= arg2);
-// }
+PG_FUNCTION_INFO_V1(int4_faure_gt);
+Datum
+int4_faure_gt(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
+
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(true);
+
+	PG_RETURN_BOOL(arg1->integer > arg2->integer);
+}
+
+PG_FUNCTION_INFO_V1(int4_faure_ge);
+Datum
+int4_faure_ge(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
+
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(true);
+
+	PG_RETURN_BOOL(arg1->integer >= arg2->integer);
+}
 
 // Datum
 // int2eq(PG_FUNCTION_ARGS)

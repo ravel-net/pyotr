@@ -26,22 +26,19 @@ typedef struct int4_faure
 	char 	 c_var[20]; 	    /* TODO: Make this dynamic */
 } int4_faure;
 
-int4_faure* int4_faure_new(int32 i, char* c_var) { 
-  int4_faure * p = (int4_faure *) palloc(sizeof(int4_faure));
-  p->integer = i;
-  strncpy(p->c_var, c_var, 20);
-  return p;
-}
-
 // Datum int4_faure_new_datum(int32 i, char* c_var) { 
 //   int4_faure p = int4_faure_new(i, c_var);
 //   return p;
 // }
 
 // #define DatumGetInt32Faure(X) (int32) (((int4_faure*) (X))->integer)
-#define DatumGetInt32Faure(X) ((int32) (((int4_faure*) (X))->integer))
+#define DatumGetInt32IntFaure(X) ((int32) (((int4_faure*) (X))->integer))
+#define DatumGetIntFaure(X) (((int4_faure*) (X)))
+#define PG_GETARG_INT32_INT_FAURE(n)	 DatumGetInt32IntFaure(PG_GETARG_DATUM(n))
+#define PG_GETARG_INT32_FAURE(n)	 DatumGetIntFaure(PG_GETARG_DATUM(n))
 
-#define PG_GETARG_INT32_FAURE(n)	 DatumGetInt32Faure(PG_GETARG_DATUM(n))
+#define C_VAR(n)	((char*) (((int4_faure*) (n))->c_var))
+
 
 // #define PG_RETURN_INT32(x)	 return Int32GetDatum(x)
 
