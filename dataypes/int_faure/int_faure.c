@@ -277,6 +277,7 @@ int4_faurein(PG_FUNCTION_ARGS)
 
     // TODO: Not assigning default value to the header right now. Think what the default value should be
 	strncpy(result->c_var, "0", 20); // denotes a lack of value. TODO: Add a boolean flag instead of this if it is a c-variable
+	result->integer = 0; // By default, the integer component is set to 0
 	if (isalpha(num[0]))  // TODO: Find another format for this
 		strncpy(result->c_var, num, 20);
 	else 
@@ -303,7 +304,7 @@ int4_faureout(PG_FUNCTION_ARGS)
 		pg_ltoa(src->integer, result);
 		PG_RETURN_CSTRING(result);
 	}
-}
+} 
 
 // /*
 //  *		int4recv			- converts external binary format to int4
@@ -358,26 +359,28 @@ int4_faureout(PG_FUNCTION_ARGS)
 // 	PG_RETURN_INT16((int16) arg1);
 // }
 
-// /* Cast int4 -> bool */
-// Datum
-// int4_bool(PG_FUNCTION_ARGS)
-// {
-// 	if (PG_GETARG_INT32(0) == 0)
-// 		PG_RETURN_BOOL(false);
-// 	else
-// 		PG_RETURN_BOOL(true);
-// }
+PG_FUNCTION_INFO_V1(int4_faure_bool);
+/* Cast int4_faure -> bool */
+Datum
+int4_faure_bool(PG_FUNCTION_ARGS)
+{
+	if (PG_GETARG_INT32_FAURE(0) == 0)
+		PG_RETURN_BOOL(false);
+	else
+		PG_RETURN_BOOL(true);
+}
 
-// /* Cast bool -> int4 */
-// Datum
-// bool_int4(PG_FUNCTION_ARGS)
-// {
-// 	if (PG_GETARG_BOOL(0) == false)
-// 		PG_RETURN_INT32(0);
-// 	else
-// 		PG_RETURN_INT32(1);
-// }
-
+PG_FUNCTION_INFO_V1(bool_int4_faure);
+/* Cast bool -> int4_faure */
+Datum
+bool_int4_faure(PG_FUNCTION_ARGS)
+{
+	int4_faure* result = int4_faure_new(1, "0");
+	if (PG_GETARG_BOOL(0) == false) 
+		result->integer = 0;
+	PG_RETURN_POINTER(result);
+}
+ 
 // /*
 //  *		============================
 //  *		COMPARISON OPERATOR ROUTINES

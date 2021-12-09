@@ -46,6 +46,16 @@ CREATE FUNCTION int4_faureout(int4_faure)
    AS '_OBJWD_/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
+CREATE FUNCTION bool_int4_faure(bool)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION int4_faure_bool(int4_faure)
+   RETURNS bool
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
+
 -- the binary input function 'inet_faure_recv' takes a StringInfo buffer
 -- and turns its contents into the internal representation.
 
@@ -97,8 +107,10 @@ INSERT INTO test_int4_faure VALUES ('caa','1');
 INSERT INTO test_int4_faure VALUES ('daasd','3');
 INSERT INTO test_int4_faure VALUES ('225', '192');
 INSERT INTO test_int4_faure VALUES ('192', 'm');
+INSERT INTO test_int4_faure VALUES ('0', 'm');
 
 SELECT * FROM test_int4_faure;
+SELECT bool_int4_faure(int4_faure_bool(a)) FROM test_int4_faure;
 
 -----------------------------
 -- Creating an operator for the new type:

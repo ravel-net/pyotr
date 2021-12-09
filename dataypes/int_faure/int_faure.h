@@ -22,25 +22,31 @@
 
 typedef struct int4_faure
 {
-	int 	 integer;
+	int32 	 integer;
 	char 	 c_var[20]; 	    /* TODO: Make this dynamic */
 } int4_faure;
 
-#define empty "empty"
+int4_faure* int4_faure_new(int32 i, char* c_var) { 
+  int4_faure * p = (int4_faure *) palloc(sizeof(int4_faure));
+  p->integer = i;
+  strncpy(p->c_var, c_var, 20);
+  return p;
+}
+
+// Datum int4_faure_new_datum(int32 i, char* c_var) { 
+//   int4_faure p = int4_faure_new(i, c_var);
+//   return p;
+// }
+
+// #define DatumGetInt32Faure(X) (int32) (((int4_faure*) (X))->integer)
+#define DatumGetInt32Faure(X) ((int32) (((int4_faure*) (X))->integer))
+
+#define PG_GETARG_INT32_FAURE(n)	 DatumGetInt32Faure(PG_GETARG_DATUM(n))
+
+// #define PG_RETURN_INT32(x)	 return Int32GetDatum(x)
 
 
-
-#define c_variables(intptr) \
-	(((int4_faure *) VARDATA_ANY(intptr))->c_var)
-
-#define integer(intptr) \
-	(((int4_faure *) VARDATA_ANY(intptr))->integer)
-
-
-// TODO: Review these
-#define DatumGetIntFaurePP(X)	((int4_faure *) PG_DETOAST_DATUM_PACKED(X))
-// #define InetPGetDatum(X)	PointerGetDatum(X)
-#define PG_GETARG_INT_FAURE_PP(n) ((int4_faure *) PG_GETARG_DATUM(n))
+// #define PG_GETARG_INT_FAURE_PP(n) ((int4_faure *) PG_GETARG_DATUM(n))
 /*---------
  * The following guidelines apply to all the routines:
  * - If a + b overflows, return true, otherwise store the result of a + b
