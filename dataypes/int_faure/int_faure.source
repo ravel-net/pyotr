@@ -21,7 +21,7 @@
 --	are usually user-defined C functions.
 -----------------------------
 
--- Assume the user defined functions are in _OBJWD_/int4_faure$DLSUFFIX
+-- Assume the user defined functions are in _OBJWD_/int_faure$DLSUFFIX
 -- (we do not want to assume this is in the dynamic loader search path).
 -- Look at $PWD/int4_faure.c for the source.  Note that we declare all of
 -- them as STRICT, so we do not need to cope with NULL inputs in the
@@ -107,6 +107,7 @@ INSERT INTO test_int4_faure VALUES ('caa','1');
 INSERT INTO test_int4_faure VALUES ('daasd','3');
 INSERT INTO test_int4_faure VALUES ('225', '192');
 INSERT INTO test_int4_faure VALUES ('192', 'm');
+INSERT INTO test_int4_faure VALUES ('8', '2');
 INSERT INTO test_int4_faure VALUES ('0', 'm');
 
 SELECT * FROM test_int4_faure;
@@ -122,23 +123,72 @@ SELECT bool_int4_faure(int4_faure_bool(a)) FROM test_int4_faure;
 
 -- first, define a function int4_faure_add (also in int4_faure.c)
 
--- CREATE FUNCTION int4_faure_add(int4_faure, int4_faure)
---    RETURNS int4_faure
---    AS '_OBJWD_/int4_faure'
---    LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION int4_faure_um(int4_faure)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION int4_faure_pl(int4_faure, int4_faure)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION int4_faure_mul(int4_faure, int4_faure)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION int4_faure_div(int4_faure, int4_faure)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION int4_faure_mi(int4_faure, int4_faure)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT;
 
 -- we can now define the operator. We show a binary operator here but you
 -- can also define a prefix operator by omitting the leftarg.
 
--- CREATE OPERATOR + (
---    leftarg = int4_faure,
---    rightarg = int4_faure,
---    procedure = int4_faure_add,
---    commutator = +
--- );
+--   oprname => '-', oprkind => 'l', oprleft => '0', oprright => 'int4',
+--   oprresult => 'int4', oprcode => 'int4um' },
+CREATE OPERATOR - (
+   rightarg = int4_faure,
+   procedure = int4_faure_um
+);
+
+CREATE OPERATOR + (
+   leftarg = int4_faure,
+   rightarg = int4_faure,
+   procedure = int4_faure_pl,
+   commutator = + 
+);
+
+CREATE OPERATOR * (
+   leftarg = int4_faure,
+   rightarg = int4_faure,
+   procedure = int4_faure_mul,
+   commutator = * 
+);
+
+CREATE OPERATOR - (
+   leftarg = int4_faure,
+   rightarg = int4_faure,
+   procedure = int4_faure_mi
+);
+
+CREATE OPERATOR / (
+   leftarg = int4_faure,
+   rightarg = int4_faure,
+   procedure = int4_faure_div
+);
 
 
--- SELECT (a + b) AS c FROM test_int4_faure;
+SELECT * FROM test_int4_faure;
+SELECT (a*b) AS c FROM test_int4_faure;
+SELECT (a/b) AS c FROM test_int4_faure;
+SELECT (a+(-b)) AS c FROM test_int4_faure; -- TODO: Find fix for this problem. Results in things like basd+-192
 
 -- Occasionally, you may find it useful to cast the string to the desired
 -- type explicitly. :: denotes a type cast.
@@ -230,7 +280,7 @@ CREATE OPERATOR > (
 -- );
 -- -- create the support function too
 -- CREATE FUNCTION network_cmp(int4_faure, int4_faure) RETURNS int4
---    AS '_OBJWD_/int4_faure' LANGUAGE C IMMUTABLE STRICT;
+--    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
 
 -- -- now we can make the operator class
 
@@ -253,22 +303,12 @@ CREATE OPERATOR > (
 -- CREATE INDEX test_cplx_ind ON test_int4_faure
 --    USING btree(a int4_faure_abs_ops);
 
--- SELECT * from test_int4_faure;
--- SELECT * from test_int4_faure where b = '192.168.100.1/24';
--- SELECT * from test_int4_faure where b = '1.0.0.0/24';
--- SELECT a | b from test_int4_faure;
--- SELECT * from test_int4_faure where a < '192.168.100.20';
--- SELECT * from test_int4_faure where a < '192.168.99.20';
--- SELECT * from test_int4_faure where a > '192.168.99.20';
--- SELECT * from test_int4_faure where a > '192.168.100.0';
--- SELECT * from test_int4_faure where a > '192.168.100.0';
--- SELECT * from test_int4_faure where NOT (a = '192.168.100.0');
-SELECT * FROM test_int4_faure where b = '192';
-SELECT * FROM test_int4_faure where b < '192';
-SELECT * FROM test_int4_faure where b <= '192';
-SELECT * FROM test_int4_faure where b > '192';
-SELECT * FROM test_int4_faure where b >= '192';
-SELECT * FROM test_int4_faure where b <> '192';
+-- SELECT * FROM test_int4_faure where b = '192';
+-- SELECT * FROM test_int4_faure where b < '192';
+-- SELECT * FROM test_int4_faure where b <= '192';
+-- SELECT * FROM test_int4_faure where b > '192';
+-- SELECT * FROM test_int4_faure where b >= '192';
+-- SELECT * FROM test_int4_faure where b <> '192';
 
 
 -- clean up the example

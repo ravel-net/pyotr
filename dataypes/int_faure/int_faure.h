@@ -20,10 +20,12 @@
 #ifndef INT_FAURE_H
 #define INT_FAURE_H
 
+#define C_LEN 20
+
 typedef struct int4_faure
 {
 	int32 	 integer;
-	char 	 c_var[20]; 	    /* TODO: Make this dynamic */
+	char 	 c_var[C_LEN]; 	    /* TODO: Make this dynamic */
 } int4_faure;
 
 // Datum int4_faure_new_datum(int32 i, char* c_var) { 
@@ -123,59 +125,59 @@ typedef struct int4_faure
 // /*
 //  * INT32
 //  */
-// static inline bool
-// pg_add_s32_overflow(int32_faure a, int32_faure b, int32_faure *result)
-// {
-// #if defined(HAVE__BUILTIN_OP_OVERFLOW)
-// 	return __builtin_add_overflow(a, b, result);
-// #else
-// 	int64		res = (int64) a + (int64) b;
+static inline bool
+pg_add_s32_overflow(int32 a, int32 b, int32 *result)
+{
+#if defined(HAVE__BUILTIN_OP_OVERFLOW)
+	return __builtin_add_overflow(a, b, result);
+#else
+	int64		res = (int64) a + (int64) b;
 
-// 	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
-// 	{
-// 		*result = 0x5EED;		/* to avoid spurious warnings */
-// 		return true;
-// 	}
-// 	*result = (int32_faure) res;
-// 	return false;
-// #endif
-// }
+	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
+	{
+		*result = 0x5EED;		/* to avoid spurious warnings */
+		return true;
+	}
+	*result = (int32_faure) res;
+	return false;
+#endif
+}
 
-// static inline bool
-// pg_sub_s32_overflow(int32_faure a, int32_faure b, int32_faure *result)
-// {
-// #if defined(HAVE__BUILTIN_OP_OVERFLOW)
-// 	return __builtin_sub_overflow(a, b, result);
-// #else
-// 	int64		res = (int64) a - (int64) b;
+static inline bool
+pg_sub_s32_overflow(int32 a, int32 b, int32 *result)
+{
+#if defined(HAVE__BUILTIN_OP_OVERFLOW)
+	return __builtin_sub_overflow(a, b, result);
+#else
+	int64		res = (int64) a - (int64) b;
 
-// 	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
-// 	{
-// 		*result = 0x5EED;		/* to avoid spurious warnings */
-// 		return true;
-// 	}
-// 	*result = (int32_faure) res;
-// 	return false;
-// #endif
-// }
+	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
+	{
+		*result = 0x5EED;		/* to avoid spurious warnings */
+		return true;
+	}
+	*result = (int32_faure) res;
+	return false;
+#endif
+}
 
-// static inline bool
-// pg_mul_s32_overflow(int32_faure a, int32_faure b, int32_faure *result)
-// {
-// #if defined(HAVE__BUILTIN_OP_OVERFLOW)
-// 	return __builtin_mul_overflow(a, b, result);
-// #else
-// 	int64		res = (int64) a * (int64) b;
+static inline bool
+pg_mul_s32_overflow(int32 a, int32 b, int32 *result)
+{
+#if defined(HAVE__BUILTIN_OP_OVERFLOW)
+	return __builtin_mul_overflow(a, b, result);
+#else
+	int64		res = (int64) a * (int64) b;
 
-// 	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
-// 	{
-// 		*result = 0x5EED;		/* to avoid spurious warnings */
-// 		return true;
-// 	}
-// 	*result = (int32_faure) res;
-// 	return false;
-// #endif
-// }
+	if (res > PG_INT32_MAX || res < PG_INT32_MIN)
+	{
+		*result = 0x5EED;		/* to avoid spurious warnings */
+		return true;
+	}
+	*result = (int32_faure) res;
+	return false;
+#endif
+}
 
 // /*
 //  * INT64

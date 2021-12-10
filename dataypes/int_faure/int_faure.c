@@ -51,7 +51,7 @@ PG_MODULE_MAGIC;
 int4_faure* int4_faure_new(int32 i, char* c_var) { 
   int4_faure * p = (int4_faure *) palloc(sizeof(int4_faure));
   p->integer = i;
-  strncpy(p->c_var, c_var, 20);
+  strncpy(p->c_var, c_var, C_LEN);
   return p;
 }
 
@@ -288,10 +288,10 @@ int4_faurein(PG_FUNCTION_ARGS)
 	int4_faure * result = (int4_faure *) palloc(sizeof(int4_faure));
 
     // TODO: Not assigning default value to the header right now. Think what the default value should be
-	strncpy(result->c_var, "0", 20); // denotes a lack of value. TODO: Add a boolean flag instead of this if it is a c-variable
+	strncpy(result->c_var, "0", C_LEN); // denotes a lack of value. TODO: Add a boolean flag instead of this if it is a c-variable
 	result->integer = 0; // By default, the integer component is set to 0
 	if (isalpha(num[0]))  // TODO: Find another format for this
-		strncpy(result->c_var, num, 20);
+		strncpy(result->c_var, num, C_LEN);
 	else 
 		result->integer = pg_strtoint32(num);
 	PG_RETURN_POINTER(result);
@@ -645,7 +645,7 @@ int4_faure_ge(PG_FUNCTION_ARGS)
 // 	int32		arg1 = PG_GETARG_INT32(0);
 // 	int16		arg2 = PG_GETARG_INT16(1);
 
-// 	PG_RETURN_BOOL(arg1 >= arg2);
+// 	PG_RETURN_B	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
 // }
 
 
@@ -807,17 +807,38 @@ int4_faure_ge(PG_FUNCTION_ARGS)
 //  *		int[24]div		- returns arg1 / arg2
 //  */
 
-// Datum
-// int4um(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg = PG_GETARG_INT32(0);
+void concat(char* prev, char* after, char* result) {
+	int prev_len = strlen(prev);
+	int after_len = strlen(after);
+	if (prev_len+after_len-1 > C_LEN) // extra 1 for the double counting of null
+		ereport(ERROR,
+		(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+			errmsg("Resultant open form is out-of-range of C_LEN")));
+	for (int i = 0; i < prev_len; i++)
+		result[i] = prev[i];
+	for (int i = 0; i < after_len; i++)
+		result[i+prev_len] = after[i];
+	result[prev_len+after_len] = '\0'; // add null at the end
+} 	
 
-// 	if (unlikely(arg == PG_INT32_MIN))
-// 		ereport(ERROR,
-// 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-// 				 errmsg("integer out of range")));
-// 	PG_RETURN_INT32(-arg);
-// }
+PG_FUNCTION_INFO_V1(int4_faure_um);
+Datum
+int4_faure_um(PG_FUNCTION_ARGS)
+{
+	int4_faure		   *arg = PG_GETARG_INT32_FAURE(0);
+	int4_faure 		*result = int4_faure_new(0, "0");
+
+	if (is_cvar(arg)) {
+		concat("-", C_VAR(arg), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (unlikely(DatumGetInt32IntFaure(arg) == PG_INT32_MIN)) 
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("integer out of range")));
+	result->integer = -(arg->integer);
+	PG_RETURN_POINTER(result);
+}
 
 // Datum
 // int4up(PG_FUNCTION_ARGS)
@@ -826,87 +847,180 @@ int4_faure_ge(PG_FUNCTION_ARGS)
 
 // 	PG_RETURN_INT32(arg);
 // }
+ 
+PG_FUNCTION_INFO_V1(int4_faure_pl);
+Datum
+int4_faure_pl(PG_FUNCTION_ARGS)
+{
+	int4_faure	*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure	*arg2 = PG_GETARG_INT32_FAURE(1);
+ 
+	int4_faure 		*result = int4_faure_new(0, "0");
 
-// Datum
-// int4pl(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
-// 	int32		result;
+	if (is_cvar(arg1) && is_cvar(arg2)) { // TODO: Review this
+		concat(C_VAR(arg1), "+", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg1)) {
+		// int size_arg2 = (int)((ceil(log10(arg2->integer))+1)*sizeof(char));
+		char str_arg2[C_LEN];
+		sprintf(str_arg2, "%d", arg2->integer);
+		concat(C_VAR(arg1), "+", C_VAR(result));
+		concat(C_VAR(result), str_arg2, C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg2)) {
+		// int size_arg1= (int)((ceil(log10(arg1->integer))+1)*sizeof(char));
+		char str_arg1[C_LEN];
+		sprintf(str_arg1, "%d", arg1->integer);
+		concat(str_arg1, "+", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (unlikely(pg_add_s32_overflow(arg1->integer, arg2->integer, &(result->integer))))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("integer out of range")));
 
-// 	if (unlikely(pg_add_s32_overflow(arg1, arg2, &result)))
-// 		ereport(ERROR,
-// 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-// 				 errmsg("integer out of range")));
-// 	PG_RETURN_INT32(result);
-// }
+	PG_RETURN_INT32(result);
+}
 
-// Datum
-// int4mi(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
-// 	int32		result;
+PG_FUNCTION_INFO_V1(int4_faure_mi);
+Datum
+int4_faure_mi(PG_FUNCTION_ARGS)
+{
+	int4_faure	*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure	*arg2 = PG_GETARG_INT32_FAURE(1);
+ 
+	int4_faure 		*result = int4_faure_new(0, "0");
 
-// 	if (unlikely(pg_sub_s32_overflow(arg1, arg2, &result)))
-// 		ereport(ERROR,
-// 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-// 				 errmsg("integer out of range")));
-// 	PG_RETURN_INT32(result);
-// }
+	if (is_cvar(arg1) && is_cvar(arg2)) { // TODO: Review this
+		concat(C_VAR(arg1), "-", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg1)) {
+		// int size_arg2 = (int)((ceil(log10(arg2->integer))+1)*sizeof(char));
+		char str_arg2[C_LEN];
+		sprintf(str_arg2, "%d", arg2->integer);
+		concat(C_VAR(arg1), "-", C_VAR(result));
+		concat(C_VAR(result), str_arg2, C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg2)) {
+		// int size_arg1= (int)((ceil(log10(arg1->integer))+1)*sizeof(char));
+		char str_arg1[C_LEN];
+		sprintf(str_arg1, "%d", arg1->integer);
+		concat(str_arg1, "-", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (unlikely(pg_sub_s32_overflow(arg1->integer, arg2->integer, &(result->integer))))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("integer out of range")));
 
-// Datum
-// int4mul(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
-// 	int32		result;
+	PG_RETURN_INT32(result);
+}
 
-// 	if (unlikely(pg_mul_s32_overflow(arg1, arg2, &result)))
-// 		ereport(ERROR,
-// 				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-// 				 errmsg("integer out of range")));
-// 	PG_RETURN_INT32(result);
-// }
+PG_FUNCTION_INFO_V1(int4_faure_mul);
+Datum
+int4_faure_mul(PG_FUNCTION_ARGS)
+{
+	int4_faure	*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure	*arg2 = PG_GETARG_INT32_FAURE(1);
+ 
+	int4_faure 		*result = int4_faure_new(0, "0");
 
-// Datum
-// int4div(PG_FUNCTION_ARGS)
-// {
-// 	int32		arg1 = PG_GETARG_INT32(0);
-// 	int32		arg2 = PG_GETARG_INT32(1);
-// 	int32		result;
+	if (is_cvar(arg1) && is_cvar(arg2)) { // TODO: Review this
+		concat(C_VAR(arg1), "*", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg1)) {
+		// int size_arg2 = (int)((ceil(log10(arg2->integer))+1)*sizeof(char));
+		char str_arg2[C_LEN];
+		sprintf(str_arg2, "%d", arg2->integer);
+		concat(C_VAR(arg1), "*", C_VAR(result));
+		concat(C_VAR(result), str_arg2, C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg2)) {
+		// int size_arg1= (int)((ceil(log10(arg1->integer))+1)*sizeof(char));
+		char str_arg1[C_LEN];
+		sprintf(str_arg1, "%d", arg1->integer);
+		concat(str_arg1, "*", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (unlikely(pg_mul_s32_overflow(arg1->integer, arg2->integer, &(result->integer))))
+		ereport(ERROR,
+				(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+				 errmsg("integer out of range")));
 
-// 	if (arg2 == 0)
-// 	{
-// 		ereport(ERROR,
-// 				(errcode(ERRCODE_DIVISION_BY_ZERO),
-// 				 errmsg("division by zero")));
-// 		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
-// 		PG_RETURN_NULL();
-// 	}
+	PG_RETURN_INT32(result);
+}
 
-// 	/*
-// 	 * INT_MIN / -1 is problematic, since the result can't be represented on a
-// 	 * two's-complement machine.  Some machines produce INT_MIN, some produce
-// 	 * zero, some throw an exception.  We can dodge the problem by recognizing
-// 	 * that division by -1 is the same as negation.
-// 	 */
-// 	if (arg2 == -1)
-// 	{
-// 		if (unlikely(arg1 == PG_INT32_MIN))
-// 			ereport(ERROR,
-// 					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
-// 					 errmsg("integer out of range")));
-// 		result = -arg1;
-// 		PG_RETURN_INT32(result);
-// 	}
+PG_FUNCTION_INFO_V1(int4_faure_div);
+Datum
+int4_faure_div(PG_FUNCTION_ARGS)
+{
+	int4_faure	*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure	*arg2 = PG_GETARG_INT32_FAURE(1);
+ 
+	int4_faure 		*result = int4_faure_new(0, "0");
 
-// 	/* No overflow is possible */
+	if (is_cvar(arg1) && is_cvar(arg2)) { // TODO: Review this
+		concat(C_VAR(arg1), "*", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg1)) {
+		// int size_arg2 = (int)((ceil(log10(arg2->integer))+1)*sizeof(char));
+		char str_arg2[C_LEN];
+		sprintf(str_arg2, "%d", arg2->integer);
+		concat(C_VAR(arg1), "*", C_VAR(result));
+		concat(C_VAR(result), str_arg2, C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	else if (is_cvar(arg2)) {
+		// int size_arg1= (int)((ceil(log10(arg1->integer))+1)*sizeof(char));
+		char str_arg1[C_LEN];
+		sprintf(str_arg1, "%d", arg1->integer);
+		concat(str_arg1, "*", C_VAR(result));
+		concat(C_VAR(result), C_VAR(arg2), C_VAR(result));
+		PG_RETURN_POINTER(result);
+	}
+	if(arg2->integer == 0) {
+		ereport(ERROR,
+		(errcode(ERRCODE_DIVISION_BY_ZERO),
+			errmsg("division by zero")));
+		/* ensure compiler realizes we mustn't reach the division (gcc bug) */
+		PG_RETURN_NULL();
+	}
 
-// 	result = arg1 / arg2;
+		/*
+	 * INT_MIN / -1 is problematic, since the result can't be represented on a
+	 * two's-complement machine.  Some machines produce INT_MIN, some produce
+	 * zero, some throw an exception.  We can dodge the problem by recognizing
+	 * that division by -1 is the same as negation.
+	 */
+	if (arg2->integer == -1)
+	{
+		if (unlikely(arg1->integer == PG_INT32_MIN))
+			ereport(ERROR,
+					(errcode(ERRCODE_NUMERIC_VALUE_OUT_OF_RANGE),
+					 errmsg("integer out of range")));
+		result->integer = -(arg1->integer);
+		PG_RETURN_INT32(result);
+	}
+	/* No overflow is possible */
 
-// 	PG_RETURN_INT32(result);
-// }
+	result->integer = arg1->integer / arg2->integer;
+
+	PG_RETURN_POINTER(result);
+}
 
 // Datum
 // int4inc(PG_FUNCTION_ARGS)
