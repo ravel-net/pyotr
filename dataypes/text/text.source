@@ -33,9 +33,18 @@ SELECT * FROM test_inet_text;
 CREATE FUNCTION text_or(TEXT, TEXT) RETURNS TEXT
    AS '_OBJWD_/text' LANGUAGE C IMMUTABLE STRICT;
 
+CREATE FUNCTION text_and(TEXT, TEXT) RETURNS TEXT
+   AS '_OBJWD_/text' LANGUAGE C IMMUTABLE STRICT;
+
 CREATE OPERATOR | (
    leftarg = TEXT, rightarg = TEXT, procedure = text_or,
    commutator = | --, negator = <= ,
+   -- restrict = scalargtsel, join = scalargtjoinsel
+);
+
+CREATE OPERATOR & (
+   leftarg = TEXT, rightarg = TEXT, procedure = text_and,
+   commutator = & --, negator = <= ,
    -- restrict = scalargtsel, join = scalargtjoinsel
 );
 -- the table. Note that postgres needs many more tuples to start using the
@@ -50,6 +59,7 @@ SELECT * from test_inet_text;
 SELECT * from test_inet_text where b = '192.168.100.1/24';
 SELECT * from test_inet_text where b = '1.0.0.0/24';
 SELECT a | b from test_inet_text;
+SELECT a & b from test_inet_text;
 -- SELECT * from test_inet_faure where a < '192.168.100.20';
 -- SELECT * from test_inet_faure where a < '192.168.99.20';
 -- SELECT * from test_inet_faure where a > '192.168.99.20';

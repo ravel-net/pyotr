@@ -11,3 +11,7 @@ experiment_code/string_rib1000_results.txt
 *.swp
 dataypes/int_faure/.vscode/settings.json
 dataypes/.vscode/settings.json
+*.bc
+*.bc
+*.o
+*.so
