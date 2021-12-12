@@ -25,6 +25,8 @@ The format of RIB file:
 """
 import psycopg2
 import time
+import sys
+
 
 host = '127.0.0.1'
 user = 'postgres'
@@ -112,7 +114,15 @@ if __name__ == '__main__':
     print("Done!")
 
     #sizes = [1000, 10000, 100000, 922067]
-    sizes = [1000,10000]
+    sizes = [] #, 10000, 100000, 922067]
+    print(f"Arguments count: {len(sys.argv)}")
+    if (len(sys.argv) < 2):
+        print("Please enter the table size")
+        exit()
+    for i, arg in enumerate(sys.argv):
+        if (i > 0):
+            sizes.append(int(arg))
+    print (sizes)
     for size in sizes:
         print("create subset rib table size ", size)
         begin = time.time()

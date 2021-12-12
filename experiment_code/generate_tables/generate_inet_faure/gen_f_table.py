@@ -1,6 +1,8 @@
 import psycopg2
 from tqdm import tqdm 
 import time
+import sys
+
 
 host = '127.0.0.1'
 user = 'postgres'
@@ -215,9 +217,18 @@ def create_index_fid_mark(tablename = 'f_table_rib1000'):
     conn.close()
 
 if __name__ == '__main__':
-    sizes = [1000] #, 10000, 100000, 922067]
+    sizes = [100, 1000, 10000] #, 10000, 100000, 922067]
     # sizes = [922067]
     # sizes = [500000, 922067]
+    sizes = [] #, 10000, 100000, 922067]
+    print(f"Arguments count: {len(sys.argv)}")
+    if (len(sys.argv) < 2):
+        print("Please enter the table size")
+        exit()
+    for i, arg in enumerate(sys.argv):
+        if (i > 0):
+            sizes.append(int(arg))
+    print (sizes)
     for size in sizes:
         print("create f table size ", size)
         tablename = 'rib' + str(size)

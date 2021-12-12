@@ -1,6 +1,7 @@
 import psycopg2
 from tqdm import tqdm
 import time
+import sys
 
 host = '127.0.0.1'
 user = 'postgres'
@@ -83,7 +84,15 @@ def create_index_source_dest_fid(tablename = 'rib1000_r'):
 
 
 if __name__ == '__main__':
-    tablenames = ['rib1000'] #, 'rib10000', 'rib100000', 'rib922067']
+    tablenames = [] #, 10000, 100000, 922067]
+    print(f"Arguments count: {len(sys.argv)}")
+    if (len(sys.argv) < 2):
+        print("Please enter the table size")
+        exit()
+    for i, arg in enumerate(sys.argv):
+        if (i > 0):
+            tablenames.append("rib"+arg)
+    print (tablenames)
     # times = []
     # tablenames = ['rib100000']
     num = 10 # 
