@@ -1,0 +1,70 @@
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.007..0.432 rows=3433 loops=1)
+ Planning Time: 0.038 ms
+ Execution Time: 0.517 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.003..0.378 rows=3433 loops=1)
+ Planning Time: 0.008 ms
+ Execution Time: 0.462 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.003..0.361 rows=3433 loops=1)
+ Planning Time: 0.007 ms
+ Execution Time: 0.444 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.003..0.361 rows=3433 loops=1)
+ Planning Time: 0.007 ms
+ Execution Time: 0.444 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.003..0.361 rows=3433 loops=1)
+ Planning Time: 0.007 ms
+ Execution Time: 0.444 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.003..0.363 rows=3433 loops=1)
+ Planning Time: 0.007 ms
+ Execution Time: 0.447 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.003..0.406 rows=3433 loops=1)
+ Planning Time: 0.007 ms
+ Execution Time: 0.495 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.004..0.447 rows=3433 loops=1)
+ Planning Time: 0.011 ms
+ Execution Time: 0.545 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.005..0.421 rows=3433 loops=1)
+ Planning Time: 0.016 ms
+ Execution Time: 0.514 ms
+(3 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib100  (cost=0.00..93.91 rows=3433 width=32) (actual time=0.007..0.465 rows=3433 loops=1)
+ Planning Time: 0.020 ms
+ Execution Time: 0.553 ms
+(3 rows)
+
