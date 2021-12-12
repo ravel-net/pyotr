@@ -1,0 +1,19 @@
+Clean up
+1. cd /home/mudbri/Documents/GitHub/pyotr/dataypes/text
+2. make
+3. sudo -u postgres -i
+4. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/drop_extra.sql
+
+Generating tables: (would be different folder for faure)
+python3 gen_ribDB.py 100 1000
+python3 gen_f_table.py 100 1000
+python3 gen_r_table.py 100 1000
+ 
+
+Running Experiments:
+1. sudo -u postgres -i
+2. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/text/text.sql
+3. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/test.sql
+	-> Need to modify this for inet_faure outputs
+4. sudo mv /var/lib/postgresql/string_output_or_1000.txt /home/mudbri/Documents/GitHub/pyotr/experiment_code/results/strings/string_output_or_1000.txt
+5. sudo mv /var/lib/postgresql/string_output_or_100.txt /home/mudbri/Documents/GitHub/pyotr/experiment_code/results/strings/string_output_or_100.txt
