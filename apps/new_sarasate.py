@@ -74,7 +74,7 @@ class SarasateConsole(AppConsole):
             from_clause = from_clause_may_include_where
         tree["from"] = self.process_from_clause(from_clause)
 
-        print(tree)
+        # print(tree)
         return tree
 
     def tree_to_str(self, tree):
@@ -312,7 +312,7 @@ class SarasateConsole(AppConsole):
 
     #create data content
     def data(self, tree):
-        print("\n************************Step 1: create data content****************************")
+        # print("\n************************Step 1: create data content****************************")
         # cursor = conn.cursor()
         table_num = len(tree['from'])
 
@@ -340,16 +340,16 @@ class SarasateConsole(AppConsole):
         new_tree = copy.deepcopy(tree)
         new_tree['select'] = columns
         sql = "create table output as " + self.tree_to_str(new_tree)
-        print(sql)
+        # print(sql)
         
-        begin = time.time()
+        # begin = time.time()
         self.db.cursor.execute("DROP TABLE IF EXISTS output")
         self.db.cursor.execute(sql)
-        print("\nexecuting time: ", time.time()-begin)
+        # print("\nexecuting time: ", time.time()-begin)
         # conn.commit()
 
     def upd_condition(self, tree):
-        print("\n************************Step 2: update condition****************************")
+        # print("\n************************Step 2: update condition****************************")
         # cursor = conn.cursor()
 
         where_caluse = tree['where']
@@ -372,12 +372,12 @@ class SarasateConsole(AppConsole):
         if keyword == '' or keyword == 'and':
             for c in cond_list:
                 sql = "update output set condition = array_append(condition, {})".format(c)
-                print(sql)
+                # print(sql)
                 self.db.cursor.execute(sql)
         else:
             # keyword == or
             sql = "update output set condition = array_append(condition, {})".format("'Or(' || " + " || ' , ' || ".join(cond_list) + " || ')'")
-            print(sql)
+            # print(sql)
             self.db.cursor.execute(sql)
 
         '''
@@ -398,7 +398,7 @@ class SarasateConsole(AppConsole):
                     right_opd = "".join(cond[2])
                     sql = "update output set {} = {} where not is_var({})".format(left_opd, right_opd, right_opd)
                     drop_cols.append(right_opd)
-                    print(sql)
+                    # print(sql)
         else:
             # only keep specified columns
             # print('keep specified columns')
@@ -427,29 +427,29 @@ class SarasateConsole(AppConsole):
             if len(rename_col) > 0: 
                 for new_col in rename_col:
                     sql = "ALTER TABLE output rename column " + new_col
-                    print(sql)
+                    # print(sql)
                     self.db.cursor.execute(sql)
 
         if len(drop_cols) > 0:
             sql = "ALTER TABLE output drop column " + ", drop column ".join(drop_cols)
-            print(sql)
+            # print(sql)
             self.db.cursor.execute(sql)
         # conn.commit()
                 
     def z3(self):
-        print("\n************************Step 3: Normalization****************************")
+        # print("\n************************Step 3: Normalization****************************")
         # cursor = conn.cursor()
         # print('Step3: Normalization')
         sql = 'delete from output where is_contradiction(condition);'
-        print(sql)
+        # print(sql)
         self.db.cursor.execute(sql)
 
         sql = "UPDATE output SET condition = '{}' WHERE is_tauto(condition);"
-        print(sql)
+        # print(sql)
         self.db.cursor.execute(sql)
 
         sql = "UPDATE output SET condition = remove_redundant(condition) WHERE has_redundant(condition);"
-        print(sql)
+        # print(sql)
         self.db.cursor.execute(sql)
 
         # conn.commit()
