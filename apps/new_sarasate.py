@@ -469,6 +469,6 @@ class SarasateConsole(AppConsole):
         cmd, cmdfile = mk_watchcmd(self.env.db, args)
         self.env.mkterm(cmd, cmdfile)
 
-shortcut = "s"
+shortcut = "ns"
 description = "Relational Algebra for Conditional Table."
 console = SarasateConsole
