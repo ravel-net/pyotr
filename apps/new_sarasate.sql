@@ -57,6 +57,24 @@ insert into instance2 ( DEST,PATH, CONDITION) values
 ('1.2.3.4','[AC]','{"[AC] == [ABC]"}'),
 ('1.2.3.5','[ADC]','{"1.2.3.5 != 1.2.3.5", "1.2.3.5 != 1.2.3.4"}');
 
+/* Instance 3: fw table */
+DROP TABLE IF EXISTS fw CASCADE;
+CREATE TABLE fw (
+    n1 text,
+    n2 text,
+    condition text[]
+);
+INSERT INTO fw VALUES('1', '2', '{"l1 == 2"}');
+INSERT INTO fw VALUES('1', '3', '{"l1 == 3"}');
+INSERT INTO fw VALUES('1', '5', '{"l1 == 5"}');
+INSERT INTO fw VALUES('2', '1', '{"l2 == 1"}');
+INSERT INTO fw VALUES('2', '3', '{"l2 == 3"}');
+INSERT INTO fw VALUES('2', '4', '{"l2 == 4"}');
+INSERT INTO fw VALUES('3', '1', '{"l3 == 1"}');
+INSERT INTO fw VALUES('3', '2', '{"l3 == 2"}');
+INSERT INTO fw VALUES('4', '2', '{"l4 == 2"}');
+INSERT INTO fw VALUES('4', '5', '{"l4 == 5"}');
+
 /* Violation: */
 CREATE OR REPLACE VIEW new_sarasate_violation AS (
        SELECT id
