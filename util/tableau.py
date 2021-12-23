@@ -126,7 +126,7 @@ def display(tuples, self_tuples):
 
 def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     """
-    Convert tableau to cosrresponding SQL
+    Convert tableau to corresponding SQL
 
     Parameters:
     ------------
