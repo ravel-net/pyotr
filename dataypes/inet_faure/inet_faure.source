@@ -256,11 +256,11 @@ SELECT * from test_inet_faure where b = '192.168.100.1/24';
 SELECT * from test_inet_faure where b = '1.0.0.0/24';
 SELECT a | b from test_inet_faure;
 SELECT a & b from test_inet_faure;
--- SELECT * from test_inet_faure where a < '192.168.100.20';
--- SELECT * from test_inet_faure where a < '192.168.99.20';
--- SELECT * from test_inet_faure where a > '192.168.99.20';
--- SELECT * from test_inet_faure where a > '192.168.100.0';
--- SELECT * from test_inet_faure where a > '192.168.100.0';
+SELECT * from test_inet_faure where a < '192.168.100.20';
+SELECT * from test_inet_faure where a < '192.168.99.20';
+SELECT * from test_inet_faure where a > '192.168.99.20';
+SELECT * from test_inet_faure where a > '192.168.100.0';
+SELECT * from test_inet_faure where a > '192.168.100.0';
 -- SELECT * from test_inet_faure where NOT (a = '192.168.100.0');
 
 

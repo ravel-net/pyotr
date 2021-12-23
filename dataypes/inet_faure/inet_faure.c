@@ -42,17 +42,17 @@ PG_MODULE_MAGIC;
  * An IPv4 inet/cidr abbreviated key can use up to 25 bits for subnet
  * component.
  */
-#define ABBREV_BITS_INET4_NETMASK_SIZE	6
-#define ABBREV_BITS_INET4_SUBNET		25
+// #define ABBREV_BITS_INET4_NETMASK_SIZE	6
+// #define ABBREV_BITS_INET4_SUBNET		25
 
-/* sortsupport for inet/cidr */
-typedef struct
-{
-	int64		input_count;	/* number of non-null values seen */
-	bool		estimating;		/* true if estimating cardinality */
+// /* sortsupport for inet/cidr */
+// typedef struct
+// {
+// 	int64		input_count;	/* number of non-null values seen */
+// 	bool		estimating;		/* true if estimating cardinality */
 
-	hyperLogLogState abbr_card; /* cardinality estimator */
-} network_sortsupport_state;
+// 	hyperLogLogState abbr_card; /* cardinality estimator */
+// } network_sortsupport_state;
 
 // static int32 network_cmp_internal(inet *a1, inet *a2);
 // static int	network_fast_cmp(Datum x, Datum y, SortSupport ssup);
@@ -86,9 +86,9 @@ network_in(char *src, bool is_cidr)
     // TODO: Not assigning default value to the header right now. Think what the default value should be
 	strcpy(c_variables(dst), "0"); // denotes a lack of value. TODO: Add a boolean flag instead of this
 	// if it is a c-variable
-	if (isalpha(src[0])) { // TODO: Find another format for this
+	if (isalpha(src[0]))  // TODO: Find another format for this
 		strcpy(c_variables(dst), src);
-	}
+	
 	/*
 	 * First, check to see if this is an IPv6 or IPv4 address.  IPv6 addresses
 	 * will have a : somewhere in them (several, in fact) so if there is one
@@ -108,7 +108,16 @@ network_in(char *src, bool is_cidr)
             /* translator: first %s is inet or cidr */
                     errmsg("invalid input syntax for type %s: \"%s\"",
                             is_cidr ? "cidr" : "inet", src)));
-    }
+
+		// if (is_cidr)
+		// {
+		// 	if (!addressOK(ip_addr(dst), bits, ip_family(dst)))
+		// 		ereport(ERROR,
+		// 				(errcode(ERRCODE_INVALID_TEXT_REPRESENTATION),
+		// 				errmsg("invalid cidr value: \"%s\"", src),
+		// 				errdetail("Value has bits set to right of mask.")));
+		// }
+	}
 	ip_bits(dst) = bits;
 	SET_INET_VARSIZE(dst);
 
@@ -312,10 +321,9 @@ static int32
 network_cmp_internal(inet_faure *a1, inet_faure *a2)
 {
     // TODO: Decide what to do in case of c-variables. Currently we return 2 and default to true whenever 2 is returned (to preserve tuples that contain c-vars). But this approach does not work if we have something like NOT (condition)
-    if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
-		// fprintf(stderr, "c-var\n");
+    if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
 		return 0;
-    }
+
 	if (ip_family(a1) == ip_family(a2))
 	{
 		int			order;
@@ -343,11 +351,10 @@ network_cmp(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
         PG_RETURN_BOOL(true);
-    }
-	PG_RETURN_INT32(return_val);
+    
+	PG_RETURN_INT32(network_cmp_internal(a1,a2));
 }
 
 // /*
@@ -733,12 +740,11 @@ c_less(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0)
         PG_RETURN_BOOL(true);
-    }
+    
 
-	PG_RETURN_BOOL(return_val < 0);
+	PG_RETURN_BOOL(network_cmp_internal(a1,a2) < 0);
 }
 
 PG_FUNCTION_INFO_V1(c_leq);
@@ -749,12 +755,11 @@ c_leq(PG_FUNCTION_ARGS)
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
 
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
         PG_RETURN_BOOL(true);
-    }
+    
 
-	PG_RETURN_BOOL(return_val <= 0);
+	PG_RETURN_BOOL(network_cmp_internal(a1,a2) <= 0);
 }
 
 PG_FUNCTION_INFO_V1(c_equal);
@@ -764,12 +769,11 @@ c_equal(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
         PG_RETURN_BOOL(true);
-    }
+    
 
-	PG_RETURN_BOOL(return_val == 0);
+	PG_RETURN_BOOL(network_cmp_internal(a1,a2) == 0);
 }
 
 PG_FUNCTION_INFO_V1(c_geq);
@@ -779,12 +783,10 @@ c_geq(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
         PG_RETURN_BOOL(true);
-    }
 
-	PG_RETURN_BOOL(return_val >= 0);
+	PG_RETURN_BOOL(network_cmp_internal(a1,a2) >= 0);
 }
 
 PG_FUNCTION_INFO_V1(c_greater);
@@ -794,12 +796,11 @@ c_greater(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
         PG_RETURN_BOOL(true);
-    }
+    
 
-	PG_RETURN_BOOL(return_val > 0);
+	PG_RETURN_BOOL(network_cmp_internal(a1,a2) > 0);
 }
 
 PG_FUNCTION_INFO_V1(c_not_equal);
@@ -809,24 +810,22 @@ c_not_equal(PG_FUNCTION_ARGS)
 {
 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
-    int32 return_val = network_cmp_internal(a1,a2);
-	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) 
         PG_RETURN_BOOL(true);
-    }
 
-	PG_RETURN_BOOL(return_val != 0);
+	PG_RETURN_BOOL( network_cmp_internal(a1,a2) != 0);
 }
 
-PG_FUNCTION_INFO_V1(is_var);
+// PG_FUNCTION_INFO_V1(is_var);
 
-Datum
-is_var(PG_FUNCTION_ARGS)
-{
-	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
+// Datum
+// is_var(PG_FUNCTION_ARGS)
+// {
+// 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 
-	// PG_RETURN_BOOL(a1->inet_data.c_var != "0");
-	PG_RETURN_BOOL(strcmp(c_variables(a1),"0") != 0);
-}
+// 	// PG_RETURN_BOOL(a1->inet_data.c_var != "0");
+// 	PG_RETURN_BOOL(strcmp(c_variables(a1),"0") != 0);
+// }
 
 
 // /*
@@ -1926,7 +1925,6 @@ inet_faureor(PG_FUNCTION_ARGS)
 	if (strcmp(c_variables(ip),"0") != 0 || strcmp(c_variables(ip2),"0") != 0) {
         // c_variables(dst) = "or-ed";
 		strcpy(c_variables(dst), "or-ed");
-
 		PG_RETURN_INET_P(dst);
     }
 

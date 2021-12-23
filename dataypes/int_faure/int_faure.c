@@ -307,15 +307,13 @@ int4_faureout(PG_FUNCTION_ARGS)
 	int4_faure    *src = (int4_faure *) PG_GETARG_POINTER(0);
 	char* result;
 
-    if (strcmp(src->c_var,"0") != 0) {
+    if (strcmp(src->c_var,"0") != 0) 
         result = psprintf("%s", src->c_var);
-		PG_RETURN_CSTRING(result);
-    }
 	else {
 		result = (char *) palloc(12);	/* sign, 10 digits, '\0' */
 		pg_ltoa(src->integer, result);
-		PG_RETURN_CSTRING(result);
 	}
+	PG_RETURN_CSTRING(result);
 } 
 
 // /*
