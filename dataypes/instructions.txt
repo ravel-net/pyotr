@@ -21,4 +21,9 @@ sudo apt install postgresql-server-dev-13
 
 # Run sql file
 make
-psql -U postgres -d test -a -f /home/vagrant/Faure_clones/pyotr/dataypes/inet_faure/inet_faure.sql
+sudo -u postgres -i
+psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/inet_faure/inet_faure.sql
+
+
+Note:
+inet_faure and int_faure also contain the original definition of these types (e.g. inet.c). I have commented out the functions in the original code that are commented out in the faure code to allow a comparison of the lines of code
