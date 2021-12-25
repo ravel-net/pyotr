@@ -20,3 +20,8 @@ dataypes/text/text.bc
 dataypes/text/text.o
 dataypes/text/text.so
 dataypes/text/text.sql
+experiment_code/generate_tables/string_1000.txt
+experiment_code/generate_tables/test1.sql
+experiment_code/test.sql
+experiment_code/test1.sql
+experiment_code/test.sql

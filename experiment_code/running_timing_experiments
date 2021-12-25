@@ -1,8 +1,15 @@
+To generate the rubtext file:
+1. go to generate_tables
+2. Download file
+3. run bgpdump -m -O rib0610.txt rib.20200610.1000.bz2
+4. Copy rib0610.txt to inet_faure http://archive.routeviews.org/bgpdata/2020.06/RIBS/rib.20200610.1000.bz2
+
 Clean up
 1. cd /home/mudbri/Documents/GitHub/pyotr/dataypes/text
-2. make
-3. sudo -u postgres -i
-4. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/drop_extra.sql
+2. delete .bc, .o, .so
+3. make
+4. sudo -u postgres -i
+5. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/drop_extra.sql
 
 Generating tables: (would be different folder for faure)
 python3 gen_ribDB.py 100 1000
@@ -10,10 +17,10 @@ python3 gen_f_table.py 100 1000
 python3 gen_r_table.py 100 1000
  
 
-Running Experiments:
+Running Experiments: (for faure things would just change to faure)
 1. sudo -u postgres -i
 2. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/text/text.sql
-3. sudo psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/test.sql
+3. sudo psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/test1.sql
 	-> Need to modify this for inet_faure outputs
 4. sudo mv /var/lib/postgresql/string_output_or_1000.txt /home/mudbri/Documents/GitHub/pyotr/experiment_code/results/strings/string_output_or_1000.txt
 5. sudo mv /var/lib/postgresql/string_output_or_100.txt /home/mudbri/Documents/GitHub/pyotr/experiment_code/results/strings/string_output_or_100.txt
