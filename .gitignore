@@ -16,3 +16,7 @@ dataypes/.vscode/settings.json
 *.o
 *.so
 *.pyc
+dataypes/text/text.bc
+dataypes/text/text.o
+dataypes/text/text.so
+dataypes/text/text.sql
