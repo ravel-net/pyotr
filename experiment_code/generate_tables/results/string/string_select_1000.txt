@@ -1,0 +1,160 @@
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.031..16.880 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.182 ms
+ Execution Time: 18.058 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.017..16.372 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.056 ms
+ Execution Time: 17.231 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..16.678 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.025 ms
+ Execution Time: 17.551 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.010..15.896 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.030 ms
+ Execution Time: 16.729 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..16.583 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.023 ms
+ Execution Time: 17.447 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..19.127 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.028 ms
+ Execution Time: 20.132 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.016..18.898 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.058 ms
+ Execution Time: 19.908 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.011..16.604 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.034 ms
+ Execution Time: 17.461 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.011..16.568 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.030 ms
+ Execution Time: 17.438 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.011..17.221 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.032 ms
+ Execution Time: 18.132 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.010..16.396 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.031 ms
+ Execution Time: 17.326 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.010..16.761 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.029 ms
+ Execution Time: 17.629 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.010..16.792 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.029 ms
+ Execution Time: 17.682 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.011..15.915 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.032 ms
+ Execution Time: 16.747 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.008..16.740 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.026 ms
+ Execution Time: 17.604 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..15.862 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.028 ms
+ Execution Time: 16.703 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.007..17.128 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.021 ms
+ Execution Time: 18.059 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..15.722 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.028 ms
+ Execution Time: 16.555 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..17.016 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.020 ms
+ Execution Time: 17.902 ms
+(4 rows)
+
+                                                                  QUERY PLAN                                                                   
+-----------------------------------------------------------------------------------------------------------------------------------------------
+ Index Only Scan using index_prefix_rib1000 on rib1000  (cost=0.29..756.69 rows=35223 width=32) (actual time=0.009..16.837 rows=35223 loops=1)
+   Heap Fetches: 0
+ Planning Time: 0.028 ms
+ Execution Time: 17.716 ms
+(4 rows)
+
