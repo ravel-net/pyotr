@@ -234,8 +234,8 @@ text_and(PG_FUNCTION_ARGS)
 	int			len1 = VARSIZE_ANY_EXHDR(arg1);
 	int			len2 = VARSIZE_ANY_EXHDR(arg2);
 
-	fprintf(stderr, "initial string arg1: %s\n", arg1_cstring);
-	fprintf(stderr, "initial string arg2: %s\n", arg2_cstring);
+	// fprintf(stderr, "initial string arg1: %s\n", arg1_cstring);
+	// fprintf(stderr, "initial string arg2: %s\n", arg2_cstring);
 
 	if (isalpha(arg1_cstring[0]) || isalpha(arg2_cstring[0])) {
 		result = (char *) palloc(5 + 1);
@@ -270,7 +270,7 @@ text_and(PG_FUNCTION_ARGS)
 		}
 		tmp1[j] = '\0';
 		arg1_num = atoi(tmp1);
-		fprintf(stderr, "arg1_num: %d\n", arg1_num);
+		// fprintf(stderr, "arg1_num: %d\n", arg1_num);
 
 		j = 0;
 		char tmp2[4];
@@ -281,12 +281,12 @@ text_and(PG_FUNCTION_ARGS)
 		}
 		tmp2[j] = '\0';
 		arg2_num = atoi(tmp2);
-		fprintf(stderr, "arg2_num: %d\n", arg2_num);
+		// fprintf(stderr, "arg2_num: %d\n", arg2_num);
 
 		int result_and = arg1_num & arg2_num;
 		char str[4];
 		sprintf(str, "%d", result_and);
-		fprintf(stderr, "result_and: %s\n", str);
+		// fprintf(stderr, "result_and: %s\n", str);
 
 		int str_count = 0;
 		while (str[str_count]) {
@@ -302,28 +302,28 @@ text_and(PG_FUNCTION_ARGS)
 			result[global_count] = '/';
 			global_count++;
 		}
-		fprintf(stderr, "for end result: %s\n", str);
+		// fprintf(stderr, "for end result: %s\n", str);
 		arg1_count++;
 		arg2_count++;
 
 	}
 
 	int loc_of_slash = 0;
-	for (int i = 0; i < len2; i++) {
-		if (arg2_cstring[i] == '/') {
+	for (int i = 0; i < len1; i++) {
+		if (arg1_cstring[i] == '/') {
 			loc_of_slash = i;
 			break;
 		}
 	}
-	fprintf(stderr, "location: %d\n", loc_of_slash);
+	// fprintf(stderr, "location: %d\n", loc_of_slash);
 
-	for (int i = loc_of_slash+1; i < len2; i++) {
-		result[global_count] = arg2_cstring[i];
-		fprintf(stderr, "val subnet: %c\n", arg2_cstring[i]);
+	for (int i = loc_of_slash+1; i < len1; i++) {
+		result[global_count] = arg1_cstring[i];
+		// fprintf(stderr, "val subnet: %c\n", arg2_cstring[i]);
 		global_count++;
 	}
 	result[global_count] = '\0';
-	fprintf(stderr, "final: %s\n", result);
+	// fprintf(stderr, "final: %s\n", result);
 
 	text* result_text = cstring_to_text(result);
 	PG_RETURN_TEXT_P(result_text);
