@@ -3,9 +3,9 @@ from os.path import dirname, abspath, join
 
 
 sql_file = "test1.sql"
-file_name = "string_1000.txt"
-number_times = 10
-sql_query = "select prefix & '0.0.0.255/24' as c from rib1000;"
+file_name = "string_select_1000.txt"
+number_times = 20
+sql_query = "select prefix & '255.255.0.0/16' from rib1000;"
 
 
 curr_dir = dirname(abspath(__file__))

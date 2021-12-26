@@ -1,4 +1,4 @@
-file_name = "string_1000.txt"
+file_name = "string_select_1000.txt"
 
 f = open(file_name, "r")
 lines = f.readlines()
