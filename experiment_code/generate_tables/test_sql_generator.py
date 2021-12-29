@@ -2,11 +2,14 @@ import sys
 from os.path import dirname, abspath, join
 
 
-sql_file = "test1.sql"
-file_name = "string_select_1000.txt"
-number_times = 20
-sql_query = "select prefix & '255.255.0.0/16' from rib1000;"
+if (len(sys.argv) != 5):
+	print("Incorrect arguments given. Format: python3 test_sql_generator [sql_file] [file_name] [number_times] [sql_query]")
+	exit()
 
+sql_file = sys.argv[1]
+file_name = sys.argv[2]
+number_times = int(sys.argv[3])
+sql_query = sys.argv[4]
 
 curr_dir = dirname(abspath(__file__))
 filepath = join(curr_dir, file_name)
