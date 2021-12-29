@@ -36,8 +36,24 @@ def get_longest_group(conns):
 			max_size = len(con)
 	return max_size
 
+def calculate_tableau(tuples, reverse_conns, number_components):
+    tableau = []
+    for i in range(0, number_components):
+        tableau.append([])
+    for tuple in tuples:
+        if (tuple[0] in reverse_conns):
+            component_number = reverse_conns[tuple[0]]-1
+            tableau[component_number].append((tuple[0], tuple[1]))
+        elif (tuple[1] in reverse_conns):
+            component_number = reverse_conns[tuple[1]]-1
+            tableau[component_number].append((tuple[0], tuple[1]))
+    return tableau
+
+
+
+
 if __name__ == '__main__':
-    size = 20 # the number of nodes in physical network path
+    size = 10 # the number of nodes in physical network path
     rate = 0.3 # the percentage of constant nodes in physical network path (the number of nodes in overlay path)
 
     physical_path, physical_nodes, overlay_path, overlay_nodes = tableau.gen_large_chain(size=size, rate=rate)
@@ -49,6 +65,8 @@ if __name__ == '__main__':
     stats = {}
     start = time.time()
     conns = graph.connectedComponents()
+    reverse_conns = graph.reverse_connectComponents(conns)
+    minimal_tableau = calculate_tableau(physical_tuples+phy_self_tuples, reverse_conns, len(conns))
     end = time.time()
 
     stats["time_overhead"] = end - start
@@ -58,6 +76,8 @@ if __name__ == '__main__':
     stats["total_tuples"] = len(physical_tuples) 
 
     pp = pprint.PrettyPrinter(indent=4)
+    print("\n================Tableau==================")
+    pp.pprint(minimal_tableau)
     print("\n================Connected Components==================")
     pp.pprint(conns)
     print("\n================Stats==================")

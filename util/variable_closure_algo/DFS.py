@@ -41,6 +41,16 @@ class Graph:
                 temp = []
                 cc.append(self.DFSUtil(temp, v, visited))
         return cc
+
+    def reverse_connectComponents(self, cc):
+        reverse_cc = {}
+        component_number = 0
+        for component in cc:
+            component_number += 1
+            for var in component:
+                reverse_cc[var] = component_number
+        return reverse_cc
+
  
  
 # Driver Code

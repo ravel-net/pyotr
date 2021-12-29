@@ -31,3 +31,6 @@ dataypes/text/text.so
 dataypes/text/text.sql
 experiment_code/generate_tables/test2.sql
 experiment_code/generate_tables/test3.sql
+dataypes/text/text.bc
+dataypes/text/text.o
+dataypes/text/text.so
