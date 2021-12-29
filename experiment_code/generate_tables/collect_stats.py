@@ -1,4 +1,6 @@
-file_name = "string_select_1000.txt"
+import sys
+
+file_name = sys.argv[1]
 
 f = open(file_name, "r")
 lines = f.readlines()

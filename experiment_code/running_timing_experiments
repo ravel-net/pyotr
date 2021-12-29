@@ -11,7 +11,7 @@ Clean up
 4. sudo -u postgres -i
 5. psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/experiment_code/drop_extra.sql
 6. To compile text: psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/text/text.sql
-   To compile inet_faure: psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/inet_fauare/inet_faure.sql
+   To compile inet_faure: psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/inet_faure/inet_faure.sql
 
 
 Generating tables: (would be different folder for faure)
@@ -30,9 +30,22 @@ Running Experiments: (for faure things would just change to faure)
 
 
 Queries:
-1. Join: select f_table_rib1000.nid1, f_table_rib1000.nid2 from f_table_rib1000, rib1000 where (f_table_rib1000.fid & '255.255.0.0/16') = (rib1000.prefix & '255.255.0.0/16');
-2. Project: select prefix & '255.255.0.0/16' from rib1000;
-3. Select: select * from rib1000 where prefix & '255.255.0.0/16' = '5.8.0.0/24'
+1. Join: 
+select f_table_rib1000.nid1, f_table_rib1000.nid2 from f_table_rib1000, rib1000 where (f_table_rib1000.fid & '255.255.0.0/16') = (rib1000.prefix & '255.255.0.0/16');
+
+2. Project: 
+select prefix & '255.255.0.0/16' from rib1000;
+
+3. Select: 
+select * from rib1000 where prefix & '255.255.0.0/16' = '5.8.0.0/24';
+
+
+
+
+
+
+
+
 
 
 Old (not needed):
