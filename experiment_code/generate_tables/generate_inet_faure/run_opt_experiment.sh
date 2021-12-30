@@ -1,8 +1,8 @@
-cd ../../../dataypes/inet_faure
+cd ../../../dataypes/inet_faure/opt
 rm *.bc *.o *.so
 make
 psql -U postgres -d test -a -f inet_faure.sql
-cd ../../
+cd ../../../
 psql -U postgres -d test -a -f ./experiment_code/drop_extra.sql
 cd ./experiment_code/generate_tables/generate_inet_faure
 python3 gen_ribDB.py 100 1000

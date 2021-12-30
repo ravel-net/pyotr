@@ -3,6 +3,7 @@ from tqdm import tqdm
 import time
 import sys
 
+
 host = '127.0.0.1'
 user = 'postgres'
 password = 'mubashir'
@@ -92,8 +93,7 @@ if __name__ == '__main__':
     for i, arg in enumerate(sys.argv):
         if (i > 0):
             tablenames.append("rib"+arg)
-    print (tablenames)
-    # times = []
+    print (tablenames)    # times = []
     # tablenames = ['rib100000']
     num = 10 # 
 
@@ -105,7 +105,7 @@ if __name__ == '__main__':
 
         print('Done! {} running time: {}'.format(table, time.time()-start_time))
 
-        create_index_source_dest_fid(tablename= table + '_r')
+        # create_index_source_dest_fid(tablename= table + '_r')
 
 
 

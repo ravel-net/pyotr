@@ -33,6 +33,7 @@ def gen_f_table(tablename = 'rib1000'):
         
         # get AS_PATH list
         path_cur = conn.cursor()
+        path_cur.execute("select setseed(0.5);") # setting a seed so that the comparison is fair
         path_cur.execute("select as_path from {} where prefix= '{}' order by random() limit 5;".format(tablename, p[0]))
         # print("The number of parts: ", cur.rowcount)
 

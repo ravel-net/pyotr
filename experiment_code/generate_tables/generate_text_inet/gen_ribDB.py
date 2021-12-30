@@ -48,7 +48,7 @@ def gen_raw_rib_table(filename='rib0610.txt', table_name='rib0610'):
     count = 0
 
     cur.execute("DROP TABLE IF EXISTS {}".format(table_name))
-    cur.execute("CREATE TABLE {}(Prefix TEXT, AS_PATH TEXT, Next_Hop TEXT, Local_Pref TEXT, MED TEXT)".format(table_name))
+    cur.execute("CREATE TABLE {}(Prefix text, AS_PATH TEXT, Next_Hop text, Local_Pref TEXT, MED TEXT)".format(table_name))
 
     subset = []
     for line in fo:
@@ -90,7 +90,7 @@ def gen_subset_rib(table_name='rib0610', size = 1000):
     cur = conn.cursor()
 
     cur.execute("DROP TABLE IF EXISTS rib{}".format(size))
-    cur.execute("CREATE TABLE rib{}(Prefix TEXT, AS_PATH TEXT, Next_Hop TEXT, Local_Pref TEXT, MED TEXT)".format(size))
+    cur.execute("CREATE TABLE rib{}(Prefix text, AS_PATH TEXT, Next_Hop text, Local_Pref TEXT, MED TEXT)".format(size))
 
     cur.execute('insert into rib{} select * from {} where prefix in (select distinct prefix from {} limit {})'.format(size, table_name, table_name, size))
 
@@ -100,7 +100,7 @@ def gen_subset_rib(table_name='rib0610', size = 1000):
                 (prefix varchar_ops ASC NULLS LAST)\
                 TABLESPACE pg_default;".format(size, size)
 
-    cur.execute(index_sql)
+    # cur.execute(index_sql) TODO: Make inet_faure index-ible
 
     conn.commit()
     conn.close()
