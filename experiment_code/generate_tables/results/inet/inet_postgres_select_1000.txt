@@ -1,0 +1,180 @@
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.885..5.705 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.258 ms
+ Execution Time: 5.752 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.668..5.431 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.043 ms
+ Execution Time: 5.447 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.232..4.077 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.042 ms
+ Execution Time: 4.096 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.923..5.986 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.042 ms
+ Execution Time: 6.005 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.839..5.943 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.039 ms
+ Execution Time: 5.962 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=3.020..5.935 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.044 ms
+ Execution Time: 5.954 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.017..3.722 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.038 ms
+ Execution Time: 3.737 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=3.385..6.710 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.025 ms
+ Execution Time: 6.726 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.732..4.669 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.042 ms
+ Execution Time: 4.689 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=3.450..5.674 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.034 ms
+ Execution Time: 5.692 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=4.278..7.844 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.044 ms
+ Execution Time: 7.870 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=3.499..6.614 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.062 ms
+ Execution Time: 6.640 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.011..4.182 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.043 ms
+ Execution Time: 4.200 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.836..5.614 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.043 ms
+ Execution Time: 5.638 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.805..5.516 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.030 ms
+ Execution Time: 5.531 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=2.839..5.685 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.042 ms
+ Execution Time: 5.705 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=3.006..4.728 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.035 ms
+ Execution Time: 4.744 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=1.931..3.640 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.030 ms
+ Execution Time: 3.652 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=3.693..5.751 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.018 ms
+ Execution Time: 5.772 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..554.86 rows=121 width=36) (actual time=1.820..3.569 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet) = '5.8.0.0/24'::inet)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.046 ms
+ Execution Time: 3.581 ms
+(5 rows)
+
