@@ -1880,12 +1880,12 @@ inet_faureand(PG_FUNCTION_ARGS)
 	dst = (inet_faure *) palloc0(sizeof(inet_faure));
 
 
-	if (strcmp(c_variables(ip),"0") != 0 || strcmp(c_variables(ip2),"0") != 0) {
-        // c_variables(dst) = "or-ed";
-		strcpy(c_variables(dst), "or-ed");
+	// if (strcmp(c_variables(ip),"0") != 0 || strcmp(c_variables(ip2),"0") != 0) {
+ //        // c_variables(dst) = "or-ed";
+	// 	strcpy(c_variables(dst), "or-ed");
 
-		PG_RETURN_INET_P(dst);
-    }
+	// 	PG_RETURN_INET_P(dst);
+ //    }
 
 	if (ip_family(ip) != ip_family(ip2))
 		ereport(ERROR,
@@ -1903,7 +1903,7 @@ inet_faureand(PG_FUNCTION_ARGS)
 	}
 	ip_bits(dst) = Max(ip_bits(ip), ip_bits(ip2));
 
-	strcpy(c_variables(dst), "0");
+	// strcpy(c_variables(dst), "0");
 	ip_family(dst) = ip_family(ip);
 	SET_INET_VARSIZE(dst);
 

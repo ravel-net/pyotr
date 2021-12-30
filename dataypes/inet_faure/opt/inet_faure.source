@@ -223,7 +223,7 @@ CREATE OPERATOR | (
 
 CREATE OPERATOR & (
    leftarg = inet_faure, rightarg = inet_faure, procedure = inet_faureand,
-   commutator = & --, negator = <= ,
+   commutator = &
    -- restrict = scalargtsel, join = scalargtjoinsel
 );
 -- create the support function too
