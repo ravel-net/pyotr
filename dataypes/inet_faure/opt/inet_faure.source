@@ -11,7 +11,7 @@
 -- src/tutorial/inet_faure.source
 --
 ---------------------------------------------------------------------------
-
+DROP TYPE inet_faure CASCADE;
 -----------------------------
 -- Creating a new type:
 --	We are going to create a new type called 'inet_faure' which represents
@@ -194,7 +194,7 @@ CREATE OPERATOR = (
    commutator = = ,
    -- leave out negator since we didn't create <> operator
    negator = <> ,
-   restrict = eqsel, join = eqjoinsel
+   restrict = eqsel, join = eqjoinsel, MERGES
 );
 
 CREATE OPERATOR >= (

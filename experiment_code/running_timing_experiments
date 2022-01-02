@@ -31,7 +31,7 @@ Running Experiments: (for faure things would just change to faure)
 
 Queries:
 1. Join: 
-select f_table_rib1000.nid1, f_table_rib1000.nid2 from f_table_rib1000, rib1000 where (f_table_rib1000.fid & '255.255.0.0/16') = (rib1000.prefix & '255.255.0.0/16');
+select f_table_rib1000.id from f_table_rib1000, rib1000 where (f_table_rib1000.fid & '255.255.0.0/16') = (rib1000.prefix & '255.255.0.0/16');
 
 2. Project: 
 select prefix & '255.255.0.0/16' from rib1000;

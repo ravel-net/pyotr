@@ -1,0 +1,320 @@
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=33.727..869.799 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.880..9.536 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.013..2.405 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=25.841..391.609 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.017..5.957 rows=35175 loops=1)
+ Planning Time: 0.306 ms
+ Execution Time: 960.524 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=31.202..851.665 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.320..9.009 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.203 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.875..382.188 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.012..4.648 rows=35175 loops=1)
+ Planning Time: 0.058 ms
+ Execution Time: 941.257 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=32.234..866.043 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=8.074..9.695 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.283 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=24.153..388.285 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.013..5.171 rows=35175 loops=1)
+ Planning Time: 0.052 ms
+ Execution Time: 956.409 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=32.209..863.227 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=8.969..10.583 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.011..2.211 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.232..386.519 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.018..4.661 rows=35175 loops=1)
+ Planning Time: 0.060 ms
+ Execution Time: 953.317 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=31.574..824.755 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.526..9.104 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.009..2.098 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=24.042..369.976 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.010..4.865 rows=35175 loops=1)
+ Planning Time: 0.056 ms
+ Execution Time: 911.828 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=31.708..857.801 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.623..9.233 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.011..2.143 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=24.078..384.967 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.011..4.951 rows=35175 loops=1)
+ Planning Time: 0.061 ms
+ Execution Time: 947.641 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=33.602..851.396 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=8.860..10.467 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.082 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=24.735..382.188 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.017..4.853 rows=35175 loops=1)
+ Planning Time: 0.054 ms
+ Execution Time: 940.537 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=31.720..827.456 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=8.304..9.888 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.011..2.502 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.409..371.296 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.011..4.702 rows=35175 loops=1)
+ Planning Time: 0.065 ms
+ Execution Time: 914.708 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=31.434..812.571 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.368..8.690 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.092 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=24.059..363.330 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.009..4.866 rows=35175 loops=1)
+ Planning Time: 0.057 ms
+ Execution Time: 899.052 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=30.328..803.337 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.228..8.488 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.011..2.069 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.094..358.390 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.007..4.733 rows=35175 loops=1)
+ Planning Time: 0.055 ms
+ Execution Time: 889.290 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=30.220..802.109 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.205..8.439 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.083 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.009..357.789 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.007..4.867 rows=35175 loops=1)
+ Planning Time: 0.057 ms
+ Execution Time: 887.932 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=30.324..801.558 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.205..8.434 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.009..2.065 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.114..357.665 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.007..4.789 rows=35175 loops=1)
+ Planning Time: 0.055 ms
+ Execution Time: 887.320 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=30.200..802.077 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.235..8.490 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.100 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=22.959..357.793 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.008..4.733 rows=35175 loops=1)
+ Planning Time: 0.058 ms
+ Execution Time: 887.916 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=30.435..806.844 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.285..8.545 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.096 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.143..359.994 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.008..4.803 rows=35175 loops=1)
+ Planning Time: 0.056 ms
+ Execution Time: 892.969 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4978.79..67739.85 rows=3129671 width=4) (actual time=30.280..803.346 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1475.89..1517.80 rows=16764 width=36) (actual time=7.207..8.460 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..299.64 rows=16764 width=36) (actual time=0.010..2.055 rows=15759 loops=1)
+   ->  Sort  (cost=3502.89..3596.24 rows=37338 width=32) (actual time=23.067..358.264 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..667.38 rows=37338 width=32) (actual time=0.007..4.707 rows=35175 loops=1)
+ Planning Time: 0.056 ms
+ Execution Time: 889.248 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4690.16..60280.03 rows=2771614 width=4) (actual time=29.728..801.362 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1388.30..1427.70 rows=15759 width=34) (actual time=7.003..8.221 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..289.59 rows=15759 width=34) (actual time=0.007..1.888 rows=15759 loops=1)
+   ->  Sort  (cost=3301.86..3389.80 rows=35175 width=30) (actual time=22.720..357.300 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..645.75 rows=35175 width=30) (actual time=0.005..4.385 rows=35175 loops=1)
+ Planning Time: 0.139 ms
+ Execution Time: 887.202 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4690.16..60280.03 rows=2771614 width=4) (actual time=29.484..803.365 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1388.30..1427.70 rows=15759 width=34) (actual time=7.046..8.291 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..289.59 rows=15759 width=34) (actual time=0.008..1.874 rows=15759 loops=1)
+   ->  Sort  (cost=3301.86..3389.80 rows=35175 width=30) (actual time=22.433..358.101 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..645.75 rows=35175 width=30) (actual time=0.007..4.402 rows=35175 loops=1)
+ Planning Time: 0.056 ms
+ Execution Time: 889.369 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4690.16..60280.03 rows=2771614 width=4) (actual time=29.787..803.111 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1388.30..1427.70 rows=15759 width=34) (actual time=7.025..8.276 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..289.59 rows=15759 width=34) (actual time=0.008..1.882 rows=15759 loops=1)
+   ->  Sort  (cost=3301.86..3389.80 rows=35175 width=30) (actual time=22.756..358.110 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..645.75 rows=35175 width=30) (actual time=0.012..4.463 rows=35175 loops=1)
+ Planning Time: 0.056 ms
+ Execution Time: 889.155 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4690.16..60280.03 rows=2771614 width=4) (actual time=29.739..801.544 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1388.30..1427.70 rows=15759 width=34) (actual time=7.097..8.330 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..289.59 rows=15759 width=34) (actual time=0.008..1.883 rows=15759 loops=1)
+   ->  Sort  (cost=3301.86..3389.80 rows=35175 width=30) (actual time=22.636..357.312 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..645.75 rows=35175 width=30) (actual time=0.006..4.395 rows=35175 loops=1)
+ Planning Time: 0.056 ms
+ Execution Time: 887.407 ms
+(12 rows)
+
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=4690.16..60280.03 rows=2771614 width=4) (actual time=29.668..816.522 rows=3668559 loops=1)
+   Merge Cond: (((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure)) = ((rib1000.prefix & '255.255.0.0/16'::inet_faure)))
+   ->  Sort  (cost=1388.30..1427.70 rows=15759 width=34) (actual time=7.052..8.327 rows=15759 loops=1)
+         Sort Key: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure))
+         Sort Method: quicksort  Memory: 2601kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..289.59 rows=15759 width=34) (actual time=0.008..1.894 rows=15759 loops=1)
+   ->  Sort  (cost=3301.86..3389.80 rows=35175 width=30) (actual time=22.610..363.545 rows=3668548 loops=1)
+         Sort Key: ((rib1000.prefix & '255.255.0.0/16'::inet_faure))
+         Sort Method: external sort  Disk: 2624kB
+         ->  Seq Scan on rib1000  (cost=0.00..645.75 rows=35175 width=30) (actual time=0.006..4.399 rows=35175 loops=1)
+ Planning Time: 0.055 ms
+ Execution Time: 903.623 ms
+(12 rows)
+

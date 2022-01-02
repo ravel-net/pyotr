@@ -1,0 +1,16 @@
+                                                           QUERY PLAN                                                           
+--------------------------------------------------------------------------------------------------------------------------------
+ Merge Join  (cost=3128.03..23052.77 rows=1324675 width=4) (actual time=18.012..121.689 rows=564661 loops=1)
+   Merge Cond: (f_table_rib1000.fid = rib1000.prefix)
+   ->  Sort  (cost=927.81..955.12 rows=10922 width=36) (actual time=4.913..6.112 rows=15759 loops=1)
+         Sort Key: f_table_rib1000.fid
+         Sort Method: quicksort  Memory: 1123kB
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..195.22 rows=10922 width=36) (actual time=0.013..1.354 rows=15759 loops=1)
+   ->  Sort  (cost=2200.22..2260.86 rows=24257 width=32) (actual time=13.093..39.042 rows=564649 loops=1)
+         Sort Key: rib1000.prefix
+         Sort Method: quicksort  Memory: 3015kB
+         ->  Seq Scan on rib1000  (cost=0.00..433.57 rows=24257 width=32) (actual time=0.040..4.869 rows=35175 loops=1)
+ Planning Time: 0.293 ms
+ Execution Time: 137.952 ms
+(12 rows)
+
