@@ -1,6 +1,6 @@
 # Instruction for tableau.py
 
-## Usage
+## Generate Chain
 
 ```python
 # the number of nodes in physical network path
@@ -25,5 +25,13 @@ virtual_tableau = overlay_tuples + ove_self_tuples
 Then store physical_tableau and virtual tableau into database.
 ...
 """
+
+```
+
+## Generate join query for tableau
+```python
+
+# Generate join query that applys q_p to T_v.
+sql = convert_tableau_to_sql(physical_tableau, "Tv", overlay_nodes)
 
 ```
