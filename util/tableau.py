@@ -79,7 +79,7 @@ def gen_large_chain(size=10, rate=0.3):
     var_size = size - cons_size
 
     var_list = ["x{}".format(i) for i in range(1, var_size+1)]
-    cons_list = [i for i in range(1, cons_size+1)]
+    cons_list = [str(i) for i in range(1, cons_size+1)]
 
     # set the first node and the last node
     first = cons_list.pop(0)
@@ -124,6 +124,12 @@ def display(tuples, self_tuples):
 
     print("****************************\n")
 
+def unvar(node):
+    if node.startswith("i_"):
+        return node[2:]
+    else:
+        return node
+
 def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     """
     Convert tableau to corresponding SQL
@@ -154,21 +160,23 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     var_dict = {}
     for i in range(len(tableau)):
         tables.append("{} t{}".format(tablename, i))
-        (n1, n2, _) = tableau[i]
-        if n1 in overlay_nodes:
+        # (n1, n2, _) = tableau[i]
+        n1 = tableau[i][0]
+        n2 = tableau[i][1]
+        if unvar(n1) in overlay_nodes:
             constraints.append("t{}.n1 = '{}'".format(i, n1))
             if n1 != n2 and n1 != last:
                 cols.append("t{}.n1".format(i))
-        if n2 in overlay_nodes:
+        if unvar(n2) in overlay_nodes:
             constraints.append("t{}.n2 = '{}'".format(i, n2))
             if n1 != n2:
                 cols.append("t{}.n2".format(i))
         
-        if n1 == last and n1 not in overlay_nodes:
+        if n1 == last and unvar(n1) not in overlay_nodes:
             constraints.append("t{}.n2 = t{}.n1".format(i-1, i))
             var_dict[n1] = i
         
-        if n1 not in overlay_nodes and n2 not in overlay_nodes and n1 == n2:
+        if unvar(n1) not in overlay_nodes and unvar(n2) not in overlay_nodes and n1 == n2:
             constraints.append("t{}.n1 = t{}.n2".format(i, i))
             if n1 in var_dict.keys():
                 constraints.append("t{}.n1 = t{}.n2".format(var_dict[n1], i))
@@ -178,7 +186,7 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     return sql
 
 if __name__ == '__main__':
-    size = 100 # the number of nodes in physical network path
+    size = 10 # the number of nodes in physical network path
     rate = 0.3 # the percentage of constant nodes in physical network path (the number of nodes in overlay path)
 
     physical_path, physical_nodes, overlay_path, overlay_nodes = gen_large_chain(size=size, rate=rate)
@@ -190,3 +198,6 @@ if __name__ == '__main__':
     overlay_tuples, ove_self_tuples = gen_tableau(path=overlay_path, overlay=overlay_nodes)
 
     display(overlay_tuples, ove_self_tuples)
+
+    sql = convert_tableau_to_sql(phy_self_tuples+phy_self_tuples, "T_v", overlay_nodes)
+    print(sql)
