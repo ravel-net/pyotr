@@ -1,3 +1,34 @@
 sudo apt install libxml2-dev libz-dev python-dev python3-dev build-essential
 sudo pip3 install python-igraph
 sudo apt-get install libpq-dev
+
+########################## Installing Postgres: ###################################
+# 1. Remove old installation: https://kb.objectrocket.com/postgresql/how-to-completely-uninstall-postgresql-757
+
+sudo apt-get --purge remove postgresql
+sudo apt-get purge postgresql*
+sudo apt-get --purge remove postgresql postgresql-doc postgresql-common
+
+# 2. Install postgres13: https://computingforgeeks.com/how-to-install-postgresql-13-on-ubuntu/
+
+sudo apt -y install vim bash-completion wget
+wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
+sudo apt update
+sudo apt install postgresql-13 postgresql-client-13
+systemctl status postgresql.service 
+
+# 3. Allow all connections:
+sudo vim /etc/postgresql/13/main/pg_hba.conf
+# now change peer to trust in the first two rows
+
+# 4. Restart postgres:
+sudo service postgresql stop
+sudo service postgresql start
+
+# 5. If you encounter an error while compiling datatypes, allow permissions to user postgres to the home folder:
+chmod o+rx $HOME
+
+######################################################################################
+
+# Installs for scripts:
+pip3 install tqdm
