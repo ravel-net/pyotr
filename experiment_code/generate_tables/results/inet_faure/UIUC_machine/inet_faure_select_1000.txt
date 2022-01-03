@@ -1,0 +1,180 @@
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.557..4.950 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.196 ms
+ Execution Time: 4.988 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.141..4.143 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.016 ms
+ Execution Time: 4.153 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.129..4.129 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.016 ms
+ Execution Time: 4.139 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.130..4.131 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.016 ms
+ Execution Time: 4.141 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.131..4.129 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.016 ms
+ Execution Time: 4.139 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.138..4.134 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.016 ms
+ Execution Time: 4.144 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.134..4.130 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.015 ms
+ Execution Time: 4.139 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.077..4.018 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.013 ms
+ Execution Time: 4.027 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.070..3.956 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.013 ms
+ Execution Time: 3.965 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=2.012..3.898 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.012 ms
+ Execution Time: 3.907 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.959..3.797 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.012 ms
+ Execution Time: 3.805 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.924..3.715 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.012 ms
+ Execution Time: 3.723 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.861..3.608 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.615 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.860..3.606 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.614 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.855..3.604 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.612 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.854..3.603 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.611 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.854..3.603 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.611 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.856..3.605 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.613 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.854..3.610 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.618 ms
+(5 rows)
+
+                                               QUERY PLAN                                               
+--------------------------------------------------------------------------------------------------------
+ Seq Scan on rib1000  (cost=0.00..653.62 rows=143 width=36) (actual time=1.855..3.607 rows=225 loops=1)
+   Filter: ((prefix & '255.255.0.0/16'::inet_faure) = '5.8.0.0/24'::inet_faure)
+   Rows Removed by Filter: 34950
+ Planning Time: 0.011 ms
+ Execution Time: 3.615 ms
+(5 rows)
+
