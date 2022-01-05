@@ -12,6 +12,7 @@
 --
 ---------------------------------------------------------------------------
 DROP TYPE int4_faure CASCADE;
+DROP TABLE test_int4_faure;
 
 -----------------------------
 -- Creating a new type:
@@ -22,7 +23,7 @@ DROP TYPE int4_faure CASCADE;
 --	are usually user-defined C functions.
 -----------------------------
 
--- Assume the user defined functions are in _OBJWD_/int_faure$DLSUFFIX
+-- Assume the user defined functions are in /home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure$DLSUFFIX
 -- (we do not want to assume this is in the dynamic loader search path).
 -- Look at $PWD/int4_faure.c for the source.  Note that we declare all of
 -- them as STRICT, so we do not need to cope with NULL inputs in the
@@ -36,7 +37,7 @@ DROP TYPE int4_faure CASCADE;
 
 CREATE FUNCTION int4_faurein(cstring)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 -- the output function 'inet_faure_out' takes the internal representation and
@@ -44,17 +45,17 @@ CREATE FUNCTION int4_faurein(cstring)
 
 CREATE FUNCTION int4_faureout(int4_faure)
    RETURNS cstring
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION bool_int4_faure(bool)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION int4_faure_bool(int4_faure)
    RETURNS bool
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 -- the binary input function 'inet_faure_recv' takes a StringInfo buffer
@@ -62,7 +63,7 @@ CREATE FUNCTION int4_faure_bool(int4_faure)
 
 --CREATE FUNCTION inet_faure_recv(internal)
 --   RETURNS inet_faure
---   AS '_OBJWD_/inet_faure'
+--   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/inet_faure'
 --   LANGUAGE C IMMUTABLE STRICT;
 
 -- the binary output function 'inet_faure_send' takes the internal representation
@@ -70,7 +71,7 @@ CREATE FUNCTION int4_faure_bool(int4_faure)
 
 --CREATE FUNCTION inet_faure_send(inet_faure)
 --   RETURNS bytea
---   AS '_OBJWD_/inet_faure'
+--   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/inet_faure'
 --   LANGUAGE C IMMUTABLE STRICT;
 
 
@@ -109,6 +110,10 @@ INSERT INTO test_int4_faure VALUES ('daasd','3');
 INSERT INTO test_int4_faure VALUES ('225', '192');
 INSERT INTO test_int4_faure VALUES ('192', 'm');
 INSERT INTO test_int4_faure VALUES ('8', '2');
+INSERT INTO test_int4_faure VALUES ('i_22', '2');
+INSERT INTO test_int4_faure VALUES ('i_5', '2');
+INSERT INTO test_int4_faure VALUES ('i_0', '2');
+INSERT INTO test_int4_faure VALUES ('i_10', '2');
 INSERT INTO test_int4_faure VALUES ('0', 'm');
 
 SELECT * FROM test_int4_faure;
@@ -126,27 +131,27 @@ SELECT bool_int4_faure(int4_faure_bool(a)) FROM test_int4_faure;
 
 CREATE FUNCTION int4_faure_um(int4_faure)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION int4_faure_pl(int4_faure, int4_faure)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION int4_faure_mul(int4_faure, int4_faure)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION int4_faure_div(int4_faure, int4_faure)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 CREATE FUNCTION int4_faure_mi(int4_faure, int4_faure)
    RETURNS int4_faure
-   AS '_OBJWD_/int_faure'
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure'
    LANGUAGE C IMMUTABLE STRICT;
 
 -- we can now define the operator. We show a binary operator here but you
@@ -226,17 +231,17 @@ SELECT (a+(-b)) AS c FROM test_int4_faure; -- TODO: Find fix for this problem. R
 -- first, define the required operators
 
 CREATE FUNCTION int4_faure_lt(int4_faure, int4_faure) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_le(int4_faure, int4_faure) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_eq(int4_faure, int4_faure) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_ge(int4_faure, int4_faure) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_gt(int4_faure, int4_faure) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_ne(int4_faure, int4_faure) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 
 CREATE OPERATOR < (
    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_lt,
@@ -281,7 +286,7 @@ CREATE OPERATOR > (
 -- );
 -- -- create the support function too
 -- CREATE FUNCTION network_cmp(int4_faure, int4_faure) RETURNS int4
---    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+--    AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/int_faure/interface/int_faure' LANGUAGE C IMMUTABLE STRICT;
 
 -- -- now we can make the operator class
 
@@ -304,8 +309,9 @@ CREATE OPERATOR > (
 -- CREATE INDEX test_cplx_ind ON test_int4_faure
 --    USING btree(a int4_faure_abs_ops);
 
--- SELECT * FROM test_int4_faure where b = '192';
--- SELECT * FROM test_int4_faure where b < '192';
+-- SELECT * FROM test_int4_faure where a = '192';
+SELECT * FROM test_int4_faure where a < '10';
+SELECT * FROM test_int4_faure where a >= '10';
 -- SELECT * FROM test_int4_faure where b <= '192';
 -- SELECT * FROM test_int4_faure where b > '192';
 -- SELECT * FROM test_int4_faure where b >= '192';

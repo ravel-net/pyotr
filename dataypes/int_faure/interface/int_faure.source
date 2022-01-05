@@ -12,6 +12,7 @@
 --
 ---------------------------------------------------------------------------
 DROP TYPE int4_faure CASCADE;
+DROP TABLE test_int4_faure;
 
 -----------------------------
 -- Creating a new type:
@@ -109,6 +110,10 @@ INSERT INTO test_int4_faure VALUES ('daasd','3');
 INSERT INTO test_int4_faure VALUES ('225', '192');
 INSERT INTO test_int4_faure VALUES ('192', 'm');
 INSERT INTO test_int4_faure VALUES ('8', '2');
+INSERT INTO test_int4_faure VALUES ('i_22', '2');
+INSERT INTO test_int4_faure VALUES ('i_5', '2');
+INSERT INTO test_int4_faure VALUES ('i_0', '2');
+INSERT INTO test_int4_faure VALUES ('i_10', '2');
 INSERT INTO test_int4_faure VALUES ('0', 'm');
 
 SELECT * FROM test_int4_faure;
@@ -304,8 +309,9 @@ CREATE OPERATOR > (
 -- CREATE INDEX test_cplx_ind ON test_int4_faure
 --    USING btree(a int4_faure_abs_ops);
 
--- SELECT * FROM test_int4_faure where b = '192';
--- SELECT * FROM test_int4_faure where b < '192';
+-- SELECT * FROM test_int4_faure where a = '192';
+SELECT * FROM test_int4_faure where a < '10';
+SELECT * FROM test_int4_faure where a >= '10';
 -- SELECT * FROM test_int4_faure where b <= '192';
 -- SELECT * FROM test_int4_faure where b > '192';
 -- SELECT * FROM test_int4_faure where b >= '192';
