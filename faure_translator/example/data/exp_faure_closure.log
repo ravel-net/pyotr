@@ -1,0 +1,655 @@
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Thu Dec 30 01:37:19 2021+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1: [('1', 'x36'), ('x36', 'i_22'), ('1', '1'), ('x36', 'x36')]
+INFO:root:SQL for Tp100_1 on size 100: select t0.n1, t1.n2 from Tp100_1 t0, Tp100_1 t1, Tp100_1 t2, Tp100_1 t3 where t0.n1 = '1' and t1.n2 = 'i_22' and t0.n2 = t1.n1 and t2.n1 = '1' and t2.n2 = '1' and t3.n1 = t3.n2 and t1.n1 = t3.n2
+WARNING:root:data execution time: 0.35189032554626465
+WARNING:root:condition execution time: 0.0033545494079589844
+INFO:root:size of input(delete contradiction): 123
+WARNING:root:delete contradiction execution time: 0.18967628479003906
+INFO:root:size of input(remove redundancy and tautology): 31
+WARNING:root:remove redundancy and tautology execution time: 0.2729048728942871
+WARNING:root:z3 execution time: 0.5575623512268066
+WARNING:root:Execution time on sql for Tp100_1: 1.0057547092437744
+INFO:root:Group 2: [('i_22', '22'), ('22', 'i_3'), ('22', '22')]
+INFO:root:SQL for Tp100_2 on size 100: select t0.n1, t0.n2, t1.n2 from Tp100_2 t0, Tp100_2 t1, Tp100_2 t2 where t0.n1 = 'i_22' and t0.n2 = '22' and t1.n1 = '22' and t1.n2 = 'i_3' and t2.n1 = '22' and t2.n2 = '22'
+WARNING:root:data execution time: 0.038717031478881836
+WARNING:root:condition execution time: 0.005634784698486328
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024371623992919922
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02368760108947754
+WARNING:root:z3 execution time: 0.14035463333129883
+WARNING:root:Execution time on sql for Tp100_2: 1.2915143966674805
+INFO:root:Group 3: [('i_3', '3'), ('3', 'x46'), ('x46', 'x25'), ('x25', 'x20'), ('x20', 'x39'), ('x39', 'x67'), ('x67', 'x68'), ('x68', 'x69'), ('x69', 'i_21'), ('3', '3'), ('x46', 'x46'), ('x25', 'x25'), ('x20', 'x20'), ('x39', 'x39'), ('x67', 'x67'), ('x68', 'x68'), ('x69', 'x69')]
+INFO:root:SQL for Tp100_3 on size 100: select t0.n1, t0.n2, t8.n2 from Tp100_3 t0, Tp100_3 t1, Tp100_3 t2, Tp100_3 t3, Tp100_3 t4, Tp100_3 t5, Tp100_3 t6, Tp100_3 t7, Tp100_3 t8, Tp100_3 t9, Tp100_3 t10, Tp100_3 t11, Tp100_3 t12, Tp100_3 t13, Tp100_3 t14, Tp100_3 t15, Tp100_3 t16 where t0.n1 = 'i_3' and t0.n2 = '3' and t1.n1 = '3' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t8.n2 = 'i_21' and t7.n2 = t8.n1 and t9.n1 = '3' and t9.n2 = '3' and t10.n1 = t10.n2 and t2.n1 = t10.n2 and t11.n1 = t11.n2 and t3.n1 = t11.n2 and t12.n1 = t12.n2 and t4.n1 = t12.n2 and t13.n1 = t13.n2 and t5.n1 = t13.n2 and t14.n1 = t14.n2 and t6.n1 = t14.n2 and t15.n1 = t15.n2 and t7.n1 = t15.n2 and t16.n1 = t16.n2 and t8.n1 = t16.n2
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Thu Dec 30 10:52:25 2021+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1: [('1', 'x36'), ('x36', 'i_22'), ('1', '1'), ('x36', 'x36')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3 where t0.n1 = '1' and t1.n2 = 'i_22' and t0.n2 = t1.n1 and t2.n1 = '1' and t2.n2 = '1' and t3.n1 = t3.n2 and t1.n1 = t3.n2
+WARNING:root:data execution time: 0.355191707611084
+WARNING:root:condition execution time: 0.001920938491821289
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.05251812934875488
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0008831024169921875
+WARNING:root:z3 execution time: 0.12385272979736328
+WARNING:root:Execution time on sql for group 1 on size 100: 0.5194485187530518
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Thu Dec 30 10:53:58 2021+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1: [('1', 'x36'), ('x36', 'i_22'), ('1', '1'), ('x36', 'x36')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3 where t0.n1 = '1' and t1.n2 = 'i_22' and t0.n2 = t1.n1 and t2.n1 = '1' and t2.n2 = '1' and t3.n1 = t3.n2 and t1.n1 = t3.n2
+WARNING:root:data execution time: 0.3650810718536377
+WARNING:root:condition execution time: 0.001893758773803711
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.026328563690185547
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0007262229919433594
+WARNING:root:z3 execution time: 0.13703703880310059
+WARNING:root:Execution time on sql for group 1 on size 100: 0.5438730716705322
+INFO:root:Group 2: [('i_22', '22'), ('22', 'i_3'), ('22', '22')]
+INFO:root:SQL for group 2 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_22' and t0.n2 = '22' and t1.n1 = '22' and t1.n2 = 'i_3' and t2.n1 = '22' and t2.n2 = '22'
+WARNING:root:data execution time: 0.03982830047607422
+WARNING:root:condition execution time: 0.004845142364501953
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.022047042846679688
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.026725292205810547
+WARNING:root:z3 execution time: 0.1183011531829834
+WARNING:root:Execution time on sql for group 2 on size 100: 0.7537441253662109
+INFO:root:Group 3: [('i_3', '3'), ('3', 'x46'), ('x46', 'x25'), ('x25', 'x20'), ('x20', 'x39'), ('x39', 'x67'), ('x67', 'x68'), ('x68', 'x69'), ('x69', 'i_21'), ('3', '3'), ('x46', 'x46'), ('x25', 'x25'), ('x20', 'x20'), ('x39', 'x39'), ('x67', 'x67'), ('x68', 'x68'), ('x69', 'x69')]
+INFO:root:SQL for group 3 on size 100: select t0.n1, t0.n2, t8.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16 where t0.n1 = 'i_3' and t0.n2 = '3' and t1.n1 = '3' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t8.n2 = 'i_21' and t7.n2 = t8.n1 and t9.n1 = '3' and t9.n2 = '3' and t10.n1 = t10.n2 and t2.n1 = t10.n2 and t11.n1 = t11.n2 and t3.n1 = t11.n2 and t12.n1 = t12.n2 and t4.n1 = t12.n2 and t13.n1 = t13.n2 and t5.n1 = t13.n2 and t14.n1 = t14.n2 and t6.n1 = t14.n2 and t15.n1 = t15.n2 and t7.n1 = t15.n2 and t16.n1 = t16.n2 and t8.n1 = t16.n2
+WARNING:root:data execution time: 1.060990571975708
+WARNING:root:condition execution time: 0.005019664764404297
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.0244293212890625
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02439284324645996
+WARNING:root:z3 execution time: 0.1192474365234375
+WARNING:root:Execution time on sql for group 3 on size 100: 2.0213816165924072
+INFO:root:Group 4: [('i_21', '21'), ('21', 'x18'), ('x18', 'x11'), ('x11', 'i_18'), ('21', '21'), ('x18', 'x18'), ('x11', 'x11')]
+INFO:root:SQL for group 4 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_21' and t0.n2 = '21' and t1.n1 = '21' and t1.n2 = t2.n1 and t3.n2 = 'i_18' and t2.n2 = t3.n1 and t4.n1 = '21' and t4.n2 = '21' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4439363479614258
+WARNING:root:condition execution time: 0.002733469009399414
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.007090330123901367
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0065212249755859375
+WARNING:root:z3 execution time: 0.08455634117126465
+WARNING:root:Execution time on sql for group 4 on size 100: 2.604793071746826
+INFO:root:Group 5: [('i_18', '18'), ('18', 'x26'), ('x26', 'x41'), ('x41', 'x32'), ('x32', 'x9'), ('x9', 'x7'), ('x7', 'x64'), ('x64', 'x10'), ('x10', 'x31'), ('x31', 'x53'), ('x53', 'x61'), ('x61', 'x24'), ('x24', 'x58'), ('x58', 'x43'), ('x43', 'i_4'), ('18', '18'), ('x26', 'x26'), ('x41', 'x41'), ('x32', 'x32'), ('x9', 'x9'), ('x7', 'x7'), ('x64', 'x64'), ('x10', 'x10'), ('x31', 'x31'), ('x53', 'x53'), ('x61', 'x61'), ('x24', 'x24'), ('x58', 'x58'), ('x43', 'x43')]
+INFO:root:SQL for group 5 on size 100: select t0.n1, t0.n2, t14.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16, Tv100 t17, Tv100 t18, Tv100 t19, Tv100 t20, Tv100 t21, Tv100 t22, Tv100 t23, Tv100 t24, Tv100 t25, Tv100 t26, Tv100 t27, Tv100 t28 where t0.n1 = 'i_18' and t0.n2 = '18' and t1.n1 = '18' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1 and t8.n2 = t9.n1 and t9.n2 = t10.n1 and t10.n2 = t11.n1 and t11.n2 = t12.n1 and t12.n2 = t13.n1 and t14.n2 = 'i_4' and t13.n2 = t14.n1 and t15.n1 = '18' and t15.n2 = '18' and t16.n1 = t16.n2 and t2.n1 = t16.n2 and t17.n1 = t17.n2 and t3.n1 = t17.n2 and t18.n1 = t18.n2 and t4.n1 = t18.n2 and t19.n1 = t19.n2 and t5.n1 = t19.n2 and t20.n1 = t20.n2 and t6.n1 = t20.n2 and t21.n1 = t21.n2 and t7.n1 = t21.n2 and t22.n1 = t22.n2 and t8.n1 = t22.n2 and t23.n1 = t23.n2 and t9.n1 = t23.n2 and t24.n1 = t24.n2 and t10.n1 = t24.n2 and t25.n1 = t25.n2 and t11.n1 = t25.n2 and t26.n1 = t26.n2 and t12.n1 = t26.n2 and t27.n1 = t27.n2 and t13.n1 = t27.n2 and t28.n1 = t28.n2 and t14.n1 = t28.n2
+WARNING:root:data execution time: 1.835369348526001
+WARNING:root:condition execution time: 0.013278961181640625
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.01333761215209961
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.021764516830444336
+WARNING:root:z3 execution time: 0.10762262344360352
+WARNING:root:Execution time on sql for group 5 on size 100: 4.6647679805755615
+INFO:root:Group 6: [('i_4', '4'), ('4', 'i_26'), ('4', '4')]
+INFO:root:SQL for group 6 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_4' and t0.n2 = '4' and t1.n1 = '4' and t1.n2 = 'i_26' and t2.n1 = '4' and t2.n2 = '4'
+WARNING:root:data execution time: 0.04956507682800293
+WARNING:root:condition execution time: 0.006118297576904297
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.0243680477142334
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023906707763671875
+WARNING:root:z3 execution time: 0.1290450096130371
+WARNING:root:Execution time on sql for group 6 on size 100: 4.890339612960815
+INFO:root:Group 7: [('i_26', '26'), ('26', 'i_8'), ('26', '26')]
+INFO:root:SQL for group 7 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_26' and t0.n2 = '26' and t1.n1 = '26' and t1.n2 = 'i_8' and t2.n1 = '26' and t2.n2 = '26'
+WARNING:root:data execution time: 0.04996204376220703
+WARNING:root:condition execution time: 0.00604701042175293
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.026229381561279297
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02391839027404785
+WARNING:root:z3 execution time: 0.15679645538330078
+WARNING:root:Execution time on sql for group 7 on size 100: 5.158731698989868
+INFO:root:Group 8: [('i_8', '8'), ('8', 'i_7'), ('8', '8')]
+INFO:root:SQL for group 8 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_8' and t0.n2 = '8' and t1.n1 = '8' and t1.n2 = 'i_7' and t2.n1 = '8' and t2.n2 = '8'
+WARNING:root:data execution time: 0.05764484405517578
+WARNING:root:condition execution time: 0.006031990051269531
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024390220642089844
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023867368698120117
+WARNING:root:z3 execution time: 0.15429139137268066
+WARNING:root:Execution time on sql for group 8 on size 100: 5.425678253173828
+INFO:root:Group 9: [('i_7', '7'), ('7', 'i_10'), ('7', '7')]
+INFO:root:SQL for group 9 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_7' and t0.n2 = '7' and t1.n1 = '7' and t1.n2 = 'i_10' and t2.n1 = '7' and t2.n2 = '7'
+WARNING:root:data execution time: 0.04195451736450195
+WARNING:root:condition execution time: 0.005997657775878906
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02426624298095703
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.024026870727539062
+WARNING:root:z3 execution time: 0.13014912605285645
+WARNING:root:Execution time on sql for group 9 on size 100: 5.651426792144775
+INFO:root:Group 10: [('i_10', '10'), ('10', 'x42'), ('x42', 'x35'), ('x35', 'i_27'), ('10', '10'), ('x42', 'x42'), ('x35', 'x35')]
+INFO:root:SQL for group 10 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_10' and t0.n2 = '10' and t1.n1 = '10' and t1.n2 = t2.n1 and t3.n2 = 'i_27' and t2.n2 = t3.n1 and t4.n1 = '10' and t4.n2 = '10' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4441392421722412
+WARNING:root:condition execution time: 0.0024871826171875
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02367877960205078
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.024042844772338867
+WARNING:root:z3 execution time: 0.12437796592712402
+WARNING:root:Execution time on sql for group 10 on size 100: 6.268454551696777
+INFO:root:Group 11: [('i_27', '27'), ('27', 'x12'), ('x12', 'i_6'), ('27', '27'), ('x12', 'x12')]
+INFO:root:SQL for group 11 on size 100: select t0.n1, t0.n2, t2.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4 where t0.n1 = 'i_27' and t0.n2 = '27' and t1.n1 = '27' and t2.n2 = 'i_6' and t1.n2 = t2.n1 and t3.n1 = '27' and t3.n2 = '27' and t4.n1 = t4.n2 and t2.n1 = t4.n2
+WARNING:root:data execution time: 0.3462080955505371
+WARNING:root:condition execution time: 0.002268552780151367
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.01871490478515625
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.019221782684326172
+WARNING:root:z3 execution time: 0.10512042045593262
+WARNING:root:Execution time on sql for group 11 on size 100: 6.760167360305786
+INFO:root:Group 12: [('i_6', '6'), ('6', 'x37'), ('x37', 'x23'), ('x23', 'i_12'), ('6', '6'), ('x37', 'x37'), ('x23', 'x23')]
+INFO:root:SQL for group 12 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_6' and t0.n2 = '6' and t1.n1 = '6' and t1.n2 = t2.n1 and t3.n2 = 'i_12' and t2.n2 = t3.n1 and t4.n1 = '6' and t4.n2 = '6' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4440751075744629
+WARNING:root:condition execution time: 0.002597808837890625
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.014127492904663086
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.013679265975952148
+WARNING:root:z3 execution time: 0.1120004653930664
+WARNING:root:Execution time on sql for group 12 on size 100: 7.359975814819336
+INFO:root:Group 13: [('i_12', '12'), ('12', 'i_13'), ('12', '12')]
+INFO:root:SQL for group 13 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_12' and t0.n2 = '12' and t1.n1 = '12' and t1.n2 = 'i_13' and t2.n1 = '12' and t2.n2 = '12'
+WARNING:root:data execution time: 0.03916001319885254
+WARNING:root:condition execution time: 0.003473043441772461
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024475574493408203
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02391672134399414
+WARNING:root:z3 execution time: 0.14302897453308105
+WARNING:root:Execution time on sql for group 13 on size 100: 7.586456775665283
+INFO:root:Group 14: [('i_13', '13'), ('13', 'i_28'), ('13', '13')]
+INFO:root:SQL for group 14 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_13' and t0.n2 = '13' and t1.n1 = '13' and t1.n2 = 'i_28' and t2.n1 = '13' and t2.n2 = '13'
+WARNING:root:data execution time: 0.0466313362121582
+WARNING:root:condition execution time: 0.006104469299316406
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024431943893432617
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02397441864013672
+WARNING:root:z3 execution time: 0.13504457473754883
+WARNING:root:Execution time on sql for group 14 on size 100: 7.820492506027222
+INFO:root:Group 15: [('i_28', '28'), ('28', 'i_5'), ('28', '28')]
+INFO:root:SQL for group 15 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_28' and t0.n2 = '28' and t1.n1 = '28' and t1.n2 = 'i_5' and t2.n1 = '28' and t2.n2 = '28'
+WARNING:root:data execution time: 0.04729914665222168
+WARNING:root:condition execution time: 0.006021976470947266
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02439594268798828
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023868560791015625
+WARNING:root:z3 execution time: 0.1439073085784912
+WARNING:root:Execution time on sql for group 15 on size 100: 8.070706367492676
+INFO:root:Group 16: [('i_5', '5'), ('5', 'x19'), ('x19', 'x57'), ('x57', 'x16'), ('x16', 'x55'), ('x55', 'x22'), ('x22', 'x38'), ('x38', 'x49'), ('x49', 'x5'), ('x5', 'i_15'), ('5', '5'), ('x19', 'x19'), ('x57', 'x57'), ('x16', 'x16'), ('x55', 'x55'), ('x22', 'x22'), ('x38', 'x38'), ('x49', 'x49'), ('x5', 'x5')]
+INFO:root:SQL for group 16 on size 100: select t0.n1, t0.n2, t9.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16, Tv100 t17, Tv100 t18 where t0.n1 = 'i_5' and t0.n2 = '5' and t1.n1 = '5' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1 and t9.n2 = 'i_15' and t8.n2 = t9.n1 and t10.n1 = '5' and t10.n2 = '5' and t11.n1 = t11.n2 and t2.n1 = t11.n2 and t12.n1 = t12.n2 and t3.n1 = t12.n2 and t13.n1 = t13.n2 and t4.n1 = t13.n2 and t14.n1 = t14.n2 and t5.n1 = t14.n2 and t15.n1 = t15.n2 and t6.n1 = t15.n2 and t16.n1 = t16.n2 and t7.n1 = t16.n2 and t17.n1 = t17.n2 and t8.n1 = t17.n2 and t18.n1 = t18.n2 and t9.n1 = t18.n2
+WARNING:root:data execution time: 1.1336557865142822
+WARNING:root:condition execution time: 0.005179882049560547
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024405479431152344
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.024013996124267578
+WARNING:root:z3 execution time: 0.1275932788848877
+WARNING:root:Execution time on sql for group 16 on size 100: 9.421329498291016
+INFO:root:Group 17: [('i_15', '15'), ('15', 'i_2'), ('15', '15')]
+INFO:root:SQL for group 17 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_15' and t0.n2 = '15' and t1.n1 = '15' and t1.n2 = 'i_2' and t2.n1 = '15' and t2.n2 = '15'
+WARNING:root:data execution time: 0.04053497314453125
+WARNING:root:condition execution time: 0.0059435367584228516
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02443385124206543
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02388286590576172
+WARNING:root:z3 execution time: 0.12008190155029297
+WARNING:root:Execution time on sql for group 17 on size 100: 9.638872623443604
+INFO:root:Group 18: [('i_2', '2'), ('2', 'x28'), ('x28', 'x8'), ('x8', 'x30'), ('x30', 'i_23'), ('2', '2'), ('x28', 'x28'), ('x8', 'x8'), ('x30', 'x30')]
+INFO:root:SQL for group 18 on size 100: select t0.n1, t0.n2, t4.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8 where t0.n1 = 'i_2' and t0.n2 = '2' and t1.n1 = '2' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t4.n2 = 'i_23' and t3.n2 = t4.n1 and t5.n1 = '2' and t5.n2 = '2' and t6.n1 = t6.n2 and t2.n1 = t6.n2 and t7.n1 = t7.n2 and t3.n1 = t7.n2 and t8.n1 = t8.n2 and t4.n1 = t8.n2
+WARNING:root:data execution time: 0.5511441230773926
+WARNING:root:condition execution time: 0.0028591156005859375
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.008053302764892578
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.007451295852661133
+WARNING:root:z3 execution time: 0.10528326034545898
+WARNING:root:Execution time on sql for group 18 on size 100: 10.346704483032227
+INFO:root:Group 19: [('i_23', '23'), ('23', 'x51'), ('x51', 'x2'), ('x2', 'i_9'), ('23', '23'), ('x51', 'x51'), ('x2', 'x2')]
+INFO:root:SQL for group 19 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_23' and t0.n2 = '23' and t1.n1 = '23' and t1.n2 = t2.n1 and t3.n2 = 'i_9' and t2.n2 = t3.n1 and t4.n1 = '23' and t4.n2 = '23' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4413492679595947
+WARNING:root:condition execution time: 0.0023946762084960938
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.007765293121337891
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.007315874099731445
+WARNING:root:z3 execution time: 0.08864235877990723
+WARNING:root:Execution time on sql for group 19 on size 100: 10.922491550445557
+INFO:root:Group 20: [('i_9', '9'), ('9', 'x27'), ('x27', 'x33'), ('x33', 'x3'), ('x3', 'x1'), ('x1', 'x56'), ('x56', 'x66'), ('x66', 'x54'), ('x54', 'x17'), ('x17', 'x21'), ('x21', 'i_20'), ('9', '9'), ('x27', 'x27'), ('x33', 'x33'), ('x3', 'x3'), ('x1', 'x1'), ('x56', 'x56'), ('x66', 'x66'), ('x54', 'x54'), ('x17', 'x17'), ('x21', 'x21')]
+INFO:root:SQL for group 20 on size 100: select t0.n1, t0.n2, t10.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16, Tv100 t17, Tv100 t18, Tv100 t19, Tv100 t20 where t0.n1 = 'i_9' and t0.n2 = '9' and t1.n1 = '9' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1 and t8.n2 = t9.n1 and t10.n2 = 'i_20' and t9.n2 = t10.n1 and t11.n1 = '9' and t11.n2 = '9' and t12.n1 = t12.n2 and t2.n1 = t12.n2 and t13.n1 = t13.n2 and t3.n1 = t13.n2 and t14.n1 = t14.n2 and t4.n1 = t14.n2 and t15.n1 = t15.n2 and t5.n1 = t15.n2 and t16.n1 = t16.n2 and t6.n1 = t16.n2 and t17.n1 = t17.n2 and t7.n1 = t17.n2 and t18.n1 = t18.n2 and t8.n1 = t18.n2 and t19.n1 = t19.n2 and t9.n1 = t19.n2 and t20.n1 = t20.n2 and t10.n1 = t20.n2
+WARNING:root:data execution time: 1.249521017074585
+WARNING:root:condition execution time: 0.007559537887573242
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.012646913528442383
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.011326789855957031
+WARNING:root:z3 execution time: 0.09912300109863281
+WARNING:root:Execution time on sql for group 20 on size 100: 12.373657941818237
+INFO:root:Group 21: [('i_20', '20'), ('20', 'x14'), ('x14', 'x48'), ('x48', 'i_25'), ('20', '20'), ('x14', 'x14'), ('x48', 'x48')]
+INFO:root:SQL for group 21 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_20' and t0.n2 = '20' and t1.n1 = '20' and t1.n2 = t2.n1 and t3.n2 = 'i_25' and t2.n2 = t3.n1 and t4.n1 = '20' and t4.n2 = '20' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4428863525390625
+WARNING:root:condition execution time: 0.002702951431274414
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.007094144821166992
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0063114166259765625
+WARNING:root:z3 execution time: 0.08768248558044434
+WARNING:root:Execution time on sql for group 21 on size 100: 12.939064264297485
+INFO:root:Group 22: [('i_25', '25'), ('25', 'i_14'), ('25', '25')]
+INFO:root:SQL for group 22 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_25' and t0.n2 = '25' and t1.n1 = '25' and t1.n2 = 'i_14' and t2.n1 = '25' and t2.n2 = '25'
+WARNING:root:data execution time: 0.06789302825927734
+WARNING:root:condition execution time: 0.004828214645385742
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024405479431152344
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.025565147399902344
+WARNING:root:z3 execution time: 0.1260225772857666
+WARNING:root:Execution time on sql for group 22 on size 100: 13.176234006881714
+INFO:root:Group 23: [('i_14', '14'), ('14', 'x29'), ('x29', 'i_16'), ('14', '14'), ('x29', 'x29')]
+INFO:root:SQL for group 23 on size 100: select t0.n1, t0.n2, t2.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4 where t0.n1 = 'i_14' and t0.n2 = '14' and t1.n1 = '14' and t2.n2 = 'i_16' and t1.n2 = t2.n1 and t3.n1 = '14' and t3.n2 = '14' and t4.n1 = t4.n2 and t2.n1 = t4.n2
+WARNING:root:data execution time: 0.38843822479248047
+WARNING:root:condition execution time: 0.0024955272674560547
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024498462677001953
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023958206176757812
+WARNING:root:z3 execution time: 0.14986848831176758
+WARNING:root:Execution time on sql for group 23 on size 100: 13.826719045639038
+INFO:root:Group 24: [('i_16', '16'), ('16', 'x34'), ('x34', 'x62'), ('x62', 'x60'), ('x60', 'x52'), ('x52', 'i_24'), ('16', '16'), ('x34', 'x34'), ('x62', 'x62'), ('x60', 'x60'), ('x52', 'x52')]
+INFO:root:SQL for group 24 on size 100: select t0.n1, t0.n2, t5.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10 where t0.n1 = 'i_16' and t0.n2 = '16' and t1.n1 = '16' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t5.n2 = 'i_24' and t4.n2 = t5.n1 and t6.n1 = '16' and t6.n2 = '16' and t7.n1 = t7.n2 and t2.n1 = t7.n2 and t8.n1 = t8.n2 and t3.n1 = t8.n2 and t9.n1 = t9.n2 and t4.n1 = t9.n2 and t10.n1 = t10.n2 and t5.n1 = t10.n2
+WARNING:root:data execution time: 0.6539888381958008
+WARNING:root:condition execution time: 0.0052645206451416016
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.011738300323486328
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.011240720748901367
+WARNING:root:z3 execution time: 0.09865975379943848
+WARNING:root:Execution time on sql for group 24 on size 100: 14.676228523254395
+INFO:root:Group 25: [('i_24', '24'), ('24', 'i_17'), ('24', '24')]
+INFO:root:SQL for group 25 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_24' and t0.n2 = '24' and t1.n1 = '24' and t1.n2 = 'i_17' and t2.n1 = '24' and t2.n2 = '24'
+WARNING:root:data execution time: 0.041095733642578125
+WARNING:root:condition execution time: 0.005869865417480469
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024492502212524414
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023922204971313477
+WARNING:root:z3 execution time: 0.12639856338500977
+WARNING:root:Execution time on sql for group 25 on size 100: 14.8946533203125
+INFO:root:Group 26: [('i_17', '17'), ('17', 'x50'), ('x50', 'x59'), ('x59', 'x45'), ('x45', 'x70'), ('x70', 'x40'), ('x40', 'x4'), ('x4', 'x47'), ('x47', 'i_29'), ('17', '17'), ('x50', 'x50'), ('x59', 'x59'), ('x45', 'x45'), ('x70', 'x70'), ('x40', 'x40'), ('x4', 'x4'), ('x47', 'x47')]
+INFO:root:SQL for group 26 on size 100: select t0.n1, t0.n2, t8.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16 where t0.n1 = 'i_17' and t0.n2 = '17' and t1.n1 = '17' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t8.n2 = 'i_29' and t7.n2 = t8.n1 and t9.n1 = '17' and t9.n2 = '17' and t10.n1 = t10.n2 and t2.n1 = t10.n2 and t11.n1 = t11.n2 and t3.n1 = t11.n2 and t12.n1 = t12.n2 and t4.n1 = t12.n2 and t13.n1 = t13.n2 and t5.n1 = t13.n2 and t14.n1 = t14.n2 and t6.n1 = t14.n2 and t15.n1 = t15.n2 and t7.n1 = t15.n2 and t16.n1 = t16.n2 and t8.n1 = t16.n2
+WARNING:root:data execution time: 1.0804288387298584
+WARNING:root:condition execution time: 0.008494138717651367
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.014174222946166992
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023526668548583984
+WARNING:root:z3 execution time: 0.10811042785644531
+WARNING:root:Execution time on sql for group 26 on size 100: 16.186715841293335
+INFO:root:Group 27: [('i_29', '29'), ('29', 'x15'), ('x15', 'x44'), ('x44', 'i_19'), ('29', '29'), ('x15', 'x15'), ('x44', 'x44')]
+INFO:root:SQL for group 27 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_29' and t0.n2 = '29' and t1.n1 = '29' and t1.n2 = t2.n1 and t3.n2 = 'i_19' and t2.n2 = t3.n1 and t4.n1 = '29' and t4.n2 = '29' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4481627941131592
+WARNING:root:condition execution time: 0.002338409423828125
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.005995988845825195
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.005359172821044922
+WARNING:root:z3 execution time: 0.08147788047790527
+WARNING:root:Execution time on sql for group 27 on size 100: 16.76186180114746
+INFO:root:Group 28: [('i_19', '19'), ('19', 'x65'), ('x65', 'x6'), ('x6', 'x63'), ('x63', 'i_11'), ('19', '19'), ('x65', 'x65'), ('x6', 'x6'), ('x63', 'x63')]
+INFO:root:SQL for group 28 on size 100: select t0.n1, t0.n2, t4.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8 where t0.n1 = 'i_19' and t0.n2 = '19' and t1.n1 = '19' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t4.n2 = 'i_11' and t3.n2 = t4.n1 and t5.n1 = '19' and t5.n2 = '19' and t6.n1 = t6.n2 and t2.n1 = t6.n2 and t7.n1 = t7.n2 and t3.n1 = t7.n2 and t8.n1 = t8.n2 and t4.n1 = t8.n2
+WARNING:root:data execution time: 0.5281920433044434
+WARNING:root:condition execution time: 0.0030884742736816406
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.007534503936767578
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.006894350051879883
+WARNING:root:z3 execution time: 0.08500194549560547
+WARNING:root:Execution time on sql for group 28 on size 100: 17.412517547607422
+INFO:root:Group 29: [('i_11', '11'), ('11', 'x13'), ('x13', '30'), ('11', '11'), ('x13', 'x13')]
+INFO:root:SQL for group 29 on size 100: select t0.n1, t0.n2, t2.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4 where t0.n1 = 'i_11' and t0.n2 = '11' and t1.n1 = '11' and t2.n2 = '30' and t1.n2 = t2.n1 and t3.n1 = '11' and t3.n2 = '11' and t4.n1 = t4.n2 and t2.n1 = t4.n2
+WARNING:root:data execution time: 0.3381316661834717
+WARNING:root:condition execution time: 0.002258777618408203
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.00767827033996582
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0005986690521240234
+WARNING:root:z3 execution time: 0.0879373550415039
+WARNING:root:Execution time on sql for group 29 on size 100: 17.87999439239502
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Thu Dec 30 13:11:43 2021+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1, length 4: [('1', 'x36'), ('x36', 'i_22'), ('1', '1'), ('x36', 'x36')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3 where t0.n1 = '1' and t1.n2 = 'i_22' and t0.n2 = t1.n1 and t2.n1 = '1' and t2.n2 = '1' and t3.n1 = t3.n2 and t1.n1 = t3.n2
+WARNING:root:data execution time: 0.3450472354888916
+WARNING:root:condition execution time: 0.002003192901611328
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.060956478118896484
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0016002655029296875
+WARNING:root:z3 execution time: 0.13604187965393066
+WARNING:root:Execution time on sql for group 1 on size 100: 0.5192880630493164
+INFO:root:Group 2, length 3: [('i_22', '22'), ('22', 'i_3'), ('22', '22')]
+INFO:root:SQL for group 2 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_22' and t0.n2 = '22' and t1.n1 = '22' and t1.n2 = 'i_3' and t2.n1 = '22' and t2.n2 = '22'
+WARNING:root:data execution time: 0.05449795722961426
+WARNING:root:condition execution time: 0.005940914154052734
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.021754741668701172
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02682638168334961
+WARNING:root:z3 execution time: 0.12326335906982422
+WARNING:root:Execution time on sql for group 2 on size 100: 0.7539207935333252
+INFO:root:Group 3, length 17: [('i_3', '3'), ('3', 'x46'), ('x46', 'x25'), ('x25', 'x20'), ('x20', 'x39'), ('x39', 'x67'), ('x67', 'x68'), ('x68', 'x69'), ('x69', 'i_21'), ('3', '3'), ('x46', 'x46'), ('x25', 'x25'), ('x20', 'x20'), ('x39', 'x39'), ('x67', 'x67'), ('x68', 'x68'), ('x69', 'x69')]
+INFO:root:SQL for group 3 on size 100: select t0.n1, t0.n2, t8.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16 where t0.n1 = 'i_3' and t0.n2 = '3' and t1.n1 = '3' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t8.n2 = 'i_21' and t7.n2 = t8.n1 and t9.n1 = '3' and t9.n2 = '3' and t10.n1 = t10.n2 and t2.n1 = t10.n2 and t11.n1 = t11.n2 and t3.n1 = t11.n2 and t12.n1 = t12.n2 and t4.n1 = t12.n2 and t13.n1 = t13.n2 and t5.n1 = t13.n2 and t14.n1 = t14.n2 and t6.n1 = t14.n2 and t15.n1 = t15.n2 and t7.n1 = t15.n2 and t16.n1 = t16.n2 and t8.n1 = t16.n2
+WARNING:root:data execution time: 1.0635478496551514
+WARNING:root:condition execution time: 0.004971981048583984
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.009997129440307617
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.009590387344360352
+WARNING:root:z3 execution time: 0.09652328491210938
+WARNING:root:Execution time on sql for group 3 on size 100: 2.012479782104492
+INFO:root:Group 4, length 7: [('i_21', '21'), ('21', 'x18'), ('x18', 'x11'), ('x11', 'i_18'), ('21', '21'), ('x18', 'x18'), ('x11', 'x11')]
+INFO:root:SQL for group 4 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_21' and t0.n2 = '21' and t1.n1 = '21' and t1.n2 = t2.n1 and t3.n2 = 'i_18' and t2.n2 = t3.n1 and t4.n1 = '21' and t4.n2 = '21' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4386711120605469
+WARNING:root:condition execution time: 0.002527952194213867
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.01743340492248535
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023554325103759766
+WARNING:root:z3 execution time: 0.10932350158691406
+WARNING:root:Execution time on sql for group 4 on size 100: 2.6052746772766113
+INFO:root:Group 5, length 29: [('i_18', '18'), ('18', 'x26'), ('x26', 'x41'), ('x41', 'x32'), ('x32', 'x9'), ('x9', 'x7'), ('x7', 'x64'), ('x64', 'x10'), ('x10', 'x31'), ('x31', 'x53'), ('x53', 'x61'), ('x61', 'x24'), ('x24', 'x58'), ('x58', 'x43'), ('x43', 'i_4'), ('18', '18'), ('x26', 'x26'), ('x41', 'x41'), ('x32', 'x32'), ('x9', 'x9'), ('x7', 'x7'), ('x64', 'x64'), ('x10', 'x10'), ('x31', 'x31'), ('x53', 'x53'), ('x61', 'x61'), ('x24', 'x24'), ('x58', 'x58'), ('x43', 'x43')]
+INFO:root:SQL for group 5 on size 100: select t0.n1, t0.n2, t14.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16, Tv100 t17, Tv100 t18, Tv100 t19, Tv100 t20, Tv100 t21, Tv100 t22, Tv100 t23, Tv100 t24, Tv100 t25, Tv100 t26, Tv100 t27, Tv100 t28 where t0.n1 = 'i_18' and t0.n2 = '18' and t1.n1 = '18' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1 and t8.n2 = t9.n1 and t9.n2 = t10.n1 and t10.n2 = t11.n1 and t11.n2 = t12.n1 and t12.n2 = t13.n1 and t14.n2 = 'i_4' and t13.n2 = t14.n1 and t15.n1 = '18' and t15.n2 = '18' and t16.n1 = t16.n2 and t2.n1 = t16.n2 and t17.n1 = t17.n2 and t3.n1 = t17.n2 and t18.n1 = t18.n2 and t4.n1 = t18.n2 and t19.n1 = t19.n2 and t5.n1 = t19.n2 and t20.n1 = t20.n2 and t6.n1 = t20.n2 and t21.n1 = t21.n2 and t7.n1 = t21.n2 and t22.n1 = t22.n2 and t8.n1 = t22.n2 and t23.n1 = t23.n2 and t9.n1 = t23.n2 and t24.n1 = t24.n2 and t10.n1 = t24.n2 and t25.n1 = t25.n2 and t11.n1 = t25.n2 and t26.n1 = t26.n2 and t12.n1 = t26.n2 and t27.n1 = t27.n2 and t13.n1 = t27.n2 and t28.n1 = t28.n2 and t14.n1 = t28.n2
+WARNING:root:data execution time: 1.840796947479248
+WARNING:root:condition execution time: 0.007666349411010742
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.011677026748657227
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.011196613311767578
+WARNING:root:z3 execution time: 0.09208035469055176
+WARNING:root:Execution time on sql for group 5 on size 100: 4.664628505706787
+INFO:root:Group 6, length 3: [('i_4', '4'), ('4', 'i_26'), ('4', '4')]
+INFO:root:SQL for group 6 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_4' and t0.n2 = '4' and t1.n1 = '4' and t1.n2 = 'i_26' and t2.n1 = '4' and t2.n2 = '4'
+WARNING:root:data execution time: 0.04740428924560547
+WARNING:root:condition execution time: 0.005933284759521484
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024086952209472656
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02362060546875
+WARNING:root:z3 execution time: 0.12550783157348633
+WARNING:root:Execution time on sql for group 6 on size 100: 4.8822009563446045
+INFO:root:Group 7, length 3: [('i_26', '26'), ('26', 'i_8'), ('26', '26')]
+INFO:root:SQL for group 7 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_26' and t0.n2 = '26' and t1.n1 = '26' and t1.n2 = 'i_8' and t2.n1 = '26' and t2.n2 = '26'
+WARNING:root:data execution time: 0.04731464385986328
+WARNING:root:condition execution time: 0.006047248840332031
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024251699447631836
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023906946182250977
+WARNING:root:z3 execution time: 0.15215516090393066
+WARNING:root:Execution time on sql for group 7 on size 100: 5.1508402824401855
+INFO:root:Group 8, length 3: [('i_8', '8'), ('8', 'i_7'), ('8', '8')]
+INFO:root:SQL for group 8 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_8' and t0.n2 = '8' and t1.n1 = '8' and t1.n2 = 'i_7' and t2.n1 = '8' and t2.n2 = '8'
+WARNING:root:data execution time: 0.055825233459472656
+WARNING:root:condition execution time: 0.0059893131256103516
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.026311874389648438
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02358555793762207
+WARNING:root:z3 execution time: 0.13742494583129883
+WARNING:root:Execution time on sql for group 8 on size 100: 5.40073299407959
+INFO:root:Group 9, length 3: [('i_7', '7'), ('7', 'i_10'), ('7', '7')]
+INFO:root:SQL for group 9 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_7' and t0.n2 = '7' and t1.n1 = '7' and t1.n2 = 'i_10' and t2.n1 = '7' and t2.n2 = '7'
+WARNING:root:data execution time: 0.048333168029785156
+WARNING:root:condition execution time: 0.005962848663330078
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024115562438964844
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02361297607421875
+WARNING:root:z3 execution time: 0.14548945426940918
+WARNING:root:Execution time on sql for group 9 on size 100: 5.651605844497681
+INFO:root:Group 10, length 7: [('i_10', '10'), ('10', 'x42'), ('x42', 'x35'), ('x35', 'i_27'), ('10', '10'), ('x42', 'x42'), ('x35', 'x35')]
+INFO:root:SQL for group 10 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_10' and t0.n2 = '10' and t1.n1 = '10' and t1.n2 = t2.n1 and t3.n2 = 'i_27' and t2.n2 = t3.n1 and t4.n1 = '10' and t4.n2 = '10' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4389355182647705
+WARNING:root:condition execution time: 0.002593517303466797
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.021401166915893555
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023674726486206055
+WARNING:root:z3 execution time: 0.12102866172790527
+WARNING:root:Execution time on sql for group 10 on size 100: 6.2511146068573
+INFO:root:Group 11, length 5: [('i_27', '27'), ('27', 'x12'), ('x12', 'i_6'), ('27', '27'), ('x12', 'x12')]
+INFO:root:SQL for group 11 on size 100: select t0.n1, t0.n2, t2.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4 where t0.n1 = 'i_27' and t0.n2 = '27' and t1.n1 = '27' and t2.n2 = 'i_6' and t1.n2 = t2.n1 and t3.n1 = '27' and t3.n2 = '27' and t4.n1 = t4.n2 and t2.n1 = t4.n2
+WARNING:root:data execution time: 0.3337891101837158
+WARNING:root:condition execution time: 0.002663135528564453
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.016166210174560547
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.015931129455566406
+WARNING:root:z3 execution time: 0.11406278610229492
+WARNING:root:Execution time on sql for group 11 on size 100: 6.73653769493103
+INFO:root:Group 12, length 7: [('i_6', '6'), ('6', 'x37'), ('x37', 'x23'), ('x23', 'i_12'), ('6', '6'), ('x37', 'x37'), ('x23', 'x23')]
+INFO:root:SQL for group 12 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_6' and t0.n2 = '6' and t1.n1 = '6' and t1.n2 = t2.n1 and t3.n2 = 'i_12' and t2.n2 = t3.n1 and t4.n1 = '6' and t4.n2 = '6' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4412691593170166
+WARNING:root:condition execution time: 0.0024001598358154297
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.018341541290283203
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0172884464263916
+WARNING:root:z3 execution time: 0.10865974426269531
+WARNING:root:Execution time on sql for group 12 on size 100: 7.31914758682251
+INFO:root:Group 13, length 3: [('i_12', '12'), ('12', 'i_13'), ('12', '12')]
+INFO:root:SQL for group 13 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_12' and t0.n2 = '12' and t1.n1 = '12' and t1.n2 = 'i_13' and t2.n1 = '12' and t2.n2 = '12'
+WARNING:root:data execution time: 0.03777623176574707
+WARNING:root:condition execution time: 0.005698442459106445
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.0252382755279541
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023647069931030273
+WARNING:root:z3 execution time: 0.1235191822052002
+WARNING:root:Execution time on sql for group 13 on size 100: 7.529451608657837
+INFO:root:Group 14, length 3: [('i_13', '13'), ('13', 'i_28'), ('13', '13')]
+INFO:root:SQL for group 14 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_13' and t0.n2 = '13' and t1.n1 = '13' and t1.n2 = 'i_28' and t2.n1 = '13' and t2.n2 = '13'
+WARNING:root:data execution time: 0.04411768913269043
+WARNING:root:condition execution time: 0.0059702396392822266
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.024405479431152344
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023691654205322266
+WARNING:root:z3 execution time: 0.12361502647399902
+WARNING:root:Execution time on sql for group 14 on size 100: 7.746768951416016
+INFO:root:Group 15, length 3: [('i_28', '28'), ('28', 'i_5'), ('28', '28')]
+INFO:root:SQL for group 15 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_28' and t0.n2 = '28' and t1.n1 = '28' and t1.n2 = 'i_5' and t2.n1 = '28' and t2.n2 = '28'
+WARNING:root:data execution time: 0.04464840888977051
+WARNING:root:condition execution time: 0.005903720855712891
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.0240323543548584
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023756980895996094
+WARNING:root:z3 execution time: 0.12402009963989258
+WARNING:root:Execution time on sql for group 15 on size 100: 7.963663101196289
+INFO:root:Group 16, length 19: [('i_5', '5'), ('5', 'x19'), ('x19', 'x57'), ('x57', 'x16'), ('x16', 'x55'), ('x55', 'x22'), ('x22', 'x38'), ('x38', 'x49'), ('x49', 'x5'), ('x5', 'i_15'), ('5', '5'), ('x19', 'x19'), ('x57', 'x57'), ('x16', 'x16'), ('x55', 'x55'), ('x22', 'x22'), ('x38', 'x38'), ('x49', 'x49'), ('x5', 'x5')]
+INFO:root:SQL for group 16 on size 100: select t0.n1, t0.n2, t9.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16, Tv100 t17, Tv100 t18 where t0.n1 = 'i_5' and t0.n2 = '5' and t1.n1 = '5' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1 and t9.n2 = 'i_15' and t8.n2 = t9.n1 and t10.n1 = '5' and t10.n2 = '5' and t11.n1 = t11.n2 and t2.n1 = t11.n2 and t12.n1 = t12.n2 and t3.n1 = t12.n2 and t13.n1 = t13.n2 and t4.n1 = t13.n2 and t14.n1 = t14.n2 and t5.n1 = t14.n2 and t15.n1 = t15.n2 and t6.n1 = t15.n2 and t16.n1 = t16.n2 and t7.n1 = t16.n2 and t17.n1 = t17.n2 and t8.n1 = t17.n2 and t18.n1 = t18.n2 and t9.n1 = t18.n2
+WARNING:root:data execution time: 1.110736608505249
+WARNING:root:condition execution time: 0.005246639251708984
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.007009983062744141
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.006689786911010742
+WARNING:root:z3 execution time: 0.10873031616210938
+WARNING:root:Execution time on sql for group 16 on size 100: 9.247263193130493
+INFO:root:Group 17, length 3: [('i_15', '15'), ('15', 'i_2'), ('15', '15')]
+INFO:root:SQL for group 17 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_15' and t0.n2 = '15' and t1.n1 = '15' and t1.n2 = 'i_2' and t2.n1 = '15' and t2.n2 = '15'
+WARNING:root:data execution time: 0.05827164649963379
+WARNING:root:condition execution time: 0.0060863494873046875
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02411508560180664
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.02357649803161621
+WARNING:root:z3 execution time: 0.12665748596191406
+WARNING:root:Execution time on sql for group 17 on size 100: 9.489943504333496
+INFO:root:Group 18, length 9: [('i_2', '2'), ('2', 'x28'), ('x28', 'x8'), ('x8', 'x30'), ('x30', 'i_23'), ('2', '2'), ('x28', 'x28'), ('x8', 'x8'), ('x30', 'x30')]
+INFO:root:SQL for group 18 on size 100: select t0.n1, t0.n2, t4.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8 where t0.n1 = 'i_2' and t0.n2 = '2' and t1.n1 = '2' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t4.n2 = 'i_23' and t3.n2 = t4.n1 and t5.n1 = '2' and t5.n2 = '2' and t6.n1 = t6.n2 and t2.n1 = t6.n2 and t7.n1 = t7.n2 and t3.n1 = t7.n2 and t8.n1 = t8.n2 and t4.n1 = t8.n2
+WARNING:root:data execution time: 0.5396401882171631
+WARNING:root:condition execution time: 0.0030736923217773438
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.01775979995727539
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.017199277877807617
+WARNING:root:z3 execution time: 0.10578227043151855
+WARNING:root:Execution time on sql for group 18 on size 100: 10.182242155075073
+INFO:root:Group 19, length 7: [('i_23', '23'), ('23', 'x51'), ('x51', 'x2'), ('x2', 'i_9'), ('23', '23'), ('x51', 'x51'), ('x2', 'x2')]
+INFO:root:SQL for group 19 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_23' and t0.n2 = '23' and t1.n1 = '23' and t1.n2 = t2.n1 and t3.n2 = 'i_9' and t2.n2 = t3.n1 and t4.n1 = '23' and t4.n2 = '23' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.44831061363220215
+WARNING:root:condition execution time: 0.0026199817657470703
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.007481575012207031
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.0068111419677734375
+WARNING:root:z3 execution time: 0.08572840690612793
+WARNING:root:Execution time on sql for group 19 on size 100: 10.764083862304688
+INFO:root:Group 20, length 21: [('i_9', '9'), ('9', 'x27'), ('x27', 'x33'), ('x33', 'x3'), ('x3', 'x1'), ('x1', 'x56'), ('x56', 'x66'), ('x66', 'x54'), ('x54', 'x17'), ('x17', 'x21'), ('x21', 'i_20'), ('9', '9'), ('x27', 'x27'), ('x33', 'x33'), ('x3', 'x3'), ('x1', 'x1'), ('x56', 'x56'), ('x66', 'x66'), ('x54', 'x54'), ('x17', 'x17'), ('x21', 'x21')]
+INFO:root:SQL for group 20 on size 100: select t0.n1, t0.n2, t10.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16, Tv100 t17, Tv100 t18, Tv100 t19, Tv100 t20 where t0.n1 = 'i_9' and t0.n2 = '9' and t1.n1 = '9' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1 and t8.n2 = t9.n1 and t10.n2 = 'i_20' and t9.n2 = t10.n1 and t11.n1 = '9' and t11.n2 = '9' and t12.n1 = t12.n2 and t2.n1 = t12.n2 and t13.n1 = t13.n2 and t3.n1 = t13.n2 and t14.n1 = t14.n2 and t4.n1 = t14.n2 and t15.n1 = t15.n2 and t5.n1 = t15.n2 and t16.n1 = t16.n2 and t6.n1 = t16.n2 and t17.n1 = t17.n2 and t7.n1 = t17.n2 and t18.n1 = t18.n2 and t8.n1 = t18.n2 and t19.n1 = t19.n2 and t9.n1 = t19.n2 and t20.n1 = t20.n2 and t10.n1 = t20.n2
+WARNING:root:data execution time: 1.2352662086486816
+WARNING:root:condition execution time: 0.0057926177978515625
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02410435676574707
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023730754852294922
+WARNING:root:z3 execution time: 0.13628864288330078
+WARNING:root:Execution time on sql for group 20 on size 100: 12.208276271820068
+INFO:root:Group 21, length 7: [('i_20', '20'), ('20', 'x14'), ('x14', 'x48'), ('x48', 'i_25'), ('20', '20'), ('x14', 'x14'), ('x48', 'x48')]
+INFO:root:SQL for group 21 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_20' and t0.n2 = '20' and t1.n1 = '20' and t1.n2 = t2.n1 and t3.n2 = 'i_25' and t2.n2 = t3.n1 and t4.n1 = '20' and t4.n2 = '20' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.4443330764770508
+WARNING:root:condition execution time: 0.0027141571044921875
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.008483648300170898
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.007910966873168945
+WARNING:root:z3 execution time: 0.10578584671020508
+WARNING:root:Execution time on sql for group 21 on size 100: 12.807335615158081
+INFO:root:Group 22, length 3: [('i_25', '25'), ('25', 'i_14'), ('25', '25')]
+INFO:root:SQL for group 22 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_25' and t0.n2 = '25' and t1.n1 = '25' and t1.n2 = 'i_14' and t2.n1 = '25' and t2.n2 = '25'
+WARNING:root:data execution time: 0.048290252685546875
+WARNING:root:condition execution time: 0.005944967269897461
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02389812469482422
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023610830307006836
+WARNING:root:z3 execution time: 0.13286733627319336
+WARNING:root:Execution time on sql for group 22 on size 100: 13.034672260284424
+INFO:root:Group 23, length 5: [('i_14', '14'), ('14', 'x29'), ('x29', 'i_16'), ('14', '14'), ('x29', 'x29')]
+INFO:root:SQL for group 23 on size 100: select t0.n1, t0.n2, t2.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4 where t0.n1 = 'i_14' and t0.n2 = '14' and t1.n1 = '14' and t2.n2 = 'i_16' and t1.n2 = t2.n1 and t3.n1 = '14' and t3.n2 = '14' and t4.n1 = t4.n2 and t2.n1 = t4.n2
+WARNING:root:data execution time: 0.37984585762023926
+WARNING:root:condition execution time: 0.002004384994506836
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.020047903060913086
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.021033763885498047
+WARNING:root:z3 execution time: 0.11694025993347168
+WARNING:root:Execution time on sql for group 23 on size 100: 13.567465782165527
+INFO:root:Group 24, length 11: [('i_16', '16'), ('16', 'x34'), ('x34', 'x62'), ('x62', 'x60'), ('x60', 'x52'), ('x52', 'i_24'), ('16', '16'), ('x34', 'x34'), ('x62', 'x62'), ('x60', 'x60'), ('x52', 'x52')]
+INFO:root:SQL for group 24 on size 100: select t0.n1, t0.n2, t5.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10 where t0.n1 = 'i_16' and t0.n2 = '16' and t1.n1 = '16' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t5.n2 = 'i_24' and t4.n2 = t5.n1 and t6.n1 = '16' and t6.n2 = '16' and t7.n1 = t7.n2 and t2.n1 = t7.n2 and t8.n1 = t8.n2 and t3.n1 = t8.n2 and t9.n1 = t9.n2 and t4.n1 = t9.n2 and t10.n1 = t10.n2 and t5.n1 = t10.n2
+WARNING:root:data execution time: 0.6564710140228271
+WARNING:root:condition execution time: 0.0033512115478515625
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.006647348403930664
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.00604701042175293
+WARNING:root:z3 execution time: 0.1056070327758789
+WARNING:root:Execution time on sql for group 24 on size 100: 14.385256052017212
+INFO:root:Group 25, length 3: [('i_24', '24'), ('24', 'i_17'), ('24', '24')]
+INFO:root:SQL for group 25 on size 100: select t0.n1, t0.n2, t1.n2 from Tv100 t0, Tv100 t1, Tv100 t2 where t0.n1 = 'i_24' and t0.n2 = '24' and t1.n1 = '24' and t1.n2 = 'i_17' and t2.n1 = '24' and t2.n2 = '24'
+WARNING:root:data execution time: 0.055536746978759766
+WARNING:root:condition execution time: 0.006120443344116211
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.02407240867614746
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.023560285568237305
+WARNING:root:z3 execution time: 0.12561535835266113
+WARNING:root:Execution time on sql for group 25 on size 100: 14.611491203308105
+INFO:root:Group 26, length 17: [('i_17', '17'), ('17', 'x50'), ('x50', 'x59'), ('x59', 'x45'), ('x45', 'x70'), ('x70', 'x40'), ('x40', 'x4'), ('x4', 'x47'), ('x47', 'i_29'), ('17', '17'), ('x50', 'x50'), ('x59', 'x59'), ('x45', 'x45'), ('x70', 'x70'), ('x40', 'x40'), ('x4', 'x4'), ('x47', 'x47')]
+INFO:root:SQL for group 26 on size 100: select t0.n1, t0.n2, t8.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8, Tv100 t9, Tv100 t10, Tv100 t11, Tv100 t12, Tv100 t13, Tv100 t14, Tv100 t15, Tv100 t16 where t0.n1 = 'i_17' and t0.n2 = '17' and t1.n1 = '17' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t8.n2 = 'i_29' and t7.n2 = t8.n1 and t9.n1 = '17' and t9.n2 = '17' and t10.n1 = t10.n2 and t2.n1 = t10.n2 and t11.n1 = t11.n2 and t3.n1 = t11.n2 and t12.n1 = t12.n2 and t4.n1 = t12.n2 and t13.n1 = t13.n2 and t5.n1 = t13.n2 and t14.n1 = t14.n2 and t6.n1 = t14.n2 and t15.n1 = t15.n2 and t7.n1 = t15.n2 and t16.n1 = t16.n2 and t8.n1 = t16.n2
+WARNING:root:data execution time: 1.0706710815429688
+WARNING:root:condition execution time: 0.004738330841064453
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.018321752548217773
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.021031856536865234
+WARNING:root:z3 execution time: 0.10849738121032715
+WARNING:root:Execution time on sql for group 26 on size 100: 15.855085849761963
+INFO:root:Group 27, length 7: [('i_29', '29'), ('29', 'x15'), ('x15', 'x44'), ('x44', 'i_19'), ('29', '29'), ('x15', 'x15'), ('x44', 'x44')]
+INFO:root:SQL for group 27 on size 100: select t0.n1, t0.n2, t3.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6 where t0.n1 = 'i_29' and t0.n2 = '29' and t1.n1 = '29' and t1.n2 = t2.n1 and t3.n2 = 'i_19' and t2.n2 = t3.n1 and t4.n1 = '29' and t4.n2 = '29' and t5.n1 = t5.n2 and t2.n1 = t5.n2 and t6.n1 = t6.n2 and t3.n1 = t6.n2
+WARNING:root:data execution time: 0.44625258445739746
+WARNING:root:condition execution time: 0.0025207996368408203
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.006833791732788086
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.006195783615112305
+WARNING:root:z3 execution time: 0.08370518684387207
+WARNING:root:Execution time on sql for group 27 on size 100: 16.43682861328125
+INFO:root:Group 28, length 9: [('i_19', '19'), ('19', 'x65'), ('x65', 'x6'), ('x6', 'x63'), ('x63', 'i_11'), ('19', '19'), ('x65', 'x65'), ('x6', 'x6'), ('x63', 'x63')]
+INFO:root:SQL for group 28 on size 100: select t0.n1, t0.n2, t4.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4, Tv100 t5, Tv100 t6, Tv100 t7, Tv100 t8 where t0.n1 = 'i_19' and t0.n2 = '19' and t1.n1 = '19' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t4.n2 = 'i_11' and t3.n2 = t4.n1 and t5.n1 = '19' and t5.n2 = '19' and t6.n1 = t6.n2 and t2.n1 = t6.n2 and t7.n1 = t7.n2 and t3.n1 = t7.n2 and t8.n1 = t8.n2 and t4.n1 = t8.n2
+WARNING:root:data execution time: 0.5441546440124512
+WARNING:root:condition execution time: 0.0031142234802246094
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.005628824234008789
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.004937887191772461
+WARNING:root:z3 execution time: 0.08182334899902344
+WARNING:root:Execution time on sql for group 28 on size 100: 17.103940963745117
+INFO:root:Group 29, length 5: [('i_11', '11'), ('11', 'x13'), ('x13', '30'), ('11', '11'), ('x13', 'x13')]
+INFO:root:SQL for group 29 on size 100: select t0.n1, t0.n2, t2.n2 from Tv100 t0, Tv100 t1, Tv100 t2, Tv100 t3, Tv100 t4 where t0.n1 = 'i_11' and t0.n2 = '11' and t1.n1 = '11' and t2.n2 = '30' and t1.n2 = t2.n1 and t3.n1 = '11' and t3.n2 = '11' and t4.n1 = t4.n2 and t2.n1 = t4.n2
+WARNING:root:data execution time: 0.2792503833770752
+WARNING:root:condition execution time: 0.002133607864379883
+INFO:root:size of input(delete contradiction): 1
+WARNING:root:delete contradiction execution time: 0.005532979965209961
+INFO:root:size of input(remove redundancy and tautology): 1
+WARNING:root:remove redundancy and tautology execution time: 0.00043082237243652344
+WARNING:root:z3 execution time: 0.08652925491333008
+WARNING:root:Execution time on sql for group 29 on size 100: 17.50461769104004
+WARNING:root:Total execution time on size 100: 262.3861584663391
+INFO:root:-------------------------------
+
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Tue Jan  4 17:23:28 2022+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1, length 6: [('1', 'x55'), ('x55', 'x12'), ('x12', 'i_12'), ('1', '1'), ('x55', 'x55'), ('x12', 'x12')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t2.n2 from Tvt100 t0, Tvt100 t1, Tvt100 t2, Tvt100 t3, Tvt100 t4, Tvt100 t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = 'i_12' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2
+WARNING:root:Execution time on sql for group 1 on size 100: 2.38047194480896
+WARNING:root:Total execution time on size 100: 0
+INFO:root:-------------------------------
+
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Tue Jan  4 17:24:54 2022+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1, length 6: [('1', 'x55'), ('x55', 'x12'), ('x12', 'i_12'), ('1', '1'), ('x55', 'x55'), ('x12', 'x12')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t2.n2 from Tvt100 t0, Tvt100 t1, Tvt100 t2, Tvt100 t3, Tvt100 t4, Tvt100 t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = 'i_12' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2
+WARNING:root:Execution time on sql for group 1 on size 100: 2.3837543964385985
+WARNING:root:Total execution time on size 100: 0
+INFO:root:-------------------------------
+
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Tue Jan  4 17:26:48 2022+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1, length 6: [('1', 'x55'), ('x55', 'x12'), ('x12', 'i_12'), ('1', '1'), ('x55', 'x55'), ('x12', 'x12')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t2.n2 from Tvt100 t0, Tvt100 t1, Tvt100 t2, Tvt100 t3, Tvt100 t4, Tvt100 t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = 'i_12' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2
+WARNING:root:Execution time on sql for group 1 on size 100: 0.38319053649902346
+WARNING:root:Total execution time on size 100: 0
+INFO:root:-------------------------------
+
+INFO:root:+++++++++++++++++++++++++++++++++++Running Date:Tue Jan  4 17:28:44 2022+++++++++++++++++++++++++++++++++++
+INFO:root:Size of chain: 100
+INFO:root:Group 1, length 6: [('1', 'x55'), ('x55', 'x12'), ('x12', 'i_12'), ('1', '1'), ('x55', 'x55'), ('x12', 'x12')]
+INFO:root:SQL for group 1 on size 100: select t0.n1, t2.n2 from Tvt100 t0, Tvt100 t1, Tvt100 t2, Tvt100 t3, Tvt100 t4, Tvt100 t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = 'i_12' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2
+WARNING:root:Execution time on sql for group 1 on size 100: 0.38030664920806884
+WARNING:root:Total execution time on size 100: 0
+INFO:root:-------------------------------
+
