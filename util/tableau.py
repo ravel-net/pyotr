@@ -108,10 +108,10 @@ def gen_large_chain(size=10, rate=0.3):
     for i in range(cons_size-1):
         overlay_path.append((overlay_nodes[i], overlay_nodes[i+1]))
 
-    print(node_list)
-    print(forward_path)
-    print(overlay_nodes)
-    print(overlay_path)
+    # print(node_list)
+    # print(forward_path)
+    # print(overlay_nodes)
+    # print(overlay_path)
     return forward_path, node_list, overlay_path, overlay_nodes
 
 def display(tuples, self_tuples):
