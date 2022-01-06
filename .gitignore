@@ -38,3 +38,10 @@ experiment_code/generate_tables/generate_text_inet/old/gen_f_table.py
 experiment_code/generate_tables/generate_text_inet/old/gen_ribDB.py
 experiment_code/generate_tables/generate_text_inet/old/gen_r_table.py
 experiment_code/generate_tables/generate_inet_faure/f_table_rib1000.fid_and_faure.txt
+orch_log.sql
+ravel/sql/flows.sql
+ravel/sql/topo.sql
+ravel/sql/flows.sql
+ravel/sql/topo.sql
+ravel/sql/topo.sql
+ravel/sql/flows.sql

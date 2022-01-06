@@ -101,6 +101,16 @@ AS $$
 
 $$ LANGUAGE SQL;
 
+
+CREATE OR REPLACE FUNCTION get_constant(a TEXT)
+    RETURNS TEXT
+AS $$
+    if a.startswith("i_"):
+        return a.split("_")[1].strip()
+    else:
+        return a
+$$ LANGUAGE plpython3u;
+
 --DROP FUNCTION If EXISTS equal(text, text) CASCADE;
 
 CREATE OR REPLACE FUNCTION equal(col1 TEXT, col2 TEXT)
@@ -109,7 +119,7 @@ $$
 select 
 CASE WHEN col1 = col2 THEN True
 
-    WHEN is_var(col1) or is_var(col2) THEN True
+    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
 
     ELSE False
     END

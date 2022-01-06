@@ -268,3 +268,16 @@ SELECT * from test_inet_faure where a > '192.168.100.0';
 -- clean up the example
 DROP TABLE test_inet_faure;
 -- DROP TYPE inet_faure CASCADE;
+
+-- CREATE TABLE test2(n1 TEXT, n2 TEXT, condition TEXT[]);
+-- INSERT INTO test2 VALUES('1','x2');
+-- INSERT INTO test2 VALUES('x2','i_2');
+-- INSERT INTO test2 VALUES('i_2','2');
+-- INSERT INTO test2 VALUES('2','x1');
+-- INSERT INTO test2 VALUES('x1','x3');
+-- INSERT INTO test2 VALUES('x3','3');
+-- INSERT INTO test2 VALUES('1','1');
+-- INSERT INTO test2 VALUES('x2','x2');
+-- INSERT INTO test2 VALUES('2','2');
+-- INSERT INTO test2 VALUES('x1','x1');
+-- INSERT INTO test2 VALUES('x3','x3');
