@@ -6,6 +6,7 @@ class Graph:
         self.adj = [[] for i in range(self.V)]
         self.mapping = {}
         self.reverse_mapping = []
+        self.variables = variables
         for i in range(0,self.V):
           self.mapping[variables[i]] = i #maps variables to i
           self.reverse_mapping.append(variables[i])
@@ -48,7 +49,8 @@ class Graph:
         for component in cc:
             component_number += 1
             for var in component:
-                reverse_cc[var] = component_number
+                if (var in self.variables):
+                    reverse_cc[var] = component_number
         return reverse_cc
 
  
