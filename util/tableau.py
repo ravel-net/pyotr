@@ -124,12 +124,6 @@ def display(tuples, self_tuples):
 
     print("****************************\n")
 
-def unvar(node):
-    if node.startswith("i_"):
-        return node[2:]
-    else:
-        return node
-
 def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     """
     Convert tableau to corresponding SQL
@@ -163,20 +157,20 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
         # (n1, n2, _) = tableau[i]
         n1 = tableau[i][0]
         n2 = tableau[i][1]
-        if unvar(n1) in overlay_nodes:
+        if n1 in overlay_nodes:
             constraints.append("t{}.n1 = '{}'".format(i, n1))
             if n1 != n2 and n1 != last:
                 cols.append("t{}.n1".format(i))
-        if unvar(n2) in overlay_nodes:
+        if n2 in overlay_nodes:
             constraints.append("t{}.n2 = '{}'".format(i, n2))
             if n1 != n2:
                 cols.append("t{}.n2".format(i))
         
-        if n1 == last and unvar(n1) not in overlay_nodes:
+        if n1 == last and n1 not in overlay_nodes:
             constraints.append("t{}.n2 = t{}.n1".format(i-1, i))
             var_dict[n1] = i
         
-        if unvar(n1) not in overlay_nodes and unvar(n2) not in overlay_nodes and n1 == n2:
+        if n1 not in overlay_nodes and n2 not in overlay_nodes and n1 == n2:
             constraints.append("t{}.n1 = t{}.n2".format(i, i))
             if n1 in var_dict.keys():
                 constraints.append("t{}.n1 = t{}.n2".format(var_dict[n1], i))

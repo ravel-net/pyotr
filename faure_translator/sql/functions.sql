@@ -13,15 +13,15 @@ AS $$
 
 $$ LANGUAGE SQL;
 
-CREATE OR REPLACE FUNCTION get_constant(a text)
-    RETURNS TEXT
-AS $$
-    if a.startswith("i_"):
-        return a.split("_")[1].strip()
-    else:
-        return a
+-- CREATE OR REPLACE FUNCTION get_constant(a text)
+--     RETURNS TEXT
+-- AS $$
+--     if a.startswith("i_"):
+--         return a.split("_")[1].strip()
+--     else:
+--         return a
 
-$$ LANGUAGE plpython3u;
+-- $$ LANGUAGE plpython3u;
 
 --DROP FUNCTION If EXISTS equal(text, text) CASCADE;
 
@@ -31,7 +31,7 @@ $$
 select 
 CASE WHEN col1 = col2 THEN True
 
-    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
+    WHEN is_var(col1) or is_var(col2) THEN True
 
     ELSE False
     END
@@ -45,8 +45,8 @@ $$
 select 
 CASE 
 
-    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
-    WHEN col1 != col2 and not (is_var(get_constant(col1)) or is_var(get_constant(col2))) THEN True
+    WHEN is_var(col1) or is_var(col2) THEN True
+    WHEN col1 != col2 and not (is_var(col1) or is_var(col2)) THEN True
 
     ELSE False
     END
@@ -60,8 +60,8 @@ $$
 select 
 CASE 
 
-    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
-    WHEN (col1 > col2 or col1 = col2) and not (is_var(get_constant(col1)) or is_var(get_constant(col2))) THEN True
+    WHEN is_var(col1) or is_var(col2) THEN True
+    WHEN (col1 > col2 or col1 = col2) and not (is_var(col1) or is_var(col2)) THEN True
 
     ELSE False
     END
@@ -75,8 +75,8 @@ $$
 select 
 CASE 
 
-    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
-    WHEN (col1 < col2 or col1 = col2) and not (is_var(get_constant(col1)) or is_var(get_constant(col2))) THEN True
+    WHEN is_var(col1) or is_var(col2) THEN True
+    WHEN (col1 < col2 or col1 = col2) and not (is_var(col1) or is_var(col2)) THEN True
 
     ELSE False
     END
@@ -90,8 +90,8 @@ $$
 select 
 CASE 
 
-    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
-    WHEN col1 > col2 and not (is_var(get_constant(col1)) or is_var(get_constant(col2))) THEN True
+    WHEN is_var(col1) or is_var(col2) THEN True
+    WHEN col1 > col2 and not (is_var(col1) or is_var(col2)) THEN True
 
     ELSE False
     END
@@ -105,8 +105,8 @@ $$
 select 
 CASE 
 
-    WHEN is_var(get_constant(col1)) or is_var(get_constant(col2)) THEN True
-    WHEN col1 < col2 and not (is_var(get_constant(col1)) or is_var(get_constant(col2))) THEN True
+    WHEN is_var(col1) or is_var(col2) THEN True
+    WHEN col1 < col2 and not (is_var(col1) or is_var(col2)) THEN True
 
     ELSE False
     END
