@@ -20,7 +20,7 @@
 #ifndef INT_FAURE_H
 #define INT_FAURE_H
 
-#define C_LEN 20
+#define C_LEN 5
 
 typedef struct int4_faure
 {

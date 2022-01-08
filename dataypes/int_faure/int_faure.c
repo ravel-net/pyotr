@@ -33,7 +33,7 @@
 #include <math.h>
 
 #include "fmgr.h"
-
+#include "common/hashfn.h"
 // #include "catalog/pg_type.h"
 // #include "common/int.h"
 #include "int_faure.h"
@@ -57,6 +57,14 @@ int4_faure* int4_faure_new(int32 i, char* c_var) {
 
 bool is_cvar(int4_faure* c) {
 	return (strcmp(C_VAR(c),"0") != 0);
+	// return (strcmp(C_VAR(c),"0") != 0 && C_VAR(c)[0] != 'i');
+}
+
+int get_interface_num(char* c) {
+	int length = strlen(c);
+	char* tmp = malloc(sizeof(char)*length-1); // need to subtract two characters for i_ but want to add null character
+	strncpy(tmp, c+2, length-1);
+	return pg_strtoint32(tmp);
 }
 
 // #define Int2VectorSize(n)	(offsetof(int2vector, values) + (n) * sizeof(int16))
@@ -294,6 +302,9 @@ int4_faurein(PG_FUNCTION_ARGS)
 		strncpy(result->c_var, num, C_LEN);
 	else 
 		result->integer = pg_strtoint32(num);
+	// if(num[0] == 'i')
+	// 	result->integer = get_interface_num(num);
+
 	PG_RETURN_POINTER(result);
 }
 
@@ -406,6 +417,19 @@ bool_int4_faure(PG_FUNCTION_ARGS)
 //  *		intge			- returns 1 iff arg1 >= arg2
 //  */
 
+PG_FUNCTION_INFO_V1(int4_cmp);
+Datum
+int4_cmp(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int4_faure		*arg2 = PG_GETARG_INT32_FAURE(1);
+
+	if (is_cvar(arg1) || is_cvar(arg2))
+		PG_RETURN_BOOL(0);
+
+	PG_RETURN_INT32(arg1->integer-arg2->integer);
+} 
+
 PG_FUNCTION_INFO_V1(int4_faure_eq);
 Datum
 int4_faure_eq(PG_FUNCTION_ARGS)
@@ -443,6 +467,33 @@ int4_faure_lt(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(true);
 
 	PG_RETURN_BOOL(arg1->integer < arg2->integer);
+} 
+
+PG_FUNCTION_INFO_V1(is_var);
+Datum
+is_var(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+	else
+		PG_RETURN_BOOL(false);
+}
+
+PG_FUNCTION_INFO_V1(int4_faure_hash);
+Datum
+int4_faure_hash(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	Datum		result;
+
+	if (is_cvar(arg1))
+		result = hash_any((unsigned char *) C_VAR(arg1), strlen(C_VAR(arg1)));
+	else 
+		result = hash_uint32(DatumGetInt32IntFaure(arg1));
+
+	PG_RETURN_DATUM(result);
 }
 
 PG_FUNCTION_INFO_V1(int4_faure_le);
