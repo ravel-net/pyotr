@@ -10,7 +10,7 @@ import databaseconfig as cfg
 # import logging
 # logging.basicConfig(filename='joins_data/joins_typed.log', level=logging.DEBUG)
 
-conn = psycopg2.connect(host=cfg.postgres["host"], database="exp", user=cfg.postgres["user"], password=cfg.postgres["password"])
+conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
 def generate_tree(query):
     tree = {}
