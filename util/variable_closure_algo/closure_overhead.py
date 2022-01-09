@@ -11,12 +11,13 @@ import tableau as tableau
 import DFS
 
 
-def find_variables(nodes):
+def find_variables(tuples):
 	variables = []
-	for node in nodes:
-		# if not node.isnumeric():
-		if type(node) is not int:
-			variables.append(node)
+	for tuple in tuples:
+		if not tuple[0].isnumeric() and tuple[0] not in variables:
+			variables.append(tuple[0])	
+		if not tuple[1].isnumeric() and tuple[1] not in variables:
+			variables.append(tuple[1])
 	return variables
 
 def construct_Graph(variables, path):
@@ -41,12 +42,12 @@ def calculate_tableau(tuples, reverse_conns, number_components):
     for i in range(0, number_components):
         tableau.append([])
     for tuple in tuples:
-        if (tuple[0] in reverse_conns):
-            component_number = reverse_conns[tuple[0]]-1
-            tableau[component_number].append((tuple[0], tuple[1]))
-        elif (tuple[1] in reverse_conns):
-            component_number = reverse_conns[tuple[1]]-1
-            tableau[component_number].append((tuple[0], tuple[1]))
+    	if (tuple[0] in reverse_conns):
+    		component_number = reverse_conns[tuple[0]]-1
+    		tableau[component_number].append((tuple[0], tuple[1]))
+    	elif (tuple[1] in reverse_conns):
+    		component_number = reverse_conns[tuple[1]]-1
+    		tableau[component_number].append((tuple[0], tuple[1]))
     return tableau
 
 
@@ -59,8 +60,8 @@ if __name__ == '__main__':
     physical_path, physical_nodes, overlay_path, overlay_nodes = tableau.gen_large_chain(size=size, rate=rate)
     physical_tuples, phy_self_tuples = tableau.gen_tableau(path=physical_path, overlay=overlay_nodes)
 
-    variables = find_variables(physical_nodes)
-    graph = construct_Graph(variables, physical_tuples)
+    variables = find_variables(physical_tuples+phy_self_tuples)
+    graph = construct_Graph(variables, physical_tuples+phy_self_tuples)
 
     stats = {}
     start = time.time()
@@ -77,6 +78,8 @@ if __name__ == '__main__':
 
     pp = pprint.PrettyPrinter(indent=4)
     print("\n================Tableau==================")
+    pp.pprint(physical_tuples+phy_self_tuples)
+    print("\n================Minimal Tableau==================")
     pp.pprint(minimal_tableau)
     print("\n================Connected Components==================")
     pp.pprint(conns)
@@ -86,6 +89,5 @@ if __name__ == '__main__':
     print("Note: 1) Execution time is in seconds. 2) Not counting self-tuples")
     # print("==============Physical Tuples====================")
     # print(physical_tuples)
-
 
 
