@@ -41,4 +41,7 @@ rate = 0.2 # the rate of overlay nodes
 for size in sizes:
     f = open("data/exp_faure_close_data{}.txt".format(size), "a") # modify the locatioin of output here.
     ...
+    for idx, group in enumerate(minimal_tableau):
+        ...
+        sql = tableau.convert_closure_group_to_sql(group, "Tvt{}".format(size), chain_data['overlay_nodes']) # use convert_closure_group_to_sql function
 ```
