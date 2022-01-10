@@ -277,7 +277,18 @@ def get_all_columns(tables):
         columns.append([['', '', ' || '.join(col_conds)], 'as', 'condition'])
     # print(columns)
     return columns
-            
+
+def get_extra_columns(select):
+    extra_cols = []
+    for s in select: # s format: [['t0', '.', 'n1'], '', ''] or [['', '', "'1'"], '', ''] select 1
+        col = s[0][2]
+        if "'" in col:
+            p = re.compile(r"'(.*?)'", re.S)
+            col = re.findall(p, col)[0]
+        
+        if col.isdigit(): # select constant number such as 1
+            extra_cols.append([['', '', s[0][2]], 'as', '"{}"'.format(col)])
+    return extra_cols           
 
 #create data content
 def data(tree):
@@ -292,22 +303,12 @@ def data(tree):
     # it may operates selection or projection
     """
     sql = ""
-    # if table_num > 1: 
-    #     columns = get_all_columns(tree['from'])
-    #     new_tree = copy.deepcopy(tree)
-    #     new_tree['select'] = columns
-    #     sql = "create table output as " + tree_to_str(new_tree)
-    #     print(sql)
-
-    # else:
-    #     print("selection or projection")
-    #     print("Step 1: create data content")
-    #     sql = "create table output as " + tree_to_str(tree)
-    #     print(sql)
 
     columns = get_all_columns(tree['from'])
+    extra_cols = get_extra_columns(tree['select'])
+
     new_tree = copy.deepcopy(tree)
-    new_tree['select'] = columns
+    new_tree['select'] = columns + extra_cols
     sql = "create table output as " + tree_to_str(new_tree)
     print(sql)
     
@@ -372,13 +373,16 @@ def upd_condition(tree):
     if '*' in tree['select']:
         # remove duplicated columns
         # print('remove redundent')
+        cursor.execute("select * from output limit 1")
+        cols_name = [row[0] for row in cursor.description]
         begin = time.time()
         for cond in conditions:
             if cond[1] == '=':
                 left_opd = "".join(cond[0])
                 right_opd = "".join(cond[2])
                 sql = "update output set {} = {} where not is_var({})".format(left_opd, right_opd, right_opd)
-                drop_cols.append(right_opd)
+                if right_opd in cols_name:
+                    drop_cols.append(right_opd)
                 print(sql)
                 cursor.execute(sql)
         count_time += time.time() - begin
@@ -386,7 +390,6 @@ def upd_condition(tree):
         # only keep specified columns
         # print('keep specified columns')
         selected_cols = copy.deepcopy(tree['select'])
-
         select_col_dict = {}
         for col in selected_cols:
             if col[0][1] == '.': 

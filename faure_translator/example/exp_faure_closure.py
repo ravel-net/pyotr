@@ -53,8 +53,8 @@ for size in sizes:
     cursor.executemany("insert into Tvt{} values(%s, %s, %s)".format(size), overlay_tuples+olay_self_tuples)
     conn.commit()
 
-    variables = find_variables(chain_data['physical_nodes'])
-    graph = construct_Graph(variables, physical_tuples)
+    variables = find_variables(physical_tuples+phy_self_tuples)
+    graph = construct_Graph(variables, physical_tuples+phy_self_tuples)
     conns = graph.connectedComponents()
     reverse_conns = graph.reverse_connectComponents(conns)
     minimal_tableau = calculate_tableau(physical_tuples+phy_self_tuples, reverse_conns, len(conns))
@@ -65,7 +65,7 @@ for size in sizes:
         row = "{} {} {} ".format(size, idx+1, len(group))
         # logging.info("Group {}, length {}: {}".format(idx+1, len(group), group))
 
-        sql = tableau.convert_tableau_to_sql(group, "Tvt{}".format(size), chain_data['overlay_nodes'])
+        sql = tableau.convert_closure_group_to_sql(group, "Tvt{}".format(size), chain_data['overlay_nodes'])
         tree = generate_tree(sql)
         # logging.info("SQL for group {} on size {}: {}".format(idx+1, size, sql))
         count_data_time = 0
@@ -74,7 +74,7 @@ for size in sizes:
         count_redun_time = 0
         tuples_contrad = 0
         tuples_redun = 0
-        for i in range(10):
+        for i in range(1):
             data_time = data(tree)
             count_data_time += data_time
 
