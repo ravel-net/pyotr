@@ -47,3 +47,17 @@ ravel/sql/topo.sql
 ravel/sql/flows.sql
 
 __pycache__
+faure_translator/int4_faure_explain_17.txt
+faure_translator/int_faure_14_join.log
+faure_translator/join_14_int4_faure
+faure_translator/join_14_text
+faure_translator/join_20_int4_faure
+faure_translator/join_20_text
+faure_translator/postgresql-2022-01-09_025408.log
+faure_translator/postgresql-2022-01-09_042043.log
+faure_translator/postgresql-2022-01-09_043841.log
+faure_translator/query_path_text_17.log
+faure_translator/text_14_join.log
+faure_translator/text_explain_17.txt
+util/tableau-old.py
+pyotr_translator/databaseconfig.py
