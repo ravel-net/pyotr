@@ -448,8 +448,26 @@ def normalization():
     # print("\nz3 execution time:", time.time()-begin)
     # print("red, tau", time.time()-begin)
     cursor.execute("select * from output limit 1")
-    if 'id' not in [row[0] for row in cursor.description]:
+    cols = [row[0] for row in cursor.description]
+    if 'id' not in cols:
         cursor.execute("ALTER TABLE output ADD COLUMN id SERIAL PRIMARY KEY;")
+    else:
+        cols.remove('id')
+    '''
+    delete duplicate rows
+    '''
+    delete_duplicate_row_sql = "DELETE FROM output WHERE id IN ( \
+                SELECT id FROM ( \
+                    SELECT \
+                        id, row_number() OVER w as row_num FROM output \
+                        WINDOW w AS ( \
+                            PARTITION BY {} ORDER BY id \
+                        ) \
+                    ) t \
+                WHERE t.row_num > 1);".format(", ".join(cols))
+    cursor.execute(delete_duplicate_row_sql)
+    print("Deleted duplicate rows: ", cursor.rowcount)
+
     '''
     delete contradiction
     '''
@@ -477,6 +495,12 @@ def normalization():
     # logging.warning("delete contradiction execution time: %s" % str(contr_end-contrd_begin))
 
     '''
+    delete duplicate rows
+    '''
+    cursor.execute(delete_duplicate_row_sql)
+    print("Deleted duplicate rows: ", cursor.rowcount)
+
+    '''
     set tautology and remove redundant
     '''
     print("remove redundant")
@@ -497,9 +521,17 @@ def normalization():
             else:
                 upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
     redun_end = time.time()
+
+    '''
+    delete duplicate rows
+    '''
+    cursor.execute(delete_duplicate_row_sql)
+    print("Deleted duplicate rows: ", cursor.rowcount)
     # logging.warning("remove redundancy and tautology execution time: %s" % str(redun_end-redun_begin))
     
     # logging.warning("z3 execution time: %s" % str((contr_end-contrd_begin)+(redun_end-redun_begin)))
+    print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
+    # print("Z3 execution time: ", contr_end-contrd_begin)
     conn.commit()
     return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
    
