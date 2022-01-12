@@ -61,3 +61,14 @@ faure_translator/text_14_join.log
 faure_translator/text_explain_17.txt
 util/tableau-old.py
 pyotr_translator/databaseconfig.py
+faure_translator/translator2.py
+faure_translator/translator_mubashir.py
+pyotr_translator/translator_mubashir.py
+util/check_tautology/databaseconfig.py
+util/check_tautology/databaseconfig.py
+pyotr_translator/translator_mubashir.py
+faure_translator/translator_mubashir.py
+util/minimization.py
+util/minimization.py
+faure_translator/translator_mubashir.py
+faure_translator/translator_mubashir.py

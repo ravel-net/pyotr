@@ -3,12 +3,8 @@ import z3
 from z3 import Or, And, Not
 import databaseconfig as cfg
 import psycopg2
-
-conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
-cursor = conn.cursor()
-
-# datatype = "String"
-datatype = "Int"
+datatype = "String"
+# datatype = "Int"
 def analyze(condition):
     c_list = condition.split()
 
@@ -26,7 +22,9 @@ def analyze(condition):
     return op1, operator, op2
         
 
-if __name__ == '__main__':
+def table_contains_answer(tablename, domain):
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    cursor = conn.cursor()
     cursor.execute("select distinct 1, 2, condition from output")
 
     begin = time.time()
@@ -61,11 +59,14 @@ if __name__ == '__main__':
     solver.add(eval(final_condition)) # set 
     z3_begin = time.time()
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
-    if ans == z3.sat:
-        model = solver.model()
-        print(model)
     z3_end = time.time()
     print("Answer:", ans, "z3 execution time:", z3_end - z3_begin)
     print("total execution time: ", z3_end - begin)
-    
-
+    conn.commit()
+    conn.close()
+    if ans == z3.sat:
+        model = solver.model()
+        print(model)
+        return False
+    else:
+        return True
