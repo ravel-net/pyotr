@@ -35,11 +35,3 @@ Then store physical_tableau and virtual tableau into database.
 sql = convert_tableau_to_sql(physical_tableau, "Tv", overlay_nodes)
 
 ```
-
-## Generate join query for one closure group
-```python
-
-# Generate join query that applys q_p to T_v.
-sql = convert_closure_group_to_sql(physical_tableau, "Tv", overlay_nodes)
-
-```
