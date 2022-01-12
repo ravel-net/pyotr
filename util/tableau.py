@@ -210,7 +210,7 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     sql : string
         The sql string that can directly run in Postgres 
     """
-    cols = []
+    # cols = []
     tables = []
     constraints = []
     
@@ -224,15 +224,17 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
         n2 = tableau[i][1]
 
         if n1.isdigit():
-            if n1 in overlay_nodes or str(int(n1)-max_val) in overlay_nodes:
-                if n1 != n2 and n1 != last:
-                    cols.append("t{}.n1".format(i))
+            # if n1 in overlay_nodes or str(int(n1)-max_val) in overlay_nodes:
+            #     if n1 != n2 and n1 != last:
+            #         # cols.append("t{}.n1".format(i))
+            #         cols.append(n1)
             constraints.append("t{}.n1 = '{}'".format(i, n1))
         
         if n2.isdigit():
-            if n2 in overlay_nodes or str(int(n2)-max_val) in overlay_nodes:
-                if n1 != n2:
-                    cols.append("t{}.n2".format(i))
+            # if n2 in overlay_nodes or str(int(n2)-max_val) in overlay_nodes:
+            #     if n1 != n2:
+            #         # cols.append("t{}.n2".format(i))
+            #         cols.append(n2)
             constraints.append("t{}.n2 = '{}'".format(i, n2))
 
         if n1 == last and not n1.isdigit():
@@ -248,7 +250,7 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     # print(cols)
     # print(tables)
     # print(constraints)
-    sql = "select " + ", ".join(cols) + " from " + ", ".join(tables) + " where " + " and ".join(constraints)
+    sql = "select " + ", ".join(overlay_nodes) + " from " + ", ".join(tables) + " where " + " and ".join(constraints)
     print(sql)
     return sql
 
