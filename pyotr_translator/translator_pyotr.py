@@ -1,3 +1,9 @@
+import sys
+from os.path import dirname, abspath, join
+root = dirname(dirname(dirname(abspath(__file__))))
+filename = join(root, 'new_experiments')
+sys.path.append(filename)
+
 import re
 import psycopg2 
 import copy
@@ -59,8 +65,16 @@ def tree_to_str(tree):
                 select_clause[idx] = " ".join(c)
             else:
                 select_clause[idx] = "".join(c)
-        select_clause = list(set(select_clause))
-        select_part = ", ".join(select_clause)
+        # select_clause = list(set(select_clause))
+        '''
+        remove duplicates in all columns and extra columns
+        '''
+        select_clause_no_dup = []
+        for s in select_clause:
+            if s not in select_clause_no_dup:
+                select_clause_no_dup.append(s)
+
+        select_part = ", ".join(select_clause_no_dup)
     sql_parts.append('select')
     sql_parts.append(select_part)
 
@@ -291,6 +305,9 @@ def get_extra_columns(select):
         if "'" in col:
             p = re.compile(r"'(.*?)'", re.S)
             col = re.findall(p, col)[0]
+        # elif '"' in col:
+        #     p = re.compile(r'"(.*?)"', re.S)
+        #     col = re.findall(p, col)[0]
         
         if col.isdigit(): # select constant number such as 1
             extra_cols.append([['', '', s[0][2]], 'as', '"{}"'.format(col)])
@@ -314,7 +331,7 @@ def data(tree):
     extra_cols = get_extra_columns(tree['select'])
 
     new_tree = copy.deepcopy(tree)
-    new_tree['select'] = columns + extra_cols
+    new_tree['select'] = extra_cols + columns  
     sql = "create table output as " + tree_to_str(new_tree)
     print(sql)
     
@@ -472,8 +489,8 @@ def normalization():
                     ) t \
                 WHERE t.row_num > 1);".format(", ".join(cols))
     # print(delete_duplicate_row_sql)
-    cursor.execute(delete_duplicate_row_sql)
-    print("Deleted duplicate rows: ", cursor.rowcount)
+    # cursor.execute(delete_duplicate_row_sql)
+    # print("Deleted duplicate rows: ", cursor.rowcount)
 
     '''
     delete contradiction
@@ -504,43 +521,44 @@ def normalization():
     '''
     delete duplicate rows
     '''
-    cursor.execute(delete_duplicate_row_sql)
-    print("Deleted duplicate rows: ", cursor.rowcount)
+    # cursor.execute(delete_duplicate_row_sql)
+    # print("Deleted duplicate rows: ", cursor.rowcount)
 
-    '''
-    set tautology and remove redundant
-    '''
-    print("remove redundant")
-    redun_begin = time.time()
-    cursor.execute("select id, condition from output")
-    redun_count = cursor.rowcount
-    # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
-    upd_cur = conn.cursor()
+    # '''
+    # set tautology and remove redundant
+    # '''
+    # print("remove redundant")
+    # redun_begin = time.time()
+    # cursor.execute("select id, condition from output")
+    # redun_count = cursor.rowcount
+    # # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
+    # upd_cur = conn.cursor()
 
-    tauto_solver = z3.Solver()
-    for i in tqdm(range(redun_count)):
-        row = cursor.fetchone()
-        has_redun, result = has_redundancy(solver, tauto_solver, row[1])
-        if has_redun:
-            if result != '{}':
-                result = ['"{}"'.format(r) for r in result]
-                upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
-            else:
-                upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
-    redun_end = time.time()
+    # tauto_solver = z3.Solver()
+    # for i in tqdm(range(redun_count)):
+    #     row = cursor.fetchone()
+    #     has_redun, result = has_redundancy(solver, tauto_solver, row[1])
+    #     if has_redun:
+    #         if result != '{}':
+    #             result = ['"{}"'.format(r) for r in result]
+    #             upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
+    #         else:
+    #             upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
+    # redun_end = time.time()
 
-    '''
-    delete duplicate rows
-    '''
-    cursor.execute(delete_duplicate_row_sql)
-    print("Deleted duplicate rows: ", cursor.rowcount)
+    # '''
+    # delete duplicate rows
+    # '''
+    # cursor.execute(delete_duplicate_row_sql)
+    # print("Deleted duplicate rows: ", cursor.rowcount)
     # logging.warning("remove redundancy and tautology execution time: %s" % str(redun_end-redun_begin))
     
     # logging.warning("z3 execution time: %s" % str((contr_end-contrd_begin)+(redun_end-redun_begin)))
-    print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
-    # print("Z3 execution time: ", contr_end-contrd_begin)
+    # print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
+    print("Z3 execution time: ", contr_end-contrd_begin)
     conn.commit()
-    return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
+    # return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
+    return {"contradiction":[contrad_count, contr_end-contrd_begin]}
    
 
 def iscontradiction(solver, conditions):
