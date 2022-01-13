@@ -59,6 +59,7 @@ def tree_to_str(tree):
                 select_clause[idx] = " ".join(c)
             else:
                 select_clause[idx] = "".join(c)
+        select_clause = list(set(select_clause))
         select_part = ", ".join(select_clause)
     sql_parts.append('select')
     sql_parts.append(select_part)
@@ -269,6 +270,11 @@ def get_all_columns(tables):
                     else:
                         col_conds.append("{}.{}".format(t[2], col[0]))
                     continue
+
+                if col[0].isdigit() or type(col[0]) == int: # select constant column
+                    columns.append([['', '', col[0]], 'as', '"{}"'.format(col[0])])
+                    continue
+
                 if t[2] == '': # t[2] is renaming tablename, if t[2] not none, use renaming tablename in column name, else use original tablename in column name
                     columns.append([[t[0], '.', col[0]], 'as', '{}_{}'.format(t[0], col[0])])
                 else:
@@ -465,6 +471,7 @@ def normalization():
                         ) \
                     ) t \
                 WHERE t.row_num > 1);".format(", ".join(cols))
+    # print(delete_duplicate_row_sql)
     cursor.execute(delete_duplicate_row_sql)
     print("Deleted duplicate rows: ", cursor.rowcount)
 
@@ -739,6 +746,10 @@ def has_redundancy(solver, tau_solver, conditions):
         return has_redundant, result
     
     processed_conditions = {}
+    if len(conditions) == 1:
+        expr = initial_z3_variable(conditions[0])
+        processed_conditions[0] = expr
+
     for idx1 in range(len(conditions) - 1):
         expr1 = ""
         if idx1 not in processed_conditions.keys():
@@ -811,6 +822,18 @@ def has_redundancy(solver, tau_solver, conditions):
         if is_tauto:
             return has_redundant, '{}'
         return has_redundant, final_result
+    elif len(conditions) == 1:
+        # check tautology
+        c = "Not({})".format(processed_conditions[0])
+        tau_solver.push()
+        tau_solver.add(eval(c))
+        if tau_solver.check() == z3.sat:
+            is_tauto = False
+        tau_solver.pop()
+
+        if is_tauto:
+            return has_redundant, '{}'
+        return has_redundant, ""
     else:
         return has_redundant, ""
 
