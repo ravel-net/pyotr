@@ -543,103 +543,9 @@ def iscontradiction(solver, conditions):
     if len(conditions) == 0:
         return 
 
-    vars = set() # save Int compared variables for shortest path policy
     for c in conditions:
-        if '<=' in c:
-            conds = c.split('<=')  # l(x3) <= x4
-            
-            var1 = conds[0].strip()
-            var2 = conds[1].strip()
-            
-            if var1[0].isalpha():
-                op1 = "z3.Int('{}')".format(var1)
-                vars.add(var1)
-            else:
-                op1 = "z3.IntVal({})".format(int(var1))
-
-            if var2[0].isalpha():
-                op2 = "z3.Int('{}')".format(var2)
-                vars.add(var2)
-            else:
-                op2 = "z3.IntVal({})".format(int(var2))
-
-            expr = "{} <= {}".format(op1, op2)
-            #print(expr)
-            solver.add(eval(expr))
-            continue
-
-        # nopath means no path to dest
-        if 'nopath' in c:
-            solver.pop()
-            return True
-            
-        if 'Or' not in c:
-            #c_list = c.strip().split(' ')
-            c = c.strip()
-
-            first_space = c.find(' ')
-            second_space = c.find(' ', first_space + 1)
-
-            c_list = [c[:first_space].strip(), c[first_space + 1: second_space].strip(), c[second_space + 1:].strip()]
-
-            if c_list[0] in vars: # if variable in vars that means this variable is Int variable and need to further set Int value for it
-                solver.add(z3.Int(c_list[0]) == z3.IntVal(int(c_list[2])))
-                continue
-            elif c_list[0][0].isalpha() and not c_list[0].startswith("i_"):
-                op1 = f"z3.String('{c_list[0]}')"
-            else: 
-                if c_list[0].startswith("i_"):
-                    op1 = f"z3.StringVal('{c_list[0][2:]}')"
-                else:
-                    op1 = f"z3.StringVal('{c_list[0]}')"
-
-            if c_list[2][0].isalpha() and not c_list[2].startswith("i_"):
-                op2 = f"z3.String('{c_list[2]}')"
-            else:
-                if c_list[2].startswith("i_"):
-                    op2 = f"z3.StringVal('{c_list[2][2:]}')"
-                else:
-                    op2 = f"z3.StringVal('{c_list[2]}')"
-                
-            #expr = f"{c_list[0]} {c_list[1]} z3.StringVal('{c_list[2]}')"
-            expr = f"{op1} {c_list[1]} {op2}"
-            # print(c, expr)
-            #plpy.info(expr)
-            solver.add(eval(expr))
-        
-        else:  #-- includes Or()
-            c = c.strip().replace('Or','').replace('(','').replace(')','').strip()
-
-            or_input = "Or("
-            or_list =  c.split(',')
-            for single_cond in or_list:
-                c_list = single_cond.strip(). split(' ')
-            
-                if c_list[0][0].isalpha() and not c_list[0].startswith("i_"):
-                    op1 = f"z3.String('{c_list[0]}')"
-                else: 
-                    # op1 = f"z3.StringVal('{c_list[0]}')"
-                    if c_list[0].startswith("i_"):
-                        op1 = f"z3.StringVal('{c_list[0][2:]}')"
-                    else:
-                        op1 = f"z3.StringVal('{c_list[0]}')"
-
-                if c_list[2][0].isalpha() and not c_list[2].startswith("i_"):
-                    op2 = f"z3.String('{c_list[2]}')"
-                else:
-                    # op2 = f"z3.StringVal('{c_list[2]}')"
-                    if c_list[2].startswith("i_"):
-                        op2 = f"z3.StringVal('{c_list[2][2:]}')"
-                    else:
-                        op2 = f"z3.StringVal('{c_list[2]}')"
-                    
-                #expr = f"{c_list[0]} {c_list[1]} z3.StringVal('{c_list[2]}')"
-                expr = f"{op1} {c_list[1]} {op2}"
-                or_input += expr + ','
-    
-            or_input = or_input[:-1] + ')'
-            #plpy.info(or_input)
-            solver.add(eval(or_input))
+        prcd_cond = analyze(c)
+        solver.add(eval(prcd_cond))
 
     result = solver.check()
 
@@ -654,9 +560,9 @@ def istauto(solver, conditions):
     if len(conditions) == 0:
         return True
     for c in conditions:
-        condition = initial_z3_variable(c)
+        prcd_cond = analyze(c)
         solver.push()
-        solver.add(eval(condition))
+        solver.add(eval("Not({prcd_cond})".format(prcd_cond)))
         re = solver.check()
         solver.pop()
 
@@ -666,69 +572,9 @@ def istauto(solver, conditions):
             return False
     return True
 
-def initial_z3_variable(condition):
-    expr = ""
-    if 'Or' not in condition:
-
-        c1_list = condition.split(' ')
-        
-        if c1_list[0][0].isalpha() and not c1_list[0].startswith("i_"):
-            op11 = f"z3.String('{c1_list[0]}')"
-        else: 
-            # op11 = f"z3.StringVal('{c1_list[0]}')"
-            if c1_list[0].startswith("i_"):
-                op11 = f"z3.StringVal('{c1_list[0][2:]}')"
-            else:
-                op11 = f"z3.StringVal('{c1_list[0]}')"
-    
-        if c1_list[2][0].isalpha() and not c1_list[0].startswith("i_"):
-            op12 = f"z3.String('{c1_list[2]}')"
-        else:
-            # op12 = f"z3.StringVal('{c1_list[2]}')"
-            if c1_list[2].startswith("i_"):
-                op12 = f"z3.StringVal('{c1_list[2][2:]}')"
-            else:
-                op12 = f"z3.StringVal('{c1_list[2]}')"
-        
-        operator1 = c1_list[1]
-
-        expr = f"{op11} {operator1} {op12}"
-    else: 
-        cond_idx1 = condition.strip().replace('Or','')[1:-1]
-        or_input = "Or("
-        or_list =  cond_idx1.split(',')
-        for single_cond in or_list:
-            c_list = single_cond.strip(). split(' ')
-        
-            if c_list[0][0].isalpha() and not c_list[0].startswith("i_"):
-                op11 = f"z3.String('{c_list[0]}')"
-            else: 
-                # op11 = f"z3.StringVal('{c_list[0]}')"
-                if c_list[0].startswith("i_"):
-                    op11 = f"z3.StringVal('{c_list[0][2:]}')"
-                else:
-                    op11 = f"z3.StringVal('{c_list[0]}')"
-
-            if c_list[2][0].isalpha() and not c_list[0].startswith("i_"):
-                op12 = f"z3.String('{c_list[2]}')"
-            else:
-                # op12 = f"z3.StringVal('{c_list[2]}')"
-                if c_list[2].startswith("i_"):
-                    op12 = f"z3.StringVal('{c_list[2][2:]}')"
-                else:
-                    op12 = f"z3.StringVal('{c_list[2]}')"
-                
-            operator1 = c_list[1]
-            expr = f"{op11} {operator1} {op12}"
-            or_input += expr + ','
-
-        expr = or_input[:-1] + ')'
-    
-    return expr
-
 def has_redundancy(solver, tau_solver, conditions):
     has_redundant = False
-
+    is_tauto = True
     result = conditions[:]
     
     drop_idx = {}
@@ -740,10 +586,14 @@ def has_redundancy(solver, tau_solver, conditions):
         return has_redundant, result
     
     processed_conditions = {}
+    if len(conditions) == 1:
+        expr = analyze(conditions[0])
+        processed_conditions[0] = expr
+
     for idx1 in range(len(conditions) - 1):
         expr1 = ""
         if idx1 not in processed_conditions.keys():
-            expr1 = initial_z3_variable(conditions[idx1])
+            expr1 = analyze(conditions[idx1])
             processed_conditions[idx1] = expr1
         else:
             expr1 = processed_conditions[idx1]
@@ -751,7 +601,7 @@ def has_redundancy(solver, tau_solver, conditions):
         for idx2 in range(idx1+1,len(conditions)):
             expr2 = ""
             if idx2 not in processed_conditions.keys():
-                expr2 = initial_z3_variable(conditions[idx2])
+                expr2 = analyze(conditions[idx2])
                 processed_conditions[idx2] = expr2  
             else:
                 expr2 = processed_conditions[idx2]
@@ -812,8 +662,81 @@ def has_redundancy(solver, tau_solver, conditions):
         if is_tauto:
             return has_redundant, '{}'
         return has_redundant, final_result
+    elif len(conditions) == 1:
+        # check tautology
+        c = "Not({})".format(processed_conditions[0])
+        tau_solver.push()
+        tau_solver.add(eval(c))
+        if tau_solver.check() == z3.sat:
+            is_tauto = False
+        tau_solver.pop()
+
+        if is_tauto:
+            return has_redundant, '{}'
+        return has_redundant, ""
     else:
         return has_redundant, ""
+
+def convert_z3_variable(condition, datatype):
+    c_list = condition.split()
+
+    if c_list[0][0].isalpha():
+        op1 = f"z3.{datatype}('{c_list[0]}')"
+    else: 
+        op1 = f"z3.{datatype}Val('{c_list[0]}')"
+    
+    if c_list[2][0].isalpha():
+        op2 = f"z3.{datatype}('{c_list[2]}')"
+    else:
+        op2 = f"z3.{datatype}Val('{c_list[2]}')"
+    
+    operator = c_list[1]
+    return op1, operator, op2
+
+def analyze(condition):
+    cond_str = condition
+    prcd_cond = ""
+    if 'And' in cond_str or 'Or' in cond_str:
+        stack_last_post = []
+        last_pos = 0
+        i = 0
+        stack_last_post.insert(0, i)
+        condition_positions = []
+        while i < len(cond_str):
+            if cond_str[i] == '(':
+                if len(stack_last_post) != 0:
+                    stack_last_post.pop()
+                stack_last_post.insert(0, i+1)
+            elif cond_str[i] == ')' or cond_str[i] == ',':
+                begin_idx = stack_last_post.pop()
+                if i != begin_idx:
+                    condition_positions.append((begin_idx, i))
+                stack_last_post.insert(0, i+1)      
+            i += 1
+        if len(stack_last_post) != 0:
+            begin_idx = stack_last_post.pop()
+            if begin_idx !=  len(cond_str):
+                condition_positions.append((begin_idx, len(cond_str)))
+        # print(cond_str[51:])
+        # print(stack_last_post)
+        # print(condition_positions)
+        for idx, pair in enumerate(condition_positions):
+            if idx == 0:
+                prcd_cond += cond_str[0:pair[0]]
+            else:
+                prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
+            
+            c = cond_str[pair[0]: pair[1]].strip()
+            op1, operator, op2 = convert_z3_variable(c, 'Int')
+            prcd_cond += "{} {} {}".format(op1, operator, op2)
+        prcd_cond += cond_str[condition_positions[-1][1]:]
+        # print(prcd_cond)
+    else:
+        op1, operator, op2 = convert_z3_variable(condition, 'Int')
+        prcd_cond += "{} {} {}".format(op1, operator, op2)
+        # print(prcd_cond)
+
+    return prcd_cond
 
 if __name__ == "__main__":
     # sql = "select policy1.path, policy2.dest from policy1, policy2 where policy1.path = policy2.path and policy1.dest != policy2.dest;"
