@@ -21,8 +21,16 @@ def analyze(condition):
     operator = c_list[1]
     return op1, operator, op2
         
+def calcDomainConditions(domain, variables):
+	conditions = []
+	for var in variables:
+		for val in domain:
+			conditions.append("z3.{}('{}') == z3.{}Val('{}')".format(datatype, var, datatype, str(val)))
+	domain_conditions = "Or("+ ",".join(conditions) + ")"
+	print(domain_conditions)
+	return domain_conditions
 
-def table_contains_answer(tablename, domain):
+def table_contains_answer(tablename, domain, variables):
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     cursor = conn.cursor()
     cursor.execute("select distinct 1, 2, condition from output")
@@ -45,10 +53,12 @@ def table_contains_answer(tablename, domain):
     union_condition = "Or({})".format(", ".join(union_cond)) # logical Or for every tuples' condition
     # print(condition)
 
+    domain_conditions = calcDomainConditions(domain, variables)
     # domain_conditions = "Or(z3.Int('y1') == z3.IntVal('1'), z3.Int('y1') == z3.IntVal('2')), Or(z3.Int('y2') == z3.IntVal('1'), z3.Int('y2') == z3.IntVal('2'))"
-    domain_conditions = "Or(z3.{}('y1') == z3.{}Val('1'), z3.{}('y1') == z3.{}Val('2')), \
-                Or(z3.{}('y2') == z3.{}Val('1'), z3.{}('y2') == z3.{}Val('2'))".format(datatype, datatype, datatype, datatype, datatype, datatype, datatype, datatype)
+    # domain_conditions = "Or(z3.{}('y1') == z3.{}Val('1'), z3.{}('y1') == z3.{}Val('2')), \
+                # Or(z3.{}('y2') == z3.{}Val('1'), z3.{}('y2') == z3.{}Val('2'))".format(datatype, datatype, datatype, datatype, datatype, datatype, datatype, datatype)
 
+    print(domain_conditions)
     # domain_conditions.append(condition)
     final_condition = "Not({})".format(union_condition) # add negation to union condition
     print(final_condition)
