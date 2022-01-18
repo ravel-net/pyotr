@@ -270,6 +270,12 @@ def get_all_columns(tables):
         t = tables[0]
         cursor.execute("select * from {} limit 1".format(t[0])) # t[0] is tablename
         for col in cursor.description:
+            if 'cond' in col[0]:
+                if t[2] == '':
+                    col_conds.append("{}.{}".format(t[0], col[0]))
+                else:
+                    col_conds.append("{}.{}".format(t[2], col[0]))
+                continue
             if t[2] == '': # t[2] is renaming tablename, if t[2] not none, use renaming tablename in column name, else use original tablename in column name
                 columns.append([['', '', col[0]], '', ''])
             else:
@@ -294,7 +300,7 @@ def get_all_columns(tables):
                 else:
                     columns.append([[t[2], '.', col[0]], 'as', '{}_{}'.format(t[2], col[0])])
         # print(col_conds)
-        columns.append([['', '', ' || '.join(col_conds)], 'as', 'condition'])
+    columns.append([['', '', ' || '.join(col_conds)], 'as', 'condition'])
     # print(columns)
     return columns
 
