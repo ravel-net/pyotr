@@ -72,3 +72,14 @@ util/minimization.py
 util/minimization.py
 faure_translator/translator_mubashir.py
 faure_translator/translator_mubashir.py
+pyotr_translator/example/output_faure.txt
+pyotr_translator/example/output_pyotr.txt
+pyotr_translator/example/postgresql-2022-01-13_211908.log
+util/CIDR_forward_tree/databaseconfig.py
+pyotr_translator/example/databaseconfig.py
+pyotr_translator/example/assigment_pyotr.py
+pyotr_translator/example/assigment.py
+pyotr_translator/example/assigment_pyotr.py
+pyotr_translator/example/assigment.py
+pyotr_translator/example/assigment_pyotr.py
+pyotr_translator/example/assigment.py

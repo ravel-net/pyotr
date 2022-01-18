@@ -504,6 +504,8 @@ def get_all_columns(tables):
         for col in cursor.description:
             if t[2] == '': # t[2] is renaming tablename, if t[2] not none, use renaming tablename in column name, else use original tablename in column name
                 columns.append([['', '', col[0]], '', ''])
+            elif col[0] == 'condition':
+                columns.append([[t[2], '.', col[0]], 'as', 'condition'])
             else:
                 columns.append([[t[2], '.', col[0]], 'as', '{}_{}'.format(t[2], col[0])])
     else:
