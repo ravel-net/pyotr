@@ -16,11 +16,11 @@ user = 'postgres'
 password = 'mubashir'
 database = 'test'
 
-def generatePaths(vertices, probability_of_edge, depth, tries):
-	g = random_graph.RandomGraph(vertices, probability_of_edge)
+def generatePaths(g, depth, tries):
+	# g = random_graph.RandomGraph(vertices, probability_of_edge, numHosts)
 	print("Adj Matrix")
 	g.printAdjMatrix()
-	paths = g.randomPaths(0, g.n - 1, depth, tries) # generates random paths between two nodes
+	paths = g.randomPaths(depth, tries) # generates random paths between two nodes
 	print("paths:", paths)
 	print("length of paths:", len(paths))
 	return paths
@@ -31,8 +31,9 @@ def value(pre_processed_val, constants):
 	else:
 		return "x" + str(pre_processed_val)
 
-def generateOneBigSwitchTopo(vertices, probability_of_edge, depth, tries):
-	paths = generatePaths(vertices, probability_of_edge, depth, tries)
+def generateOneBigSwitchTopo(g, depth, tries):
+	# paths = generatePaths(vertices, probability_of_edge, depth, tries, numHosts)
+	paths = g.randomPaths(depth, tries)
 	pathNum = 0
 	allPaths = []
 	for path in paths:
@@ -40,8 +41,8 @@ def generateOneBigSwitchTopo(vertices, probability_of_edge, depth, tries):
 		curr_path = []
 		for i in range(0, len(path)-1):
 			f = "f"+str(pathNum)
-			n1 = value(path[i], [0, vertices-1])
-			n2 = value(path[i+1], [0, vertices-1])
+			n1 = value(path[i], g.hosts)
+			n2 = value(path[i+1], g.hosts)
 			newTuple = (f, n1, n2)
 			curr_path.append(newTuple)
 		allPaths.append(curr_path)
@@ -123,41 +124,126 @@ def convert_tableau_to_sql_one_big(tableaus, tablename, overlay_nodes):
     final_query = sql_queries
     return final_query
 
+def getSummary(allPaths):
+	summary = []
+	for path in allPaths:
+		summary.append([path[0][0], path[0][1], path[-1][2]])
+	return summary
 
+def addOneBigSwitchTable(tablename, g):
+	curr_type = 'text'
+	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+	cursor = conn.cursor()
+	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
+	cursor.execute("CREATE TABLE {}(fid {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, "text", curr_type, curr_type))
+	conn.commit()
+	for hostSwitch in g.hosts:
+	    cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', str(hostSwitch), '1'))
+	    cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', str(hostSwitch)))
+	cursor.execute("INSERT INTO {} VALUES ('f','1', '1', array[]::text[]);".format(tablename))
+	conn.commit()
+	conn.close()
+
+def getCurrentTable(tablename, cur):
+    cur.execute('select * from {};'.format(tablename))
+    return cur.fetchall()
+
+def nonEmpty(tablename):
+    conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+    cur = conn.cursor()
+
+    # get current table
+    curr_table = getCurrentTable(tablename, cur)
+    conn.commit()
+    return len(curr_table)>0
+
+def addTable(tablename, source, dest):
+	curr_type = 'text'
+	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+	cursor = conn.cursor()
+	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
+	cursor.execute("CREATE TABLE {}(fid {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, "text", curr_type, curr_type))
+	conn.commit()
+	cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', source, '1'))
+	cursor.execute("INSERT INTO {} VALUES ('f','1', '1', array[]::text[]);".format(tablename))
+	cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', dest))
+	conn.commit()
+	conn.close()
 
 if __name__ == "__main__":
-	# vertices = 10
-	# probability_of_edge = 0.3
-	# depth = 40
-	# tries = 10
-	# tableName = "bigSwitch"
-	# allPaths = generateOneBigSwitchTopo(vertices, probability_of_edge, depth, tries)
-	# pp = pprint.PrettyPrinter(indent=4)
-	# pp.pprint(allPaths)
-	
-	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-	# f1 = [("f1",'0','x'),("f1",'x','y'),("f1",'y','2')]
-	f2 = [("f2",'0','x'),("f2",'x','z'),("f2",'y','z'),("f2",'y','2')]
-	# f2 = [("f2",'0','x'),("f2",'x','z'),("f2",'y','z')]
-	allPaths = []
-	# allPaths.append(f1)
-	allPaths.append(f2)
+	vertices = 100
+	probability_of_edge = 0.4
+	numHosts = 4
+	depth = 40
+	tries = 20
+	tableName = "t_v"
+	g = random_graph.RandomGraph(vertices, probability_of_edge, numHosts)
+	addOneBigSwitchTable(tableName, g)
+	allPaths = generateOneBigSwitchTopo(g, depth, tries)
+	summary = getSummary(allPaths)
 	pp = pprint.PrettyPrinter(indent=4)
-	pp.pprint(allPaths)
-	# convert_tableau_to_sql(allPaths, "t_v", [['f1', '0', 'str(vertices-1)'], ['f2', '0', str(vertices-1)]])
-	# sql_query = convert_tableau_to_sql_one_big(allPaths, "t_v", [['f1', '0', '2'], ['f2', '0', '2']])
-	sql_query = ["SELECT f2, 0, 2 FROM t_v t0, t_v t1, t_v t2, t_v t3 WHERE t0.n1 = '0' AND t0.n2 = t1.n1 AND t0.fid = t1.fid AND t1.n2 = t2.n2 AND t1.fid = t2.fid AND t3.n2 = '2' AND t2.n1 = t3.n1 AND t2.fid = t3.fid"]
-	print(sql_query)
+
+	sql_query = convert_tableau_to_sql_one_big(allPaths, tableName, summary)
+	# sql_query = ["SELECT f2, 0, 2 FROM t_v t0, t_v t1, t_v t2, t_v t3 WHERE t0.n1 = '0' AND t0.n2 = t1.n1 AND t0.fid = t1.fid AND t1.n2 = t2.n2 AND t1.fid = t2.fid AND t3.n2 = '2' AND t2.n1 = t3.n1 AND t2.fid = t3.fid"]
+	# print(sql_query)
+	dat_times = []
+	update_times = []
+	i = 0
 	for sql in sql_query:
+		# addTable(tableName, summary[i][1], summary[i][2])
+		print(summary[i][1], summary[i][2])
+		conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+		cur = conn.cursor()
 		print(sql)
 		tree = translator.generate_tree(sql)
 		dat = translator.data(tree)
-		upd_time = translator.upd_condition(tree)
+		dat_times.append(dat)
+		# upd_time = translator.upd_condition(tree)
+		# update_times.append(upd_time)
 		# nor_time = translator.normalization()
 		conn.close()
-		conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-		cur = conn.cursor()
-		if (check_tautology.table_contains_answer("output", ["1"], ["v"])):
+		if (nonEmpty("output")):
 			print("TRUE")
-		conn.commit()
-		conn.close()
+		else:
+			print("FALSE")
+			pp.pprint(allPaths[i])
+			exit()
+		i += 1
+
+	pp.pprint(allPaths)
+	pp.pprint(summary)
+	print("===============STATS=============")
+	print("Number of paths:", len(allPaths))
+	# print("Data Time:", dat_times)
+	# print("Update Time:", update_times)
+	print("Data Time Sum (s):", sum(dat_times))
+	# print("Update Time Sum (s):", sum(update_times))
+	print("Num Paths:", sum(update_times))
+
+	# conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+	# f1 = [("f1",'0','x'),("f1",'x','y'),("f1",'y','2')]
+	# # f2 = [("f2",'0','x'),("f2",'x','z'),("f2",'z','y'),("f2",'y','2')]
+	# f2 = [("f2",'0','x'),("f2",'x','z'),("f2",'y','z'),("f2",'y','2')]
+	# allPaths = []
+	# allPaths.append(f1)
+	# allPaths.append(f2)
+	# pp = pprint.PrettyPrinter(indent=4)
+	# pp.pprint(allPaths)
+
+	# # convert_tableau_to_sql(allPaths, "t_v", [['f1', '0', str(vertices-1)], ['f2', '0', str(vertices-1)]])
+	# sql_query = convert_tableau_to_sql_one_big(allPaths, "t_v", [['f1', '0', '2'], ['f2', '0', 'z']])
+	# # sql_query = ["SELECT f2, 0, 2 FROM t_v t0, t_v t1, t_v t2, t_v t3 WHERE t0.n1 = '0' AND t0.n2 = t1.n1 AND t0.fid = t1.fid AND t1.n2 = t2.n2 AND t1.fid = t2.fid AND t3.n2 = '2' AND t2.n1 = t3.n1 AND t2.fid = t3.fid"]
+	# print(sql_query)
+	# for sql in sql_query:
+	# 	print(sql)
+	# 	tree = translator.generate_tree(sql)
+	# 	dat = translator.data(tree)
+	# 	upd_time = translator.upd_condition(tree)
+	# 	# nor_time = translator.normalization()
+	# 	conn.close()
+	# 	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+	# 	cur = conn.cursor()
+	# 	if (check_tautology.table_contains_answer("output", ["1"], ["v"])):
+	# 		print("TRUE")
+	# 	conn.commit()
+	# 	conn.close()

@@ -5,21 +5,30 @@ def decision(probability):
     return random.random() < probability
 
 class RandomGraph:
-    def __init__(self, num_vertices, probability):
+    def __init__(self, num_vertices, probability, numHosts):
         self.n = num_vertices # number of vertices
         self.p = probability # probability of connection
-        while True:
-            self.adj = [[] for i in range(self.n)]
+        self.numHosts = numHosts
+        self.hosts = []
+        # while True:
+        self.adj = [[] for i in range(self.n+numHosts)]
+        for i in range(self.n):
+            for j in range(i+1, self.n):
+                # if (i == 0 and j == self.n-1): # no direct connection between source and dest
+                #     continue
+                if (decision(self.p)):
+                    self.add_edge(i,j)
+        for host in range(self.n, self.n+numHosts):
+            self.hosts.append(host)
+        for host in self.hosts:
             for i in range(self.n):
-                for j in range(i+1, self.n):
-                    if (i == 0 and j == self.n-1): # no direct connection between source and dest
-                        continue
-                    if (decision(self.p)):
-                        self.add_edge(i,j)
-            # source and destination should be reachable
-            print("reachable:", self.reachable(0, self.n-1))
-            if self.reachable(0, self.n-1):
-                break
+                if (decision(self.p)):
+                    self.add_edge(i,host)
+
+            # # source and destination should be reachable
+            # print("reachable:", self.reachable(0, self.n-1))
+            # if self.reachable(0, self.n-1):
+            #     break
         
     def printAdjMatrix(self):
         pp = pprint.PrettyPrinter(indent=4)
@@ -49,6 +58,7 @@ class RandomGraph:
     def add_edge(self, i, j):
         self.adj[i].append(j)
         self.adj[j].append(i)
+
  
     # Method to retrieve connected components
     # in an undirected graph
@@ -72,15 +82,17 @@ class RandomGraph:
     #             if (var in self.variables):
     #                 reverse_cc[var] = component_number
     #     return reverse_cc
-    def chooseVertex(self, number_links, tries, visited, v):
+    def chooseVertex(self, number_links, tries, visited, v, dest):
         for d in range(0, tries):
             vertexIndexToVisit = random.randint(0, number_links-1)
             vertexToVisit = self.adj[v][vertexIndexToVisit]
+            if vertexToVisit in self.hosts and vertexToVisit != dest:
+                continue
             if (not visited[vertexToVisit]):
                 return vertexToVisit
         return -1
 
-    def tryRandomWalk(self, dest, depth, curr_depth, temp, visited, v):
+    def tryRandomWalk(self, v, dest, depth, curr_depth, temp, visited):
         if (curr_depth >= depth):
             return []
 
@@ -89,38 +101,42 @@ class RandomGraph:
         num_links = len(self.adj[v])
         # put a limit on the length of path
         # Choose a vertex to traverse
-        vertexVal = self.chooseVertex(num_links, depth, visited, v)
+        vertexVal = self.chooseVertex(num_links, depth, visited, v, dest)
         if (vertexVal == -1):
             return []
         if (vertexVal == dest):
             temp.append(dest)
             return temp
 
-        temp = self.tryRandomWalk(dest, depth, curr_depth+1, temp, visited, vertexVal)
+        temp = self.tryRandomWalk(vertexVal, dest, depth, curr_depth+1, temp, visited)
         return temp
 
-    def randomPaths(self, source, dest, depth, tries):
+    def randomPaths(self, depth, tries):
         pathsSet = set()
         paths = []
-        for i in range(tries):
-            temp = []
-            visited = [False for num in range(self.n)]
-            curr_path = self.tryRandomWalk(dest, depth, 0, temp, visited, 0)
-            string_ints = [str(int) for int in curr_path]
-            pathStr = "".join(string_ints)
-            if (curr_path != [] and pathStr not in pathsSet):
-                paths.append(curr_path)
-                pathsSet.add(pathStr)
+        for source in self.hosts:
+            for dest in self.hosts:
+                if (source == dest): # source can't be destination
+                    continue
+                for i in range(tries):
+                    temp = []
+                    visited = [False for num in range(self.n+self.numHosts)]
+                    curr_path = self.tryRandomWalk(source, dest, depth, 0, temp, visited)
+                    string_ints = [str(int) for int in curr_path]
+                    pathStr = "".join(string_ints)
+                    if (curr_path != [] and pathStr not in pathsSet):
+                        paths.append(curr_path)
+                        pathsSet.add(pathStr)
         return paths
  
 # Driver Code
 if __name__ == "__main__":
     # Create a graph given in the above diagram
     # 5 vertices numbered from 0 to 4
-    g = RandomGraph(20, 0.4)
+    g = RandomGraph(20, 0.4, 3)
     g.printAdjMatrix()
     depth = 40
     tries = 8
-    paths = g.randomPaths(0, g.n - 1, depth, tries) # generates random paths between two nodes
+    paths = g.randomPaths(depth, tries) # generates random paths between hosts
     print("paths:", paths)
     print("length of paths:", len(paths))
