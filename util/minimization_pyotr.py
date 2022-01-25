@@ -26,30 +26,23 @@ output_table_name = 'output'
 
 # creates a new table with the deleted tuple
 def deleteTuple(new_table, new_table_name, cur):
-	cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
-	cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, "int4_faure", "int4_faure"))
-	for tuple in new_table:
-		cur.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(new_table_name, tuple[0], tuple[1]))
+    cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
+    cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, "int4_faure", "int4_faure"))
+    for tuple in new_table:
+        cur.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(new_table_name, tuple[0], tuple[1]))
 
 # given a tablename and an open cursor to a database, returns the table as a list
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
     return cur.fetchall()
 
-# Given a tuple and a table, returns the closure group of the tuple from the table.
-def getClosureGroup(tuple, table):
-    variables = closure_overhead.find_variables(table)
-    graph = closure_overhead.construct_Graph(variables, table)
-    conns = graph.connectedComponents() # TODO: ineffecient. Don't need all connected components
-    reverse_conns = graph.reverse_connectComponents(conns) 
-    if (tuple[0] in reverse_conns):
-    	minimal_tableau_pos = reverse_conns[tuple[0]] - 1
-    elif (tuple[1] in reverse_conns):
-    	minimal_tableau_pos = reverse_conns[tuple[1]] - 1
-    else:
-    	return tuple # constants tuple like (1,1) only have themselves in the closure group
-    minimal_tableau = closure_overhead.calculate_tableau(table, reverse_conns, len(conns))
-    return minimal_tableau[minimal_tableau_pos]
+# def table_contains_answer(output, summary, pos):
+#     print("pos:", pos)
+#     arr = [0, 1, 1, 1, 1, 0]
+#     if arr[pos] == 1:
+#         return True
+#     else:
+#         return False
 
 def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     """
@@ -57,7 +50,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     Parameters:
     ------------
     tablename : string 
-        The name of table that needs to be minimized
+        The name of table stored in postgres that needs to be minimized.
     pos : int
         The current index of tuple that is being tested for removal. When calling this function, pos should be 0
     summary : list
@@ -70,6 +63,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
+
     # get current table
     curr_table = getCurrentTable(tablename, cur)
     conn.commit()
@@ -80,12 +74,10 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
-    closure_group = getClosureGroup(tuple_to_remove, curr_table)
-    # print("tuple_to_remove: ", tuple_to_remove)
-    # print("closure_group: ", closure_group)
-    if (closure_group == tuple_to_remove):
-        return minimize(tablename, pos+1, summary)
-        
+    closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
+    variables = closure_overhead.find_variables(curr_table)
+    print("tuple_to_remove: ", tuple_to_remove)
+    print("closure_group: ", closure_group)
 
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
@@ -93,9 +85,10 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     new_table.pop(pos)
     deleteTuple(new_table, new_table_name, cur)
 
-    # check for query containment
     sql_query = tableau.convert_tableau_to_sql(closure_group, new_table_name, summary)
-    # print("sql:",sql_query)
+    # print("sql:", sql_query)
+
+    # check for query containment
     tree = translator_pyotr.generate_tree(sql_query)
     conn.commit()
     conn.close()
@@ -106,7 +99,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
-    if (check_tautology.table_contains_answer(output_table_name, summary)):
+    if (check_tautology.table_contains_answer(output_table_name, summary, variables)):
         # cur.execute("DROP TABLE IF EXISTS {}".format(output_table_name))
         cur.execute("DROP TABLE IF EXISTS {}".format(tablename))
         conn.commit()
@@ -122,15 +115,48 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
         return minimize(tablename, pos+1, summary)
 
 if __name__ == '__main__':
-    sizes = [100, 1000, 10000] #, 10000, 100000, 922067]
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cursor = conn.cursor()
 
+    # # Toy example of minimization
     curr_type = "int4_faure"
-    tablename = "test_table"
+    tablename = "t_v"
     cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
     cursor.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type))
-    conn.commit()
+    conn.commit()    
+
+    # curr_type = "text"
+    # tablename = "t_v2"
+    # cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
+    # cursor.execute("CREATE TABLE {}(fid {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, "text", curr_type, curr_type))
+    # conn.commit()
+    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '102', '1'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', '1'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', '103'))
+    # conn.commit()
+    # conn.close()
+    # exit()
+
+    # One big switch example
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, '1', 'x'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'x', 'y'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y', '2'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, '1', 'x'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'x', 'z'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'z', 'y'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y', '2'))
+
+    # # New minimization example
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'x', 'y'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y', 'y1'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y1', 'y2'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y2', 'y'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y', 'y'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y', 'z'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'z', 'z2'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'z', 'z'))
+
+    # Minimization toy example
     cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, '1', '1'))
     cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y1', 'y1'))
     cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y2', 'y2'))
@@ -138,5 +164,5 @@ if __name__ == '__main__':
     cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y1', 'y2'))
     cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, 'y2', '2'))
     conn.commit()
-    
+
     print("Minimized Table: ", minimize(tablename=tablename, pos = 0, summary = ['1','2']))

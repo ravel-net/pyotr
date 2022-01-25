@@ -10,7 +10,6 @@ sys.path.append(filename)
 import tableau as tableau
 import DFS
 
-
 def find_variables(tuples):
 	variables = []
 	for tuple in tuples:
@@ -50,7 +49,35 @@ def calculate_tableau(tuples, reverse_conns, number_components):
     		tableau[component_number].append((tuple[0], tuple[1]))
     return tableau
 
+# Given a tuple and a table, returns the closure group of the tuple from the table.
+def getClosureGroup(tuple, table):
+    variables = find_variables(table)
+    graph = construct_Graph(variables, table)
+    conns = graph.connectedComponents() # TODO: ineffecient. Don't need all connected components
+    reverse_conns = graph.reverse_connectComponents(conns) 
+    if (tuple[0] in reverse_conns):
+        minimal_tableau_pos = reverse_conns[tuple[0]] - 1
+    elif (tuple[1] in reverse_conns):
+        minimal_tableau_pos = reverse_conns[tuple[1]] - 1
+    else:
+        return [tuple] # constants tuple like (1,1) only have themselves in the closure group
+    minimal_tableau = calculate_tableau(table, reverse_conns, len(conns))
+    return minimal_tableau[minimal_tableau_pos]
 
+# Returnsn all closure groups from a given table
+def getAllClosureGroups(table):
+    variables = find_variables(table)
+    graph = construct_Graph(variables, table)
+    conns = graph.connectedComponents() # TODO: ineffecient. Don't need all connected components
+    reverse_conns = graph.reverse_connectComponents(conns) 
+    # if (tuple[0] in reverse_conns):
+    #     minimal_tableau_pos = reverse_conns[tuple[0]] - 1
+    # elif (tuple[1] in reverse_conns):
+    #     minimal_tableau_pos = reverse_conns[tuple[1]] - 1
+    # else:
+    #     return [tuple] # constants tuple like (1,1) only have themselves in the closure group
+    minimal_tableau = calculate_tableau(table, reverse_conns, len(conns))
+    return minimal_tableau
 
 
 if __name__ == '__main__':

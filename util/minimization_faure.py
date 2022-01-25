@@ -36,21 +36,6 @@ def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
     return cur.fetchall()
 
-# Given a tuple and a table, returns the closure group of the tuple from the table.
-def getClosureGroup(tuple, table):
-    variables = closure_overhead.find_variables(table)
-    graph = closure_overhead.construct_Graph(variables, table)
-    conns = graph.connectedComponents() # TODO: ineffecient. Don't need all connected components
-    reverse_conns = graph.reverse_connectComponents(conns) 
-    if (tuple[0] in reverse_conns):
-    	minimal_tableau_pos = reverse_conns[tuple[0]] - 1
-    elif (tuple[1] in reverse_conns):
-    	minimal_tableau_pos = reverse_conns[tuple[1]] - 1
-    else:
-    	return [tuple] # constants tuple like (1,1) only have themselves in the closure group
-    minimal_tableau = closure_overhead.calculate_tableau(table, reverse_conns, len(conns))
-    return minimal_tableau[minimal_tableau_pos]
-
 # def table_contains_answer(output, summary, pos):
 #     print("pos:", pos)
 #     arr = [0, 1, 1, 1, 1, 0]
@@ -89,10 +74,10 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
-    closure_group = getClosureGroup(tuple_to_remove, curr_table)
+    closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
     variables = closure_overhead.find_variables(curr_table)
-    # print("tuple_to_remove: ", tuple_to_remove)
-    # print("closure_group: ", closure_group)
+    print("tuple_to_remove: ", tuple_to_remove)
+    print("closure_group: ", closure_group)
 
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
@@ -133,7 +118,7 @@ if __name__ == '__main__':
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cursor = conn.cursor()
 
-    Toy example of minimization
+    # # Toy example of minimization
     curr_type = "text"
     tablename = "t_v"
     cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
@@ -141,13 +126,13 @@ if __name__ == '__main__':
     conn.commit()    
 
     # curr_type = "text"
-    # tablename = "t_v"
+    # tablename = "t_v2"
     # cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
     # cursor.execute("CREATE TABLE {}(fid {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, "text", curr_type, curr_type))
     # conn.commit()
-    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '0', '1'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '102', '1'))
     # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', '1'))
-    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', '2'))
+    # cursor.execute("INSERT INTO {} VALUES ('{}','{}', '{}', array[]::text[]);".format(tablename, 'f', '1', '103'))
     # conn.commit()
     # conn.close()
     # exit()
