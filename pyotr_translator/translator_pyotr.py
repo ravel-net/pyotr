@@ -105,28 +105,6 @@ def tree_to_str(tree):
     sql = " ".join(sql_parts)
     # print(sql)
     return sql
-
-def process_opr(cond):
-    # if (not cond[0][2].isdigit()) and (not cond[2][2].isdigit()):
-    #     usr_func = opr_to_func(cond[1])
-    #     return [usr_func, '(', [cond[0], cond[2]], ')']
-    usr_func = opr_to_func(cond[1])
-    return [usr_func, '(', [cond[0], cond[2]], ')']
-    # return cond
-
-def opr_to_func(opr):
-    if opr == '!=' or opr == '<>':
-        return 'not_equal'
-    elif opr == '<':
-        return 'less'
-    elif opr == '>':
-        return 'greater'
-    elif opr == '<=':
-        return 'leq'
-    elif opr == '>=':
-        return 'geq'
-    elif opr == '=':
-        return 'equal'
     
 def process_select_clause(clause):
     cols = []
@@ -218,7 +196,6 @@ def process_where_clause(clause):
         else:
             right_opr_list[2] = right_opd
         
-        # cond = process_opr([left_opr_list, opr, right_opr_list]) #(left_operand, operator, right_operand)
         cond = [left_opr_list, opr, right_opr_list]
         cond_list.append(cond)
     
@@ -227,25 +204,6 @@ def process_where_clause(clause):
     keyword = match.group().lower() if match is not None else ""
 
     return {keyword:cond_list}
-
-def test(clause, cond_list):
-    last = 0 
-    i = 0
-    while i < len(clause):
-        if clause[i] == '(': 
-            if i > last:
-                cond_list.append(clause[last:i].strip())
-                temp_list = []
-                j = test(clause[i+1:], temp_list)
-                cond_list.append(temp_list)
-                i = i + j + 1
-                last = i
-        elif clause[i] == ')':
-            if i > last:
-                cond_list.append(clause[last:i].strip())
-            return i + 1
-        else:
-            i = i + 1
 
 def get_all_columns(tables):
     columns = []
