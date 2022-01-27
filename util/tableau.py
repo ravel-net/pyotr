@@ -216,7 +216,7 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     
     last = ""
     var_dict = {}
-    max_val = get_max(overlay_nodes)
+    # max_val = get_max(overlay_nodes)
     for i in range(len(tableau)):
         tables.append("{} t{}".format(tablename, i))
         # (n1, n2, _) = tableau[i]

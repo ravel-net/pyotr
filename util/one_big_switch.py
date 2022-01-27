@@ -97,7 +97,7 @@ if __name__ == "__main__":
 	tableName = "t_v"
 	as_files = ["4755","3356","7018", "2914"]
 	num_paths = 3
-	runs = 1
+	runs = 5
 	experimentFile = open("experiment_stats.txt", "w")
 
 	for as_file in as_files:
@@ -120,6 +120,7 @@ if __name__ == "__main__":
 		dat_times_sums = []
 		closure_group_length = []
 		closure_group_num = []
+		all_dat_times = []
 		for i in range(runs):
 			g = shortest_paths.makeGraph(edgeslines, num_vertices, mapping, num_paths)
 			currentPathList = shortest_paths.getIndPaths(g, num_vertices, num_paths)
@@ -155,6 +156,7 @@ if __name__ == "__main__":
 					exit()
 				i += 1
 
+			all_dat_times += dat_times
 			dat_times_sums.append(sum(dat_times))
 
 		pp.pprint(closure_groups)
@@ -164,6 +166,8 @@ if __name__ == "__main__":
 		experimentFile.write("Length of closure groups: " + ' '.join(str(v) for v in closure_group_length))
 		experimentFile.write("\n")
 		experimentFile.write("Number of closure groups: " + ' '.join(str(v) for v in closure_group_num))
+		experimentFile.write("\n")
+		experimentFile.write("Individual closure group timings: " + ' '.join(str(v) for v in all_dat_times))
 		experimentFile.write("\n")
 		# print("Data Time:", dat_times)
 		# print("Update Time:", update_times)
