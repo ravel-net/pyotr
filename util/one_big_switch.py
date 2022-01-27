@@ -62,7 +62,7 @@ def addOneBigSwitchTable(tablename, constants):
 	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
 	cursor = conn.cursor()
 	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
-	cursor.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(tablename, "text", curr_type, curr_type))
+	cursor.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type))
 	conn.commit()
 	for hostSwitch in constants:
 	    cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, str(hostSwitch), '1'))
@@ -97,7 +97,7 @@ if __name__ == "__main__":
 	tableName = "t_v"
 	as_files = ["4755","3356","7018", "2914"]
 	num_paths = 3
-	runs = 3
+	runs = 1
 	experimentFile = open("experiment_stats.txt", "w")
 
 	for as_file in as_files:
