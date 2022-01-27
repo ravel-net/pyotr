@@ -254,7 +254,7 @@ CREATE OPERATOR = (
    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_eq,
    commutator = = ,
    -- negator = <> ,
-   restrict = eqsel, join = eqjoinsel, HASHES, MERGES
+   restrict = eqsel, join = eqjoinsel
 );
 
 CREATE OPERATOR >= (
@@ -289,19 +289,19 @@ CREATE FUNCTION int4_faure_hash(int4_faure) RETURNS int4
 
 -- -- now we can make the operator class
 
-CREATE OPERATOR CLASS int4_faure_abs_ops
-    DEFAULT FOR TYPE int4_faure USING btree AS
-        OPERATOR        1       < ,
-        OPERATOR        2       <= ,
-        OPERATOR        3       = ,
-        OPERATOR        4       >= ,
-        OPERATOR        5       > ,
-        FUNCTION        1       int4_cmp(int4_faure, int4_faure);
+-- CREATE OPERATOR CLASS int4_faure_abs_ops
+--     DEFAULT FOR TYPE int4_faure USING btree AS
+--         OPERATOR        1       < ,
+--         OPERATOR        2       <= ,
+--         OPERATOR        3       = ,
+--         OPERATOR        4       >= ,
+--         OPERATOR        5       > ,
+--         FUNCTION        1       int4_cmp(int4_faure, int4_faure);
 
-CREATE OPERATOR CLASS int4_ops
-DEFAULT FOR TYPE int4_faure USING hash AS
-    OPERATOR    1   =  (int4_faure, int4_faure),
-    FUNCTION    1   int4_faure_hash(int4_faure);
+-- CREATE OPERATOR CLASS int4_ops
+-- DEFAULT FOR TYPE int4_faure USING hash AS
+--     OPERATOR    1   =  (int4_faure, int4_faure),
+--     FUNCTION    1   int4_faure_hash(int4_faure);
 
 -- now, we can define a btree index on int4_faure types. First, let's populate
 -- the table. Note that postgres needs many more tuples to start using the
