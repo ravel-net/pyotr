@@ -95,9 +95,9 @@ def getConstants(table):
 
 if __name__ == "__main__":
 	tableName = "t_v"
-	as_files = ["4755","3356","7018", "2914"]
+	as_files = ["4755","3356","2914", "7018"]
 	num_paths = 3
-	runs = 5
+	runs = 3
 	experimentFile = open("experiment_stats.txt", "w")
 
 	for as_file in as_files:
@@ -121,7 +121,8 @@ if __name__ == "__main__":
 		closure_group_length = []
 		closure_group_num = []
 		all_dat_times = []
-		for i in range(runs):
+		run = 0
+		while run < runs:
 			g = shortest_paths.makeGraph(edgeslines, num_vertices, mapping, num_paths)
 			currentPathList = shortest_paths.getIndPaths(g, num_vertices, num_paths)
 			allPathsTableau = shortest_paths.getTableau(num_vertices, num_paths,currentPathList)
@@ -129,6 +130,9 @@ if __name__ == "__main__":
 			addOneBigSwitchTable(tableName, constants)
 			pp = pprint.PrettyPrinter(indent=4)
 			closure_groups = closure_overhead.getAllClosureGroups(allPathsTableau)
+			if (len(closure_groups) < num_paths):
+				continue
+			run += 1
 			dat_times = []
 			i = 0
 			closure_group_num.append(len(closure_groups))
