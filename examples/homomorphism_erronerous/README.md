@@ -2,7 +2,7 @@
 
 ## Problem description
 
-This problem happened on the overlay toy examples. Let's say a physical forwarding chain which has two constant nodes a one-hop forwarding chain(1->u1->u2->2); a physical forwarding chain which has three constant nodes a two-hop forwarding chain(1->u1->u2->2->v1->v2->3). The homomorphsim works on the one-hop toy example when removing `('u1', 'u1', '{}')` but does not work on the two-hop toy example.
+This problem happened on the overlay toy examples. Let's denote a physical forwarding chain which has two constant nodes as a one-hop forwarding chain(1->u1->u2->2), a physical forwarding chain which has three constant nodes as a two-hop forwarding chain(1->u1->u2->2->v1->v2->3). The homomorphsim works on the one-hop toy example when removing `('u1', 'u1', '{}')` but does not work on the two-hop toy example.
 
 
 The encoding of the one-hop forwarding chain is 
