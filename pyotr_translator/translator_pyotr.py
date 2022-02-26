@@ -695,7 +695,9 @@ def has_redundancy(solver, tau_solver, conditions):
         tau_solver.pop()
 
         if is_tauto:
-            return has_redundant, '{}'
+            return is_tauto, '{}'
+        else:
+            return has_redundant, result
     else:        
         for idx1 in range(len(conditions) - 1):
             expr1 = ""
@@ -754,11 +756,14 @@ def has_redundancy(solver, tau_solver, conditions):
 
         is_tauto = True
         final_result = []
+        subset_prcd_conditions = []
         for i in range(0, len(result), 1):
             if i not in dp_arr:
                 final_result.append(result[i])
+                subset_prcd_conditions.append(processed_conditions[i])
 
-        c = "Not({})".format(", ".join(final_result))
+        c = "Not({})".format(", ".join(subset_prcd_conditions))
+
         tau_solver.push()
         tau_solver.add(eval(c))
         if tau_solver.check() == z3.unsat:
