@@ -1,8 +1,7 @@
 import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
-filename = join(root, 'new_experiments')
-sys.path.append(filename)
+sys.path.append(root)
 
 import re
 import psycopg2 
@@ -11,7 +10,7 @@ import time
 from tqdm import tqdm
 import z3
 from z3 import And, Not, Or, Implies
-import databaseconfig as cfg
+import faure_translator.databaseconfig as cfg
 # import logging
 # logging.basicConfig(filename='joins_data/joins_typed.log', level=logging.DEBUG)
 
@@ -690,7 +689,7 @@ def has_redundancy(solver, tau_solver, conditions):
         c = "Not({})".format(expr)
         tau_solver.push()
         tau_solver.add(eval(c))
-        if tau_solver.check() == z3.unsat:
+        if tau_solver.check() == z3.sat:
             is_tauto = False
         tau_solver.pop()
 
@@ -766,7 +765,7 @@ def has_redundancy(solver, tau_solver, conditions):
 
         tau_solver.push()
         tau_solver.add(eval(c))
-        if tau_solver.check() == z3.unsat:
+        if tau_solver.check() == z3.sat:
             is_tauto = False
         tau_solver.pop()
         
