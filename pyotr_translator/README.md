@@ -16,3 +16,9 @@ See `README` in the `faure_translator` folder.
 ## translator usage
 
 See `README` in the `faure_translator` folder. 
+
+## Z3 part
+
+We use the Z3 SMT solver checking the conditions which are contradiction, which are tautology and which are satisfiable. 
+
+Relational algebra on c-tables are implemented by three steps: create data content, update conditions and normalization. Normalization includes removing tuples whose condition is contradiction, simplifying conditions who has redundant conditions and who are tautology. Normalization uses z3 SMT solver. 
