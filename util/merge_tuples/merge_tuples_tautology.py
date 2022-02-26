@@ -2,14 +2,11 @@ import sys
 from os.path import dirname, abspath, join
 
 root = dirname(dirname(dirname(abspath(__file__))))
-filename = join(root, 'new_experiments')
-sys.path.append(filename)
-filename = join(root, 'new_experiments', 'util')
-sys.path.append(filename)
+sys.path.append(root)
 
 import time
 from tqdm import tqdm
-import databaseconfig as cfg
+import faure_translator.databaseconfig as cfg
 import psycopg2
 import util.check_tautology.check_tautology as check_tautology
 import util.check_tautology.condition_analyze as condition_analyze

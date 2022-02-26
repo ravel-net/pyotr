@@ -1,21 +1,10 @@
-from cmath import exp
 import sys
 from os.path import dirname, abspath, join
 
-from z3.z3printer import group
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
-filename = join(root, 'pyotr_translator')
-sys.path.append(filename)
-filename = join(root, 'util/check_tautology')
-sys.path.append(filename)
 
-import time 
-import translator_pyotr as translator
-import tableau as tableau
-import check_tautology as check_tautology
-from closure_overhead import find_variables, construct_Graph, calculate_tableau
-import databaseconfig as cfg
+import faure_translator.databaseconfig as cfg
 import psycopg2
 from psycopg2.extras import execute_values
 

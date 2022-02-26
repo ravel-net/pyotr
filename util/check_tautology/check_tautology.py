@@ -1,7 +1,7 @@
 import time
 import z3
 from z3 import Or, And, Not
-import databaseconfig as cfg
+import faure_translator.databaseconfig as cfg
 import psycopg2
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
@@ -129,11 +129,11 @@ def check_is_tautology(union_conditions, domain_conditions):
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
     z3_end = time.time()
 
-    print("total execution time: ", z3_end - z3_begin)
+    # print("total execution time: ", z3_end - z3_begin)
 
     if ans == z3.sat:
         model = solver.model()
-        print(model)
+        # print(model)
         return False, z3_end - z3_begin, model
     else:
         return True, z3_end - z3_begin, ""

@@ -42,7 +42,7 @@ def calculate_tableau(tuples, reverse_conns, number_components):
     for i in range(0, number_components):
         tableau.append([])
     for tuple in tuples:
-    	if (tuple[0] in reverse_conns):
+        if (tuple[0] in reverse_conns):
             component_number = reverse_conns[tuple[0]]-1
             tableau[component_number].append((tuple[0], tuple[1]))
         elif (tuple[1] in reverse_conns):
