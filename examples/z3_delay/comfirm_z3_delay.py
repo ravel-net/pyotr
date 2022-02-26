@@ -14,7 +14,7 @@ import util.variable_closure_algo.closure_overhead as closure_overhead
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-sizes = [5, 10, 15]
+sizes = [10, 15, 20, 25, 30, 35, 40, 45, 50]
 
 for size in sizes:
     rate_summary = 3 / size
