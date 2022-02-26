@@ -105,10 +105,10 @@ def get_domain_conditions(overlay_nodes, variables_list, datatype):
         
         for idx, val in enumerate(overlay_nodes):
             condition = ""
-            if idx != 0 and idx != len(overlay_nodes) - 1:
-                interface_val = str(int(val) + max_node)
-                condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , interface_val)
-                var_domain.append(condition)
+            # if idx != 0 and idx != len(overlay_nodes) - 1:
+            #     interface_val = str(int(val) + max_node)
+            #     condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , interface_val)
+            #     var_domain.append(condition)
             condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
             var_domain.append(condition)
         var_domain_list.append("Or({})".format(", ".join(var_domain)))
