@@ -685,43 +685,53 @@ def has_redundancy(solver, tau_solver, conditions):
     processed_conditions = {}
     if len(conditions) == 1:
         expr = analyze(conditions[0])
-        processed_conditions[0] = expr
 
-    for idx1 in range(len(conditions) - 1):
-        expr1 = ""
-        if idx1 not in processed_conditions.keys():
-            expr1 = analyze(conditions[idx1])
-            processed_conditions[idx1] = expr1
-        else:
-            expr1 = processed_conditions[idx1]
+        # check tautology
+        c = "Not({})".format(expr)
+        tau_solver.push()
+        tau_solver.add(eval(c))
+        if tau_solver.check() == z3.unsat:
+            is_tauto = False
+        tau_solver.pop()
 
-        for idx2 in range(idx1+1,len(conditions)):
-            expr2 = ""
-            if idx2 not in processed_conditions.keys():
-                expr2 = analyze(conditions[idx2])
-                processed_conditions[idx2] = expr2  
+        if is_tauto:
+            return has_redundant, '{}'
+    else:        
+        for idx1 in range(len(conditions) - 1):
+            expr1 = ""
+            if idx1 not in processed_conditions.keys():
+                expr1 = analyze(conditions[idx1])
+                processed_conditions[idx1] = expr1
             else:
-                expr2 = processed_conditions[idx2]
-            
-            G = Implies(eval(expr1), eval(expr2))
-            solver.push()
-            solver.add(Not(G))
-            re = str(solver.check())
-            solver.pop()
-            if str(re) == 'unsat':
-                drop_idx[idx1].append(idx2)
-                if not has_redundant:
-                    has_redundant = True
+                expr1 = processed_conditions[idx1]
 
-            G = Implies(eval(expr2), eval(expr1))
-            solver.push()
-            solver.add(Not(G))
-            re = str(solver.check())
-            solver.pop()
-            if str(re) == 'unsat':
-                drop_idx[idx2].append(idx1)
-                if not has_redundant:
-                    has_redundant = True
+            for idx2 in range(idx1+1,len(conditions)):
+                expr2 = ""
+                if idx2 not in processed_conditions.keys():
+                    expr2 = analyze(conditions[idx2])
+                    processed_conditions[idx2] = expr2  
+                else:
+                    expr2 = processed_conditions[idx2]
+                
+                G = Implies(eval(expr1), eval(expr2))
+                solver.push()
+                solver.add(Not(G))
+                re = str(solver.check())
+                solver.pop()
+                if str(re) == 'unsat':
+                    drop_idx[idx1].append(idx2)
+                    if not has_redundant:
+                        has_redundant = True
+
+                G = Implies(eval(expr2), eval(expr1))
+                solver.push()
+                solver.add(Not(G))
+                re = str(solver.check())
+                solver.pop()
+                if str(re) == 'unsat':
+                    drop_idx[idx2].append(idx1)
+                    if not has_redundant:
+                        has_redundant = True
 
     if has_redundant:
         drop_result = {}
@@ -748,33 +758,27 @@ def has_redundancy(solver, tau_solver, conditions):
             if i not in dp_arr:
                 final_result.append(result[i])
 
-                c = "Not({})".format(processed_conditions[i])
-                tau_solver.push()
-                tau_solver.add(eval(c))
-                if tau_solver.check() == z3.sat:
-                    is_tauto = False
-                tau_solver.pop()
+        c = "Not({})".format(", ".join(final_result))
+        tau_solver.push()
+        tau_solver.add(eval(c))
+        if tau_solver.check() == z3.unsat:
+            is_tauto = False
+        tau_solver.pop()
         
         # result = [result[i] for i in range(0, len(result), 1) if i not in dp_arr]
         if is_tauto:
-            return has_redundant, '{}'
+            return is_tauto, '{}'
         return has_redundant, final_result
-    elif len(conditions) == 1:
-        # check tautology
-        c = "Not({})".format(processed_conditions[0])
-        tau_solver.push()
-        tau_solver.add(eval(c))
-        if tau_solver.check() == z3.sat:
-            is_tauto = False
-        tau_solver.pop()
 
-        if is_tauto:
-            return has_redundant, '{}'
-        return has_redundant, ""
     else:
-        return has_redundant, ""
+        return has_redundant, result
 
 def convert_z3_variable(condition, datatype):
+    """
+    Convert variables/values in constraints to z3 variables/values. 
+
+    For example, x == 1, then convert to z3 variables/values, z3.Int(x) = z3.IntVal(1)
+    """
     c_list = condition.split()
 
     if c_list[0][0].isalpha():
@@ -791,11 +795,28 @@ def convert_z3_variable(condition, datatype):
     return op1, operator, op2
 
 def analyze(condition):
+    """
+    Find every constraint in condition and convert variables in constraints to z3 variable
+
+    Parameters:
+    -----------
+    condition: string
+        conditions which consists of many atomic constraints
+
+    Returns:
+    -----------
+    prcd_cond: string
+        processed condition whose constraint variables are converted to z3 variables
+
+    """
     cond_str = condition
     prcd_cond = ""
+
     if 'And' in cond_str or 'Or' in cond_str:
+        """
+        Find positions for every single constraints 
+        """
         stack_last_post = []
-        last_pos = 0
         i = 0
         stack_last_post.insert(0, i)
         condition_positions = []
@@ -814,9 +835,10 @@ def analyze(condition):
             begin_idx = stack_last_post.pop()
             if begin_idx !=  len(cond_str):
                 condition_positions.append((begin_idx, len(cond_str)))
-        # print(cond_str[51:])
-        # print(stack_last_post)
-        # print(condition_positions)
+
+        """
+        Convert variables in constraints to z3 variables
+        """
         for idx, pair in enumerate(condition_positions):
             if idx == 0:
                 prcd_cond += cond_str[0:pair[0]]
