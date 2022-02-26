@@ -482,18 +482,18 @@ def normalization():
         cursor.execute("ALTER TABLE output ADD COLUMN id SERIAL PRIMARY KEY;")
     else:
         cols.remove('id')
-    '''
-    delete duplicate rows
-    '''
-    delete_duplicate_row_sql = "DELETE FROM output WHERE id IN ( \
-                SELECT id FROM ( \
-                    SELECT \
-                        id, row_number() OVER w as row_num FROM output \
-                        WINDOW w AS ( \
-                            PARTITION BY {} ORDER BY id \
-                        ) \
-                    ) t \
-                WHERE t.row_num > 1);".format(", ".join(cols))
+    # '''
+    # delete duplicate rows
+    # '''
+    # delete_duplicate_row_sql = "DELETE FROM output WHERE id IN ( \
+    #             SELECT id FROM ( \
+    #                 SELECT \
+    #                     id, row_number() OVER w as row_num FROM output \
+    #                     WINDOW w AS ( \
+    #                         PARTITION BY {} ORDER BY id \
+    #                     ) \
+    #                 ) t \
+    #             WHERE t.row_num > 1);".format(", ".join(cols))
     # print(delete_duplicate_row_sql)
     # cursor.execute(delete_duplicate_row_sql)
     # print("Deleted duplicate rows: ", cursor.rowcount)
@@ -524,33 +524,33 @@ def normalization():
     contr_end = time.time()
     # logging.warning("delete contradiction execution time: %s" % str(contr_end-contrd_begin))
 
-    '''
-    delete duplicate rows
-    '''
+    # '''
+    # delete duplicate rows
+    # '''
     # cursor.execute(delete_duplicate_row_sql)
     # print("Deleted duplicate rows: ", cursor.rowcount)
 
-    # '''
-    # set tautology and remove redundant
-    # '''
-    # print("remove redundant")
-    # redun_begin = time.time()
-    # cursor.execute("select id, condition from output")
-    # redun_count = cursor.rowcount
-    # # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
-    # upd_cur = conn.cursor()
+    '''
+    set tautology and remove redundant
+    '''
+    print("remove redundant")
+    redun_begin = time.time()
+    cursor.execute("select id, condition from output")
+    redun_count = cursor.rowcount
+    # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
+    upd_cur = conn.cursor()
 
-    # tauto_solver = z3.Solver()
-    # for i in tqdm(range(redun_count)):
-    #     row = cursor.fetchone()
-    #     has_redun, result = has_redundancy(solver, tauto_solver, row[1])
-    #     if has_redun:
-    #         if result != '{}':
-    #             result = ['"{}"'.format(r) for r in result]
-    #             upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
-    #         else:
-    #             upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
-    # redun_end = time.time()
+    tauto_solver = z3.Solver()
+    for i in tqdm(range(redun_count)):
+        row = cursor.fetchone()
+        has_redun, result = has_redundancy(solver, tauto_solver, row[1])
+        if has_redun:
+            if result != '{}':
+                result = ['"{}"'.format(r) for r in result]
+                upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
+            else:
+                upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
+    redun_end = time.time()
 
     # '''
     # delete duplicate rows
@@ -560,19 +560,40 @@ def normalization():
     # logging.warning("remove redundancy and tautology execution time: %s" % str(redun_end-redun_begin))
     
     # logging.warning("z3 execution time: %s" % str((contr_end-contrd_begin)+(redun_end-redun_begin)))
-    # print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
-    print("Z3 execution time: ", contr_end-contrd_begin)
+    print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
+    # print("Z3 execution time: ", contr_end-contrd_begin)
     conn.commit()
-    # return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
-    return {"contradiction":[contrad_count, contr_end-contrd_begin]}
+    return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
+    # return {"contradiction":[contrad_count, contr_end-contrd_begin]}
    
 
 def iscontradiction(solver, conditions):
+    """
+    Check whether conditions are a contradiction
+    Paramters:
+    -----------
+    solver: Z3 Solver Object
+
+    conditions: list 
+        Conditions for each tuple are stored by the list of strings. 
+
+    Returns:
+    -----------
+    answer: Boolean
+        When z3 Solver answers unsat that means the conditions are a contradiction, so return answer True; when z3 Solver returns sat that means the conditions are not a contradiction, so return answer False.
+
+    """
     solver.push()
 
+    """
+    When conditons are a empty set, it means the tuple always holds any conditions(always true) 
+    """
     if len(conditions) == 0:
-        return 
+        return False
 
+    """
+    Add constraints to z3 Solver Object
+    """
     for c in conditions:
         prcd_cond = analyze(c)
         solver.add(eval(prcd_cond))
@@ -587,22 +608,68 @@ def iscontradiction(solver, conditions):
         return False
 
 def istauto(solver, conditions):
+    """
+    Check whether the conditions are a tautology.
+
+    Parameters:
+    -----------
+    solver: Z3 Solver Object
+
+    conditions: list 
+        Conditions for each tuple are stored by the list of strings. 
+
+    Returns:
+    -----------
+    answer: Boolean
+        When z3 Solver answers unsat that means the negation of conditions are a contradiction, so conditions are a tautology and return answer True; Otherwise, conditions are not a tautology then return False.
+    """
     if len(conditions) == 0:
         return True
+    
+    prcd_constraints = []
     for c in conditions:
         prcd_cond = analyze(c)
-        solver.push()
-        solver.add(eval("Not({prcd_cond})".format(prcd_cond)))
-        re = solver.check()
-        solver.pop()
+        prcd_constraints.append(prcd_cond)
 
-        if str(re) == 'sat':
-            pass
-        else:
-            return False
-    return True
+    solver.push()
+    solver.add(eval("Not({prcd_condition})".format(prcd_condition=", ".join(prcd_constraints))))
+    re = solver.check()
+    solver.pop()
+
+    if str(re) == 'sat':
+        return False
+    else:
+        return True
+    # return True
 
 def has_redundancy(solver, tau_solver, conditions):
+    """
+    Check whether the conditions have redundant constraints and whether are a tautology. We combine checking whether the conditions have redundant constraints and checking whether conditions are a tautology into this function.
+
+    Checking redundancy: if exists a implication bewteen two constraints, one of those is a redundancy.
+    
+    Checking tautology: if the negation of conditions are a contradiction, conditions are a tautology. Otherwise, conditions can be a contradiction or satisfactory.
+
+    Parameters:
+    -----------
+    solver: z3 Solver Object
+        This is for checking whether conditions have redundant constraints.
+
+    tau_solver: z3 Solver Object
+        This is for checking whether conditions are a tautology.
+
+    conditions: list
+        Conditions for each tuple are stored by the list of strings. 
+
+    Returns:
+    ----------
+    has_redundant: Boolean
+        if constraint A implies to constraint B, z3 solver answers unsat for the nagation of implication, constraint B is a redundancy.
+    
+    simplified_conditions: List
+        Returns the conditions which removed the redundant constraints. If conditions are a tautology, it returns an empty set.
+    
+    """
     has_redundant = False
     is_tauto = True
     result = conditions[:]
