@@ -39,7 +39,7 @@ def convertToCUDD(conditions):
 	print(final)
 
 # print(combineItems(["x1","x2", "x3", "x4"],"Or"))
-convertToCUDD("And(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1))), 1 == x3, x3 == 2)")
+convertToCUDD("And(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(x1 == 1, And(x2 == 1, x3 == 1, x1 == 1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x1 == 1), And(x3 == 1, x1 == 1))), x3 == 1, x3 == 2)")
 # convertToCUDD("And(Or(x1 == 1,x2 == 2),x3 == 3,x4 == 5)")
 
 # 8K hours

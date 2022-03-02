@@ -14,7 +14,10 @@ import util.variable_closure_algo.closure_overhead as closure_overhead
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-sizes = [10, 15, 20, 25, 30, 35, 40, 45, 50]
+# sizes = [10, 15, 20, 25, 30, 35, 40, 45, 50]
+# sizes = [5,5,5,10,10,10,15,15,15,20,20,20]
+# sizes = [5,5,5,10,10,10]
+sizes = [8]
 
 for size in sizes:
     rate_summary = 3 / size
@@ -61,3 +64,9 @@ for size in sizes:
     variables = closure_overhead.find_variables(tuples)
 
     running_time, output_table = split_merge.split_merge(closure_group, t_prime_tablename, variables, summary_nodes)
+    print(output_table)
+    print(running_time)
+    f = open("demofile2.txt", "a")
+    f.write(str(size) + ": " + str(running_time))
+    f.write("\n")
+    f.close()

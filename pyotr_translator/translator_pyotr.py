@@ -507,13 +507,18 @@ def normalization():
     # logging.info("size of input(delete contradiction): %s" % str(count))
     del_tuple = []
     solver = z3.Solver()
+    rows_count_contr = []
+    ind_time_contra = []
     for i in tqdm(range(contrad_count)):
         row = cursor.fetchone()
-        is_contrad = iscontradiction(solver, row[1])
-
+        ind_time_contra_begin = time.time() 
+        is_contrad, total_lengths = iscontradiction(solver, row[1])
+        ind_time_contra.append(time.time()-ind_time_contra_begin)
+        rows_count_contr.append(total_lengths)
         if is_contrad:
             del_tuple.append(row[0])
-        
+    
+    deletion_time_contr_begin = time.time()
     if len(del_tuple) == 0:
         pass
     elif len(del_tuple) == 1:
@@ -540,15 +545,26 @@ def normalization():
     upd_cur = conn.cursor()
 
     tauto_solver = z3.Solver()
+    update_time = 0
+    rows_count_red = []
+    ind_time_redundant = []
     for i in tqdm(range(redun_count)):
         row = cursor.fetchone()
-        has_redun, result = has_redundancy(solver, tauto_solver, row[1])
+        ind_time_redundant_begin = time.time() 
+        has_redun, result, num_redundancies_removed = has_redundancy(solver, tauto_solver, row[1])
+        # if (num_redundancies_removed > 0):
+        #     print("Num Redundancies removed = ", num_redundancies_removed)
+        ind_time_redundant.append(time.time()-ind_time_redundant_begin)
+        rows_count_red.append(len(result))
+        update_time_begin = time.time()
         if has_redun:
             if result != '{}':
                 result = ['"{}"'.format(r) for r in result]
                 upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
             else:
                 upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
+        update_time_end = time.time()
+        update_time += update_time_end-update_time_begin
     redun_end = time.time()
 
     # '''
@@ -559,8 +575,20 @@ def normalization():
     # logging.warning("remove redundancy and tautology execution time: %s" % str(redun_end-redun_begin))
     
     # logging.warning("z3 execution time: %s" % str((contr_end-contrd_begin)+(redun_end-redun_begin)))
+    print("Contrdiction Total Time: ", contr_end-contrd_begin)
+    print("Contrdiction Delete Time: ", contr_end-deletion_time_contr_begin)
+    print("Average Contradiction Row Length: ", sum(rows_count_contr)/len(rows_count_contr))
+    # print("Average Contradiction Row Length: ", sum(rows_count_contr))
+    # print("Contrdiction Individual Times Max:", max(ind_time_contra))
+    # print("Contrdiction Individual Times Third", ind_time_contra[3])
+
+    print("Reduction Total Time: ", redun_end-redun_begin)
+    print("Reduction Update Time: ", update_time)
+    # print("Reduction Individual Times  Max:", max(ind_time_redundant))
+    # print("Reduction Individual Times  Third:", ind_time_redundant[3])
+    # print("Average Reduction Row Length: ", sum(rows_count_red)/len(rows_count_red))
+    # print("Average Reduction Row Length: ", sum(rows_count_red))
     print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
-    # print("Z3 execution time: ", contr_end-contrd_begin)
     conn.commit()
     return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
     # return {"contradiction":[contrad_count, contr_end-contrd_begin]}
@@ -588,23 +616,25 @@ def iscontradiction(solver, conditions):
     When conditons are a empty set, it means the tuple always holds any conditions(always true) 
     """
     if len(conditions) == 0:
-        return False
+        return False, 0
 
     """
     Add constraints to z3 Solver Object
     """
+    total_lengths = []
     for c in conditions:
         prcd_cond = analyze(c)
+        total_lengths.append(len(prcd_cond))
         solver.add(eval(prcd_cond))
 
     result = solver.check()
 
     if result == z3.unsat:
         solver.pop()
-        return True
+        return True, sum(total_lengths)
     else:
         solver.pop()
-        return False
+        return False, sum(total_lengths)
 
 def istauto(solver, conditions):
     """
@@ -679,7 +709,7 @@ def has_redundancy(solver, tau_solver, conditions):
         drop_idx[i] = []
     
     if len(conditions) == 0:
-        return has_redundant, result
+        return has_redundant, result, 0
     
     processed_conditions = {}
     if len(conditions) == 1:
@@ -694,9 +724,10 @@ def has_redundancy(solver, tau_solver, conditions):
         tau_solver.pop()
 
         if is_tauto:
-            return is_tauto, '{}'
+            # print("Tautology", len(result))
+            return is_tauto, '{}', 0
         else:
-            return has_redundant, result
+            return has_redundant, result, 0
     else:        
         for idx1 in range(len(conditions) - 1):
             expr1 = ""
@@ -772,10 +803,10 @@ def has_redundancy(solver, tau_solver, conditions):
         # result = [result[i] for i in range(0, len(result), 1) if i not in dp_arr]
         if is_tauto:
             return is_tauto, '{}'
-        return has_redundant, final_result
+        return has_redundant, final_result, len(result[0])-len(final_result)
 
     else:
-        return has_redundant, result
+        return has_redundant, result, 0
 
 def convert_z3_variable(condition, datatype):
     """

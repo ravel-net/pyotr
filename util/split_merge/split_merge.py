@@ -30,13 +30,16 @@ def split_merge(group, tablename, variables_list, summary):
         tree = translator.generate_tree(sql)
         data_time = translator.data(tree)
         upd_time = translator.upd_condition(tree)
+        # if (idx == 0):
+        #     exit()
         nor_time = translator.normalization()
         merge_begin = time.time()
         rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], summary, variables_list)
         merge_end = time.time()
-        # print("Total time: ", merge_end-merge_begin)
+        print("Merge Time: ", merge_end-merge_begin)
 
         total_running_time += data_time + upd_time + nor_time["contradiction"][1] + nor_time["redundancy"][1] + (merge_end - merge_begin)
+        # total_running_time += data_time + upd_time + (merge_end - merge_begin)
     return total_running_time, output_tables[-1]
 
 

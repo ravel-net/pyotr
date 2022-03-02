@@ -4,6 +4,7 @@ Generate chain with loops
 """
 import math
 import random
+import sys
 
 def gen_chain_with_loop(size=15, rate_summary=0.3, rate_loops=0.6):   
     """
@@ -27,8 +28,13 @@ def gen_chain_with_loop(size=15, rate_summary=0.3, rate_loops=0.6):
     total_num_loops = math.ceil(num_summary_nodes * rate_loops)
     avg_num_nodes_in_loop = math.ceil((size - num_summary_nodes) / total_num_loops)
 
+    # random.seed(20)
+    # seed = random.randrange(sys.maxsize)
+    # rng = random.Random(seed)
+    # print("Seed was:", seed)
     picked_nodes = random.sample(summary_nodes, total_num_loops)
-    print(picked_nodes)
+    # print("Picked Nodes:",picked_nodes)
+    picked_nodes = ['3']
     numbers = []
     count = 0
     for i in range(total_num_loops-1):

@@ -66,7 +66,8 @@ def merge_tuples(tablename, out_tablename, overlay_nodes, variables_list):
         prcd_or_cond = condition_analyze.analyze(or_cond)
         # print(prcd_or_cond)
         is_tauto, check_time, model = check_tautology.check_is_tautology(prcd_or_cond, domain_conditions)
-        print(or_cond)
+
+        # print(or_cond)
         if is_tauto:
             # print(or_cond)
             tp.insert(idx_cond, '{}')
