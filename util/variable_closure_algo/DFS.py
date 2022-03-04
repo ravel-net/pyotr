@@ -26,8 +26,10 @@ class Graph:
     def add_edge(self, v, w):
         v = self.mapping[v]
         w = self.mapping[w]
-        self.adj[v].append(w)
-        self.adj[w].append(v)
+        if (w not in self.adj[v]):
+            self.adj[v].append(w)
+        if (v not in self.adj[w]):
+            self.adj[w].append(v)
  
     # Method to retrieve connected components
     # in an undirected graph
