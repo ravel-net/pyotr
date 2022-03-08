@@ -13,3 +13,13 @@ The header of the content in `z3_*.txt` is `case`, `variable_time`, `solving_tim
 - `condition` is the condition to be checked. 
 
 ## Note: `z3_part.py` is the python script to time z3 reasoning time.
+
+The idea for checking one condition in the script is:
+
+1. checking whether the negation of the condition is a tautology;
+2. if answer in 1 is unsat, then the condition is a tautology, stop;
+3. otherwise, checking whether the condition is contradiction;
+4. if answer in 3 is unsat, then the condition is a contradiction, stop;
+5. otherwise, the condition is satisfiable, stop.
+
+The `total_time` for one condition records the running time of above steps.
