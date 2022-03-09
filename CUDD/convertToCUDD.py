@@ -80,7 +80,8 @@ def substituteVars(cuddFormCond, varMapping):
 		i += 1
 	return substitutedConds
 
-# Updates the domain of variables given 
+# Updates the domain of variables given. Returns a dictionary e.g. {x1: [1,2,3], x2: [1]}
+# TODO: Take actual domain and return the least 
 def findUpdatedDomains(domain, varMapping):
 	updatedDomains = {}
 	for var in domain:
@@ -90,6 +91,8 @@ def findUpdatedDomains(domain, varMapping):
 			for val in domain[var]:
 				if val not in updatedDomains[var]:
 					updatedDomains[var].append(val)
+			if -1 not in updatedDomains[var]:
+				updatedDomains[var].append(-1)
 		else:		
 			mappedVar = varMapping[var]
 			if mappedVar not in updatedDomains:
@@ -97,6 +100,8 @@ def findUpdatedDomains(domain, varMapping):
 			for val in domain[var]:
 				if val not in updatedDomains[mappedVar]:
 					updatedDomains[mappedVar].append(val)
+			if -1 not in updatedDomains[mappedVar]:
+				updatedDomains[mappedVar].append(-1)
 	return updatedDomains
 
 # Preprocessing constant == constant and constant == variables
@@ -142,7 +147,7 @@ def encode(cuddFormCond, updatedDomains):
 				stack.append(combineItems(newItems, "And"))
 			i+=length
 		elif cuddFormCond[i].isdigit() and cuddFormCond[i-1] == ' ' and cuddFormCond[i+1] == ' ':
-			stack.append(cuddFormCond[i])
+			stack.append(cuddFormCond[i-1:i+2])
 
 	cuddFormCond = stack.pop()
 	return(cuddFormCond)
@@ -164,11 +169,11 @@ def convertToCUDD(conditions):
 	domain = {}
 	stack = deque()
 	for i in range(len(conditions)):
-		print(stack)
+		# print(stack)
 		if conditions[i] == ')':
 			listItems, logicalOP = popUntilLogicalOP(stack) # pop until logical operator encountered.
 
-			TODO: Revisit this
+			# TODO: Revisit this
 			if (len(listItems) > 1):
 				stack.append(combineItems(listItems, logicalOP))
 			else:
@@ -205,20 +210,28 @@ def convertToCUDD(conditions):
 	varMapping = getSubstituitions(varConditions, variables)
 	cuddFormCond = substituteVars(cuddFormCond, varMapping)
 	updatedDomains = findUpdatedDomains(domain, varMapping)
-	print(cuddFormCond)
+	print(updatedDomains)
+	# print("bdd = " + cuddFormCond + ";")
 	cuddFormCond = encode(cuddFormCond, updatedDomains)
 	variables = getUpdatedVariables(updatedDomains)
+	cuddFormCond = cuddFormCond.replace(" 1 ","Cudd_ReadOne(gbm)")
+	cuddFormCond = cuddFormCond.replace(" 0 ","Not(Cudd_ReadOne(gbm))")
+	cuddFormCond = cuddFormCond.replace("Not(","Cudd_Not(")
+	cuddFormCond = cuddFormCond.replace("And(","Cudd_bddAnd(gbm,")
+	cuddFormCond = cuddFormCond.replace("Or(","Cudd_bddOr(gbm,")
 	newStr = "DdNode "
 	for var in variables:
 		print(var + " = Cudd_bddNewVar(gbm);")
 		newStr += "*" + var + ", "
-	print(newStr)
-	print(cuddFormCond)
+	print(newStr[:-2] + ";")
+	print("bdd = " + cuddFormCond + ";")
 
 # print(combineItems(["x1","x2", "x3", "x4"],"Or"))
 # convertToCUDD("And(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(x1 == 1, And(x2 == 1, x3 == 1, x1 == 1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x1 == 1), And(x3 == 1, x1 == 1))), x3 == 1, x3 == 2)")
 # convertToCUDD("And(x4 == 5, Or(x1 == 1,x2 == 2, x2 == x3, x2 == x3, 1 == 2),x3 == 3,x3 == x1, x4 == x5)")
-convertToCUDD("Or(And(x1 == x2, x2 == x3), And(1 == x2, x2 == x3), x1 == x3, 1 == x3, And(x1 == 1, x2 == x3), And(x1 == 1, x2 == x3), And(x2 == 1, x3 == x2), x2 == 1, And(x2 == 1, x2 == x3), And(x2 == 1, x2 == x3), And(x3 == 1, x3 == x2), x3 == 1)")
+# convertToCUDD("Or(And(x1 == x2, x2 == x3), And(1 == x2, x2 == x3), x1 == x3, 1 == x3, And(x1 == 1, x2 == x3), And(x1 == 1, x2 == x3), And(x2 == 1, x3 == x2), x2 == 1, And(x2 == 1, x2 == x3), And(x2 == 1, x2 == x3), And(x3 == 1, x3 == x2), x3 == 1)")
+convertToCUDD("And(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1))), 1 == x3, x3 == 2)")
+# convertToCUDD("Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1)))")
 
 # 8K hours
 # Ask for feedback from Anduo

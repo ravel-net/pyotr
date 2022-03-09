@@ -1,5 +1,7 @@
 #include "util.h"
 #include "cudd.h"
+#include <time.h>
+
 
 // DdManager *manager;
 // DdNode *f, *var, *tmp;
@@ -14,6 +16,8 @@
 //     Cudd_RecursiveDeref(manager,f);
 //     f = tmp;
 // }
+
+
 
 void print_dd (DdManager *gbm, DdNode *dd, int n, int pr )
 {
@@ -39,20 +43,30 @@ int main (int argc, char *argv[])
 {
     char filename[30] = "graph2.dot";
     DdManager *gbm; /* Global BDD manager. */
+    clock_t start, end;
+     double cpu_time_used;
+
     gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-    DdNode *bdd;
-    DdNode *x1_1, *x2_1, *x3_0, *x3_1;
-    x1_1 = Cudd_bddNewVar(gbm);
-    x2_1 = Cudd_bddNewVar(gbm);
-    x3_0 = Cudd_bddNewVar(gbm);
-    x3_1 = Cudd_bddNewVar(gbm);
-    // bdd = Cudd_bddAnd(gbm, x1, x2); /*Perform AND Boolean operation*/
-    // bdd = Cudd_bddAnd(gbm, x1, Cudd_Cudd_Not(x1)); /*Perform AND Boolean operation*/
-    bdd = Cudd_bddAnd(gbm,Cudd_bddOr(gbm,Cudd_bddOr(gbm,x1_1,Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_1,x2_1),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x2_1,Cudd_bddAnd(gbm,x3_0,Cudd_Not(x3_1))),Cudd_bddOr(gbm,x2_1,Cudd_bddAnd(gbm,x3_0,Cudd_Not(x3_1)))))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_Not(x3_1)),Cudd_bddOr(gbm,x2_1,Cudd_bddOr(gbm,x1_1,Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x2_1,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_Not(x3_1)),x1_1)),Cudd_bddOr(gbm,x1_1,Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_1,x2_1),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x2_1,x1_1),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_Not(x3_1)),x1_1))))))))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_Not(x3_1)),Cudd_bddAnd(gbm,Cudd_Not(x3_0),x3_1)));
-    Cudd_Ref(bdd);          /*Update the reference count for the node just created.*/
+     start = clock();
+    DdNode *bdd, *bdd2;
+DdNode *x1_0, *x1_1, *x1_2, *x2_0, *x2_1, *x3_0, *x3_1, *x3_2;
+x1_0 = Cudd_bddNewVar(gbm);x1_1 = Cudd_bddNewVar(gbm);x2_0 = Cudd_bddNewVar(gbm);x2_1 = Cudd_bddNewVar(gbm);x3_0 = Cudd_bddNewVar(gbm);x3_1 = Cudd_bddNewVar(gbm);x3_2 = Cudd_bddNewVar(gbm);
+bdd = Cudd_bddAnd(gbm,Cudd_bddOr(gbm,Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1)),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1)),Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1)),Cudd_bddAnd(gbm,x3_0,Cudd_bddAnd(gbm,Cudd_Not(x3_1),Cudd_Not(x3_2)))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1)),Cudd_bddAnd(gbm,x3_0,Cudd_bddAnd(gbm,Cudd_Not(x3_1),Cudd_Not(x3_2))))))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_bddAnd(gbm,Cudd_Not(x3_1),Cudd_Not(x3_2))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1)),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1)),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1)),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_bddAnd(gbm,Cudd_Not(x3_1),Cudd_Not(x3_2))),Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1)))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1)),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1)),Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x2_0,Cudd_Not(x2_1)),Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_bddAnd(gbm,Cudd_Not(x3_1),Cudd_Not(x3_2))),Cudd_bddAnd(gbm,x1_0,Cudd_Not(x1_1))))))))))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x3_0,Cudd_bddAnd(gbm,Cudd_Not(x3_1),Cudd_Not(x3_2))),Cudd_bddAnd(gbm,Cudd_Not(x3_0),Cudd_bddAnd(gbm,x3_1,Cudd_Not(x3_2)))));   /*Update the reference count for the node just created.*/
+
+bdd = Cudd_bddOr(gbm,Cudd_ReadOne(gbm),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddOr(gbm,Cudd_ReadOne(gbm),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,Cudd_Not(x1_0),Cudd_bddAnd(gbm,x1_1,Cudd_Not(x1_2)))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,Cudd_Not(x1_0),Cudd_bddAnd(gbm,x1_1,Cudd_Not(x1_2)))))),Cudd_bddAnd(gbm,Cudd_Not(x1_0),Cudd_bddAnd(gbm,x1_1,Cudd_Not(x1_2)))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddOr(gbm,Cudd_ReadOne(gbm),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,Cudd_Not(x1_0),Cudd_bddAnd(gbm,x1_1,Cudd_Not(x1_2)))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,Cudd_Not(x1_0),Cudd_bddAnd(gbm,x1_1,Cudd_Not(x1_2)))))),Cudd_bddAnd(gbm,Cudd_Not(x1_0),Cudd_bddAnd(gbm,x1_1,Cudd_Not(x1_2)))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2)))),Cudd_bddOr(gbm,Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2)))),Cudd_bddAnd(gbm,Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))),Cudd_bddAnd(gbm,x1_0,Cudd_bddAnd(gbm,Cudd_Not(x1_1),Cudd_Not(x1_2))))))))))))));
+
     bdd = Cudd_BddToAdd(gbm, bdd); /*Convert BDD to ADD for display purpose*/
     // print_dd (gbm, bdd, 2,4);   /*Print the dd to standard output*/
     // sprintf(filename, "./bdd/graph.dot"); /*Write .dot filename to a string*/
+     end = clock();
+    if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 1)
+	    printf("Tautology\n");
+    else if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 0)
+	    printf("Contradiction\n");
+	else
+	    printf("Satisfiable\n");
+     cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+     printf("CPU Time Used %f\n", cpu_time_used);
     write_dd(gbm, bdd, filename);  /*Write the resulting cascade dd to a file*/
     Cudd_Quit(gbm);
     return 0; 
