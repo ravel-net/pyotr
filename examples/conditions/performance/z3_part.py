@@ -7,12 +7,32 @@ import z3
 from z3 import Or, And, Not
 
 from time import time
-from utils.check_tautology.condition_analyze import analyze
-from utils.check_tautology.check_tautology import get_domain_conditions
-
-path = "../../check_repeated_constraint/constraints/"
+from util.check_tautology.condition_analyze import analyze
+from util.check_tautology.check_tautology import get_domain_conditions
 
 def time_list_condition(filename, output, domain_condition):
+    """
+    timing the z3 reasoning time for a file of conditions
+
+    Parameters:
+    -----------
+    filename: string
+        the location of the filename which stores the conditions
+    output: string
+        the location of the output filename which stores the running time for each condition
+    domain_condition: string
+        the domain condition
+
+    Output:
+    ----------
+    output: file
+        the file stores the running time for each condition, the name is determined by output attribute
+
+    Return:
+    ----------
+    total_running_time: seconds
+        the total running time for all conditions in the file
+    """
     f = open(output, 'w')
     f.write("case variable_time solving_time total_time\n")
     solver = z3.Solver()
@@ -22,8 +42,8 @@ def time_list_condition(filename, output, domain_condition):
     solver.add(z3.Int('x') == z3.IntVal(1))
     solver.check()
     solver.pop()
-
-    with open(path+filename) as file:
+    total_running_time = 0
+    with open(filename) as file:
         while line := file.readline():
             # print(line.rstrip())
             begin_time = time()
@@ -44,6 +64,7 @@ def time_list_condition(filename, output, domain_condition):
                 solver.pop()
                 checking_end = time()
                 end_time = time()
+                total_running_time += end_time - begin_time
                 f.write("{} {} {} {}\n".format(1, variable_end-variable_begin+domain_time, checking_end-checking_begin, end_time-begin_time))
                 continue
             solver.pop()
@@ -57,16 +78,25 @@ def time_list_condition(filename, output, domain_condition):
                 solver.pop()
                 checking_end = time()
                 end_time = time()
+                total_running_time += end_time - begin_time
                 f.write("{} {} {} {}\n".format(0, variable_end-variable_begin+domain_time, checking_end-checking_begin, end_time-begin_time))
                 continue
             else:
                 solver.pop()
                 checking_end = time()
                 end_time = time()
+                total_running_time += end_time - begin_time
                 f.write("{} {} {} {}\n".format(2, variable_end-variable_begin+domain_time, checking_end-checking_begin, end_time-begin_time))
                 continue
+    return total_running_time
             
 def time_one_condition(condition, domain_condition):
+    """
+    timing a single condition 
+
+    Para
+    
+    """
     solver = z3.Solver()
 
     # exclude exception running time
@@ -105,9 +135,11 @@ def time_one_condition(condition, domain_condition):
     end_time = time()
     return end_time-begin_time
 
+path = "../../check_repeated_constraint/constraints/"
+
 domain_condition, domain_time = get_domain_conditions(['1', '2'], ['x1', 'x2', 'x3'], "Int")
 
-time_list_condition("contradiction.txt", "./z3_contrad.txt", domain_condition)
+time_list_condition(path+"contradiction.txt", "./z3_contrad.txt", domain_condition)
 condition = "And(x3 == 1, 2 == x3, x3 == 2)"
 
 time_one_condition(condition, domain_condition)
