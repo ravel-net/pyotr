@@ -107,7 +107,7 @@ def time_one_condition(condition, domain_condition):
 
 domain_condition, domain_time = get_domain_conditions(['1', '2'], ['x1', 'x2', 'x3'], "Int")
 
-time_list_condition("larger_conditions.txt", "./z3_larger.txt")
+time_list_condition("contradiction.txt", "./z3_contrad.txt", domain_condition)
 condition = "And(x3 == 1, 2 == x3, x3 == 2)"
 
 time_one_condition(condition, domain_condition)
