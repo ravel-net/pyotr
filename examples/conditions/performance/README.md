@@ -27,12 +27,12 @@ The `total_time` for one condition records the running time of above steps.
 ### Usage
 
 ```python
-"""
+'''
 time the z3 reasoning time for a file of conditions
 
 record the running time for each condition stored in the output file
 return the total running time of all conditions
-"""
+'''
 path = "../"
 filename = "contradiction.txt"
 output = "./z3_contrad.txt"
@@ -41,11 +41,11 @@ domain_condition, domain_time = get_domain_conditions(['1', '2'], ['x1', 'x2', '
 
 total_running_time = time_list_condition(path+"contradiction.txt", "./z3_contrad.txt", domain_condition)
 
-"""
+'''
 time the z3 reasoning time for a single condition
 
 return the running time for the input condition
-"""
+'''
 condition = "And(x3 == 1, 2 == x3, x3 == 2)"
 
 single_time = time_one_condition(condition, domain_condition)
