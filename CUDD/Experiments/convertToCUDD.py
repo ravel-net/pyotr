@@ -7,6 +7,7 @@ filename = join(root, 'util', 'variable_closure_algo')
 sys.path.append(filename)
 import sys
 import DFS
+import math
 
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
 def popUntilLogicalOP(stack):
@@ -31,11 +32,11 @@ def extractConditions(conditions, i):
 	start = 0
 	end = len(conditions)
 	curr = i
-	while(conditions[curr] != '(' and conditions[curr] != ','):
+	while(curr >= 0 and conditions[curr] != '(' and conditions[curr] != ','):
 		curr -= 1
 	start = curr + 1
 	curr = i
-	while(conditions[curr] != ')' and conditions[curr] != ','):
+	while(curr < len(conditions) and conditions[curr] != ')' and conditions[curr] != ',' and i < len(conditions)-1):
 		curr += 1
 	end = curr
 	return conditions[start:end].strip(), start, end
@@ -87,23 +88,31 @@ def findUpdatedDomains(domain, varMapping):
 	updatedDomains = {}
 	for var in domain:
 		if var not in varMapping:
-			if var not in updatedDomains:
-				updatedDomains[var]  = []
-			for val in domain[var]:
-				if val not in updatedDomains[var]:
-					updatedDomains[var].append(val)
-			if -1 not in updatedDomains[var]:
-				updatedDomains[var].append(-1)
+			updatedDomains[var] = [1,2]
 		else:		
 			mappedVar = varMapping[var]
-			if mappedVar not in updatedDomains:
-				updatedDomains[mappedVar] = []
-			for val in domain[var]:
-				if val not in updatedDomains[mappedVar]:
-					updatedDomains[mappedVar].append(val)
-			if -1 not in updatedDomains[mappedVar]:
-				updatedDomains[mappedVar].append(-1)
+			updatedDomains[mappedVar] = [1,2]
 	return updatedDomains
+	# updatedDomains = {}
+	# for var in domain:
+	# 	if var not in varMapping:
+	# 		if var not in updatedDomains:
+	# 			updatedDomains[var]  = []
+	# 		for val in domain[var]:
+	# 			if val not in updatedDomains[var]:
+	# 				updatedDomains[var].append(val)
+	# 		if -1 not in updatedDomains[var]:
+	# 			updatedDomains[var].append(-1)
+	# 	else:		
+	# 		mappedVar = varMapping[var]
+	# 		if mappedVar not in updatedDomains:
+	# 			updatedDomains[mappedVar] = []
+	# 		for val in domain[var]:
+	# 			if val not in updatedDomains[mappedVar]:
+	# 				updatedDomains[mappedVar].append(val)
+	# 		if -1 not in updatedDomains[mappedVar]:
+	# 			updatedDomains[mappedVar].append(-1)
+	# return updatedDomains
 
 # Preprocessing constant == constant and constant == variables
 def preprocessCond(var1, var2):
@@ -116,6 +125,24 @@ def preprocessCond(var1, var2):
 		return str(var2) + "==" + str(var1)
 	else:
 		return str(var1) + "==" + str(var2)
+
+def processCon(var1, var2, updatedDomains):
+	newItems = []
+	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
+		for i in range(math.ceil(math.log(len(updatedDomains[var1]),2))):
+			newItems.append("Xnor("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
+	else:
+		iterator = 0
+		for val in bin(updatedDomains[var1].index(var2))[2:]: # binary representation
+			# print(splitConditions[0])
+			# print(bin(updatedDomains[splitConditions[0]].index(splitConditions[1]))[2:])
+			# print(val)
+			if val == '1':
+				newItems.append(var1+"_"+str(iterator))
+			else:
+				newItems.append("Not("+var1+"_"+str(iterator)+")")
+			iterator += 1
+	return newItems
 
 # at this point we are only left with constraints of the form var == constant. We perform a binary encoding of this
 def encode(cuddFormCond, updatedDomains):
@@ -130,22 +157,21 @@ def encode(cuddFormCond, updatedDomains):
 		elif cuddFormCond[i:i+3] == "Or(":
 			stack.append("Or")
 			i+=3
+		# TODO: Add not equal to
 		elif cuddFormCond[i:i+2] == "==":
 			condition, _,_ = extractConditions(cuddFormCond, i)
 			splitConditions = condition.split('==')
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			newItems = []
-			if (len(updatedDomains[splitConditions[0]]) == 1):
-				stack.append(splitConditions[0]+"_0")
-			else:
-				for i in range(len(updatedDomains[splitConditions[0]])):
-					if int(splitConditions[1]) == int(updatedDomains[splitConditions[0]][i]):
-						newItems.append(splitConditions[0]+"_"+str(i))
-					else:
-						newItems.append("Not("+splitConditions[0]+"_"+str(i)+")")
+			newItems = processCon(splitConditions[0],splitConditions[1], updatedDomains)
+			if (len(newItems) > 1):
 				stack.append(combineItems(newItems, "And"))
+			elif (len(newItems) > 0):
+				stack.append(newItems[0])
+			else:
+				print("Error")
+				exit()
 			i+=length
 		elif cuddFormCond[i].isdigit() and cuddFormCond[i-1] == ' ' and cuddFormCond[i+1] == ' ':
 			stack.append(cuddFormCond[i-1:i+2])
@@ -156,12 +182,15 @@ def encode(cuddFormCond, updatedDomains):
 def getUpdatedVariables(updatedDomains):
 	variables = []
 	for var in updatedDomains:
-		i = 0
-		for val in updatedDomains[var]:
+		for i in range(math.ceil(math.log(len(updatedDomains[var]),2))):
 			variables.append(var + "_" + str(i))
-			i += 1
 	return variables
 
+def addDomain(variables, domain):
+	updatedDomain = {}
+	for variable in variables:
+		updatedDomain[variable] = domain
+	return updatedDomain
 
 def convertToCUDD(conditions):
 	allConstraints = []
@@ -170,7 +199,6 @@ def convertToCUDD(conditions):
 	domain = {}
 	stack = deque()
 	for i in range(len(conditions)):
-		# print(stack)
 		if conditions[i] == ')':
 			listItems, logicalOP = popUntilLogicalOP(stack) # pop until logical operator encountered.
 
@@ -178,7 +206,8 @@ def convertToCUDD(conditions):
 			if (len(listItems) > 1):
 				stack.append(combineItems(listItems, logicalOP))
 			else:
-				stack.append(" 1 ")
+				stack.append(listItems[0])
+
 		elif conditions[i:i+4] == "And(":
 			stack.append("And")
 			i+=4
@@ -205,20 +234,24 @@ def convertToCUDD(conditions):
 					if splitConditionsProcessed[0] not in domain:
 						domain[splitConditionsProcessed[0]] = []
 					domain[splitConditionsProcessed[0]].append(splitConditionsProcessed[1])
-				stack.append(condition)
+					variables.append(splitConditionsProcessed[0])
+			stack.append(condition)
 			i+=length
 	cuddFormCond = stack.pop()
-	varMapping = getSubstituitions(varConditions, variables)
-	cuddFormCond = substituteVars(cuddFormCond, varMapping)
-	updatedDomains = findUpdatedDomains(domain, varMapping)
+	# print(cuddFormCond)
+	# varMapping = getSubstituitions(varConditions, variables)
+	# cuddFormCond = substituteVars(cuddFormCond, varMapping)
+	# updatedDomains = findUpdatedDomains(domain, varMapping)
+	updatedDomains = addDomain(variables, ['1','2'])
 	# print(updatedDomains)
-	# print("bdd = " + cuddFormCond + ";")
 	cuddFormCond = encode(cuddFormCond, updatedDomains)
+	# print("bdd = " + cuddFormCond + ";")
 	variables = getUpdatedVariables(updatedDomains)
 	cuddFormCond = cuddFormCond.replace(" 1 ","Cudd_ReadOne(gbm)")
 	cuddFormCond = cuddFormCond.replace(" 0 ","Not(Cudd_ReadOne(gbm))")
 	cuddFormCond = cuddFormCond.replace("Not(","Cudd_Not(")
 	cuddFormCond = cuddFormCond.replace("And(","Cudd_bddAnd(gbm,")
+	cuddFormCond = cuddFormCond.replace("Xnor(","Cudd_bddXnor(gbm,")
 	cuddFormCond = cuddFormCond.replace("Or(","Cudd_bddOr(gbm,")
 	declaration = ""
 	newStr = "DdNode "

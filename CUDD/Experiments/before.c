@@ -43,11 +43,11 @@ int main (int argc, char *argv[])
 {
     char filename[30] = "graph2.dot";
     clock_t start, end;
-     start = clock();
     DdManager *gbm; /* Global BDD manager. */
      double cpu_time_used;
 
     gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+     start = clock();
     DdNode *bdd;
     MODIFY
 // DdNode *x1_0, *x1_1, *x2_0, *x2_1, *x3_0, *x3_1, *x3_2;
@@ -63,22 +63,23 @@ int main (int argc, char *argv[])
     // print_dd (gbm, bdd, 2,4);   /*Print the dd to standard output*/
     // sprintf(filename, "./bdd/graph.dot"); /*Write .dot filename to a string*/
     int i;
+        // i = 0;
     if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 1)
-        i = 0;
-        // printf("Tautology\n");
+        // i = 0;
+        printf("Tautology\n");
     else if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 0)
-        i = 1;
-        // printf("Contradiction\n");
+        // i = 1;
+        printf("Contradiction\n");
     else
-        i = 2;
-        // printf("Satisfiable\n");
+        // i = 2;
+        printf("Satisfiable\n");
      end = clock();
      cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
      printf("CPU Time Used %f\n", cpu_time_used);
      if (i == 4)
          printf("CPU Time Used %f\n", cpu_time_used);
 
-    write_dd(gbm, bdd, filename);  /*Write the resulting cascade dd to a file*/
+    // write_dd(gbm, bdd, filename);  /*Write the resulting cascade dd to a file*/
     Cudd_Quit(gbm);
     return 0; 
 }
