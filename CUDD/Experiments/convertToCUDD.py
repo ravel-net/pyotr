@@ -249,29 +249,35 @@ def convertToCUDD(conditions):
 	variables = getUpdatedVariables(updatedDomains)
 	cuddFormCond = cuddFormCond.replace(" 1 ","Cudd_ReadOne(gbm)")
 	cuddFormCond = cuddFormCond.replace(" 0 ","Not(Cudd_ReadOne(gbm))")
-	cuddFormCond = cuddFormCond.replace("Not(","Cudd_Not(")
-	cuddFormCond = cuddFormCond.replace("And(","Cudd_bddAnd(gbm,")
-	cuddFormCond = cuddFormCond.replace("Xnor(","Cudd_bddXnor(gbm,")
-	cuddFormCond = cuddFormCond.replace("Or(","Cudd_bddOr(gbm,")
+	cuddFormCond = cuddFormCond.replace("Not(","\\~(")
+	cuddFormCond = cuddFormCond.replace("And(","\\&(")
+	cuddFormCond = cuddFormCond.replace("Xnor(","\\$(")
+	cuddFormCond = cuddFormCond.replace("Or(","\\^(")
+
+	# cuddFormCond = cuddFormCond.replace("Not(","~(")
+	# cuddFormCond = cuddFormCond.replace("And(","&(")
+	# cuddFormCond = cuddFormCond.replace("Xnor(","$(")
+	# cuddFormCond = cuddFormCond.replace("Or(","^(")
 	declaration = ""
 	newStr = "DdNode "
 	for var in variables:
 		declaration += var + " = Cudd_bddNewVar(gbm);"
 		newStr += "*" + var + ", "
-	print(newStr[:-2] + ";")
-	print(declaration)
-	print("bdd = " + cuddFormCond + ";")
+	# print(newStr[:-2] + ";")
+	print("convertToBDD(gbm,\""+ cuddFormCond+"\", 10, variables);");
+	# print(declaration)
+	# print("bdd = " + cuddFormCond + ";")
+	# print(variables)
 
 # print(combineItems(["x1","x2", "x3", "x4"],"Or"))
 # convertToCUDD("And(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(x1 == 1, And(x2 == 1, x3 == 1, x1 == 1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x1 == 1), And(x3 == 1, x1 == 1))), x3 == 1, x3 == 2)")
 # convertToCUDD("And(x4 == 5, Or(x1 == 1,x2 == 2, x2 == x3, x2 == x3, 1 == 2),x3 == 3,x3 == x1, x4 == x5)")
 # convertToCUDD("Or(And(x1 == x2, x2 == x3), And(1 == x2, x2 == x3), x1 == x3, 1 == x3, And(x1 == 1, x2 == x3), And(x1 == 1, x2 == x3), And(x2 == 1, x3 == x2), x2 == 1, And(x2 == 1, x2 == x3), And(x2 == 1, x2 == x3), And(x3 == 1, x3 == x2), x3 == 1)")
-if len(sys.argv) < 2:
+if len(sys.argv) < 1:
 	print("Not enough arguments provided")
 else:
 	convertToCUDD(sys.argv[1])
+	# condition = "Or(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1))), x3 == 1, x2 == 1, x1 == 1)"
+	# convertToCUDD(condition)
 # convertToCUDD("Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1)))")
-
-# 8K hours
-# Ask for feedback from Anduo
 
