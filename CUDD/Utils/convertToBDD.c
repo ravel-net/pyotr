@@ -28,7 +28,7 @@ void write_dd (DdManager *gbm, DdNode *dd, char* filename)
 }
 
 // Gets the current variable referenced in the condition
-char* getVar(char* condition, int* i) {
+int getVar(char* condition, int* i) {
     char* var = malloc(sizeof(char)*varNameLength); // TODO: make it dynanmic. We are restricting work to be of 3 letters
     int j = 0;
     while (condition[*i] != '(' && condition[*i] != ',' && condition[*i] != ')'){
@@ -39,7 +39,7 @@ char* getVar(char* condition, int* i) {
     }
     var[j] = '\0';
     *i = *i+1; // skipping bracket/comma
-    return var;
+    return atoi(var);
 
 }
 
@@ -70,14 +70,14 @@ bool isLogicalNot(char curr_char) {
 }
 
 // Returns a BDD that is referencec
-DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, char** variables, int numVars) {
+DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
     DdNode *bdd;
     char curr_char = condition[*i];
     int k = 0;
     if (isLogicalOp(curr_char)) {
         *i = *i + 2; // Skipping bracket
-        DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, variables, numVars); // i passed as reference to remember where we are in encoding
-        DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, variables, numVars); // i passed as reference to remember where we are in encoding
+        DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
+        DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
         bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
         Cudd_Ref(bdd);
         // Cudd_RecursiveDeref(gbm, bdd_left);
@@ -85,7 +85,7 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
     }
     else if (isLogicalNot(curr_char)) {
         *i = *i + 2; // Skipping bracket
-        DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, variables, numVars);
+        DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
         bdd = Cudd_Not(tmp);
         // Cudd_Ref(bdd);
         // Cudd_RecursiveDeref(gbm, tmp);
@@ -93,20 +93,21 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
     }
     else if (curr_char == ',' || curr_char == '(' || curr_char == ')') {
         *i = *i + 1;
-        bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, variables, numVars); 
+        bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); 
     }
 
     // must be a variables at this point
-    else if (isalpha(curr_char)) {
-        char* var = getVar(condition, i); // get variable name and adds to i
-        int index = stringToBDDIndex(variables, var, numVars); // get index of variable in global copy of var to index mapping
+    else if (isdigit(curr_char)) {
+        // char* var = getVar(condition, i); // get variable name and adds to i
+        // int index = stringToBDDIndex(variables, var, numVars); // get index of variable in global copy of var to index mapping
+        int index = getVar(condition,i);
         bdd = variableNodes[index];
-        free(var);
+        // free(var);
     }
     return bdd;
 }
 
-DdNode** initVars(int numVars, char** variables, DdManager* gbm) {
+DdNode** initVars(int numVars, DdManager* gbm) {
     DdNode** variableNodes = malloc(sizeof(DdNode*)*numVars);
     for (int i = 0; i < numVars; i++) {
         variableNodes[i] = Cudd_bddNewVar(gbm);
@@ -118,10 +119,10 @@ DdNode** initVars(int numVars, char** variables, DdManager* gbm) {
 
 // Variables given as space separated command line inputs
 DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars, char** variables) {
-    DdNode** variableNodes = initVars(numVars, variables, gbm);
+    DdNode** variableNodes = initVars(numVars, gbm);
     int* i = malloc(sizeof(int));
     *i = 0;
-    DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, variables, numVars);
+    DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
     free(i); 
     return bdd;
 } 
@@ -176,7 +177,8 @@ int main (int argc, char *argv[])
         // printf("numVars: \t\t%d\n", numVars);
         // printf("maxVarNameLength: \t\t%d\n", maxVarNameLength);
         // printf("conditionSize: \t\t%d\n", conditionSize);
-        varNameLength = maxVarNameLength+1;
+        // varNameLength = maxVarNameLength+1;
+        varNameLength = 3;
         variables = malloc(sizeof(char*)*numVars);
         for (int i = 0; i < numVars; i++) {
             variables[i] = malloc(sizeof(char)*varNameLength);

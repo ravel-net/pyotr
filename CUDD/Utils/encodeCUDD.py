@@ -2,6 +2,7 @@ from collections import deque
 from os.path import dirname, abspath, join
 import sys
 import math
+import time
 
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
 def popUntilLogicalOP(stack):
@@ -120,28 +121,45 @@ def preprocessCond(var1, var2):
 	else:
 		return str(var1) + "==" + str(var2)
 
+
+def binaryRepresentation(var1, numBinDigits, binary_rep):
+	newItems = []
+	iterator = 0
+	diff_len = numBinDigits - len(binary_rep)
+	for i in range(diff_len):
+		binary_rep = '0'+binary_rep
+	for val in binary_rep: # binary representation
+		# print(splitConditions[0])
+		# print(bin(updatedDomains[splitConditions[0]].index(splitConditions[1]))[2:])
+		# print(val)
+		# print(updatedDomains[var1].index(var2))
+		if val == '1':
+			newItems.append(var1+"_"+str(iterator))
+		else:
+			newItems.append("Not("+var1+"_"+str(iterator)+")")
+		iterator += 1
+	return newItems
+
 def processCon(var1, var2, updatedDomains):
 	newItems = []
+	processedCond = ""
+	numBinDigits = math.ceil(math.log(len(updatedDomains[var1]),2))
 	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
-		for i in range(math.ceil(math.log(len(updatedDomains[var1]),2))):
+		for i in range(numBinDigits):
 			newItems.append("Xnor("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
+		processedCond = combineItems(newItems, "And")
 	else:
-		iterator = 0
 		binary_rep = bin(updatedDomains[var1].index(var2))[2:]
-		diff_len = math.ceil(math.log(len(updatedDomains[var1]),2)) - len(binary_rep)
-		for i in range(diff_len):
-			binary_rep = '0'+binary_rep
-		for val in binary_rep: # binary representation
-			# print(splitConditions[0])
-			# print(bin(updatedDomains[splitConditions[0]].index(splitConditions[1]))[2:])
-			# print(val)
-			# print(updatedDomains[var1].index(var2))
-			if val == '1':
-				newItems.append(var1+"_"+str(iterator))
-			else:
-				newItems.append("Not("+var1+"_"+str(iterator)+")")
-			iterator += 1
-	return newItems
+		newItems = binaryRepresentation(var1, numBinDigits, binary_rep)
+		processedCond = combineItems(newItems, "And")
+		if updatedDomains[var1].index(var2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
+			allConditions = [processedCond]
+			for i in range(numBinDigits, int(math.pow(2,numBinDigits))):
+				binary_rep = bin(i)[2:]
+				newItems = binaryRepresentation(var1, numBinDigits, binary_rep)
+				allConditions.append(combineItems(newItems, "And"))
+			processedCond = combineItems(allConditions, "Or")
+	return processedCond
 
 # at this point we are only left with constraints of the form var == constant. We perform a binary encoding of this
 def encode(cuddFormCond, updatedDomains):
@@ -164,13 +182,7 @@ def encode(cuddFormCond, updatedDomains):
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
 			newItems = processCon(splitConditions[0],splitConditions[1], updatedDomains)
-			if (len(newItems) > 1):
-				stack.append(combineItems(newItems, "And"))
-			elif (len(newItems) > 0):
-				stack.append(newItems[0])
-			else:
-				print("Error")
-				exit()
+			stack.append(newItems)
 			i+=length
 		elif cuddFormCond[i].isdigit() and cuddFormCond[i-1] == ' ' and cuddFormCond[i+1] == ' ':
 			stack.append(cuddFormCond[i-1:i+2])
@@ -272,6 +284,11 @@ def convertToCUDD(conditions, input_domain):
 	cuddFormCond = cuddFormCond.replace("And(","&(")
 	cuddFormCond = cuddFormCond.replace("Xnor(","$(")
 	cuddFormCond = cuddFormCond.replace("Or(","^(")
+	count = 0
+	for var in variables:
+		cuddFormCond = cuddFormCond.replace(var,str(count))
+		count += 1
+
 	return cuddFormCond, variables
 
 # Returns the length of the biggest variable name in list
@@ -287,6 +304,7 @@ def maxLength(variablesArray):
 
 
 if __name__ == "__main__":
+	# convertToCUDD("And(y1 == 2, y2 == 3)", ['1','2','3','4','5'])
 	if len(sys.argv) < 3:
 		print("Not enough arguments provided")
 	else:
@@ -296,13 +314,17 @@ if __name__ == "__main__":
 		with open(input_fileName) as f_input:
 			lines = f_input.readlines()
 			for line in lines:
+				t0 = time.time()
+
 				condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'])
+				t1 = time.time()
+				total = t1-t0
 				numVars = len(variablesArray)
 				maxVarNameLength = maxLength(variablesArray)
 				conditionSize = len(condition)
 				variablesString = " ".join(variablesArray)
+				# print(total)
 				f_output.write(str(numVars) + " " + str(maxVarNameLength) + " " + str(conditionSize) + " " + variablesString + " " + condition + "\n")
 				# print(numVars, maxVarNameLength, conditionSize, variablesString, condition)  
 		f_input.close()
 		f_output.close()
-		# convertToCUDD(sys.argv[1])
