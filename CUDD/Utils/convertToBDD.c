@@ -4,8 +4,7 @@
 #include <time.h>
 #include <stdbool.h>
 
-
-int varNameLength = 5;
+int numDigits = 3;
 
 void print_dd (DdManager *gbm, DdNode *dd, int n, int pr )
 {
@@ -29,10 +28,10 @@ void write_dd (DdManager *gbm, DdNode *dd, char* filename)
 
 // Gets the current variable referenced in the condition
 int getVar(char* condition, int* i) {
-    char* var = malloc(sizeof(char)*varNameLength); // TODO: make it dynanmic. We are restricting work to be of 3 letters
+    char* var = malloc(sizeof(char)*numDigits); // TODO: make it dynanmic. We are restricting work to be of 3 letters
     int j = 0;
     while (condition[*i] != '(' && condition[*i] != ',' && condition[*i] != ')'){
-        assert(j < varNameLength);
+        assert(j < numDigits);
         var[j] = condition[*i];
         j++;
         *i = *i +1;
@@ -41,15 +40,6 @@ int getVar(char* condition, int* i) {
     *i = *i+1; // skipping bracket/comma
     return atoi(var);
 
-}
-
-// Returns the bdd node corresponding to a given variable
-int stringToBDDIndex(char** variables, char* var, int numVars) {
-    for (int i = 0; i<numVars; i++) {
-        if (strcmp(variables[i], var) == 0)
-            return i;
-    }
-    assert(false); // should never reach this point since the variable encountered should be in the list of variables
 }
 
 bool isLogicalOp(char letter){
@@ -98,11 +88,17 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
 
     // must be a variables at this point
     else if (isdigit(curr_char)) {
-        // char* var = getVar(condition, i); // get variable name and adds to i
-        // int index = stringToBDDIndex(variables, var, numVars); // get index of variable in global copy of var to index mapping
         int index = getVar(condition,i);
-        bdd = variableNodes[index];
-        // free(var);
+        if (index == 1) {
+            bdd = Cudd_ReadOne(gbm);
+            Cudd_Ref(bdd);
+        }
+        else if (index == 0) {
+            bdd = Cudd_Not(Cudd_ReadOne(gbm));
+            Cudd_Ref(bdd);
+        }
+        else
+            bdd = variableNodes[index-2];
     }
     return bdd;
 }
@@ -117,8 +113,7 @@ DdNode** initVars(int numVars, DdManager* gbm) {
 
 }
 
-// Variables given as space separated command line inputs
-DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars, char** variables) {
+DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars) {
     DdNode** variableNodes = initVars(numVars, gbm);
     int* i = malloc(sizeof(int));
     *i = 0;
@@ -127,16 +122,13 @@ DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars, char** variab
     return bdd;
 } 
 
-void evaluate(char** variables, char* condition, int numVars){
+void evaluate(char* condition, int numVars){
     clock_t start, end;
     double total_time;
     DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
     start = clock();
-    DdNode* bdd = convertToBDD(gbm, condition, numVars, variables);
-    // bdd = Cudd_BddToAdd(gbm, bdd); /*Convert BDD to ADD for display purpose*/
-    // Cudd_DebugCheck(gbm);
-    // cuddHeapProfile(gbm);
-    // Cudd_CheckKeys(gbm);
+    DdNode* bdd = convertToBDD(gbm, condition, numVars);
+
     if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 1) {
         end = clock();
         total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
@@ -160,10 +152,9 @@ int main (int argc, char *argv[])
 {
     assert(argc == 2);
 
-    int numVars, maxVarNameLength, conditionSize;
+    int numVars, conditionSize;
     int r;
     char* condition;
-    char** variables;
 
     FILE *fp;
     fp = fopen(argv[1], "rt");
@@ -173,32 +164,14 @@ int main (int argc, char *argv[])
         exit(1); 
     }
     printf("Case\t\tTotal Time\n");
-    while ((r = fscanf(fp, "%d %d %d", &numVars, &maxVarNameLength, &conditionSize)) != EOF) {
-        // printf("numVars: \t\t%d\n", numVars);
-        // printf("maxVarNameLength: \t\t%d\n", maxVarNameLength);
-        // printf("conditionSize: \t\t%d\n", conditionSize);
-        // varNameLength = maxVarNameLength+1;        
-        varNameLength = 3;
-
-        variables = malloc(sizeof(char*)*numVars);
-        for (int i = 0; i < numVars; i++) {
-            variables[i] = malloc(sizeof(char)*varNameLength);
-            r = fscanf(fp, "%s", variables[i]);
-            // printf("variable: \t\t%s\n", variables[i]);
-
-        }
+    while ((r = fscanf(fp, "%d %d", &numVars, &conditionSize)) != EOF) {
         condition = malloc(sizeof(char)*conditionSize+1);
         r = fscanf(fp, "%s", condition);
         // printf("condition: \t\t%s\n\n", condition);
-        evaluate(variables, condition, numVars);
+        evaluate(condition, numVars);
     }
 
     fclose(fp);
     free(condition);
-    for (int i = 0; i < numVars; i++) {
-        // printf("var %d: \t\t%s\n\n", i, condition);
-        free(variables[i]);
-    }
-    free(variables);
     return 0;
 }
