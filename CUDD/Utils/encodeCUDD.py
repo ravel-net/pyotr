@@ -268,8 +268,8 @@ def convertToCUDD(conditions, input_domain):
 		exit()
 	cuddFormCond = stack.pop()
 	updatedDomains = addDomain(variables, input_domain)
-	domainConstraint = domainConstraints(variables, updatedDomains)
-	cuddFormCond = "And(" + domainConstraint + "," + cuddFormCond + ")"
+	# domainConstraint = domainConstraints(variables, updatedDomains)
+	# cuddFormCond = "And(" + domainConstraint + "," + cuddFormCond + ")"
 
 	# varMapping = getSubstituitions(varConditions, variables)
 	# cuddFormCond = substituteVars(cuddFormCond, varMapping)
@@ -304,7 +304,6 @@ def maxLength(variablesArray):
 
 
 if __name__ == "__main__":
-	# a,b = convertToCUDD("And(1 == x3, x3 == 2)", ['1','2'])
 	# print(a)
 	if len(sys.argv) < 3:
 		print("Not enough arguments provided")
@@ -327,6 +326,6 @@ if __name__ == "__main__":
 				variablesString = " ".join(variablesArray)
 				# print(total)
 				f_output.write(str(numVars) + " " + str(maxVarNameLength) + " " + str(conditionSize) + " " + variablesString + " " + condition + "\n")
-				print(numVars, maxVarNameLength, conditionSize, variablesString, condition)  
+				# print(numVars, maxVarNameLength, conditionSize, variablesString, condition)  
 		f_input.close()
 		f_output.close()

@@ -177,8 +177,9 @@ int main (int argc, char *argv[])
         // printf("numVars: \t\t%d\n", numVars);
         // printf("maxVarNameLength: \t\t%d\n", maxVarNameLength);
         // printf("conditionSize: \t\t%d\n", conditionSize);
-        // varNameLength = maxVarNameLength+1;
+        // varNameLength = maxVarNameLength+1;        
         varNameLength = 3;
+
         variables = malloc(sizeof(char*)*numVars);
         for (int i = 0; i < numVars; i++) {
             variables[i] = malloc(sizeof(char)*varNameLength);
