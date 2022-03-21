@@ -16,7 +16,7 @@ def popUntilLogicalOP(stack):
 # Combines a list of items under a single logical operator into pairwise logical operations that are understandable by CUDD
 def combineItems(listItems, logicalOP):
 	if len(listItems) == 1:
-		return listItems[0]+")"
+		return listItems[0]
 	elif len(listItems) == 2:
 		return logicalOP+"("+listItems[0]+","+listItems[1]+")"
 	currString = logicalOP+"("+listItems[0]+","+combineItems(listItems[1:], logicalOP)+")"
@@ -154,7 +154,7 @@ def processCon(var1, var2, updatedDomains):
 		processedCond = combineItems(newItems, "And")
 		if updatedDomains[var1].index(var2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
 			allConditions = [processedCond]
-			for i in range(numBinDigits, int(math.pow(2,numBinDigits))):
+			for i in range(len(updatedDomains[var1]), int(math.pow(2,numBinDigits))):
 				binary_rep = bin(i)[2:]
 				newItems = binaryRepresentation(var1, numBinDigits, binary_rep)
 				allConditions.append(combineItems(newItems, "And"))
@@ -304,7 +304,8 @@ def maxLength(variablesArray):
 
 
 if __name__ == "__main__":
-	# convertToCUDD("And(y1 == 2, y2 == 3)", ['1','2','3','4','5'])
+	# a,b = convertToCUDD("And(1 == x3, x3 == 2)", ['1','2'])
+	# print(a)
 	if len(sys.argv) < 3:
 		print("Not enough arguments provided")
 	else:
@@ -317,6 +318,7 @@ if __name__ == "__main__":
 				t0 = time.time()
 
 				condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'])
+				# condition, variablesArray = convertToCUDD(line, ['1','2'])
 				t1 = time.time()
 				total = t1-t0
 				numVars = len(variablesArray)
@@ -325,6 +327,6 @@ if __name__ == "__main__":
 				variablesString = " ".join(variablesArray)
 				# print(total)
 				f_output.write(str(numVars) + " " + str(maxVarNameLength) + " " + str(conditionSize) + " " + variablesString + " " + condition + "\n")
-				# print(numVars, maxVarNameLength, conditionSize, variablesString, condition)  
+				print(numVars, maxVarNameLength, conditionSize, variablesString, condition)  
 		f_input.close()
 		f_output.close()
