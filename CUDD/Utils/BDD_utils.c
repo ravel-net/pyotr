@@ -111,7 +111,7 @@ int evaluateBDD(DdNode* bdd) {
         return 0; // satisfiable
     }
 }
-
+ 
 void evaluateString(char* condition, int numVars){
     // clock_t start, end;
     // double total_time;
@@ -123,8 +123,6 @@ void evaluateString(char* condition, int numVars){
     // total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
     // printf("Total Time: %f\n", total_time);
     printf("Result: %d\n", result);
-    printf("%d\n", evaluateBDD(bdd));
-
     Cudd_Quit(gbm);
     return;
 }
