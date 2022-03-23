@@ -3,8 +3,8 @@ LFLAGS = -static -L ~/cudd/cudd/.libs/ -lcudd -lm
 
 default: testprogram
 
-testprogram: convertToBDD.o
-	$(CC) convertToBDD.o -o convertToBDD $(LFLAGS)
+testprogram: BDD_manager.o
+	$(CC) BDD_manager.o -o BDD_manager $(LFLAGS)
 
-test.o: convertToBDD.c
-	$(CC) convertToBDD.c -c -o convertToBDD.o $(CFLAGS)
+test.o: BDD_manager.c
+	$(CC) BDD_manager.c -c -o BDD_manager.o $(CFLAGS)

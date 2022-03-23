@@ -4,34 +4,14 @@
 #include <time.h>
 #include <stdbool.h>
 
-int numDigits = 3;
+#define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
 
-void print_dd (DdManager *gbm, DdNode *dd, int n, int pr )
-{
-    printf("DdManager nodes: %ld | ", Cudd_ReadNodeCount(gbm)); /*Reports the number of live nodes in BDDs and ADDs*/
-    printf("DdManager vars: %d | ", Cudd_ReadSize(gbm) ); /*Returns the number of BDD variables in existence*/
-    printf("DdManager reorderings: %d | ", Cudd_ReadReorderings(gbm) ); /*Returns the number of times reordering has occurred*/
-    printf("DdManager memory: %ld \n", Cudd_ReadMemoryInUse(gbm)); /*Returns the memory in use by the manager measured in bytes*/
-    Cudd_PrintDebug(gbm, dd, n, pr);  // Prints to the standard output a DD and its statistics: number of nodes, number of leaves, number of minterms.
-}
-
-void write_dd (DdManager *gbm, DdNode *dd, char* filename)
-{
-    FILE *outfile; // output file pointer for .dot file
-    outfile = fopen(filename,"w");
-    DdNode **ddnodearray = (DdNode**)malloc(sizeof(DdNode*)); // initialize the function array
-    ddnodearray[0] = dd;
-    Cudd_DumpDot(gbm, 1, ddnodearray, NULL, NULL, outfile); // dump the function to .dot file
-    free(ddnodearray);
-    fclose (outfile); // close the file */
-}
-
-// Gets the current variable referenced in the condition
+// Gets the current variable index referenced in the condition
 int getVar(char* condition, int* i) {
-    char* var = malloc(sizeof(char)*numDigits); // TODO: make it dynanmic. We are restricting work to be of 3 letters
+    char* var = malloc(sizeof(char)*MAX_DIGITS_FOR_VARS); 
     int j = 0;
     while (condition[*i] != '(' && condition[*i] != ',' && condition[*i] != ')'){
-        assert(j < numDigits);
+        assert(j < MAX_DIGITS_FOR_VARS);
         var[j] = condition[*i];
         j++;
         *i = *i +1;
@@ -39,7 +19,6 @@ int getVar(char* condition, int* i) {
     var[j] = '\0';
     *i = *i+1; // skipping bracket/comma
     return atoi(var);
-
 }
 
 bool isLogicalOp(char letter){
@@ -59,7 +38,7 @@ bool isLogicalNot(char curr_char) {
     return (curr_char == '~');
 }
 
-// Returns a BDD that is referencec
+// Returns a BDD from a string condition
 DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
     DdNode *bdd;
     char curr_char = condition[*i];
@@ -110,7 +89,6 @@ DdNode** initVars(int numVars, DdManager* gbm) {
         Cudd_Ref(variableNodes[i]);
     }
     return variableNodes;
-
 }
 
 DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars) {
@@ -122,33 +100,36 @@ DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars) {
     return bdd;
 } 
 
-void evaluate(char* condition, int numVars){
-    clock_t start, end;
-    double total_time;
-    DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-    start = clock();
-    DdNode* bdd = convertToBDD(gbm, condition, numVars);
-
+int evaluateBDD(DdNode* bdd) {
     if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 1) {
-        end = clock();
-        total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-        printf("Tautology\t%f\n", total_time);
+        return 1; // tautology
     }
     else if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 0) {
-        end = clock();
-        total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-        printf("Contradiction\t%f\n", total_time);
+        return 2; // contradiction
     }
     else {
-        end = clock();
-        total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
-        printf("Satisfiable\t%f\n", total_time);
+        return 0; // satisfiable
     }
+}
+
+void evaluateString(char* condition, int numVars){
+    // clock_t start, end;
+    // double total_time;
+    DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+    // start = clock();
+    DdNode* bdd = convertToBDD(gbm, condition, numVars);
+    int result = evaluateBDD(bdd);
+    // end = clock();
+    // total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
+    // printf("Total Time: %f\n", total_time);
+    printf("Result: %d\n", result);
+    printf("%d\n", evaluateBDD(bdd));
+
     Cudd_Quit(gbm);
     return;
 }
 
-int main (int argc, char *argv[])
+int evaluateFromFile (int argc, char *argv[])
 {
     assert(argc == 2);
 
@@ -168,7 +149,7 @@ int main (int argc, char *argv[])
         condition = malloc(sizeof(char)*conditionSize+1);
         r = fscanf(fp, "%s", condition);
         // printf("condition: \t\t%s\n\n", condition);
-        evaluate(condition, numVars);
+        evaluateString(condition, numVars);
     }
 
     fclose(fp);

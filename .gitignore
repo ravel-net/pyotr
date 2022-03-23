@@ -5,3 +5,4 @@ __pycache__
 *.dot
 CUDD/Test/testBdd.c
 CUDD/Test/exampleManipulation
+CUDD/Utils/convertToBDD
