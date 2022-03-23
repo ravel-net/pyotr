@@ -11,6 +11,7 @@ The files in this folder implement BDDs for use in the Pyotr system. The main fi
 ## Code Description
 
 ### BDD_manager.c:
+---
 The *BDD_manager* stores BDDs in a data structure and provides API calls to add and evaluate BDDs in that structure. *BDD_manager* currently uses the dynamic array structure defined in *BDD_array* as the data structure to store BDD state but it can use any data structure as long as the data structure provides a few function calls (described in BDD_array description). *BDD_manager* provides the following API calls for use in Pyotr:
 
 1. **void initialize(int numberOfVariables):** This initializes a data structure that stores the BDDs. Calling this function is necessary before using any other functions.
@@ -19,12 +20,15 @@ The *BDD_manager* stores BDDs in a data structure and provides API calls to add 
 4. **int evaluate(int bdd_reference)**: Evaluates the BDD referenced by bdd_reference. Returns either 0 (denotes Contradiction), 1 (denotes Tautology), or 2 (denotes Satisfiable).
 
 ### BDD_array.c:
+---
 This provides the data structure to store BDDs and return BDDs by reference numbers. *initializeBDD* initializes the BDD data structure (dynamic array in this case), *insertBDD* adds a new BDD to the array and returns a reference number (i.e. index in dynamic array) for the added BDD, *getBDD* returns a BDD referenced by a given reference number. A new data structure can be added instead of an array by providing the aforementioned functions.
 
 ### BDD_utils.c:
+---
 Provides code to construct a BDD given by an encoded string (*convertToBDD*), evaluate a BDD (*evaluateBDD*), and evaluate and time a list of encoded conditions from a file (*evaluateFromFile*).
 
 ### encodeCUDD.py:
+---
 Provides function ***convertToCUDD(condition, domain)*** which takes a *condition* (in Z3 string format) and the *domain* of variables in that condition as input and returns an encoded condition that can be understood by the function *convertToBDD* defined in *BDD_utils*. This conversion is important to encode conditions into binary variables. We use binary encoding here. 
 
 #### Binary Encoding
@@ -42,3 +46,6 @@ We use single characters to denote logical operations in the encoded string. Thi
 4. Xnor: %
 
 Similarly, variables are encoded using numbers instead of strings to make parsing faster. If there are *n* number of variables then the variables are encoded using digits 2 to (n+1). For example, if a condition has four variables *[x1, x2, x3, x4]* then they will be encoded as *[2,3,4,5]*. Note that number 0 is reserved for constant value of False and 1 is reserved for the constant value of True. For example, a condition like *2 == 2* will be encoded as *1* (always true) and a condition like *2 == 1* will be encoded as *0* (always false). 
+
+## Testing BDD Implementation
+_runExperiment.sh_ can be used to test and time the implementation of BDDs. Before running _runExperiment.sh_, make sure to call evaluateFromFile(argc, argv) at the start of main in BDD_manager. _runExperiment.sh_ takes one argument, a path to a file containing a list of conditions (in z3 string format), as input and then encodes the conditions, constructs BDDs, and returns the result of evaluating the conditions along with the time taken. This script can be useful to debug the CUDD implementation
