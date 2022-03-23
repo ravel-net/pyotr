@@ -105,10 +105,10 @@ int evaluateBDD(DdNode* bdd) {
         return 1; // tautology
     }
     else if (Cudd_DagSize(bdd) == 1 && Cudd_CountLeaves(bdd) == 1 && Cudd_CountPathsToNonZero(bdd) == 0) {
-        return 2; // contradiction
+        return 0; // contradiction
     }
     else {
-        return 0; // satisfiable
+        return 2; // satisfiable
     }
 }
  

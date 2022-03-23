@@ -6,7 +6,7 @@ typedef struct {
 } BDD_array;
 
 
-// Inserts a BDD in the dynamic array and returns the index
+// Inserts a BDD in the dynamic array and returns the reference
 int insertBDD(BDD_array* BDDs, DdNode* element) {
   if (BDDs->used == BDDs->size) {
     BDDs->size *= 2;
@@ -29,11 +29,11 @@ void initializeBDD(BDD_array* BDDs, int initialSize) {
   BDDs->size = initialSize;
 }
 
-// For index to BDD mapping. Returns the BDD stored at the given index
-DdNode* getBDD(BDD_array* BDDs, int index) {
-    if (index > BDDs->used) {
-        printf("Error: Could not find a BDD with index %d\n", index);
+// For reference to BDD mapping. Returns the BDD stored at the given reference
+DdNode* getBDD(BDD_array* BDDs, int reference) {
+    if (reference > BDDs->used) {
+        printf("Error: Could not find a BDD with index %d\n", reference);
         return NULL;
     }
-    return BDDs->array[index];
+    return BDDs->array[reference];
 }

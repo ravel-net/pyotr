@@ -6,3 +6,4 @@ __pycache__
 CUDD/Test/testBdd.c
 CUDD/Test/exampleManipulation
 CUDD/Utils/convertToBDD
+CUDD/BDD_manager
