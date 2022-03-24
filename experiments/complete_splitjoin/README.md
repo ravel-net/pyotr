@@ -2,11 +2,11 @@
 
 ## Dataset
 
-The dataset uses overlay network encoding. The chain topologies are stored under `variable/data` folder. The number in the filename represents the total nodes(constant and variable nodes) in the chain topology.
+The dataset uses overlay network encoding. The chain topologies are stored under `variable/data` folder. The number in the filename represents total number of nodes(constant and variable nodes) in the chain topology.
 
 ## Split-merge 
 
-The scripts of experiments which run by split-merge function are named `group_query_splitjoin_tauto#.py` where `#` repsented a number and its number is correspond to its size of dataset(i.e. the number of total nodes in the chain topology). 
+The scripts of experiments which run by split-merge function are named `group_query_splitjoin_tauto#.py` where `#` repsented a number and its number is correspond to its size of dataset(i.e. total number of nodes in the chain topology). 
 
 The file `chain#_complete_split_tauto.txt` records the running time using split-merge algorithm in seconds for each step. 
 
