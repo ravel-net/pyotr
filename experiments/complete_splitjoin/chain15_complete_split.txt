@@ -1,0 +1,1 @@
+R1_2 sql: select 1, t2.n2 as n2 from T_prime t1, T_prime t2 where t1.n1 = '1' and t1.n2 = t2.n1 and t2.n1 = t2.n2

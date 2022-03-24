@@ -1,0 +1,6 @@
+R15 sql: select 1, t2.n2 as n2 from T_prime t1, T_prime t2 where t1.n1 = '1' and t1.n2 = t2.n1 and t2.n1 = t2.n2
+data condition #input_contrd contradiction #input_redun redundancy join merge output_rows
+0.11333155632019043 0.22716927528381348 7679 3.2820191383361816 0 0.0 3.6225199699401855 0.17090749740600586 None
+R12 sql: select 1, t2.n2 as n2 from r15 t1, T_prime t2 where t1.n2 = t2.n1
+0.43561744689941406 0.28760313987731934 5648 223.33344316482544 0 0.0 224.05666375160217 0.8849735260009766 None
+R16 sql: select 1, t2.n2 as n2 from r12 t1, T_prime t2 where t1.n2 = t2.n1 and t2.n1 = t2.n2
