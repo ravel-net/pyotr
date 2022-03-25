@@ -8,9 +8,8 @@
 sudo apt-get install python-dev
 ```
 
-- Install CUDD with option `./configure --enable-shared`
+- Compile and install CUDD with option `./configure --enable-shared`
 
-  - command: `cp path/to/cudd/.libs/libcudd.so /usr/lib/x86_64-linux-gnu/`
 - run following command to compile and link it with Python system. 
 
 ```bash
@@ -23,7 +22,7 @@ python setup.py install
 export CPATH=/path/to/cudd/:/path/to/cudd/cudd/:/path/to/cudd/util
 ```
 
-- If cannot find cudd library, copy `libcudd.so`, `libcudd-3.0.0.so.0` and `libcudd-3.0.0.so.0.0.0` to `/usr/lib/x86_64-linux-gnu/`. In addition, add `extra_link_args=['-L/usr/lib/x86_64-linux-gnu/']` to `steup.py`.
+- If cannot find cudd library, copy `libcudd.so`, `libcudd-3.0.0.so.0` and `libcudd-3.0.0.so.0.0.0` to `/usr/lib/x86_64-linux-gnu/`. In addition, add `extra_link_args=['-L/usr/lib/x86_64-linux-gnu/']` to `setup.py`.
 
 ```bash
 cp path/to/cudd/cudd/.libs/libcudd.so /usr/lib/x86_64-linux-gnu/
