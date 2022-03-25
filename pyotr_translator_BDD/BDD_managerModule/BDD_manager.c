@@ -19,12 +19,13 @@ void Cinitialize(int numberOfVariables) {
 
 static PyObject* initialize(PyObject* self, PyObject* args)
 {
-    // instantiate our `n` value
+    // instantiate numberOfVariables
     int numberOfVariables;
-    // if our `n` value
+    // Read the value of numberOfVariables
     if(!PyArg_ParseTuple(args, "i", &numberOfVariables))
         return NULL;
 
+    // call C API Cinitialize()
     Cinitialize(numberOfVariables);
     return Py_None;
 }
@@ -37,11 +38,11 @@ int Cevaluate(int bdd_reference) {
 
 static PyObject* evaluate(PyObject* self, PyObject* args)
 {
-    // instantiate our `n` value
     int bdd_reference;
-    // if our `n` value
+
     if(!PyArg_ParseTuple(args, "i", &bdd_reference))
         return NULL;
+
     int result = Cevaluate(bdd_reference);
     return Py_BuildValue("i", result);
 }
@@ -55,9 +56,8 @@ int Cstr_to_BDD(char* C) {
 
 static PyObject* str_to_BDD(PyObject* self, PyObject* args)
 {
-    // instantiate our `n` value
     char* C;
-    // if our `n` value
+
     if(!PyArg_ParseTuple(args, "s", &C))
         return NULL;
     
@@ -75,19 +75,18 @@ int Coperate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
 
 static PyObject* operate_BDDs(PyObject* self, PyObject* args)
 {
-    // instantiate our `n` value
     int bdd_reference1; 
     int bdd_reference2;
     char *operation;
     
-    // if our `n` value
     if(!PyArg_ParseTuple(args, "iis", &bdd_reference1, &bdd_reference2, &operation))
         return NULL;
+
     int result = Coperate_BDDs(bdd_reference1, bdd_reference2, *operation);
     return Py_BuildValue("i", result);
 }
 
-// Our Module's function Definition struct
+// Module's function Definition struct
 static PyMethodDef BDD_Methods[] = {
     {"initialize", initialize, METH_VARARGS, "Initialize BDD array with the number of variables."},
     {"evaluate", evaluate, METH_VARARGS, "Evaluate a BDD given by a reference. Returns 2 for satisfiable, 1 for tautology, and 0 for contradiction"},
@@ -96,14 +95,17 @@ static PyMethodDef BDD_Methods[] = {
     {NULL, NULL, 0, NULL}
 };
 
+// Module definition struct
 static struct PyModuleDef BDD_managerModule = {
     PyModuleDef_HEAD_INIT,
-    "BDD_managerModule",
-    "The Module for constructing BDDs.",
+    "BDD_managerModule", // Module name
+    "The Module for constructing BDDs.", // Module description
     -1,
-    BDD_Methods
+    BDD_Methods //Module methods
 }; 
 
+// Initialization function
+// When python program imports module the first time, this function will be called
 PyMODINIT_FUNC PyInit_BDD_managerModule(void){
     return PyModule_Create(&BDD_managerModule);
 }
