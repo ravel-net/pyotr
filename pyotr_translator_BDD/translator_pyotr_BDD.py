@@ -1,9 +1,6 @@
-from ast import operator
-from sqlite3 import Row
 import sys
 from os.path import dirname, abspath, join
 
-from matplotlib.pyplot import table
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
@@ -18,16 +15,24 @@ from z3 import And, Not, Or, Implies
 import databaseconfig as cfg
 from psycopg2.extras import execute_values
 
+# BDD manager Module
+import BDD_managerModule as bddmm
+import BDD_manager.encodeCUDD as encodeCUDD
+
 OPEN_OUTPUT = True
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
+# Set domain knowledge
+DOMAIN = ['1', '2'] # daulft domain [1, 2]
 
+def set_domain(domain): # TODO: support vary domain for each variable
+    DOMAIN = domain
 
-def str_to_BDD(condition):
-    return 0
+# def str_to_BDD(condition):
+#     return 0
 
-def operate_BDDs(bdd1, bdd2, op):
-    return 0
+# def operate_BDDs(bdd1, bdd2, op):
+#     return 0
 
 def process_condition_on_ctable(tablename):
     """
@@ -50,10 +55,21 @@ def process_condition_on_ctable(tablename):
     new_tuples = []
     for i in tqdm(range(count_num)):
         row = cursor.fetchone()
-        condition = ", ".join(row[cond_idx])
-        # bdd_idx = str_to_BDD(condition) #TODO: integrate C API
-        bdd_idx = 0
-        row[cond_idx] = bdd_idx
+        list_row = list(row)
+
+        if len(list_row[cond_idx]) == 0:
+            list_row[cond_idx] = None
+        else:
+            condition = ", ".join(list_row[cond_idx])
+            print(condition)
+
+            # bdd_idx = str_to_BDD(condition) # TODO: integrate C API (DONE)
+            # Call BDD module 
+            encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN)
+            bdd_idx = bddmm.str_to_BDD(encoded_c)
+
+            list_row[cond_idx] = bdd_idx
+        row = tuple(list_row)
         new_tuples.append(copy.deepcopy(row))
 
     out_tablename = tablename + '_bdd'
@@ -61,10 +77,14 @@ def process_condition_on_ctable(tablename):
     sql = "drop table if exists {out_tablename}".format(out_tablename=out_tablename)
     cursor.execute(sql)
 
-    sql = "create table {out_tablename} select * from {tablename} where 1 == 2".format(out_tablename=out_tablename, tablename=tablename)
+    sql = "create table {out_tablename} as select * from {tablename} with NO DATA".format(out_tablename=out_tablename, tablename=tablename)
     cursor.execute(sql)
 
-    sql = "alter table if exists {out_tablename} alter condition type integer".format(out_tablename=out_tablename)
+    sql = "alter table if exists {out_tablename} drop column condition".format(out_tablename=out_tablename)
+    cursor.execute(sql)
+
+    # sql = "alter table if exists {out_tablename} alter condition type integer USING(condition::integer)".format(out_tablename=out_tablename)
+    sql = "alter table if exists {out_tablename} add column condition integer".format(out_tablename=out_tablename)
     cursor.execute(sql)
 
     sql = "insert into {out_tablename} values %s".format(out_tablename=out_tablename)
@@ -166,26 +186,62 @@ def upd_condition(tree):
     '''
     upd_conditions = {}
     sql = "select {}, {}, id from output".format(", ".join(cond_list), ", ".join(cond_cols))
+
+    len_cond_cols = len(cond_cols)
+    bound = len_cond_cols + 1
+    pos = -bound
+
     print(sql)
     cursor.execute(sql)
     count_num = cursor.rowcount
     for i in tqdm(range(count_num)):
         row = cursor.fetchone()
-
+        # print(row)
+        # print(row[:pos])
         c_condition = ""
         if keyword == '' or keyword == 'and':
-            c_condition = "And({})".format(", ".join(row[:-3])) # TODO: upgrade to deal with more than 2 condition columns
+            c_condition = "And({})".format(", ".join(list(row[:pos]))) # TODO: upgrade to deal with more than 2 condition columns
         else:
-            c_condition = "Or({})".format(", ".join(row[:-3]))
-        bdd_c_idx = str_to_BDD(c_condition) # TODO: integrate C API 
+            c_condition = "Or({})".format(", ".join(list(row[:pos])))
 
-        bdd1 = row[-2]
-        bdd2 = row[-3]
-        bdds_idx = operate_BDDs(bdd1, bdd2, "And") # TODO: integrate C API
+        '''
+        convert new join/selection conditions to BDD version
+        '''
+        # bdd_c_idx = str_to_BDD(c_condition) # TODO: integrate C API (DONE)
+        # print(c_condition)
+        encoded_c, variable_arr = encodeCUDD.convertToCUDD(c_condition, DOMAIN)
+        print("encoded_c", encoded_c)
+        bdd_c_idx = bddmm.str_to_BDD(encoded_c)
 
-        new_idx = operate_BDDs(bdds_idx, bdd_c_idx, "And") # TODO: integrate C API
-        upd_conditions[row[-1]] = new_idx
+        '''
+        logical operation on old BDDs
+        '''
+        bdds_idx = None
+        for i in range(pos, -1): # -1 is the position of id, 
+            if row[i] is None:
+                continue
+            
+            bdd1 = bdds_idx
+            if bdd1 is None:
+                bdds_idx = row[i]
+                continue
+            
+            bdd2 = row[i]
 
+            # bdds_idx = operate_BDDs(bdd1, bdd2, "And") # TODO: integrate C API (DONE)
+            bdds_idx = bddmm.operate_BDDs(bdd1, bdd2, "&")
+
+        # new_idx = operate_BDDs(bdds_idx, bdd_c_idx, "And") # TODO: integrate C API (DONE)
+        new_idx = None
+        if bdds_idx is not None and bdd_c_idx is not None:
+            new_idx = bddmm.operate_BDDs(bdds_idx, bdd_c_idx, "&")
+        elif bdds_idx is None:
+            new_idx = bdd_c_idx
+        else:
+            new_idx = bdds_idx
+
+        upd_conditions[row[-1]] = new_idx # key is id
+    # print(upd_conditions)
     sql = "alter table if exists output add column condition integer"
     cursor.execute(sql)
     conn.commit()
@@ -247,7 +303,7 @@ def upd_condition(tree):
     
     # drop old condition column from table
     drop_cols = drop_cols.union(cond_cols)
-    print(drop_cols)
+    # print(drop_cols)
     if len(drop_cols) > 0:
         begin = time.time()
         sql = "ALTER TABLE output drop column " + ", drop column ".join(drop_cols)
@@ -531,14 +587,12 @@ def get_extra_columns(select):
                 extra_cols.append([['', '', s[0][2]], 'as', '"{}"'.format(col)])
     return extra_cols           
 
-
-
             
 if __name__ == "__main__":
     # sql = "select policy1.path, policy2.dest from policy1, policy2 where policy1.path = policy2.path and policy1.dest != policy2.dest;"
     # sql = "select * from policy1, policy2 where policy1.path = policy2.path and policy1.dest != policy2.dest;"
     # sql = "select * from policy1 where path != '123'"
-    sql = "select 1, path from policy1 where path != '123'"
+    # sql = "select 1, path from policy1 where path != '123'"
     # sql = "select t1.n1 as n1, t3.n2 as n2 from tv t1, tv t2, tv t3, tv t4, tv t5, tv t6 where t1.n1 = 1 aNd t2.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = 2 and t4.n1 = 1 and t4.n2 = 1 and t5.n1 = 'u' and t5.n2 = 'u' and t6.n1 = 'v' and t6.n2 = 'v';" 
     # sql = "select * from bgp_policy where dest = '1' aNd (path='1' or min_len<2);"
     # sql = "select * from policy1, policy2 where policy1.dest = policy2.dest"
@@ -554,12 +608,15 @@ if __name__ == "__main__":
     # sql = "select t1.n1, t3.n2 from tp t1, tp t2, tp t3, tp t4, tp t5, tp t6 where t1.n1 = '1' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = '2' and t4.n1 = '1' and t4.n2 = '1' and t5.n1 = t5.n2 and t6.n1 = t6.n2 and t1.n1 = t4.n1 and t2.n1 = t5.n1 and t3.n1 = t6.n1;"
     # sql = "select t0.n1 as n1, t1.n2 as n2 from f4755_intf t0, f4755_intf t1 where t0.n2 = t1.n1 and t0.n1 != t1.n2"
     # sql = "select t0.n1, t2.n2 from tp t0, tp t1, tp t2, tp t3, tp t4, tp t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = '2' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2"
+    bddmm.initialize(3)
+    set_domain(['1', '2'])
+
+    process_condition_on_ctable('fwd') # convert string version condition to BDD version
+
+    sql = "select * from fwd_bdd where n2 != '2' and n1 = n2" # run successfuly
+    sql = "select * from fwd_bdd where n2 != '2'" # happens Segmentation fault or free():invalid pointer on str_to_BDD()
     tree = generate_tree(sql)
 
-    begin = time.time()
+    # begin = time.time()
     data(tree)
     upd_condition(tree)
-    # normalization()
-    # print("execution time: ", time.time() - begin)
-
-    # update output set condition = array_cat(condition, '{"f2.fid || '' == '' || f3.fid", "f1.nid2 || '' == '' || f2.nid1", "f1.fid || '' == '' || f2.fid", "f2.nid2 || '' == '' || f3.nid1"}')
