@@ -126,9 +126,10 @@ def findVariables(conditions):
 			i+=4
 		elif conditions[i:i+3] == "Or(":
 			i+=3
-		elif conditions[i:i+2] == "==":
+		elif conditions[i:i+2] == "==" or conditions[i:i+2] == "!=":
+			op = conditions[i:i+2]
 			condition, _,_ = extractConditions(conditions, i)
-			splitConditions = condition.split('==')
+			splitConditions = condition.split(op)
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			if (not splitConditions[0].isdigit()):
@@ -158,9 +159,10 @@ def convertToCUDD(conditions, input_domain):
 		elif conditions[i:i+3] == "Or(":
 			stack.append("^")
 			i+=3
-		elif conditions[i:i+2] == "==":
+		elif conditions[i:i+2] == "==" or conditions[i:i+2] == "!=":
+			op = conditions[i:i+2]
 			condition, _,_ = extractConditions(conditions, i)
-			splitConditions = condition.split('==')
+			splitConditions = condition.split(op)
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
