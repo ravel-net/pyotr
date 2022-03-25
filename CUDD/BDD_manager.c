@@ -37,6 +37,11 @@ int operate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
     return insertBDD(&BDDs, bdd);
 }
 
+/*Returns the memory in use by the manager measured in bytes*/
+long readMemoryInUse() {
+    return Cudd_ReadMemoryInUse(gbm);
+}
+
 int main (int argc, char *argv[])
 {
     // evaluateFromFile(argc, argv);
@@ -52,6 +57,8 @@ int main (int argc, char *argv[])
     // printf("%d\n", AND);
     // printf("%d\n", evaluate(taut));
     // printf("%d\n", evaluate(contr));
+
     printf("%d\n", evaluate(OR));
+    printf("DdManager memory: %ld bytes \n", readMemoryInUse() );
     freeBDD(&BDDs);
 }
