@@ -29,7 +29,7 @@ Provides code to construct a BDD given by an encoded string (*convertToBDD*), ev
 
 ### encodeCUDD.py:
 ---
-Provides function ***convertToCUDD(condition, domain)*** which takes a *condition* (in Z3 string format) and the *domain* of variables in that condition as input and returns an encoded condition that can be understood by the function *convertToBDD* defined in *BDD_utils*. This conversion is important to encode conditions into binary variables. We use binary encoding here. 
+Provides function ***convertToCUDD(condition, domain, variables)*** which takes a *condition* (in Z3 string format), the *domain* of variables in that condition, and the variables (as a list of strings) as input and returns an encoded condition that can be understood by the function *convertToBDD* defined in *BDD_utils*. This conversion is important to encode conditions into binary variables. We use binary encoding here. 
 
 #### Binary Encoding
 If the domain of a variable *x* is [20,40,50,60,70] then *x = 50* can be encoded as the binary representation of two (since 50 is the second element in the domain). Thus, 3 can be encoded as 010 in binary, or more specifically, using three separate variables, *And(not(x_1), x_2, not(x_3))*. 
