@@ -8,8 +8,8 @@ BDD_array BDDs; // Data structure to store BDDs
 DdManager* gbm; // 
 int numVars; // Number of variables in program
 
-
-void initialize(int numberOfVariables) {
+ 
+void initialize(int numberOfVariables) { 
   initializeBDD(&BDDs, INITIALSIZE);
   gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
   numVars = numberOfVariables;
@@ -39,10 +39,10 @@ int operate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
 
 /*Returns the memory in use by the manager measured in bytes*/
 long readMemoryInUse() {
-    return Cudd_ReadMemoryInUse(gbm);
+    return Cudd_ReadMemoryInUse(gbm);  
 }
 
-int main (int argc, char *argv[])
+int main (int argc, char *argv[]) 
 {
     // evaluateFromFile(argc, argv);
     initialize(3);

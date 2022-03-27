@@ -74,19 +74,16 @@ def binaryRepresentation(var1, numBinDigits, binary_rep):
 		iterator += 1
 	return newItems
 
-def processCon(var1, var2, updatedDomains, variables):
+def processCon(var1, var2, updatedDomains):
 	newItems = []
 	processedCond = ""
 	numBinDigits = math.ceil(math.log(len(updatedDomains),2))
 	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
-		variables.add(var1)
-		variables.add(var2)
 		for i in range(numBinDigits):
 			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
 		processedCond = combineItems(newItems, "&")
 	else:
 		newVar1, newVar2 = preprocessCond(var1, var2)
-		variables.add(newVar1)
 		if (newVar1 != TRUE and newVar1 != FALSE): # case when it is constant = constant
 			binary_rep = bin(updatedDomains.index(newVar2))[2:]
 			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep)
@@ -143,10 +140,10 @@ def findVariables(conditions):
 	return variables
 
 
-def convertToCUDD(conditions, input_domain):
+def convertToCUDD(conditions, input_domain, variables):
 	if (len(conditions) <= 1): # Empty condition
 		return TRUE, [] 
-	variables = findVariables(conditions)
+	# variables = findVariables(conditions)
 	stack = deque()
 	for i in range(len(conditions)):
 		if conditions[i] == ')':
@@ -169,7 +166,7 @@ def convertToCUDD(conditions, input_domain):
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, variables)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain)
 			stack.append(encodedCond)
 			i+=length		
 		elif conditions[i:i+2] == "!=":
@@ -178,7 +175,7 @@ def convertToCUDD(conditions, input_domain):
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, variables)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain)
 			encodedCond = "~(" + encodedCond + ")"
 			stack.append(encodedCond)
 			i+=length
@@ -221,8 +218,9 @@ if __name__ == "__main__":
 			for line in lines:
 				t0 = time.time()
 
+				variables = findVariables(line)
 				# condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'])
-				condition, variablesArray = convertToCUDD(line, ['1','2'])
+				condition, variablesArray = convertToCUDD(line, ['1','2'], variables)
 				t1 = time.time()
 				total = t1-t0
 				numVars = len(variablesArray)

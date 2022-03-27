@@ -18,7 +18,9 @@ int getVar(char* condition, int* i) {
     }
     var[j] = '\0';
     *i = *i+1; // skipping bracket/comma
-    return atoi(var);
+    int varIndex = atoi(var);
+    free(var);
+    return varIndex;
 }
 
 bool isLogicalOp(char letter){
@@ -146,7 +148,6 @@ int evaluateFromFile (int argc, char *argv[])
     while ((r = fscanf(fp, "%d %d", &numVars, &conditionSize)) != EOF) {
         condition = malloc(sizeof(char)*conditionSize+1);
         r = fscanf(fp, "%s", condition);
-        // printf("condition: \t\t%s\n\n", condition);
         evaluateString(condition, numVars);
     }
 
