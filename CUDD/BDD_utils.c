@@ -3,6 +3,8 @@
 // #include "cuddInt.h"
 #include <time.h>
 #include <stdbool.h>
+#include <math.h>
+
 
 #define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
 
@@ -127,6 +129,12 @@ void evaluateString(char* condition, int numVars){
     printf("Result: %d\n", result);
     Cudd_Quit(gbm);
     return;
+}
+
+int numBinaryVars(int numberOfVariables, int domainCardinality) {
+    double log_base_2_domain = log(domainCardinality)/log(2); // log base 2 of the number of elements in the domain
+    int binaryVarPerVar = (int) ceil(log_base_2_domain); // number of binary variables per a single variable in decimal. TODO: Need to have separate domain for every variable
+    return binaryVarPerVar*numberOfVariables;
 }
 
 int evaluateFromFile (int argc, char *argv[])

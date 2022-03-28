@@ -9,10 +9,10 @@ DdManager* gbm; //
 int numVars; // Number of variables in program
 
  
-void initialize(int numberOfVariables) { 
+void initialize(int numberOfVariables, int domainCardinality) { 
   initializeBDD(&BDDs, INITIALSIZE);
   gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-  numVars = numberOfVariables;
+  numVars = numBinaryVars(numberOfVariables, domainCardinality);
 }
 
 // Evaluate a BDD given by a reference. Returns 2 for satisfiable, 1 for tautology, and 0 for contradiction
@@ -45,7 +45,8 @@ long readMemoryInUse() {
 int main (int argc, char *argv[]) 
 {
     // evaluateFromFile(argc, argv);
-    initialize(3);
+    initialize(4, 4);
+    int fangpingCondition = str_to_BDD("&((1),&(&(~(2),3),&(~(6),7)))"); 
     int taut = str_to_BDD("^(&($(4,2),$(2,3)),^(&(~(2),$(2,3)),^($(4,3),^(~(3),^(&(~(4),$(2,3)),^(&(~(4),$(2,3)),^(&(~(2),$(3,2)),^(~(2),^(&(~(2),$(2,3)),^(&(~(2),$(2,3)),^(&(~(3),$(3,2)),~(3))))))))))))");
     int contr = str_to_BDD("&(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),&(~(3),3))");
     int sat = str_to_BDD("^(&(^(^(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),^(~(3),^(~(4),~(2)))),^(~(3),^(~(4),^(&(~(3),~(2)),^(&(~(4),~(2)),^(~(2),~(2))))))),&($(2,3),3)),^(&($(4,3),3),^(3,3)))");
@@ -58,7 +59,7 @@ int main (int argc, char *argv[])
     // printf("%d\n", evaluate(taut));
     // printf("%d\n", evaluate(contr));
 
-    printf("%d\n", evaluate(OR));
+    printf("%d\n", evaluate(fangpingCondition));
     printf("DdManager memory: %ld bytes \n", readMemoryInUse() );
     freeBDD(&BDDs);
 }
