@@ -24,7 +24,7 @@ void freeBDD(BDD_array* BDDs) {
 //
 
 void initializeBDD(BDD_array* BDDs, int initialSize) {
-  BDDs->array = malloc(initialSize * sizeof(int));
+  BDDs->array = malloc(initialSize * sizeof(DdNode*));
   BDDs->used = 0;
   BDDs->size = initialSize;
 }
