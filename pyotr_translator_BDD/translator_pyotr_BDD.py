@@ -608,7 +608,7 @@ if __name__ == "__main__":
     # sql = "select t1.n1, t3.n2 from tp t1, tp t2, tp t3, tp t4, tp t5, tp t6 where t1.n1 = '1' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = '2' and t4.n1 = '1' and t4.n2 = '1' and t5.n1 = t5.n2 and t6.n1 = t6.n2 and t1.n1 = t4.n1 and t2.n1 = t5.n1 and t3.n1 = t6.n1;"
     # sql = "select t0.n1 as n1, t1.n2 as n2 from f4755_intf t0, f4755_intf t1 where t0.n2 = t1.n1 and t0.n1 != t1.n2"
     # sql = "select t0.n1, t2.n2 from tp t0, tp t1, tp t2, tp t3, tp t4, tp t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = '2' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2"
-    bddmm.initialize(3)
+    bddmm.initialize(3, 2)
     set_domain(['1', '2'])
 
     process_condition_on_ctable('fwd') # convert string version condition to BDD version
