@@ -37,24 +37,26 @@ sql = "select t1_n1 || ' == ' || '1', t1_n2 || ' == ' || t2_n1, t1_condition, t2
 
 cursor = conn.cursor()
 
-domain = ['1', '2']
-BDD_managerModule.initialize(3)
+domain = ['1', '2', '5', '3']
+variables_list = ['u1', 'u2', 'v1', 'v2']
+BDD_managerModule.initialize(4, len(domain))
 
-cursor.execute(sql)
-count_row = cursor.rowcount
+# cursor.execute(sql)
+# count_row = cursor.rowcount
 
-# f1 = open('../pure_BDD_manager/condition.txt', 'w')
-# f2 = open('../pure_BDD_manager/encd_condition.txt', 'w')
-for i in tqdm(range(count_row)):
-    row = cursor.fetchone()
-    condition = 'And({})'.format(", ".join(row[:-2]))
-    print(condition)
-    encoded_condition, variable_array = encodeCUDD.convertToCUDD(condition, domain)
-    print(encoded_condition)
-    # f1.write("{}\n".format(condition))
-    # f2.write("{}\n".format(encoded_condition))
-    bdd_idx = BDD_managerModule.str_to_BDD(encoded_condition)
-    print("bdd_c_idx:", bdd_idx)
-# f1.close()
-# f2.close()
+# for i in tqdm(range(count_row)):
+#     row = cursor.fetchone()
+#     condition = 'And({})'.format(", ".join(row[:-2]))
+#     print(condition)
+#     encoded_condition, variable_array = encodeCUDD.convertToCUDD(condition, domain, variables_list)
+#     print(encoded_condition)
+#     bdd_idx = BDD_managerModule.str_to_BDD(encoded_condition)
+#     print("bdd_c_idx:", bdd_idx)
+
+condition = "And(1 == 1, u1 == 2, 2 == v1)"
+print(condition)
+encoded_condition, variable_array = encodeCUDD.convertToCUDD(condition, domain, variables_list)
+print(encoded_condition)
+BDD_managerModule.str_to_BDD(encoded_condition)
+
 

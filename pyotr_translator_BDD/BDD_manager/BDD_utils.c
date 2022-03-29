@@ -128,6 +128,12 @@ void evaluateString(char* condition, int numVars){
     return;
 }
 
+int numBinaryVars(int numberOfVariables, int domainCardinality) {
+    double log_base_2_domain = log(domainCardinality)/log(2); // log base 2 of the number of elements in the domain
+    int binaryVarPerVar = (int) ceil(log_base_2_domain); // number of binary variables per a single variable in decimal. TODO: Need to have separate domain for every variable
+    return binaryVarPerVar*numberOfVariables;
+}
+
 int evaluateFromFile (int argc, char *argv[])
 {
     assert(argc == 2);

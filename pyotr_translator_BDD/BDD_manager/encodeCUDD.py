@@ -4,6 +4,9 @@ import sys
 import math
 import time
 
+TRUE = "(1)"
+FALSE = "(0)"
+
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
 def popUntilLogicalOP(stack):
 	elem = stack.pop()
@@ -45,9 +48,9 @@ def isVarCondition(var1, var2):
 def preprocessCond(var1, var2):
 	if (var1.isdigit() and var2.isdigit()): # constant = constant e.g. 1 == 2
 		if (var1 == var2):
-			return '1', '1'
+			return TRUE, TRUE
 		else:
-			return '0', '0'
+			return FALSE, FALSE
 	elif (var1.isdigit() and not var2.isdigit()): # constant = variable e.g. 1 == x
 		return str(var2), str(var1)
 	else:
@@ -71,20 +74,17 @@ def binaryRepresentation(var1, numBinDigits, binary_rep):
 		iterator += 1
 	return newItems
 
-def processCon(var1, var2, updatedDomains, variables):
+def processCon(var1, var2, updatedDomains):
 	newItems = []
 	processedCond = ""
 	numBinDigits = math.ceil(math.log(len(updatedDomains),2))
 	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
-		variables.add(var1)
-		variables.add(var2)
 		for i in range(numBinDigits):
 			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
 		processedCond = combineItems(newItems, "&")
 	else:
 		newVar1, newVar2 = preprocessCond(var1, var2)
-		variables.add(newVar1)
-		if (newVar1 != '1' and newVar1 != '0'): # case when it is constant = constant
+		if (newVar1 != TRUE and newVar1 != FALSE): # case when it is constant = constant
 			binary_rep = bin(updatedDomains.index(newVar2))[2:]
 			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep)
 			processedCond = combineItems(newItems, "&")
@@ -126,10 +126,9 @@ def findVariables(conditions):
 			i+=4
 		elif conditions[i:i+3] == "Or(":
 			i+=3
-		elif conditions[i:i+2] == "==" or conditions[i:i+2] == "!=":
-			op = conditions[i:i+2]
+		elif conditions[i:i+2] == "==":
 			condition, _,_ = extractConditions(conditions, i)
-			splitConditions = condition.split(op)
+			splitConditions = condition.split('==')
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			if (not splitConditions[0].isdigit()):
@@ -141,8 +140,10 @@ def findVariables(conditions):
 	return variables
 
 
-def convertToCUDD(conditions, input_domain):
-	variables = findVariables(conditions)
+def convertToCUDD(conditions, input_domain, variables):
+	if (len(conditions) <= 1): # Empty condition
+		return TRUE, [] 
+	# variables = findVariables(conditions)
 	stack = deque()
 	for i in range(len(conditions)):
 		if conditions[i] == ')':
@@ -159,14 +160,23 @@ def convertToCUDD(conditions, input_domain):
 		elif conditions[i:i+3] == "Or(":
 			stack.append("^")
 			i+=3
-		elif conditions[i:i+2] == "==" or conditions[i:i+2] == "!=":
-			op = conditions[i:i+2]
+		elif conditions[i:i+2] == "==":
 			condition, _,_ = extractConditions(conditions, i)
-			splitConditions = condition.split(op)
+			splitConditions = condition.split('==')
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, variables)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain)
+			stack.append(encodedCond)
+			i+=length		
+		elif conditions[i:i+2] == "!=":
+			condition, _,_ = extractConditions(conditions, i)
+			splitConditions = condition.split('!=')
+			splitConditions[0] = splitConditions[0].strip()
+			splitConditions[1] = splitConditions[1].strip()
+			length = len(condition)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain)
+			encodedCond = "~(" + encodedCond + ")"
 			stack.append(encodedCond)
 			i+=length
 
@@ -176,7 +186,6 @@ def convertToCUDD(conditions, input_domain):
 	cuddFormCond = stack.pop()
 
 	variables = getUpdatedVariables(variables, input_domain)
-
 	count = 2 # starting from 2 since 0 and 1 are reserved for true and false
 	for var in variables:
 		cuddFormCond = cuddFormCond.replace(var,str(count)) 
@@ -187,8 +196,8 @@ def convertToCUDD(conditions, input_domain):
 # Returns the length of the biggest variable name in list
 def maxLength(variablesArray):
 	if (len(variablesArray) <= 0):
-		print("The length of variable array must be non-zero")
-		exit()
+		# print("The length of variable array must be non-zero. This might be an error")
+		return 0
 	maximum = len(variablesArray[0])
 	for var in variablesArray:
 		if len(var) > maximum:
@@ -197,7 +206,6 @@ def maxLength(variablesArray):
 
 
 if __name__ == "__main__":
-	# print(a)
 	if len(sys.argv) < 3:
 		print("Not enough arguments provided")
 	else:
@@ -209,13 +217,15 @@ if __name__ == "__main__":
 			for line in lines:
 				t0 = time.time()
 
-				condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'])
+				variables = findVariables(line)
+				# condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'])
+				condition, variablesArray = convertToCUDD(line, ['1','2'], variables)
 				t1 = time.time()
 				total = t1-t0
 				numVars = len(variablesArray)
 				maxVarNameLength = maxLength(variablesArray)
 				conditionSize = len(condition)
-				print(total)
+				# print(total)
 				# print(numVars, maxVarNameLength, conditionSize, variablesString, condition)  
 				f_output.write(str(numVars) + " " + str(conditionSize) + " " + condition + "\n")
 		f_input.close()

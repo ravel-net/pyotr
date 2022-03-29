@@ -5,12 +5,12 @@ typedef struct {
   int size; // current size of dynamic array
 } BDD_array;
 
-
+ 
 // Inserts a BDD in the dynamic array and returns the reference
 int insertBDD(BDD_array* BDDs, DdNode* element) {
   if (BDDs->used == BDDs->size) {
     BDDs->size *= 2;
-    BDDs->array = realloc(BDDs->array, BDDs->size * sizeof(int));
+    BDDs->array = realloc(BDDs->array, BDDs->size * sizeof(DdNode*));
   }
   BDDs->array[BDDs->used++] = element;
   return BDDs->used-1; 
@@ -24,7 +24,7 @@ void freeBDD(BDD_array* BDDs) {
 //
 
 void initializeBDD(BDD_array* BDDs, int initialSize) {
-  BDDs->array = malloc(initialSize * sizeof(int));
+  BDDs->array = malloc(initialSize * sizeof(DdNode*));
   BDDs->used = 0;
   BDDs->size = initialSize;
 }
