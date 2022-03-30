@@ -219,8 +219,8 @@ if __name__ == "__main__":
 				t0 = time.time()
 
 				variables = findVariables(line)
-				# condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'])
-				condition, variablesArray = convertToCUDD(line, ['1','2'], variables)
+				condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'], variables)
+				# condition, variablesArray = convertToCUDD(line, ['1','2'], variables)
 				t1 = time.time()
 				total = t1-t0
 				numVars = len(variablesArray)

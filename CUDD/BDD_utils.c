@@ -4,6 +4,8 @@
 #include <time.h>
 #include <stdbool.h>
 #include <math.h>
+#include <unistd.h>
+#include <sys/time.h>
 
 
 #define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
@@ -116,7 +118,7 @@ int evaluateBDD(DdNode* bdd) {
     }
 }
  
-void evaluateString(char* condition, int numVars){
+int evaluateString(char* condition, int numVars, long* mem){
     // clock_t start, end;
     // double total_time;
     DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
@@ -126,9 +128,10 @@ void evaluateString(char* condition, int numVars){
     // end = clock();
     // total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
     // printf("Total Time: %f\n", total_time);
-    printf("Result: %d\n", result);
+    // printf("Result: %d %ld", result);
+    *mem = Cudd_ReadMemoryInUse(gbm);
     Cudd_Quit(gbm);
-    return;
+    return result;
 }
 
 int numBinaryVars(int numberOfVariables, int domainCardinality) {
@@ -152,11 +155,25 @@ int evaluateFromFile (int argc, char *argv[])
         printf("File does not exist"); 
         exit(1); 
     }
-    printf("Case\t\tTotal Time\n");
+    printf("Case\t\tTotal Time (ms)\tMemory (mb)\n");
     while ((r = fscanf(fp, "%d %d", &numVars, &conditionSize)) != EOF) {
         condition = malloc(sizeof(char)*conditionSize+1);
         r = fscanf(fp, "%s", condition);
-        evaluateString(condition, numVars);
+        long* mem = malloc(sizeof(long));
+        
+        // measuring time
+        long start, end;
+	    struct timeval timecheck;
+	    gettimeofday(&timecheck, NULL);
+	    start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+
+        int result = evaluateString(condition, numVars, mem);
+
+	    gettimeofday(&timecheck, NULL);
+	    end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+
+	    printf("%d\t\t%ld\t\t%ld\n", result, (end - start), (*mem)/1048576);
+	    free(mem);
     }
 
     fclose(fp);

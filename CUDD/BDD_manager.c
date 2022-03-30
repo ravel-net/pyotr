@@ -39,27 +39,27 @@ int operate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
 
 /*Returns the memory in use by the manager measured in bytes*/
 long readMemoryInUse() {
-    return Cudd_ReadMemoryInUse(gbm);  
+    return Cudd_ReadMemoryInUse(gbm);   
 }
 
-int main (int argc, char *argv[]) 
+int main (int argc, char *argv[])  
 {
-    // evaluateFromFile(argc, argv);
-    initialize(4, 4);
-    int fangpingCondition = str_to_BDD("&((1),&(&(~(2),3),&(~(6),7)))"); 
-    int taut = str_to_BDD("^(&($(4,2),$(2,3)),^(&(~(2),$(2,3)),^($(4,3),^(~(3),^(&(~(4),$(2,3)),^(&(~(4),$(2,3)),^(&(~(2),$(3,2)),^(~(2),^(&(~(2),$(2,3)),^(&(~(2),$(2,3)),^(&(~(3),$(3,2)),~(3))))))))))))");
-    int contr = str_to_BDD("&(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),&(~(3),3))");
-    int sat = str_to_BDD("^(&(^(^(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),^(~(3),^(~(4),~(2)))),^(~(3),^(~(4),^(&(~(3),~(2)),^(&(~(4),~(2)),^(~(2),~(2))))))),&($(2,3),3)),^(&($(4,3),3),^(3,3)))");
-    int OR = operate_BDDs(taut, sat, '^');
-    int AND = operate_BDDs(contr, sat, '&');
-    // printf("%d\n", taut);
-    // printf("%d\n", contr);
-    // printf("%d\n", OR);
-    // printf("%d\n", AND);
-    // printf("%d\n", evaluate(taut));
-    // printf("%d\n", evaluate(contr));
+    evaluateFromFile(argc, argv);  
+    // initialize(4, 4);
+    // int fangpingCondition = str_to_BDD("&((1),&(&(~(2),3),&(~(6),7)))"); 
+    // int taut = str_to_BDD("^(&($(4,2),$(2,3)),^(&(~(2),$(2,3)),^($(4,3),^(~(3),^(&(~(4),$(2,3)),^(&(~(4),$(2,3)),^(&(~(2),$(3,2)),^(~(2),^(&(~(2),$(2,3)),^(&(~(2),$(2,3)),^(&(~(3),$(3,2)),~(3))))))))))))");
+    // int contr = str_to_BDD("&(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),&(~(3),3))");
+    // int sat = str_to_BDD("^(&(^(^(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),^(~(3),^(~(4),~(2)))),^(~(3),^(~(4),^(&(~(3),~(2)),^(&(~(4),~(2)),^(~(2),~(2))))))),&($(2,3),3)),^(&($(4,3),3),^(3,3)))");
+    // int OR = operate_BDDs(taut, sat, '^');
+    // int AND = operate_BDDs(contr, sat, '&');
+    // // printf("%d\n", taut);
+    // // printf("%d\n", contr);
+    // // printf("%d\n", OR);
+    // // printf("%d\n", AND);
+    // // printf("%d\n", evaluate(taut));
+    // // printf("%d\n", evaluate(contr));
 
-    printf("%d\n", evaluate(fangpingCondition));
-    printf("DdManager memory: %ld bytes \n", readMemoryInUse() );
-    freeBDD(&BDDs);
-}
+    // printf("%d\n", evaluate(fangpingCondition));
+    // printf("DdManager memory: %ld bytes \n", readMemoryInUse() );
+    // freeBDD(&BDDs);
+} 
