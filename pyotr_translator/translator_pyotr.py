@@ -10,7 +10,7 @@ import time
 from tqdm import tqdm
 import z3
 from z3 import And, Not, Or, Implies
-import faure_translator.databaseconfig as cfg
+import databaseconfig as cfg
 # import logging
 # logging.basicConfig(filename='joins_data/joins_typed.log', level=logging.DEBUG)
 

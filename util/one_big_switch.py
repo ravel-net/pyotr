@@ -1,4 +1,4 @@
-import random_graph
+# import random_graph
 import pprint
 import sys
 import tableau
@@ -100,9 +100,9 @@ def getConstants(table):
 def runExperiment():
 	tableName = "t_v"
 	# as_files = ["4755","3356","2914", "7018"]
-	as_files = ["7018"]
+	as_files = ["3356"]
 	num_paths = 3
-	runs = 1
+	runs = 5
 	experimentFile = open("experiment_stats.txt", "w")
 
 	for as_file in as_files:
