@@ -7,13 +7,13 @@ import sys
 import os
 from os.path import dirname, abspath, join, isfile
 
-root = dirname(dirname(dirname(abspath(__file__))))
+root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 print(root)
 sys.path.append(root)
 
 import time 
 import util.chain_generation.gen_chain as gen_chain 
-import databaseconfig as cfg
+import pyotr_translator_BDD.databaseconfig as cfg
 import psycopg2
 import util.minimization.minimization_pyotr as minimization_pyotr
 import util.minimization.minimization_pyotr_BDD as minimization_pyotr_BDD

@@ -4,11 +4,11 @@ Script for minimization experiment of BDD version
 import sys
 from os.path import dirname, abspath, join
 
-root = dirname(dirname(dirname(dirname(abspath(__file__)))))
+root = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
 print(root)
 sys.path.append(root)
 
-import minimization_BDD.complete_minimization.script_minimization as script_mini
+import experiments.minimization_BDD.complete_minimization.script_minimization as script_mini
 
 
 runtimes = 1

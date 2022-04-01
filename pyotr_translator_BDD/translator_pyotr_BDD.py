@@ -1,23 +1,24 @@
 import sys
+import os
 from os.path import dirname, abspath, join
 
-root = dirname(dirname(dirname(abspath(__file__))))
+root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 print(root)
 sys.path.append(root)
 
 import re
 import psycopg2 
 import copy
-import time
+from time import time
 from tqdm import tqdm
 import z3
 from z3 import And, Not, Or, Implies
-import databaseconfig as cfg
+import pyotr_translator_BDD.databaseconfig as cfg
 from psycopg2.extras import execute_values
 
 # BDD manager Module
 import BDD_managerModule as bddmm
-import BDD_manager.encodeCUDD as encodeCUDD
+import pyotr_translator_BDD.BDD_manager.encodeCUDD as encodeCUDD
 
 OPEN_OUTPUT = True
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])

@@ -14,7 +14,7 @@ import psycopg2
 import copy
 import util.variable_closure_algo.closure_overhead as closure_overhead
 from util.split_merge.split_merge import split_merge
-import databaseconfig as cfg
+import pyotr_translator_BDD.databaseconfig as cfg
 
 host = cfg.postgres["host"]
 user = cfg.postgres["user"]
