@@ -13,7 +13,7 @@ import pyotr_translator.translator_pyotr as translator
 import util.tableau.tableau as tableau
 import util.merge_tuples.merge_tuples_tautology as merge_tuples_tautology
 import util.split_merge.reorder_tableau as reorder_tableau
-import faure_translator.databaseconfig as cfg
+import databaseconfig as cfg
 import psycopg2
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])

@@ -3,18 +3,16 @@ minimization algorithm on pyotr system
 
 Z3 verison
 """
-
 import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(abspath(__file__)))
-print(root)
 sys.path.append(root)
 
 import psycopg2
 import copy
 import util.variable_closure_algo.closure_overhead as closure_overhead
 from util.split_merge.split_merge import split_merge
-import pyotr_translator_BDD.databaseconfig as cfg
+import databaseconfig as cfg
 
 host = cfg.postgres["host"]
 user = cfg.postgres["user"]

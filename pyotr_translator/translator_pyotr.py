@@ -1,6 +1,7 @@
 import sys
 from os.path import dirname, abspath, join
-root = dirname(dirname(dirname(abspath(__file__))))
+root = dirname(dirname(abspath(__file__)))
+print(root)
 sys.path.append(root)
 
 import re
@@ -10,11 +11,13 @@ import time
 from tqdm import tqdm
 import z3
 from z3 import And, Not, Or, Implies
-import faure_translator.databaseconfig as cfg
+import databaseconfig as cfg
 # import logging
 # logging.basicConfig(filename='joins_data/joins_typed.log', level=logging.DEBUG)
 
+OPEN_OUTPUT = False
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+conn.set_session(readonly=False, autocommit=True)
 
 def generate_tree(query):
     tree = {}
@@ -46,7 +49,8 @@ def generate_tree(query):
         from_clause = from_clause_may_include_where
     tree["from"] = process_from_clause(from_clause)
 
-    print(tree)
+    if OPEN_OUTPUT:
+        print(tree) 
     return tree
 
 def tree_to_str(tree):
@@ -320,7 +324,8 @@ def get_extra_columns(select):
 
 #create data content
 def data(tree):
-    print("\n************************Step 1: create data content****************************")
+    if OPEN_OUTPUT:
+        print("\n************************Step 1: create data content****************************")
     cursor = conn.cursor()
     table_num = len(tree['from'])
 
@@ -338,20 +343,23 @@ def data(tree):
     new_tree = copy.deepcopy(tree)
     new_tree['select'] = extra_cols + columns  
     sql = "create table output as " + tree_to_str(new_tree)
-    print(sql)
+    if OPEN_OUTPUT:
+        print(sql)
     
     cursor.execute("DROP TABLE IF EXISTS output")
     begin = time.time()
     cursor.execute(sql)
     end = time.time()
-    print("\ndata executing time: ", end-begin)
+    if OPEN_OUTPUT:
+        print("\ndata executing time: ", end-begin)
     # logging.warning("data execution time: %s" % str(end-begin))
     conn.commit()
     return end-begin
 
 def upd_condition(tree):
     count_time = 0
-    print("\n************************Step 2: update condition****************************")
+    if OPEN_OUTPUT:
+        print("\n************************Step 2: update condition****************************")
     cursor = conn.cursor()
 
     where_caluse = tree['where']
@@ -381,12 +389,14 @@ def upd_condition(tree):
         for idx, c in enumerate(cond_list):
             # sql = "update output set condition = array_append(condition, {})".format(c)
             sql = "update output set condition = array_append(condition, {}) where is_var({}) or is_var({})".format(c, where_list[idx][0], where_list[idx][1])
-            print(sql)
+            if OPEN_OUTPUT:
+                print(sql)
             cursor.execute(sql)
     else:
         # keyword == or
         sql = "update output set condition = array_append(condition, {})".format("'Or(' || " + " || ' , ' || ".join(cond_list) + " || ')'")
-        print(sql)
+        if OPEN_OUTPUT:
+            print(sql)
         cursor.execute(sql)
     count_time += (time.time() - begin)
 
@@ -411,7 +421,8 @@ def upd_condition(tree):
                 sql = "update output set {} = {} where not is_var({})".format(left_opd, right_opd, right_opd)
                 if right_opd in cols_name:
                     drop_cols.append(right_opd)
-                print(sql)
+                if OPEN_OUTPUT:
+                    print(sql)
                 cursor.execute(sql)
         count_time += time.time() - begin
     else:
@@ -442,23 +453,27 @@ def upd_condition(tree):
             begin = time.time()
             for new_col in rename_col:
                 sql = "ALTER TABLE output rename column " + new_col
-                print(sql)
+                if OPEN_OUTPUT:
+                    print(sql)
                 cursor.execute(sql)
             count_time += time.time() - begin
 
     if len(drop_cols) > 0:
         begin = time.time()
         sql = "ALTER TABLE output drop column " + ", drop column ".join(drop_cols)
-        print(sql)
+        if OPEN_OUTPUT:
+            print(sql)
         cursor.execute(sql)
         count_time += time.time() - begin
     conn.commit()
-    print("\ncondition execution time:", count_time)
+    if OPEN_OUTPUT:
+        print("\ncondition execution time:", count_time)
     # logging.warning("condition execution time: %s" % str(count_time))
     return count_time
             
 def normalization():
-    print("\n************************Step 3: Normalization****************************")
+    if OPEN_OUTPUT:
+        print("\n************************Step 3: Normalization****************************")
     cursor = conn.cursor()
     # print('Step3: Normalization')
     begin = time.time()
@@ -500,7 +515,8 @@ def normalization():
     '''
     delete contradiction
     '''
-    print("delete contradiction")
+    if OPEN_OUTPUT:
+        print("delete contradiction")
     contrd_begin = time.time()
     cursor.execute("select id, condition from output")
     contrad_count = cursor.rowcount
@@ -523,16 +539,16 @@ def normalization():
     contr_end = time.time()
     # logging.warning("delete contradiction execution time: %s" % str(contr_end-contrd_begin))
 
-    # '''
-    # delete duplicate rows
-    # '''
+    '''
+    delete duplicate rows
+    '''
     # cursor.execute(delete_duplicate_row_sql)
     # print("Deleted duplicate rows: ", cursor.rowcount)
 
     '''
     set tautology and remove redundant
     '''
-    print("remove redundant")
+    # print("remove redundant")
     redun_begin = time.time()
     cursor.execute("select id, condition from output")
     redun_count = cursor.rowcount
@@ -559,40 +575,21 @@ def normalization():
     # logging.warning("remove redundancy and tautology execution time: %s" % str(redun_end-redun_begin))
     
     # logging.warning("z3 execution time: %s" % str((contr_end-contrd_begin)+(redun_end-redun_begin)))
-    print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
+    if OPEN_OUTPUT:
+        print("Z3 execution time: ", contr_end-contrd_begin + redun_end-redun_begin)
     # print("Z3 execution time: ", contr_end-contrd_begin)
     conn.commit()
+    # redun_count=0
     return {"contradiction":[contrad_count, contr_end-contrd_begin], "redundancy":[redun_count, redun_end-redun_begin]}
     # return {"contradiction":[contrad_count, contr_end-contrd_begin]}
    
 
 def iscontradiction(solver, conditions):
-    """
-    Check whether conditions are a contradiction
-    Paramters:
-    -----------
-    solver: Z3 Solver Object
-
-    conditions: list 
-        Conditions for each tuple are stored by the list of strings. 
-
-    Returns:
-    -----------
-    answer: Boolean
-        When z3 Solver answers unsat that means the conditions are a contradiction, so return answer True; when z3 Solver returns sat that means the conditions are not a contradiction, so return answer False.
-
-    """
     solver.push()
 
-    """
-    When conditons are a empty set, it means the tuple always holds any conditions(always true) 
-    """
     if len(conditions) == 0:
-        return False
+        return 
 
-    """
-    Add constraints to z3 Solver Object
-    """
     for c in conditions:
         prcd_cond = analyze(c)
         solver.add(eval(prcd_cond))
@@ -607,68 +604,22 @@ def iscontradiction(solver, conditions):
         return False
 
 def istauto(solver, conditions):
-    """
-    Check whether the conditions are a tautology.
-
-    Parameters:
-    -----------
-    solver: Z3 Solver Object
-
-    conditions: list 
-        Conditions for each tuple are stored by the list of strings. 
-
-    Returns:
-    -----------
-    answer: Boolean
-        When z3 Solver answers unsat that means the negation of conditions are a contradiction, so conditions are a tautology and return answer True; Otherwise, conditions are not a tautology then return False.
-    """
     if len(conditions) == 0:
         return True
-    
-    prcd_constraints = []
     for c in conditions:
         prcd_cond = analyze(c)
-        prcd_constraints.append(prcd_cond)
+        solver.push()
+        solver.add(eval("Not({prcd_cond})".format(prcd_cond)))
+        re = solver.check()
+        solver.pop()
 
-    solver.push()
-    solver.add(eval("Not({prcd_condition})".format(prcd_condition=", ".join(prcd_constraints))))
-    re = solver.check()
-    solver.pop()
-
-    if str(re) == 'sat':
-        return False
-    else:
-        return True
-    # return True
+        if str(re) == 'sat':
+            pass
+        else:
+            return False
+    return True
 
 def has_redundancy(solver, tau_solver, conditions):
-    """
-    Check whether the conditions have redundant constraints and whether are a tautology. We combine checking whether the conditions have redundant constraints and checking whether conditions are a tautology into this function.
-
-    Checking redundancy: if exists a implication bewteen two constraints, one of those is a redundancy.
-    
-    Checking tautology: if the negation of conditions are a contradiction, conditions are a tautology. Otherwise, conditions can be a contradiction or satisfactory.
-
-    Parameters:
-    -----------
-    solver: z3 Solver Object
-        This is for checking whether conditions have redundant constraints.
-
-    tau_solver: z3 Solver Object
-        This is for checking whether conditions are a tautology.
-
-    conditions: list
-        Conditions for each tuple are stored by the list of strings. 
-
-    Returns:
-    ----------
-    has_redundant: Boolean
-        if constraint A implies to constraint B, z3 solver answers unsat for the nagation of implication, constraint B is a redundancy.
-    
-    simplified_conditions: List
-        Returns the conditions which removed the redundant constraints. If conditions are a tautology, it returns an empty set.
-    
-    """
     has_redundant = False
     is_tauto = True
     result = conditions[:]
@@ -761,7 +712,7 @@ def has_redundancy(solver, tau_solver, conditions):
                 final_result.append(result[i])
                 subset_prcd_conditions.append(processed_conditions[i])
 
-        c = "Not({})".format(", ".join(subset_prcd_conditions))
+        c = "Not(And({}))".format(", ".join(subset_prcd_conditions))
 
         tau_solver.push()
         tau_solver.add(eval(c))
@@ -778,11 +729,6 @@ def has_redundancy(solver, tau_solver, conditions):
         return has_redundant, result
 
 def convert_z3_variable(condition, datatype):
-    """
-    Convert variables/values in constraints to z3 variables/values. 
-
-    For example, x == 1, then convert to z3 variables/values, z3.Int(x) = z3.IntVal(1)
-    """
     c_list = condition.split()
 
     if c_list[0][0].isalpha():
@@ -799,28 +745,11 @@ def convert_z3_variable(condition, datatype):
     return op1, operator, op2
 
 def analyze(condition):
-    """
-    Find every constraint in condition and convert variables in constraints to z3 variable
-
-    Parameters:
-    -----------
-    condition: string
-        conditions which consists of many atomic constraints
-
-    Returns:
-    -----------
-    prcd_cond: string
-        processed condition whose constraint variables are converted to z3 variables
-
-    """
     cond_str = condition
     prcd_cond = ""
-
     if 'And' in cond_str or 'Or' in cond_str:
-        """
-        Find positions for every single constraints 
-        """
         stack_last_post = []
+        last_pos = 0
         i = 0
         stack_last_post.insert(0, i)
         condition_positions = []
@@ -839,10 +768,9 @@ def analyze(condition):
             begin_idx = stack_last_post.pop()
             if begin_idx !=  len(cond_str):
                 condition_positions.append((begin_idx, len(cond_str)))
-
-        """
-        Convert variables in constraints to z3 variables
-        """
+        # print(cond_str[51:])
+        # print(stack_last_post)
+        # print(condition_positions)
         for idx, pair in enumerate(condition_positions):
             if idx == 0:
                 prcd_cond += cond_str[0:pair[0]]
@@ -860,6 +788,7 @@ def analyze(condition):
         # print(prcd_cond)
 
     return prcd_cond
+
 
 if __name__ == "__main__":
     # sql = "select policy1.path, policy2.dest from policy1, policy2 where policy1.path = policy2.path and policy1.dest != policy2.dest;"
