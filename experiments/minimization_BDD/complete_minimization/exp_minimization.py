@@ -17,7 +17,7 @@ def exp_minimization_chain(size, rate_summary, rate_loops, runtimes):
     f = open("./data/exp_minimization_{}node.txt".format(size), "a")
     f.write("rate_summary runtime(sec)\n")
     for i in range(runtimes):
-        path, summary_nodes, loop_nodes, picked_nodes = gen_chain.gen_chain_with_loop(size=size, rate_summary=rate, rate_loops=rate_loops)
+        path, summary_nodes, loop_nodes, picked_nodes = gen_chain.gen_chain_with_loop_control_position(size=size, rate_summary=rate, rate_loops=rate_loops)
         tuples = gen_chain.gen_tableau(path, picked_nodes)
 
         tablename = "chain{}_{}".format(size, int(rate_summary*10))
