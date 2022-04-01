@@ -6,7 +6,7 @@ sys.path.append(root)
 
 import time
 from tqdm import tqdm
-import faure_translator.databaseconfig as cfg
+import databaseconfig as cfg
 import psycopg2
 import util.check_tautology.check_tautology as check_tautology
 import util.check_tautology.condition_analyze as condition_analyze
