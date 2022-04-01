@@ -60,7 +60,7 @@ def merge_tuples(tablename, out_tablename):
 
         merged_idx = condition_indexes[0]
         for i in range(1, len(condition_indexes)):
-            merged_idx = bddmm.operate_BDDs(merged_idx, condition_indexes[i], '&')
+            merged_idx = bddmm.operate_BDDs(merged_idx, condition_indexes[i], '^')
         
         tp.insert(idx_cond, merged_idx)
         new_tuples.append(tp)
