@@ -24,9 +24,20 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 
 # Set domain knowledge
 DOMAIN = ['1', '2'] # daulft domain [1, 2]
+VARIABLES = []
+EMPTY_CONDITION_IDX = None
 
 def set_domain(domain): # TODO: support vary domain for each variable
+    global DOMAIN 
     DOMAIN = domain
+
+def set_variables(variables):
+    global VARIABLES
+    VARIABLES = variables
+
+def set_empty_condition_index(idx):
+    global EMPTY_CONDITION_IDX
+    EMPTY_CONDITION_IDX = idx
 
 # def str_to_BDD(condition):
 #     return 0
@@ -58,17 +69,23 @@ def process_condition_on_ctable(tablename):
         list_row = list(row)
 
         if len(list_row[cond_idx]) == 0:
-            list_row[cond_idx] = None
+            # list_row[cond_idx] = None
+            if EMPTY_CONDITION_IDX is None:
+                condition = ""
+                encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN, VARIABLES)
+                empty_condition_idx = bddmm.str_to_BDD(encoded_c)
+                set_empty_condition_index(empty_condition_idx)
+            list_row[cond_idx] = EMPTY_CONDITION_IDX
         else:
             condition = ", ".join(list_row[cond_idx])
             print(condition)
 
             # bdd_idx = str_to_BDD(condition) # TODO: integrate C API (DONE)
             # Call BDD module 
-            encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN)
+            encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN, VARIABLES)
             bdd_idx = bddmm.str_to_BDD(encoded_c)
-
             list_row[cond_idx] = bdd_idx
+
         row = tuple(list_row)
         new_tuples.append(copy.deepcopy(row))
 
@@ -91,6 +108,8 @@ def process_condition_on_ctable(tablename):
     execute_values(cursor, sql, new_tuples)
     # cursor.executemany(new_tuples)
     conn.commit()
+
+    return out_tablename
 
 #create data content
 def data(tree):
@@ -117,9 +136,9 @@ def data(tree):
         print(sql)
     
     cursor.execute("DROP TABLE IF EXISTS output")
-    begin = time.time()
+    begin = time()
     cursor.execute(sql)
-    end = time.time()
+    end = time()
     if OPEN_OUTPUT:
         print("\ndata executing time: ", end-begin)
     # logging.warning("data execution time: %s" % str(end-begin))
@@ -139,7 +158,7 @@ def upd_condition(tree):
     where_clause = tree['where']
     keyword = list(where_clause.keys())[0]
     conditions = copy.deepcopy(where_clause[keyword])
-    # print("conditions:", conditions)
+
     sql = ""
     cond_list = []
     where_list = [] # store left operand and right operand
@@ -155,21 +174,16 @@ def upd_condition(tree):
             cond_list.append("{} || ' {} ' || {}".format(left_opd, cond[1], right_opd))
         
         where_list.append([left_opd, right_opd])
-    # print("where_list:", where_list)
-    # print("cond_list:", cond_list)
-
     '''
     get condition columns from all tables
     '''
     from_clause = tree['from']
-    # print("from_clause:", from_clause)
     cond_cols = []
     for t in from_clause:
         if t[2] == '': # no alias
             cond_cols.append("{}_condition".format(t[0]))
         else:
             cond_cols.append("{}_condition".format(t[2]))
-    # print("cond_cols:", cond_cols)
 
     '''
     add id column which is primary key
@@ -190,33 +204,46 @@ def upd_condition(tree):
     len_cond_cols = len(cond_cols)
     bound = len_cond_cols + 1
     pos = -bound
+    total_BDD_time = 0
 
-    print(sql)
+    if OPEN_OUTPUT:
+        print(sql)
     cursor.execute(sql)
     count_num = cursor.rowcount
+
+    # print("current directory:", os.getcwd())
+    # current_direcory = os.getcwd()
+    # f = open(current_direcory+"/join_condition.txt", "a")
+    # f.write("new_condition_idx sat condition\n")
+    # f2 = open(current_direcory+"/old_condition.txt", "a")
+    # f2.write("old_condition_idx sat indexes\n")
+    # f3 = open(current_direcory+"/new_condition.txt", "a")
+    # f3.write("new_condition_idx sat indexes\n")
+
     for i in tqdm(range(count_num)):
         row = cursor.fetchone()
-        # print(row)
-        # print(row[:pos])
         c_condition = ""
+
         if keyword == '' or keyword == 'and':
-            c_condition = "And({})".format(", ".join(list(row[:pos]))) # TODO: upgrade to deal with more than 2 condition columns
+            c_condition = "And({})".format(", ".join(list(row[:pos])))
         else:
             c_condition = "Or({})".format(", ".join(list(row[:pos])))
-
         '''
         convert new join/selection conditions to BDD version
         '''
-        # bdd_c_idx = str_to_BDD(c_condition) # TODO: integrate C API (DONE)
-        # print(c_condition)
-        encoded_c, variable_arr = encodeCUDD.convertToCUDD(c_condition, DOMAIN)
-        print("encoded_c", encoded_c)
+        encoded_c, variable_arr = encodeCUDD.convertToCUDD(c_condition, DOMAIN, VARIABLES)
+        begin = time()
         bdd_c_idx = bddmm.str_to_BDD(encoded_c)
+        end = time()
+        total_BDD_time += end - begin
 
+        # sat = bddmm.evaluate(bdd_c_idx)
+        # f.write("{} {} {}\n".format(bdd_c_idx, sat, c_condition)) # new_condition_idx
         '''
         logical operation on old BDDs
         '''
         bdds_idx = None
+        
         for i in range(pos, -1): # -1 is the position of id, 
             if row[i] is None:
                 continue
@@ -227,21 +254,38 @@ def upd_condition(tree):
                 continue
             
             bdd2 = row[i]
-
-            # bdds_idx = operate_BDDs(bdd1, bdd2, "And") # TODO: integrate C API (DONE)
+            begin = time()
             bdds_idx = bddmm.operate_BDDs(bdd1, bdd2, "&")
+            end = time()
+            total_BDD_time += end - begin
 
-        # new_idx = operate_BDDs(bdds_idx, bdd_c_idx, "And") # TODO: integrate C API (DONE)
+        # sat_f2 = bddmm.evaluate(bdds_idx)
+        # f2.write("{} {} {}\n".format(bdds_idx, sat_f2, row[pos:-1])) # old_condition_idx
+
         new_idx = None
         if bdds_idx is not None and bdd_c_idx is not None:
+            begin = time()
             new_idx = bddmm.operate_BDDs(bdds_idx, bdd_c_idx, "&")
+            end = time()
+            total_BDD_time += end - begin
         elif bdds_idx is None:
             new_idx = bdd_c_idx
         else:
             new_idx = bdds_idx
+        
+        # print("new_idx:", new_idx, "Sat:", sat)
+        # sat_f3 = bddmm.evaluate(new_idx)
+        # f3.write("{} {} {}\n".format(new_idx, sat_f3, [bdd_c_idx, bdds_idx]))
 
         upd_conditions[row[-1]] = new_idx # key is id
+        # print("new_idx", new_idx)
+        # print(upd_conditions)
+        # print("---------------------------")
     # print(upd_conditions)
+    # f.close()
+    # f2.close()
+    # f3.close()
+
     sql = "alter table if exists output add column condition integer"
     cursor.execute(sql)
     conn.commit()
@@ -259,7 +303,6 @@ def upd_condition(tree):
     drop_cols = set()
     if '*' in tree['select']:
         # remove duplicated columns
-        begin = time.time()
         for cond in conditions:
             if cond[1] == '=':
                 left_opd = "".join(cond[0])
@@ -270,7 +313,6 @@ def upd_condition(tree):
                 if OPEN_OUTPUT:
                     print(sql)
                 cursor.execute(sql)
-        count_time += time.time() - begin
     else:
         # only keep specified columns
         selected_cols = copy.deepcopy(tree['select'])
@@ -293,28 +335,24 @@ def upd_condition(tree):
                 drop_cols.add(col)
 
         if len(rename_col) > 0: 
-            begin = time.time()
             for new_col in rename_col:
                 sql = "ALTER TABLE output rename column " + new_col
                 if OPEN_OUTPUT:
                     print(sql)
                 cursor.execute(sql)
-            count_time += time.time() - begin
     
     # drop old condition column from table
     drop_cols = drop_cols.union(cond_cols)
     # print(drop_cols)
     if len(drop_cols) > 0:
-        begin = time.time()
         sql = "ALTER TABLE output drop column " + ", drop column ".join(drop_cols)
         if OPEN_OUTPUT:
             print(sql)
         cursor.execute(sql)
-        count_time += time.time() - begin
     conn.commit()
     if OPEN_OUTPUT:
         print("\ncondition execution time:", count_time)
-    return count_time
+    return total_BDD_time
 
 def generate_tree(query):
     tree = {}
@@ -610,13 +648,18 @@ if __name__ == "__main__":
     # sql = "select t0.n1, t2.n2 from tp t0, tp t1, tp t2, tp t3, tp t4, tp t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = '2' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2"
     bddmm.initialize(3, 2)
     set_domain(['1', '2'])
+    set_variables(['x', 'y', 'z'])
 
     process_condition_on_ctable('fwd') # convert string version condition to BDD version
 
-    sql = "select * from fwd_bdd where n2 != '2' and n1 = n2" # run successfuly
-    sql = "select * from fwd_bdd where n2 != '2'" # happens Segmentation fault or free():invalid pointer on str_to_BDD()
+    # sql = "select * from fwd_bdd where n2 != '2' and n1 = n2" # run successfuly
+    # sql = "select * from fwd_bdd where n2 != '2'" # happens memory leakage on str_to_BDD()
+    # sql = "select t1.n1, t2.n2 from fwd_bdd t1, fwd_bdd t2 where t1.n1 = '1' and t1.n2 = t2.n1"
+    sql = "select 1, t2.n2 from fwd_bdd t1, fwd_bdd t2 where t1.n1 = '1' and t1.n2 = t2.n1"
     tree = generate_tree(sql)
 
     # begin = time.time()
     data(tree)
     upd_condition(tree)
+
+    merge_tuples.merge_tuples("output", "merged",  ['1', '2'], ['x', 'y', 'z'])
