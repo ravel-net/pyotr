@@ -1,3 +1,9 @@
+"""
+minimization algorithm on pyotr system 
+
+Z3 verison
+"""
+
 import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(abspath(__file__)))
@@ -64,66 +70,29 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     tuple_to_remove = curr_table[pos]
     closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
     variables = closure_overhead.find_variables(curr_table)
-    print("variables",variables)
-    print("summary", summary)
-    print("tuple_to_remove: ", tuple_to_remove)
-    print("closure_group: ", closure_group)
+    # print("variables",variables)
+    # print("summary", summary)
+    # print("tuple_to_remove: ", tuple_to_remove)
+    # print("closure_group: ", closure_group)
 
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
     new_table = copy.deepcopy(curr_table)
     new_table.pop(pos)
-    print("after remove tuple:", new_table)
+    # print("after remove tuple:", new_table)
     deleteTuple(new_table, new_table_name, cur)
 
     running_time, output_table = split_merge(closure_group, new_table_name, variables, summary)
-    print("Verification running time:", running_time, "\n")
+    # print("Verification running time:", running_time, "\n")
 
-    # sql_query = tableau.convert_tableau_to_sql(closure_group, new_table_name, summary)
-    
-    # print("sql:", sql_query)
-
-    # check for query containment
-    # tree = translator.generate_tree(sql_query)
-    # conn.commit()
-    # conn.close()
-    # data_time = translator.data(tree)
-    # upd_time = translator.upd_condition(tree)
-    # nor_time = translator.normalization()
-    # conn.close()
-
-    # conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
     cur.execute("select condition from {}".format(output_table))
-    # condition = cur.fetchone()[0]
-    # print("condition", ", ".join(condition))
-    # union_conditions, union_time = check_tautology.get_union_conditions("output", "Int")
-    # domain_conditions, domain_time = check_tautology.get_domain_conditions(summary, variables, "Int")
-    # print(union_conditions)
-    # print(domain_conditions)
-    # ans, time, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+
     if cur.rowcount != 0 and len(cur.fetchone()[0]) == 0:
         cur.execute("DROP TABLE IF EXISTS {}".format(tablename))
         conn.commit()
-        # conn.close()
         return minimize(new_table_name, pos, summary)
     else:
         cur.execute("DROP TABLE IF EXISTS {}".format(new_table_name))
         conn.commit()
-        # conn.close()
         return minimize(tablename, pos+1, summary)
-
-    # if (check_tautology.table_contains_answer(output_table, summary, variables)):
-    #     # cur.execute("DROP TABLE IF EXISTS {}".format(output_table_name))
-    #     cur.execute("DROP TABLE IF EXISTS {}".format(tablename))
-    #     conn.commit()
-    #     conn.close()
-    #     return minimize(new_table_name, pos, summary)
-    # else:
-    #     # cur.execute("DROP TABLE IF EXISTS {}".format(output_table_name))
-    #     # conn.close() # comment this line out for output of complete minimization
-    #     # exit() # comment this line out for output of complete minimization
-    #     cur.execute("DROP TABLE IF EXISTS {}".format(new_table_name))
-    #     conn.commit()
-    #     conn.close()
-    #     return minimize(tablename, pos+1, summary)
