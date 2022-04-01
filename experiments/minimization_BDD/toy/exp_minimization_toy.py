@@ -1,5 +1,7 @@
 """
 string condition version
+
+toy example on handwriting 
 """
 import sys
 from os.path import dirname, abspath, join
