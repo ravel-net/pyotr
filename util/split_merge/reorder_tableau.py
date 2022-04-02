@@ -28,7 +28,14 @@ def gen_splitjoin_sql(ordered_group, tablename, summary):
     if len(ordered_group) == 1:
         sql = convert_tuples_to_sql(ordered_group, tablename, "t1", "", "", False, True, summary)
         sqls.append(sql)
+        output_tables.append("R1")
+        return sqls, output_tables
+    elif len(ordered_group) == 2: # do not contains composition view but is final join
+        sql = convert_tuples_to_sql(ordered_group, tablename, "t1", tablename, "t2", False, True, summary)
+        sqls.append(sql)
         output_tables.append("R1_2")
+        return sqls, output_tables
+
     for idx, link in enumerate(ordered_group):
         if idx == 0:
             continue
@@ -43,7 +50,7 @@ def gen_splitjoin_sql(ordered_group, tablename, summary):
             n1 = comp_link[0]
             n2 = link[1]
             links = [comp_link, link]
-            if idx == len(ordered_group) - 1:
+            if idx == len(ordered_group) - 1: # contains composition view and is final join
                 sql = convert_tuples_to_sql(links, "R1_{}".format(idx), "t1", tablename, "t2", True, True, summary)
             else:
                 sql = convert_tuples_to_sql(links, "R1_{}".format(idx), "t1", tablename, "t2", True, False, summary)
@@ -54,6 +61,10 @@ def gen_splitjoin_sql(ordered_group, tablename, summary):
     return sqls, output_tables
 
 def convert_tuples_to_sql(tuples, tablename1, t1_rename, tablename2, t2_rename, includeCompView, is_final_join, summary):
+    """
+    includeCompView: composition view(e.g. R1_2)
+    is_final_join: whether it is a final join
+    """
     cols = []
     constraints = []
     if len(tuples) == 2:
