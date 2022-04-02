@@ -1,13 +1,13 @@
 #define PY_SSIZE_T_CLEAN
 #include <Python.h>
-
+   
 #include "BDD_utils.c"
 #include "BDD_array.c"
 
 #define INITIALSIZE 16 // Initial Size of the array
 
 // Global variables for state management
-BDD_array BDDs; // Data structure to store BDDs
+ BDD_array BDDs; // Data structure to store BDDs
 DdManager* gbm; // 
 int numVars; // Number of variables in program
 
@@ -16,7 +16,7 @@ void Cinitialize(int numberOfVariables, int domainCardinality) {
   gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
   numVars = numBinaryVars(numberOfVariables, domainCardinality);
 }
-
+  
 static PyObject* initialize(PyObject* self, PyObject* args)
 {
     // instantiate our `n` value
@@ -29,13 +29,13 @@ static PyObject* initialize(PyObject* self, PyObject* args)
     Cinitialize(numberOfVariables, domainCardinality);
     return Py_None;
 }
-
+         
 // Evaluate a BDD given by a reference. Returns 2 for satisfiable, 1 for tautology, and 0 for contradiction
 int Cevaluate(int bdd_reference) {
     DdNode* bdd = getBDD(&BDDs, bdd_reference);
     return evaluateBDD(bdd);
 }
-
+ 
 static PyObject* evaluate(PyObject* self, PyObject* args)
 {
     // instantiate our `n` value
@@ -71,6 +71,7 @@ int Coperate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
     DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
     DdNode* bdd = logicalOpBDD(operation, gbm, bdd_1, bdd_2);
+    Cudd_Ref(bdd);
     return insertBDD(&BDDs, bdd);
 }
 

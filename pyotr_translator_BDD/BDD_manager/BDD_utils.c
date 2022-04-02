@@ -33,6 +33,8 @@ DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* b
         return Cudd_bddOr(gbm, bdd_left, bdd_right);    
     else if (curr_char == '$')
         return Cudd_bddXnor(gbm, bdd_left, bdd_right);
+    assert(false);
+    return NULL;
 }
 
 bool isLogicalNot(char curr_char) {
@@ -43,42 +45,45 @@ bool isLogicalNot(char curr_char) {
 DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
     DdNode *bdd;
     char curr_char = condition[*i];
-    // int k = 0;
+    // int k = 0;i
     if (isLogicalOp(curr_char)) {
         *i = *i + 2; // Skipping bracket
         DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
-        DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
-        bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
-        Cudd_Ref(bdd);
-        // Cudd_RecursiveDeref(gbm, bdd_left);
-        // Cudd_RecursiveDeref(gbm, bdd_right);
+	DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
+	bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
+	Cudd_Ref(bdd);
     }
     else if (isLogicalNot(curr_char)) {
-        *i = *i + 2; // Skipping bracket
+	*i = *i + 2; // Skipping bracket
         DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
-        bdd = Cudd_Not(tmp);
-        // Cudd_Ref(bdd);
-        // Cudd_RecursiveDeref(gbm, tmp);
-
+	bdd = Cudd_Not(tmp);
+        Cudd_Ref(bdd);
+        Cudd_RecursiveDeref(gbm,tmp);
     }
     else if (curr_char == ',' || curr_char == '(' || curr_char == ')') {
         *i = *i + 1;
-        bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); 
+	bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); 
     }
 
     // must be a variables at this point
     else if (isdigit(curr_char)) {
-        int index = getVar(condition,i);
+	int index = getVar(condition,i);
         if (index == 1) {
             bdd = Cudd_ReadOne(gbm);
-            Cudd_Ref(bdd);
+	    Cudd_Ref(bdd);
         }
         else if (index == 0) {
             bdd = Cudd_Not(Cudd_ReadOne(gbm));
             Cudd_Ref(bdd);
         }
-        else
+        else {
             bdd = variableNodes[index-2];
+	    Cudd_Ref(bdd);
+	}
+    }
+    else {
+    	assert(false);
+	bdd = NULL;
     }
     return bdd;
 }
@@ -87,7 +92,6 @@ DdNode** initVars(int numVars, DdManager* gbm) {
     DdNode** variableNodes = malloc(sizeof(DdNode*)*numVars);
     for (int i = 0; i < numVars; i++) {
         variableNodes[i] = Cudd_bddNewVar(gbm);
-        Cudd_Ref(variableNodes[i]);
     }
     return variableNodes;
 }
