@@ -376,7 +376,6 @@ def upd_condition(tree):
 
     begin = time.time()
     if keyword == '' or keyword == 'and':
-        
         # for c in cond_list:
         for idx, c in enumerate(cond_list):
             # sql = "update output set condition = array_append(condition, {})".format(c)
@@ -781,21 +780,23 @@ def has_redundancy(solver, tau_solver, conditions):
                     drop_idx[c1].remove(c1)
 
         for c1 in list(drop_idx):
-            for c2 in drop_idx[c1]:        
+            for c2 in drop_idx[c1]:
                 dp_arr.append(c2)
 
         is_tauto = True
         final_result = []
         subset_prcd_conditions = []
+        print(result)
         for i in range(0, len(result), 1):
             if i not in dp_arr:
                 final_result.append(result[i])
                 subset_prcd_conditions.append(processed_conditions[i])
 
         c = "Not({})".format(", ".join(subset_prcd_conditions))
-
+        print("c",c)
         tau_solver.push()
-        tau_solver.add(eval(c))
+        for prcd in subset_prcd_conditions:
+            tau_solver.add(eval("Not({})".format(prcd)))
         if tau_solver.check() == z3.sat:
             is_tauto = False
         tau_solver.pop()
