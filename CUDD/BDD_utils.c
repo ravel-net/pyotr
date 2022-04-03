@@ -57,6 +57,12 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
         DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
         bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
         Cudd_Ref(bdd);
+        // printf("\n1\n");
+        // Cudd_DebugCheck(gbm);
+        Cudd_RecursiveDeref(gbm,bdd_right);
+        Cudd_RecursiveDeref(gbm,bdd_left);
+        // printf("\n2\n");
+        // Cudd_DebugCheck(gbm);
     }
     else if (isLogicalNot(curr_char)) {
         *i = *i + 2; // Skipping bracket
@@ -97,7 +103,7 @@ DdNode** initVars(int numVars, DdManager* gbm) {
     DdNode** variableNodes = malloc(sizeof(DdNode*)*numVars);
     for (int i = 0; i < numVars; i++) {
         variableNodes[i] = Cudd_bddNewVar(gbm);
-        Cudd_Ref(variableNodes[i]);
+        // Cudd_Ref(variableNodes[i]);
     }
     return variableNodes;
 }
