@@ -28,8 +28,6 @@ int str_to_BDD(char* C) {
     return insertBDD(&BDDs, bdd);
 }
 
-// Input: Encoded string condition
-// Output: Index of the constructed BDD
 int operate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
     DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
@@ -42,24 +40,31 @@ long readMemoryInUse() {
     return Cudd_ReadMemoryInUse(gbm);   
 }
 
+/*Frees the memory of a given BDD*/
+void freeBDD(int bdd_reference) {
+    DdNode* bdd = getBDD(&BDDs, bdd_reference);
+    Cudd_RecursiveDeref(gbm,bdd);
+    // free(bdd);
+}
+
 int main (int argc, char *argv[])  
 {
-    evaluateFromFile(argc, argv);  
-    // initialize(4, 4);
-    // int fangpingCondition = str_to_BDD("&((1),&(&(~(2),3),&(~(6),7)))"); 
-    // int taut = str_to_BDD("^(&($(4,2),$(2,3)),^(&(~(2),$(2,3)),^($(4,3),^(~(3),^(&(~(4),$(2,3)),^(&(~(4),$(2,3)),^(&(~(2),$(3,2)),^(~(2),^(&(~(2),$(2,3)),^(&(~(2),$(2,3)),^(&(~(3),$(3,2)),~(3))))))))))))");
-    // int contr = str_to_BDD("&(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),&(~(3),3))");
-    // int sat = str_to_BDD("^(&(^(^(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),^(~(3),^(~(4),~(2)))),^(~(3),^(~(4),^(&(~(3),~(2)),^(&(~(4),~(2)),^(~(2),~(2))))))),&($(2,3),3)),^(&($(4,3),3),^(3,3)))");
-    // int OR = operate_BDDs(taut, sat, '^');
-    // int AND = operate_BDDs(contr, sat, '&');
-    // // printf("%d\n", taut);
-    // // printf("%d\n", contr);
-    // // printf("%d\n", OR);
-    // // printf("%d\n", AND);
-    // // printf("%d\n", evaluate(taut));
-    // // printf("%d\n", evaluate(contr));
-
-    // printf("%d\n", evaluate(fangpingCondition));
-    // printf("DdManager memory: %ld bytes \n", readMemoryInUse() );
-    // freeBDD(&BDDs);
+    // evaluateFromFile(argc, argv);  
+    initialize(4, 4);
+    int fangpingCondition = str_to_BDD("&((1),&(&(~(2),3),&(~(6),7)))"); 
+    int taut = str_to_BDD("^(&($(4,2),$(2,3)),^(&(~(2),$(2,3)),^($(4,3),^(~(3),^(&(~(4),$(2,3)),^(&(~(4),$(2,3)),^(&(~(2),$(3,2)),^(~(2),^(&(~(2),$(2,3)),^(&(~(2),$(2,3)),^(&(~(3),$(3,2)),~(3))))))))))))");
+    int contr = str_to_BDD("&(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),&(~(3),3))");
+    int sat = str_to_BDD("^(&(^(^(^(^(~(2),^(&(~(2),~(4)),^(&(~(4),~(3)),^(~(4),~(3))))),^(~(3),^(~(4),^(~(2),^(&(~(4),&(~(3),~(2))),^(~(2),^(&(~(2),~(4)),^(&(~(4),~(2)),&(~(3),~(2)))))))))),^(~(3),^(~(4),~(2)))),^(~(3),^(~(4),^(&(~(3),~(2)),^(&(~(4),~(2)),^(~(2),~(2))))))),&($(2,3),3)),^(&($(4,3),3),^(3,3)))");
+    int OR = operate_BDDs(taut, sat, '^');
+    int AND = operate_BDDs(contr, sat, '&');
+    // printf("%d\n", taut);
+    // printf("%d\n", contr);
+    // printf("%d\n", OR);
+    // printf("%d\n", AND);
+    // printf("%d\n", evaluate(taut));
+    // printf("%d\n", evaluate(contr));
+    freeBDD(taut);
+    printf("%d\n", evaluate(fangpingCondition));
+    printf("DdManager memory: %ld bytes \n", readMemoryInUse() );
+    freeBDDArray(&BDDs);
 } 

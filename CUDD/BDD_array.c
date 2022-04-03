@@ -16,7 +16,7 @@ int insertBDD(BDD_array* BDDs, DdNode* element) {
   return BDDs->used-1; 
 }
 
-void freeBDD(BDD_array* BDDs) {
+void freeBDDArray(BDD_array* BDDs) {
   free(BDDs->array);
   BDDs->array = NULL;
   BDDs->used = BDDs->size = 0;

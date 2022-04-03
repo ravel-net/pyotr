@@ -1,12 +1,13 @@
+
 #include "util.h"
 #include "cudd.h"
+
 // #include "cuddInt.h"
 #include <time.h>
 #include <stdbool.h>
 #include <math.h>
 #include <unistd.h>
 #include <sys/time.h>
-
 
 #define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
 
@@ -38,6 +39,8 @@ DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* b
         return Cudd_bddOr(gbm, bdd_left, bdd_right);    
     else if (curr_char == '$')
         return Cudd_bddXnor(gbm, bdd_left, bdd_right);
+    assert(false);
+    return NULL;
 }
 
 bool isLogicalNot(char curr_char) {
@@ -48,23 +51,19 @@ bool isLogicalNot(char curr_char) {
 DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
     DdNode *bdd;
     char curr_char = condition[*i];
-    int k = 0;
     if (isLogicalOp(curr_char)) {
         *i = *i + 2; // Skipping bracket
         DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
         DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
         bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
         Cudd_Ref(bdd);
-        // Cudd_RecursiveDeref(gbm, bdd_left);
-        // Cudd_RecursiveDeref(gbm, bdd_right);
     }
     else if (isLogicalNot(curr_char)) {
         *i = *i + 2; // Skipping bracket
         DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
         bdd = Cudd_Not(tmp);
-        // Cudd_Ref(bdd);
-        // Cudd_RecursiveDeref(gbm, tmp);
-
+        Cudd_Ref(bdd);
+        Cudd_RecursiveDeref(gbm,tmp);
     }
     else if (curr_char == ',' || curr_char == '(' || curr_char == ')') {
         *i = *i + 1;
@@ -73,7 +72,7 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
 
     // must be a variables at this point
     else if (isdigit(curr_char)) {
-        int index = getVar(condition,i);
+    int index = getVar(condition,i);
         if (index == 1) {
             bdd = Cudd_ReadOne(gbm);
             Cudd_Ref(bdd);
@@ -82,8 +81,14 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
             bdd = Cudd_Not(Cudd_ReadOne(gbm));
             Cudd_Ref(bdd);
         }
-        else
+        else {
             bdd = variableNodes[index-2];
+            Cudd_Ref(bdd);
+        }
+    }
+    else {
+        assert(false);
+        bdd = NULL;
     }
     return bdd;
 }
@@ -163,17 +168,17 @@ int evaluateFromFile (int argc, char *argv[])
         
         // measuring time
         long start, end;
-	    struct timeval timecheck;
-	    gettimeofday(&timecheck, NULL);
-	    start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+        struct timeval timecheck;
+        gettimeofday(&timecheck, NULL);
+        start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
 
         int result = evaluateString(condition, numVars, mem);
 
-	    gettimeofday(&timecheck, NULL);
-	    end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+        gettimeofday(&timecheck, NULL);
+        end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
 
-	    printf("%d\t\t%ld\t\t%ld\n", result, (end - start), (*mem)/1048576);
-	    free(mem);
+        printf("%d\t\t%ld\t\t%ld\n", result, (end - start), (*mem)/1048576);
+        free(mem);
     }
 
     fclose(fp);
