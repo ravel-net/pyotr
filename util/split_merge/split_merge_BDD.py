@@ -13,7 +13,7 @@ import util.tableau.tableau as tableau
 import util.merge_tuples.merge_tuples_BDD as merge_tuples_BDD
 from util.variable_closure_algo.closure_overhead import find_variables, construct_Graph, calculate_tableau
 import util.split_merge.reorder_tableau as reorder_tableau
-import pyotr_translator_BDD.databaseconfig as cfg
+import databaseconfig as cfg
 import psycopg2
 
 import BDD_managerModule as bddmm

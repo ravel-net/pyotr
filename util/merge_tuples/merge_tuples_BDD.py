@@ -1,13 +1,13 @@
 import sys
 from os.path import dirname, abspath, join
 
-root = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
+root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 
 from tqdm import tqdm
 import time
-import pyotr_translator_BDD.databaseconfig as cfg
+import databaseconfig as cfg
 import psycopg2
 from psycopg2.extras import execute_values
 

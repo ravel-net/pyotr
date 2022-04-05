@@ -13,7 +13,7 @@ from time import time
 from tqdm import tqdm
 import z3
 from z3 import And, Not, Or, Implies
-import pyotr_translator_BDD.databaseconfig as cfg
+import databaseconfig as cfg
 from psycopg2.extras import execute_values
 
 # BDD manager Module

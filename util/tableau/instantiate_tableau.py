@@ -4,7 +4,7 @@ from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 
-import faure_translator.databaseconfig as cfg
+import databaseconfig as cfg
 import psycopg2
 from psycopg2.extras import execute_values
 

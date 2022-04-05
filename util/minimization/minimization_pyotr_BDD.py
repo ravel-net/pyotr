@@ -9,7 +9,7 @@ from tqdm import tqdm
 import copy
 import util.variable_closure_algo.closure_overhead as closure_overhead
 from util.split_merge.split_merge_BDD import split_merge
-import pyotr_translator_BDD.databaseconfig as cfg
+import databaseconfig as cfg
 
 host = cfg.postgres["host"]
 user = cfg.postgres["user"]

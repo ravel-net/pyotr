@@ -1,7 +1,13 @@
+import sys
+from os.path import dirname, abspath, join
+root = dirname(dirname(dirname(abspath(__file__))))
+print(root)
+sys.path.append(root)
+
 import time
 import z3
 from z3 import Or, And, Not
-import faure_translator.databaseconfig as cfg
+import databaseconfig as cfg
 import psycopg2
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
