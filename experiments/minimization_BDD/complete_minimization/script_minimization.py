@@ -40,7 +40,7 @@ def exp_minimization_chain_Z3(size, rate_summary, size_single_loop):
     current_directory = os.getcwd()
     if not os.path.exists(current_directory+"/results"):
         os.makedirs(current_directory+"/results")
-    f = open(current_directory+"/results/z3_exp_minimization_{}.txt".format(tablename), "a")
+    f = open(current_directory+"/results/z3_exp_minimization_splitMerge{}.txt".format(tablename), "a")
     f.write("runtime(sec)\n")
 
     begin = time.time()
@@ -70,6 +70,7 @@ def exp_minimization_chain_BDD(size, rate_summary, size_single_loop):
     translator_BDD.set_variables(variable_nodes)
     converted_table = translator_BDD.process_condition_on_ctable(tablename)
 
+    #memInit = bddmm.readMemoryInUse()
     current_directory = os.getcwd()
     if not os.path.exists(current_directory+"/results"):
         os.makedirs(current_directory+"/results")
@@ -77,11 +78,17 @@ def exp_minimization_chain_BDD(size, rate_summary, size_single_loop):
     f.write("runtime(sec)\n")
 
     begin = time.time()
+    #memFinal = bddmm.readMemoryInUse()
     minimization_pyotr_BDD.minimize(tablename=converted_table, pos=0, summary=summary_nodes)
+    memFinal = bddmm.readMemoryInUse()
+    print(memFinal)
     end = time.time()
     print("\nRUNNING TIME:", end - begin)
 
     f.write("{}\n".format(end - begin))
+    memFinal = bddmm.readMemoryInUse()
+    f.write("Mem usage Finally: {} mb\n".format(memFinal/1048576))
+
     f.close()
     
     return end-begin
@@ -89,7 +96,7 @@ def exp_minimization_chain_BDD(size, rate_summary, size_single_loop):
 if __name__ == "__main__":
     runtimes = 1
     size = 15
-    rate_variable = 0.8
+    rate_variable = 0.5
     size_single_loop = 4
     runtime_upper_bound = 30 # minutes
 

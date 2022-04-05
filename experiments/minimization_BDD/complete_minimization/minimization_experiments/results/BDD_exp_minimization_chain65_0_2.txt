@@ -1,0 +1,15 @@
+runtime(sec)
+51.44288396835327
+Mem usage Finally: 50.556724548339844 mb
+runtime(sec)
+52.74246096611023
+Mem usage Finally: 50.556724548339844 mb
+runtime(sec)
+122.99812150001526
+Mem usage Finally: 50.556724548339844 mb
+runtime(sec)
+54.005568504333496
+Mem usage Finally: 50.556724548339844 mb
+runtime(sec)
+52.800244092941284
+Mem usage Finally: 50.556724548339844 mb

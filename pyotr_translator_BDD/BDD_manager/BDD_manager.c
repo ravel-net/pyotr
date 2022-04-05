@@ -15,6 +15,8 @@ void Cinitialize(int numberOfVariables, int domainCardinality) {
   initializeBDD(&BDDs, INITIALSIZE);
   gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
   numVars = numBinaryVars(numberOfVariables, domainCardinality);
+  //Cudd_AutodynEnable(gbm, CUDD_REORDER_RANDOM);
+  //Cudd_ReduceHeap(gbm, CUDD_REORDER_RANDOM, 30000);
 }
   
 static PyObject* initialize(PyObject* self, PyObject* args)
@@ -35,7 +37,19 @@ int Cevaluate(int bdd_reference) {
     DdNode* bdd = getBDD(&BDDs, bdd_reference);
     return evaluateBDD(bdd);
 }
- 
+
+/*Returns the memory in use by the manager measured in bytes*/
+long CreadMemoryInUse() {
+    long mem = Cudd_ReadMemoryInUse(gbm);
+//printf("\n\n\n=====\n%ld\n=======\n\n", mem);
+    return mem;   
+}
+
+static PyObject* readMemoryInUse(PyObject* self, PyObject* args){
+    long mem = CreadMemoryInUse();
+    return Py_BuildValue("l", mem);
+}
+
 static PyObject* evaluate(PyObject* self, PyObject* args)
 {
     // instantiate our `n` value
@@ -95,6 +109,7 @@ static PyMethodDef BDD_Methods[] = {
     {"evaluate", evaluate, METH_VARARGS, "Evaluate a BDD given by a reference. Returns 2 for satisfiable, 1 for tautology, and 0 for contradiction"},
     {"str_to_BDD", str_to_BDD, METH_VARARGS, "Constrcut BDD for string condition."},
     {"operate_BDDs", operate_BDDs, METH_VARARGS, "Do logical operation between two BDDs."},
+    {"readMemoryInUse", readMemoryInUse, METH_VARARGS, "Get memory of gbm"},
     {NULL, NULL, 0, NULL}
 };
 

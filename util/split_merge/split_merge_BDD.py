@@ -23,6 +23,8 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 conn.set_session(readonly=False, autocommit=True)
 cursor = conn.cursor()
 
+OPEN_OUTPUT = True
+
 def split_merge(group, tablename, variables_list, summary):    
     print("DOMAIN", translator.DOMAIN)
     print("VARIABLES", translator.VARIABLES)
@@ -51,8 +53,12 @@ def split_merge(group, tablename, variables_list, summary):
     if row_num  != 0: # when output table is empty, it means no tuple meets the condition requirements
         row = cursor.fetchone()
         condition_idx = row[0]
+        begin_eval = time.time()
         sat = bddmm.evaluate(condition_idx) # sat = 1 for tautology, 0 for contradiction, 2 for satisfiable
-    
+        end_eval = time.time()
+        if OPEN_OUTPUT:
+            print("Evaluation time of condition {}: {} s".format(condition_idx, end_eval-begin_eval))
+
     return total_running_time, sat
 
 

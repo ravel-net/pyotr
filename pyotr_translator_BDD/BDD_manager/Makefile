@@ -1,5 +1,5 @@
-CUDD_PATH = Projects/cudd-cudd-3.0.0
-CFLAGS = -I ~/$(CUDD_PATH)/cudd -I ~/$(CUDD_PATH)/util -I ~/$(CUDD_PATH)/
+CUDD_PATH = cudd
+CFLAGS = -I ~/$(CUDD_PATH)/cudd -I ~/$(CUDD_PATH)/util/util -I ~/$(CUDD_PATH)/
 LFLAGS = -L ~/$(CUDD_PATH)/cudd/.libs/ -lcudd -lm
 
 default: libBDD_manager

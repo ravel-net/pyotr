@@ -138,6 +138,7 @@ def gen_tableau(path, picked_nodes):
 
 
 if __name__ == "__main__":
-    path, summary_nodes, variable_nodes, picked_nodes = gen_chain_with_loop(size=10, rate_summary=0.3, size_single_loop=2)
+    path, summary_nodes, variable_nodes, picked_nodes = gen_chain_with_loop(size=20, rate_summary=0.95, size_single_loop=2)
     tuples = gen_tableau(path, picked_nodes)
+    print(variable_nodes)
     print(tuples)

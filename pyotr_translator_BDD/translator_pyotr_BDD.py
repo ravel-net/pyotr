@@ -73,8 +73,14 @@ def process_condition_on_ctable(tablename):
             # list_row[cond_idx] = None
             if EMPTY_CONDITION_IDX is None:
                 condition = ""
+                begin_process = time()
                 encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN, VARIABLES)
+                end_process_encode = time()
                 empty_condition_idx = bddmm.str_to_BDD(encoded_c)
+                end_process_strToBDD = time()
+                if OPEN_OUTPUT:
+                    print("Time to encode condition {}: {} s".format(empty_condition_idx, end_process_encode-begin_process))
+                    print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-end_process_encode))
                 set_empty_condition_index(empty_condition_idx)
             list_row[cond_idx] = EMPTY_CONDITION_IDX
         else:
@@ -83,8 +89,14 @@ def process_condition_on_ctable(tablename):
 
             # bdd_idx = str_to_BDD(condition) # TODO: integrate C API (DONE)
             # Call BDD module 
+            begin_process = time()
             encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN, VARIABLES)
+            end_process_encode = time()
             bdd_idx = bddmm.str_to_BDD(encoded_c)
+            end_process_strToBDD = time()
+            if OPEN_OUTPUT:
+                print("Time to encode condition {}: {} s".format(bdd_idx, end_process_encode-begin_process))
+                print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-end_process_encode))
             list_row[cond_idx] = bdd_idx
 
         row = tuple(list_row)
@@ -232,10 +244,14 @@ def upd_condition(tree):
         '''
         convert new join/selection conditions to BDD version
         '''
+        begin_encode = time()
         encoded_c, variable_arr = encodeCUDD.convertToCUDD(c_condition, DOMAIN, VARIABLES)
         begin = time()
         bdd_c_idx = bddmm.str_to_BDD(encoded_c)
         end = time()
+        if OPEN_OUTPUT:
+            print("Time to encode condition {}: {} s".format(bdd_c_idx, begin-begin_encode))
+            print("Time to str_to_BDD in condition {}: {} s".format(bdd_c_idx, end-begin))
         total_BDD_time += end - begin
 
         # sat = bddmm.evaluate(bdd_c_idx)
@@ -258,6 +274,8 @@ def upd_condition(tree):
             begin = time()
             bdds_idx = bddmm.operate_BDDs(bdd1, bdd2, "&")
             end = time()
+            if OPEN_OUTPUT:
+                print("Time to operate BDD {} &: {} s".format(bdds_idx, end-begin))
             total_BDD_time += end - begin
 
         # sat_f2 = bddmm.evaluate(bdds_idx)
@@ -268,6 +286,8 @@ def upd_condition(tree):
             begin = time()
             new_idx = bddmm.operate_BDDs(bdds_idx, bdd_c_idx, "&")
             end = time()
+            if OPEN_OUTPUT:
+                print("Time to operate BDD {} &: {} s".format(new_idx, end-begin))
             total_BDD_time += end - begin
         elif bdds_idx is None:
             new_idx = bdd_c_idx

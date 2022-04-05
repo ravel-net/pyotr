@@ -101,7 +101,7 @@ DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars) {
     int* i = malloc(sizeof(int));
     *i = 0;
     DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
-    free(i); 
+	//free(i); 
     return bdd;
 } 
 

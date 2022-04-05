@@ -131,6 +131,9 @@ def check_is_tautology(union_conditions, domain_conditions):
 
     # print("total execution time: ", z3_end - z3_begin)
 
+    for k, v in solver.statistics():
+        if (k == "max memory"):
+            print ("Check_Taut Max Memory: %s : %s" % (k, v))
     if ans == z3.sat:
         model = solver.model()
         # print(model)
