@@ -1,0 +1,8 @@
+
+Normalization
+|initializaiton|checking|
+|110.4688|3.1708|
+
+Merge tuples
+|initializaiton|checking|
+|19.7207|0.0920|

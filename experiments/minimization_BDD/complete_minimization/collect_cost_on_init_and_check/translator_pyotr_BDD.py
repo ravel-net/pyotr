@@ -11,14 +11,13 @@ import psycopg2
 import copy
 from time import time
 from tqdm import tqdm
-import z3
-from z3 import And, Not, Or, Implies
 import databaseconfig as cfg
 from psycopg2.extras import execute_values
 
 # BDD manager Module
 import BDD_managerModule as bddmm
-import pyotr_translator_BDD.BDD_manager.encodeCUDD as encodeCUDD
+import utils.BDD_translator.BDD_manager.encodeCUDD as encodeCUDD
+import minimization_BDD.complete_minimization.collect_components.merge_tuples_BDD as merge_tuples
 
 OPEN_OUTPUT = True
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
@@ -27,6 +26,10 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 DOMAIN = ['1', '2'] # daulft domain [1, 2]
 VARIABLES = []
 EMPTY_CONDITION_IDX = None
+TAUTOLOGY = "(1)"
+TAUTOLOGY_IDX = None
+CONTRADICTION = "(0)"
+CONTRADICTION_IDX = None
 
 def set_domain(domain): # TODO: support vary domain for each variable
     global DOMAIN 
@@ -40,6 +43,30 @@ def set_empty_condition_index(idx):
     global EMPTY_CONDITION_IDX
     EMPTY_CONDITION_IDX = idx
 
+def set_tautology_index():
+    global TAUTOLOGY_IDX
+    tauto_idx = bddmm.str_to_BDD(TAUTOLOGY)
+    TAUTOLOGY_IDX = tauto_idx
+
+def set_contradiction_index():
+    global CONTRADICTION_IDX
+    contrd_idx = bddmm.str_to_BDD(CONTRADICTION)
+    CONTRADICTION_IDX = contrd_idx
+
+def initialize(domain, variables):
+    set_domain(domain)
+    set_variables(variables)
+    set_contradiction_index()
+    set_tautology_index()
+    
+def replace(idx):
+    sat = bddmm.evaluate(idx)
+    if sat == 1:
+        return TAUTOLOGY_IDX
+    elif sat == 0:
+        return CONTRADICTION_IDX
+    else:
+        return idx
 # def str_to_BDD(condition):
 #     return 0
 
@@ -70,33 +97,19 @@ def process_condition_on_ctable(tablename):
         list_row = list(row)
 
         if len(list_row[cond_idx]) == 0:
-            # list_row[cond_idx] = None
             if EMPTY_CONDITION_IDX is None:
                 condition = ""
-                begin_process = time()
                 encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN, VARIABLES)
-                end_process_encode = time()
                 empty_condition_idx = bddmm.str_to_BDD(encoded_c)
-                end_process_strToBDD = time()
-                if OPEN_OUTPUT:
-                    print("Time to encode condition {}: {} s".format(empty_condition_idx, end_process_encode-begin_process))
-                    print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-end_process_encode))
                 set_empty_condition_index(empty_condition_idx)
             list_row[cond_idx] = EMPTY_CONDITION_IDX
         else:
             condition = ", ".join(list_row[cond_idx])
             print(condition)
 
-            # bdd_idx = str_to_BDD(condition) # TODO: integrate C API (DONE)
             # Call BDD module 
-            begin_process = time()
             encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, DOMAIN, VARIABLES)
-            end_process_encode = time()
             bdd_idx = bddmm.str_to_BDD(encoded_c)
-            end_process_strToBDD = time()
-            if OPEN_OUTPUT:
-                print("Time to encode condition {}: {} s".format(bdd_idx, end_process_encode-begin_process))
-                print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-end_process_encode))
             list_row[cond_idx] = bdd_idx
 
         row = tuple(list_row)
@@ -217,11 +230,15 @@ def upd_condition(tree):
     len_cond_cols = len(cond_cols)
     bound = len_cond_cols + 1
     pos = -bound
-    total_BDD_time = 0
 
     if OPEN_OUTPUT:
         print(sql)
+
+    begin_join_condition = time()
     cursor.execute(sql)
+    end_join_condition = time()
+    print("generate join condition:", end_join_condition - begin_join_condition)
+
     count_num = cursor.rowcount
 
     # print("current directory:", os.getcwd())
@@ -232,7 +249,9 @@ def upd_condition(tree):
     # f2.write("old_condition_idx sat indexes\n")
     # f3 = open(current_direcory+"/new_condition.txt", "a")
     # f3.write("new_condition_idx sat indexes\n")
-
+    total_convert = 0
+    total_encode = 0
+    total_operate = 0
     for i in tqdm(range(count_num)):
         row = cursor.fetchone()
         c_condition = ""
@@ -246,13 +265,14 @@ def upd_condition(tree):
         '''
         begin_encode = time()
         encoded_c, variable_arr = encodeCUDD.convertToCUDD(c_condition, DOMAIN, VARIABLES)
-        begin = time()
+        end_encode = time()
+        total_encode += end_encode - begin_encode
+
+        begin_convert = time()
         bdd_c_idx = bddmm.str_to_BDD(encoded_c)
-        end = time()
-        if OPEN_OUTPUT:
-            print("Time to encode condition {}: {} s".format(bdd_c_idx, begin-begin_encode))
-            print("Time to str_to_BDD in condition {}: {} s".format(bdd_c_idx, end-begin))
-        total_BDD_time += end - begin
+        # bdd_c_idx = replace(bdd_c_idx)
+        end_convert = time()
+        total_convert += end_convert - begin_convert
 
         # sat = bddmm.evaluate(bdd_c_idx)
         # f.write("{} {} {}\n".format(bdd_c_idx, sat, c_condition)) # new_condition_idx
@@ -273,10 +293,9 @@ def upd_condition(tree):
             bdd2 = row[i]
             begin = time()
             bdds_idx = bddmm.operate_BDDs(bdd1, bdd2, "&")
+            # bdds_idx = replace(bdds_idx)
             end = time()
-            if OPEN_OUTPUT:
-                print("Time to operate BDD {} &: {} s".format(bdds_idx, end-begin))
-            total_BDD_time += end - begin
+            total_operate += end - begin
 
         # sat_f2 = bddmm.evaluate(bdds_idx)
         # f2.write("{} {} {}\n".format(bdds_idx, sat_f2, row[pos:-1])) # old_condition_idx
@@ -285,10 +304,9 @@ def upd_condition(tree):
         if bdds_idx is not None and bdd_c_idx is not None:
             begin = time()
             new_idx = bddmm.operate_BDDs(bdds_idx, bdd_c_idx, "&")
+            # new_idx = replace(new_idx)
             end = time()
-            if OPEN_OUTPUT:
-                print("Time to operate BDD {} &: {} s".format(new_idx, end-begin))
-            total_BDD_time += end - begin
+            total_operate += end - begin
         elif bdds_idx is None:
             new_idx = bdd_c_idx
         else:
@@ -306,15 +324,18 @@ def upd_condition(tree):
     # f.close()
     # f2.close()
     # f3.close()
-
+    begin_refine_condition = time()
     sql = "alter table if exists output add column condition integer"
     cursor.execute(sql)
     conn.commit()
+    end_refine_condition = time()
 
+    begin_update_condition = time()
     for key in upd_conditions.keys():
         sql = "update output set condition = {} where id = {}".format(upd_conditions[key], key)
         cursor.execute(sql)
     conn.commit()
+    end_update_condition = time()
 
     '''
     Check the selected columns
@@ -373,7 +394,14 @@ def upd_condition(tree):
     conn.commit()
     if OPEN_OUTPUT:
         print("\ncondition execution time:", count_time)
-    return total_BDD_time
+    return {
+        "generate_condition":end_join_condition-begin_join_condition,
+        "encode":total_encode,
+        "str_to_BDD":total_convert,
+        "operate_BDDs":total_operate,
+        "refine_condition":end_refine_condition-begin_refine_condition,
+        "update_condition":end_update_condition-begin_update_condition,
+    }
 
 def generate_tree(query):
     tree = {}
@@ -683,4 +711,4 @@ if __name__ == "__main__":
     data(tree)
     upd_condition(tree)
 
-    merge_tuples.merge_tuples("output", "merged",  ['1', '2'], ['x', 'y', 'z'])
+    merge_tuples.merge_tuples("output", "merged")

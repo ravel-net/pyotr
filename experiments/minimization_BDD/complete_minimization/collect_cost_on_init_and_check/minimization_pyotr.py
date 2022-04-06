@@ -1,14 +1,16 @@
 import sys
+import os
 from os.path import dirname, abspath, join
-root = dirname(dirname(dirname(dirname(abspath(__file__)))))
+root = dirname(dirname(abspath(__file__)))
 print(root)
 sys.path.append(root)
 
 import psycopg2
 from tqdm import tqdm 
+import time
 import copy
-import util.variable_closure_algo.closure_overhead as closure_overhead
-from util.split_merge.split_merge_BDD import split_merge
+import utils.closure_group.closure_overhead as closure_overhead
+from minimization_BDD.complete_minimization.collect_components.split_merge import split_merge
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]
@@ -17,19 +19,18 @@ password = cfg.postgres["password"]
 database = cfg.postgres["db"]
 
 conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-conn.set_session(readonly=False, autocommit=True)
-
 
 output_table_name = 'output'
 
 # creates a new table with the deleted tuple
 def deleteTuple(new_table, new_table_name, cur):
     cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
-    cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition {});".format(new_table_name, "int4_faure", "int4_faure", "integer"))
+    cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, "int4_faure", "int4_faure"))
     for tuple in new_table:
-        cur.execute("INSERT INTO {} VALUES ('{}', '{}', {});".format(new_table_name, tuple[0], tuple[1], tuple[2]))
+        cur.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(new_table_name, tuple[0], tuple[1]))
 
     conn.commit()
+
 
 # given a tablename and an open cursor to a database, returns the table as a list
 def getCurrentTable(tablename, cur):
@@ -56,7 +57,6 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get current table
     curr_table = getCurrentTable(tablename, cur)
-    print("current tablename:", tablename)
     print("current table:", curr_table)
 
     # Base condition for recursion
@@ -79,9 +79,17 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     print("after remove tuple:", new_table)
     deleteTuple(new_table, new_table_name, cur)
 
-    running_time, sat = split_merge(closure_group, new_table_name, variables, summary)
-    print("Satisfiability:", sat)
+    
+
+    running_time, output_table = split_merge(closure_group, new_table_name, variables, summary)
     print("Verification running time:", running_time, "\n")
+
+    current_directory = os.getcwd()
+    if not os.path.exists(current_directory+"/results"):
+        os.makedirs(current_directory+"/results")
+    f = open(current_directory+"/results/Z3_components.txt", "a")
+    f.write("{}\n".format(running_time))
+    f.close()
 
     # sql_query = tableau.convert_tableau_to_sql(closure_group, new_table_name, summary)
     
@@ -97,8 +105,8 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     # conn.close()
 
     # conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-    # cur = conn.cursor()
-    # cur.execute("select condition from {}".format(output_table))
+    cur = conn.cursor()
+    cur.execute("select condition from {}".format(output_table))
     # condition = cur.fetchone()[0]
     # print("condition", ", ".join(condition))
     # union_conditions, union_time = check_tautology.get_union_conditions("output", "Int")
@@ -106,7 +114,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     # print(union_conditions)
     # print(domain_conditions)
     # ans, time, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
-    if sat == 1: # sat = 1 for tautology, 0 for contradiction, 2 for satisfiable
+    if cur.rowcount != 0 and len(cur.fetchone()[0]) == 0:
         cur.execute("DROP TABLE IF EXISTS {}".format(tablename))
         conn.commit()
         # conn.close()

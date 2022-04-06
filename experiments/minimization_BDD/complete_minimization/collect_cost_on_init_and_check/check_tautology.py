@@ -1,79 +1,22 @@
 import sys
 from os.path import dirname, abspath, join
+
 root = dirname(dirname(dirname(abspath(__file__))))
-print(root)
 sys.path.append(root)
 
+from tqdm import tqdm
 import time
 import z3
 from z3 import Or, And, Not
 import databaseconfig as cfg
 import psycopg2
+from utils.check_tautology.condition_analyze import analyze
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
 # datatype = "String"
 # datatype = "Int"
-def convert_z3_variable(condition, datatype):
-    c_list = condition.split()
-
-    if c_list[0][0].isalpha():
-        op1 = f"z3.{datatype}('{c_list[0]}')"
-    else: 
-        op1 = f"z3.{datatype}Val('{c_list[0]}')"
-    
-    if c_list[2][0].isalpha():
-        op2 = f"z3.{datatype}('{c_list[2]}')"
-    else:
-        op2 = f"z3.{datatype}Val('{c_list[2]}')"
-    
-    operator = c_list[1]
-    return op1, operator, op2
-
-def analyze(condition):
-    cond_str = condition
-    prcd_cond = ""
-    if 'And' in cond_str or 'Or' in cond_str:
-        stack_last_post = []
-        i = 0
-        stack_last_post.insert(0, i)
-        condition_positions = []
-        while i < len(cond_str):
-            if cond_str[i] == '(':
-                if len(stack_last_post) != 0:
-                    stack_last_post.pop()
-                stack_last_post.insert(0, i+1)
-            elif cond_str[i] == ')' or cond_str[i] == ',':
-                begin_idx = stack_last_post.pop()
-                if i != begin_idx:
-                    condition_positions.append((begin_idx, i))
-                stack_last_post.insert(0, i+1)      
-            i += 1
-            
-        if len(stack_last_post) != 0:
-            begin_idx = stack_last_post.pop()
-            if begin_idx !=  len(cond_str):
-                condition_positions.append((begin_idx, len(cond_str)))
-        # print(cond_str[51:])
-        # print(stack_last_post)
-        # print(condition_positions)
-        for idx, pair in enumerate(condition_positions):
-            if idx == 0:
-                prcd_cond += cond_str[0:pair[0]]
-            else:
-                prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
-            
-            c = cond_str[pair[0]: pair[1]].strip()
-            op1, operator, op2 = convert_z3_variable(c, 'Int')
-            prcd_cond += "{} {} {}".format(op1, operator, op2)
-        prcd_cond += cond_str[condition_positions[-1][1]:]
-        # print(prcd_cond)
-    else:
-        op1, operator, op2 = convert_z3_variable(condition, 'Int')
-        prcd_cond += "{} {} {}".format(op1, operator, op2)
-        # print(prcd_cond)
-    return prcd_cond
 
 def get_max(overlay):
     max_val = 0
@@ -81,6 +24,7 @@ def get_max(overlay):
         if int(node) > max_val:
             max_val = int(node)
     return max_val
+
 
 def get_union_conditions(tablename='output', datatype='Int'):
     begin = time.time()
@@ -111,10 +55,11 @@ def get_domain_conditions(overlay_nodes, variables_list, datatype):
         
         for idx, val in enumerate(overlay_nodes):
             condition = ""
-            # if idx != 0 and idx != len(overlay_nodes) - 1:
-            #     interface_val = str(int(val) + max_node)
-            #     condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , interface_val)
-            #     var_domain.append(condition)
+            # interface encoding
+            if idx != 0 and idx != len(overlay_nodes) - 1:
+                interface_val = str(int(val) + max_node)
+                condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , interface_val)
+                var_domain.append(condition)
             condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
             var_domain.append(condition)
         var_domain_list.append("Or({})".format(", ".join(var_domain)))
@@ -128,24 +73,26 @@ def check_is_tautology(union_conditions, domain_conditions):
     negation_union_conditions = "Not({})".format(union_conditions)
     z3_begin = time.time()
     solver = z3.Solver()
-    
+    var_begin = time.time()
     solver.add(eval(domain_conditions)) # set domain for variables
     solver.add(eval(negation_union_conditions)) # set negation union conditions
-    
+    var_end = time.time()
+    check_begin = time.time()
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
+    check_end = time.time()
     z3_end = time.time()
 
     # print("total execution time: ", z3_end - z3_begin)
+    # print("variable time:", var_end-var_begin)
+    # print("checking time:", check_end-check_begin)
 
-    for k, v in solver.statistics():
-        if (k == "max memory"):
-            print ("Check_Taut Max Memory: %s : %s" % (k, v))
     if ans == z3.sat:
         model = solver.model()
         # print(model)
-        return False, z3_end - z3_begin, model
+        return False, {"init":var_end-var_begin, "checking":check_end-check_begin}, model
     else:
-        return True, z3_end - z3_begin, ""
+        return True, {"init":var_end-var_begin, "checking":check_end-check_begin}, ""
+    
 
 if __name__ == '__main__':
     datatype = "Int"
@@ -196,4 +143,3 @@ if __name__ == '__main__':
     # print("Answer:", ans, "z3 execution time:", z3_end - z3_begin)
     # print("total execution time: ", z3_end - begin)
     
-

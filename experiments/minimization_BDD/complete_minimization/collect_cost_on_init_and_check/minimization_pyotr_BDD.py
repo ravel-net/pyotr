@@ -1,14 +1,14 @@
 import sys
+import os
 from os.path import dirname, abspath, join
-root = dirname(dirname(dirname(dirname(abspath(__file__)))))
+root = dirname(dirname(abspath(__file__)))
 print(root)
 sys.path.append(root)
 
 import psycopg2
-from tqdm import tqdm 
 import copy
-import util.variable_closure_algo.closure_overhead as closure_overhead
-from util.split_merge.split_merge_BDD import split_merge
+import utils.closure_group.closure_overhead as closure_overhead
+from minimization_BDD.complete_minimization.collect_components.split_merge_BDD import split_merge
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]
@@ -79,7 +79,20 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     print("after remove tuple:", new_table)
     deleteTuple(new_table, new_table_name, cur)
 
+
+
     running_time, sat = split_merge(closure_group, new_table_name, variables, summary)
+    
+    '''
+    record the running time for each round
+    '''
+    current_directory = os.getcwd()
+    if not os.path.exists(current_directory+"/results"):
+        os.makedirs(current_directory+"/results")
+    f = open(current_directory+"/results/BDD_components.txt", "a")
+    f.write("{}\n".format(running_time))
+    f.close()
+    
     print("Satisfiability:", sat)
     print("Verification running time:", running_time, "\n")
 

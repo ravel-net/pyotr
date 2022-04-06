@@ -1,6 +1,9 @@
 # Scripts for minimization
 
-`script_minimization.py` contains  `exp_minimization_chain_Z3(size, rate_summary, size_single_loop)` and `exp_minimization_chain_BDD(size, rate_summary, size_single_loop)`. The former one is used to run z3 version of minimization and the latter one is used to run BDD version of minimization.
+`script_minimization.py` contains  
+- `exp_minimization_chain_Z3(size, rate_summary, size_single_loop)`: one is used to run z3 version of minimization;
+- `exp_minimization_chain_BDD(size, rate_summary, size_single_loop)`: one is used to run BDD version of minimization;
+- `exp_minimization_chain_naive(size, rate_summary, size_single_loop)`: one is used to run naive version of minimization which uses multiple joins.
 
 ## input:
 

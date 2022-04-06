@@ -1,30 +1,33 @@
 import sys
+import os
 from os.path import dirname, abspath, join
 
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 
-from tqdm import tqdm
 import time
+from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2
 from psycopg2.extras import execute_values
 
 import BDD_managerModule as bddmm
+import utils.BDD_translator.optimize_method.translator_pyotr_BDD as translator
+
+
 
 OPEN_OUTPUT = True
 
-DOMAIN = ['1', '2']
-VARIABLES = []
+def replace(idx):
+    sat = bddmm.evaluate(idx)
+    if sat == 1:
+        return translator.TAUTOLOGY_IDX
+    elif sat == 0:
+        return translator.CONTRADICTION_IDX
+    else:
+        return idx
 
-def set_domain(domain):
-    global DOMAIN
-    DOMAIN = domain
-
-def set_variables(variables):
-    global VARIABLES
-    VARIABLES = variables
 
 def merge_tuples(tablename, out_tablename):
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
@@ -39,9 +42,11 @@ def merge_tuples(tablename, out_tablename):
     if 'id' in columns:
         columns.remove('id')
     idx_cond = columns.index('condition')
-
+    begin_get_condition = time.time()
     cursor.execute("select {attributes} from {tablename}".format(attributes=", ".join(columns), tablename=tablename))
-    print("select {attributes} from {tablename}".format(attributes=", ".join(columns), tablename=tablename))
+    end_get_condition = time.time()
+
+    begin_merge_tuple = time.time()
     row_count = cursor.rowcount
     tuple_dict = {}
     for i in tqdm(range(row_count)):
@@ -54,7 +59,7 @@ def merge_tuples(tablename, out_tablename):
         if t not in tuple_dict.keys():
             tuple_dict[t] = [] 
         tuple_dict[t].append(condition_idx)
-    
+    end_merge_tuple = time.time()
     total_BDD_time = 0
     new_tuples = []
 
@@ -62,8 +67,9 @@ def merge_tuples(tablename, out_tablename):
     # print("current directory:", current_directory)
     # f = open(current_directory+"/merged_condition.txt", "a")
     # f.write("merged_idx sat indexes\n")
-
-    for key in tuple_dict.keys():
+    keys = list(tuple_dict.keys())
+    for i in tqdm(range(len(keys))):
+        key = keys[i]
         tp = list(key)
         condition_indexes = tuple_dict[key]
 
@@ -71,6 +77,7 @@ def merge_tuples(tablename, out_tablename):
         for i in range(1, len(condition_indexes)):
             begin = time.time()
             merged_idx = bddmm.operate_BDDs(merged_idx, condition_indexes[i], '^')
+            # merged_idx = replace(merged_idx)
             end = time.time()
             total_BDD_time += end - begin
 
@@ -86,10 +93,17 @@ def merge_tuples(tablename, out_tablename):
     cursor.execute("create table {out_tablename} as select * from {tablename} where 1 = 2".format(out_tablename=out_tablename, tablename=tablename))
     cursor.execute("alter table {out_tablename} drop column if exists id".format(out_tablename=out_tablename))
     sql = "insert into {out_tablename} values %s".format(out_tablename=out_tablename)
+    begin_insert = time.time()
     execute_values(cursor, sql, new_tuples)
+    end_insert = time.time()
     # cursor.executemany(new_tuples)
     conn.commit()
-    return len(new_tuples), total_BDD_time
+    return len(new_tuples), {
+        "get_condition":end_get_condition-begin_get_condition, 
+        "merge_tuples":end_merge_tuple-begin_merge_tuple, 
+        "operate_BDDs":total_BDD_time, 
+        "insertion":end_insert-begin_insert
+    }
     
 
 
@@ -100,4 +114,3 @@ if __name__ == '__main__':
     overlay_nodes = range(1, 11)
     variables_list = ["x{num}".format(num = num) for num in range(1, 41)]
     merge_tuples(tablename, out_tablename, overlay_nodes, variables_list)
-
