@@ -8,7 +8,7 @@ sys.path.append(root)
 import psycopg2
 import copy
 import utils.closure_group.closure_overhead as closure_overhead
-from minimization_BDD.complete_minimization.collect_cost_on_init_and_check.split_merge_BDD import split_merge
+from split_merge_BDD import split_merge
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]

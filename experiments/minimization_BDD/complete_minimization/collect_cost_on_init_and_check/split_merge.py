@@ -27,7 +27,7 @@ def split_merge(group, tablename, variables_list, summary):
 
     total_running_time = 0
     for idx, sql in enumerate(sqls):
-        print(sql)
+        #print(sql)
         tree = translator.generate_tree(sql)
         data_time = translator.data(tree)
         upd_time = translator.upd_condition(tree)

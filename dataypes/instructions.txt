@@ -1,0 +1,29 @@
+# Access postgres user
+sudo -u postgres -i
+
+# Connect to a database
+psql -h localhost -p 5432 -U postgres test
+
+# Add sql file
+psql -d test -a -f complex.sql
+
+# Setting password
+sudo -u postgres -i
+sudo passwd postgres
+\password postgres
+(default pass is mubashir)
+
+
+# Makefile compiles the type
+# Databuilt is .sql
+# Need postgres server before it
+sudo apt install postgresql-server-dev-13
+
+# Run sql file
+make
+sudo -u postgres -i
+psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/inet_faure/inet_faure.sql
+
+
+Note:
+inet_faure and int_faure also contain the original definition of these types (e.g. inet.c). I have commented out the functions in the original code that are commented out in the faure code to allow a comparison of the lines of code

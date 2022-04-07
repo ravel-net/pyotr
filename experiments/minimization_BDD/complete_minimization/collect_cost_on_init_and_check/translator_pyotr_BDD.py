@@ -16,10 +16,10 @@ from psycopg2.extras import execute_values
 
 # BDD manager Module
 import BDD_managerModule as bddmm
-import utils.BDD_translator.BDD_manager.encodeCUDD as encodeCUDD
-import minimization_BDD.complete_minimization.collect_components.merge_tuples_BDD as merge_tuples
+import pyotr_translator_BDD.BDD_manager.encodeCUDD as encodeCUDD
+import merge_tuples_BDD as merge_tuples
 
-OPEN_OUTPUT = True
+OPEN_OUTPUT = False
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
 # Set domain knowledge
@@ -37,6 +37,7 @@ def set_domain(domain): # TODO: support vary domain for each variable
 
 def set_variables(variables):
     global VARIABLES
+    print("\n\nVARIABLEs", variables)
     VARIABLES = variables
 
 def set_empty_condition_index(idx):

@@ -9,7 +9,7 @@ print(root)
 sys.path.append(root)
 
 import time 
-import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.merge_tuples_BDD as merge_tuples_BDD
+import merge_tuples_BDD as merge_tuples_BDD
 import utils.split_merge.reorder_tableau as reorder_tableau
 import databaseconfig as cfg
 import psycopg2
@@ -22,8 +22,8 @@ conn.set_session(readonly=False, autocommit=True)
 cursor = conn.cursor()
 
 def split_merge(group, tablename, variables_list, summary):    
-    # print("DOMAIN", translator.DOMAIN)
-    # print("VARIABLES", translator.VARIABLES)
+    #print("DOMAIN", translator.DOMAIN)
+    #print("VARIABLES", translator.VARIABLES)
     ordered_group = reorder_tableau.reorder_closure_group(group)
     sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, summary)
 
@@ -35,7 +35,7 @@ def split_merge(group, tablename, variables_list, summary):
     condition_time = []
     merge_time = []
     for idx, sql in enumerate(sqls):
-        print(sql)
+        #print(sql)
         begin = time.time()
         tree = translator.generate_tree(sql)
 

@@ -17,9 +17,9 @@ import utils.chain_generation.gen_chain as gen_chain
 import databaseconfig as cfg
 import psycopg2
 import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr as minimization_pyotr
-# import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr_BDD as minimization_pyotr_BDD
-# import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.translator_pyotr_BDD as translator_BDD
-# import BDD_managerModule as bddmm
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr_BDD as minimization_pyotr_BDD
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.translator_pyotr_BDD as translator_BDD
+import BDD_managerModule as bddmm
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 conn.set_session(readonly=False, autocommit=True)
