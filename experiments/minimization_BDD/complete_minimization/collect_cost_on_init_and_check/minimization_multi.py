@@ -4,12 +4,13 @@ root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 
+import os
 import psycopg2
 import copy
-import util.tableau.tableau as tableau
-import pyotr_translator.translator_pyotr as translator
-import util.variable_closure_algo.closure_overhead as closure_overhead
-import util.minimization.minimization_naive.check_tautology_multi as check_tautology_multi
+import utils.tableau.tableau as tableau
+import translator_pyotr as translator
+import utils.closure_group.closure_overhead as closure_overhead
+import check_tautology_multi as check_tautology_multi
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]
@@ -94,7 +95,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     current_directory = os.getcwd()
     if not os.path.exists(current_directory+"/results"):
         os.makedirs(current_directory+"/results")
-    f = open(current_directory+"/results/Z3_components.txt", "a")
+    f = open(current_directory+"/results/Z3_naive_components.txt", "a")
     f.write("{}\n".format(running_time))
     f.close()
 

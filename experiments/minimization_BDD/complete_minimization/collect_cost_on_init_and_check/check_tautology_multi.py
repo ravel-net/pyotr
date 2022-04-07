@@ -73,12 +73,12 @@ def table_contains_answer(tablename, domain, variables):
     final_condition = "Not({})".format(union_condition) # add negation to union condition
     # print(final_condition)
     # print(union_cond)
-    var_end = time.time()
+    var_begin = time.time()
     solver = z3.Solver()
     
     solver.add(eval(domain_conditions)) # set domain for y1 and y2
     solver.add(eval(final_condition)) # set 
-    var_begin = time.time()
+    var_end = time.time()
     z3_begin = time.time()
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
     z3_end = time.time()

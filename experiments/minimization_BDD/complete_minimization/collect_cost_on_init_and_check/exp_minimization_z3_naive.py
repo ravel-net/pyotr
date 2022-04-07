@@ -8,13 +8,13 @@ root = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
 print(root)
 sys.path.append(root)
 
-import experiments.minimization_BDD.complete_minimization.script_minimization as script_mini
+import script_minimization as script_mini
 
-runtimes = 4
-sizes = [*range(5, 76, 5)]
-#sizes = [40]
-loops = [1,2]
+sizes = [int(sys.argv[1])]
+loops = [int(sys.argv[2])]
+runtimes = int(sys.argv[3])
 runtime_upper_bound = 60 # minutes
+
 
 total_time = 0
 actual_rounds = 0 # actually runs
@@ -24,7 +24,7 @@ for i in range(runtimes):
             print("\n\n=================NEW RUN================")
             print(size, size_single_loop)
             print("\n\n")
-            rate_variable = size_single_loop/size            
+            rate_variable = size_single_loop/size   
             running_time = script_mini.exp_minimization_chain_naive(size, 1 - rate_variable, size_single_loop)
             total_time += running_time
 

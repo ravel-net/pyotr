@@ -16,6 +16,7 @@ import math
 import utils.chain_generation.gen_chain as gen_chain 
 import databaseconfig as cfg
 import psycopg2
+import minimization_multi as minimization_naive
 import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr as minimization_pyotr
 import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr_BDD as minimization_pyotr_BDD
 import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.translator_pyotr_BDD as translator_BDD
