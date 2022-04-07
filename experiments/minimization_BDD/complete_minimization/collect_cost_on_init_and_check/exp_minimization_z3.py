@@ -33,7 +33,7 @@ for i in range(runtimes):
             total_time += running_time
 
             actual_rounds = i+1
-            print("round {}: {:.4f}".format(i+1, running_time))
+            #print("round {}: {:.4f}".format(i+1, running_time))
 
             if running_time > runtime_upper_bound * 60:
                 print("Over {} min, script Done!".format(runtime_upper_bound))

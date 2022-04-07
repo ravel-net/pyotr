@@ -20,7 +20,7 @@ if __name__ == "__main__":
         input_fileName = sys.argv[1]
         with open(input_fileName) as f_input:
             print("Time in seconds")
-            print("Encoding\tConstruction\tLogical_OR\tChecking")
+            print("Encoding\tConstruction\tLogical_AND\tChecking")
             lines = f_input.readlines()
             VARIABLES = encodeCUDD.findVariables(lines[0])
             bddmm.initialize(len(VARIABLES), len(DOMAIN))

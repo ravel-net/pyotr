@@ -12,7 +12,7 @@ import copy
 import utils.closure_group.closure_overhead as closure_overhead
 from minimization_BDD.complete_minimization.collect_cost_on_init_and_check.split_merge import split_merge
 import databaseconfig as cfg
-
+from time import time
 host = cfg.postgres["host"]
 user = cfg.postgres["user"]
 password = cfg.postgres["password"]
@@ -81,12 +81,15 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     new_table.pop(pos)
     if OPEN_OUTPUT:
         print("after remove tuple:", new_table)
+    start_delete = time()
+    print("delete_called", len(new_table))
     deleteTuple(new_table, new_table_name, cur)
-
+    end_delete = time()
     
 
     running_time, output_table = split_merge(closure_group, new_table_name, variables, summary)
     print("Verification running time:", running_time, "\n")
+    running_time["delete"] = end_delete-start_delete
 
     current_directory = os.getcwd()
     if not os.path.exists(current_directory+"/results"):

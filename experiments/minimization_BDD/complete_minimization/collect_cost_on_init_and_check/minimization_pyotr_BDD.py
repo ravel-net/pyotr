@@ -1,5 +1,6 @@
 import sys
 import os
+from time import time
 from os.path import dirname, abspath, join
 root = dirname(dirname(abspath(__file__)))
 print(root)
@@ -53,6 +54,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     tablename : string
         The name of the minimized table in the database. The final minimized table is stored in postgres
     """
+    start_curr_table = time()
     cur = conn.cursor()
 
     # get current table
@@ -60,11 +62,13 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     if OPEN_OUTPUT:
         print("current tablename:", tablename)
         print("current table:", curr_table)
-
+    
     # Base condition for recursion
     if (len(curr_table) <= pos):
         return tablename
+    end_curr_table = time()
 
+    start_closure = time()
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
     closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
@@ -74,20 +78,27 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
         print("summary", summary)
         print("tuple_to_remove: ", tuple_to_remove)
         print("closure_group: ", closure_group)
+    end_closure = time()
 
+    start_new_table = time()
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
     new_table = copy.deepcopy(curr_table)
     new_table.pop(pos)
+    end_new_table = time()
 
+    start_delete = time()
     if OPEN_OUTPUT:
         print("after remove tuple:", new_table)
+    print("delete_called", len(new_table))
     deleteTuple(new_table, new_table_name, cur)
-
-
+    end_delete = time()
 
     running_time, sat = split_merge(closure_group, new_table_name, variables, summary)
-    
+    running_time["delete"] = end_delete - start_delete
+    running_time["closure"] = end_closure - start_closure
+    running_time["curr_table"] = end_curr_table - start_curr_table
+    running_time["new_table"] = end_new_table - start_new_table
     '''
     record the running time for each round
     '''

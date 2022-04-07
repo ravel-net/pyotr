@@ -175,6 +175,7 @@ def data(tree):
 
 def upd_condition(tree):
     count_time = 0
+    start = time()
     if OPEN_OUTPUT:
         print("\n************************Step 2: update condition****************************")
     cursor = conn.cursor()
@@ -201,6 +202,8 @@ def upd_condition(tree):
             cond_list.append("{} || ' {} ' || {}".format(left_opd, cond[1], right_opd))
         
         where_list.append([left_opd, right_opd])
+
+
     '''
     get condition columns from all tables
     '''
@@ -212,6 +215,7 @@ def upd_condition(tree):
         else:
             cond_cols.append("{}_condition".format(t[2]))
 
+    start_add_id = time()
     '''
     add id column which is primary key
     '''
@@ -221,6 +225,8 @@ def upd_condition(tree):
         cursor.execute("ALTER TABLE output ADD COLUMN id SERIAL PRIMARY KEY;")
     else:
         cols_name.remove('id')
+
+    end_add_id = time()
 
     ''' 
     get the join/selection conditions(new condition) and two old condition indices
@@ -234,7 +240,7 @@ def upd_condition(tree):
 
     if OPEN_OUTPUT:
         print(sql)
-
+    
     begin_join_condition = time()
     cursor.execute(sql)
     end_join_condition = time()
@@ -338,6 +344,8 @@ def upd_condition(tree):
     conn.commit()
     end_update_condition = time()
 
+
+    start_duplicated_cols = time()
     '''
     Check the selected columns
     if select *, drop duplicated columns,
@@ -395,6 +403,7 @@ def upd_condition(tree):
     conn.commit()
     if OPEN_OUTPUT:
         print("\ncondition execution time:", count_time)
+    end = time()
     return {
         "generate_condition":end_join_condition-begin_join_condition,
         "encode":total_encode,
@@ -402,6 +411,9 @@ def upd_condition(tree):
         "operate_BDDs":total_operate,
         "refine_condition":end_refine_condition-begin_refine_condition,
         "update_condition":end_update_condition-begin_update_condition,
+        "add_id":end_add_id-start_add_id,
+        "duplicated_cols":end-start_duplicated_cols,
+        "total_time":end-start,
     }
 
 def generate_tree(query):

@@ -4,9 +4,9 @@ cd "results"
 rm "BDD_components.txt" || true
 #rm "BDD_components_analyzed.txt" || true
 cd ..
-runtimes=5
+runtimes=1
 loops=2
-for((size=10;size<=100;size+=10))
+for((size=50;size<=50;size+=10))
 do
     python3 exp_minimization_BDD.py "$size" "$loops" "$runtimes"
     cd "results"

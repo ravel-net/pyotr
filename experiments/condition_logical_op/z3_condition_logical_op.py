@@ -83,7 +83,7 @@ if __name__ == "__main__":
             #for i in range(0,4,2):
                 unencodedCond1 = lines[i].strip()
                 unencodedCond2 = lines[i+1].strip()
-                finalCondition = "Or({},{})".format(unencodedCond1, unencodedCond2)
+                finalCondition = "And({},{})".format(unencodedCond1, unencodedCond2)
                 variable_time, checking_time = time_one_condition(finalCondition, domain_condition)
             
                 variable_time = (str(round(variable_time, 4)))

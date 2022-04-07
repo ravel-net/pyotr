@@ -45,10 +45,10 @@ def exp_minimization_chain_Z3(size, rate_summary, size_single_loop):
     f.write("runtime(sec)\n")
 
     begin = time.time()
-    minimization_pyotr.minimize(tablename=tablename, pos=0, summary=summary_nodes)
+    table_name = minimization_pyotr.minimize(tablename=tablename, pos=0, summary=summary_nodes)
     end = time.time()
     print("\nRUNNING TIME:", end - begin)
-
+    print("table_name:", table_name)
     f.write("{}\n".format(end - begin))
     f.close()
 
@@ -79,10 +79,10 @@ def exp_minimization_chain_BDD(size, rate_summary, size_single_loop):
     f.write("process_condition_on_ctable: {:.4f}\n".format(end_ctable - begin_ctable))   
 
     begin = time.time()
-    minimization_pyotr_BDD.minimize(tablename=converted_table, pos=0, summary=summary_nodes)
+    table_name = minimization_pyotr_BDD.minimize(tablename=converted_table, pos=0, summary=summary_nodes)
     end = time.time()
     print("\nRUNNING TIME:", end - begin)
-
+    print("table_name:", table_name)
     f.write("Total RUNNING TIME: {:.4f}\n".format(end - begin))
     f.close()
     

@@ -59,7 +59,7 @@ def read_json_file(filename, output):
 def read_components_file_BDD(filename, output, running_times):
     f = open(output, "w")
     with open(filename) as d:
-        high_level_keys = ["total", "data", "condition", "merged", "checking"]
+        high_level_keys = ["total", "data", "condition", "merged", "checking", "curr_table", "closure", "new_table", "delete"]
         time_high_level =[0] * len(high_level_keys)
         total_construction_time = 0
         time_data = 0
@@ -70,7 +70,10 @@ def read_components_file_BDD(filename, output, running_times):
                 "str_to_BDD",
                 "operate_BDDs",
                 "refine_condition",
-                "update_condition"
+                "update_condition",
+                "add_id",
+                "duplicated_cols",
+                "total_time"
                 ]
         time_condition = [0]*len(condition_keys)
 
@@ -141,11 +144,12 @@ def read_components_file_Z3(filename, output, runtimes):
         total_checking_merged = 0
         # total_update_condition = 0
         # total_insertion = 0
+        total_delete_time = 0
         for line in d:
             line = line.replace("'", "\"")
             print (line)
             data = json.loads(line.strip())
-            
+            total_delete_time += data["delete"]
             contradiction_details = data["normalization"]["contrdiction"]
             for item in contradiction_details:
                 total_init_nor += item["init"]
@@ -176,7 +180,7 @@ def read_components_file_Z3(filename, output, runtimes):
         f.write("|{:.4f}|{:.4f}|\n".format(total_init_merged/runtimes, total_checking_merged/runtimes))
 
         f.write("\nTotal_Time " + str((total_init_merged+total_init_nor)/runtimes) + " " + str((total_checking_merged+total_checking_nor)/runtimes))
-
+        f.write("\nDelete Time " + str(total_delete_time))
         # f.write("\nInsertion\n")
         # f.write("|{:.4f}|\n".format(total_insertion))
 
