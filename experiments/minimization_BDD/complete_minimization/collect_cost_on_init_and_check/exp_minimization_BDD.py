@@ -8,13 +8,13 @@ root = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
 print(root)
 sys.path.append(root)
 
-import experiments.minimization_BDD.complete_minimization.script_minimization as script_mini
+import script_minimization as script_mini
 
 
-runtimes = 4
+runtimes = 5
 #sizes = [*range(5, 75, 5)]
-loops = [1,2]
-sizes = [75]
+loops = [2]
+sizes = [20]
 #loops = [3]
 runtime_upper_bound = 30 # minutes
 

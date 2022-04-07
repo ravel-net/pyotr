@@ -1,0 +1,64 @@
+                                                             QUERY PLAN                                                             
+------------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=0.00..11180797.88 rows=2794812 width=9) (actual time=190.453..110103.878 rows=55415677 loops=1)
+   Join Filter: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure) = (rib1000.prefix & '255.255.0.0/16'::inet_faure))
+   Rows Removed by Join Filter: 520459133
+   ->  Seq Scan on rib1000  (cost=0.00..948.70 rows=37170 width=30) (actual time=0.058..34.959 rows=37170 loops=1)
+   ->  Materialize  (cost=0.00..637.57 rows=15038 width=39) (actual time=0.005..0.705 rows=15493 loops=37170)
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..562.38 rows=15038 width=39) (actual time=190.376..192.086 rows=15493 loops=1)
+ Planning Time: 0.403 ms
+ JIT:
+   Functions: 7
+   Options: Inlining true, Optimization true, Expressions true, Deforming true
+   Timing: Generation 2.359 ms, Inlining 115.942 ms, Optimization 47.065 ms, Emission 27.171 ms, Total 192.537 ms
+ Execution Time: 111803.890 ms
+(12 rows)
+
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=0.00..11519050.56 rows=2879374 width=9) (actual time=81.518..110874.402 rows=55415677 loops=1)
+   Join Filter: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure) = (rib1000.prefix & '255.255.0.0/16'::inet_faure))
+   Rows Removed by Join Filter: 520459133
+   ->  Seq Scan on rib1000  (cost=0.00..948.70 rows=37170 width=30) (actual time=0.005..34.963 rows=37170 loops=1)
+   ->  Materialize  (cost=0.00..644.40 rows=15493 width=39) (actual time=0.002..0.711 rows=15493 loops=37170)
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..566.93 rows=15493 width=39) (actual time=81.502..83.121 rows=15493 loops=1)
+ Planning Time: 0.122 ms
+ JIT:
+   Functions: 7
+   Options: Inlining true, Optimization true, Expressions true, Deforming true
+   Timing: Generation 0.641 ms, Inlining 1.457 ms, Optimization 51.685 ms, Emission 28.168 ms, Total 81.952 ms
+ Execution Time: 112531.464 ms
+(12 rows)
+
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=0.00..11519050.56 rows=2879374 width=9) (actual time=81.736..113140.367 rows=55415677 loops=1)
+   Join Filter: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure) = (rib1000.prefix & '255.255.0.0/16'::inet_faure))
+   Rows Removed by Join Filter: 520459133
+   ->  Seq Scan on rib1000  (cost=0.00..948.70 rows=37170 width=30) (actual time=0.012..29.763 rows=37170 loops=1)
+   ->  Materialize  (cost=0.00..644.40 rows=15493 width=39) (actual time=0.002..0.723 rows=15493 loops=37170)
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..566.93 rows=15493 width=39) (actual time=81.712..84.000 rows=15493 loops=1)
+ Planning Time: 0.071 ms
+ JIT:
+   Functions: 7
+   Options: Inlining true, Optimization true, Expressions true, Deforming true
+   Timing: Generation 0.955 ms, Inlining 2.584 ms, Optimization 52.017 ms, Emission 26.981 ms, Total 82.536 ms
+ Execution Time: 114779.675 ms
+(12 rows)
+
+                                                            QUERY PLAN                                                            
+----------------------------------------------------------------------------------------------------------------------------------
+ Nested Loop  (cost=0.00..11519050.56 rows=2879374 width=9) (actual time=65.224..90592.859 rows=55415677 loops=1)
+   Join Filter: ((f_table_rib1000.fid & '255.255.0.0/16'::inet_faure) = (rib1000.prefix & '255.255.0.0/16'::inet_faure))
+   Rows Removed by Join Filter: 520459133
+   ->  Seq Scan on rib1000  (cost=0.00..948.70 rows=37170 width=30) (actual time=0.005..14.037 rows=37170 loops=1)
+   ->  Materialize  (cost=0.00..644.40 rows=15493 width=39) (actual time=0.002..0.607 rows=15493 loops=37170)
+         ->  Seq Scan on f_table_rib1000  (cost=0.00..566.93 rows=15493 width=39) (actual time=65.210..66.713 rows=15493 loops=1)
+ Planning Time: 0.043 ms
+ JIT:
+   Functions: 7
+   Options: Inlining true, Optimization true, Expressions true, Deforming true
+   Timing: Generation 0.612 ms, Inlining 1.382 ms, Optimization 40.228 ms, Emission 23.438 ms, Total 65.660 ms
+ Execution Time: 91989.541 ms
+(12 rows)
+

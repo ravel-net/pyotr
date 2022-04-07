@@ -13,20 +13,8 @@ import psycopg2
 from psycopg2.extras import execute_values
 
 import BDD_managerModule as bddmm
-import utils.BDD_translator.optimize_method.translator_pyotr_BDD as translator
-
-
 
 OPEN_OUTPUT = True
-
-def replace(idx):
-    sat = bddmm.evaluate(idx)
-    if sat == 1:
-        return translator.TAUTOLOGY_IDX
-    elif sat == 0:
-        return translator.CONTRADICTION_IDX
-    else:
-        return idx
 
 
 def merge_tuples(tablename, out_tablename):

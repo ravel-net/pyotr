@@ -56,7 +56,7 @@ def read_json_file(filename, output):
 
         f.close()
 
-def read_components_file_BDD(filename, output):
+def read_components_file_BDD(filename, output, running_times):
     f = open(output, "w")
     with open(filename) as d:
         high_level_keys = ["total", "data", "condition", "merged", "checking"]
@@ -83,6 +83,7 @@ def read_components_file_BDD(filename, output):
         time_merged = [0] * len(merged_keys)
         
         for line in d:
+            line = line.replace("'", "\"")
             data = json.loads(line.strip())
             
             for idx, key in enumerate(high_level_keys):
@@ -100,6 +101,9 @@ def read_components_file_BDD(filename, output):
                 for idx, key in enumerate(merged_keys):
                     time_merged[idx] += item[key]
 
+        checking_idx = high_level_keys.index("checking")
+        total_idx = high_level_keys.index("total")
+        f.write("\nTotal_time_averaged {} {}\n".format(str(time_high_level[total_idx]/running_times), str(time_high_level[checking_idx]/running_times)))
         f.write("\nhigh level\n")
         f.write("|{}|\n".format("|".join(high_level_keys)))
         time_high_level_to_str = []

@@ -10,10 +10,10 @@ sys.path.append(root)
 
 import experiments.minimization_BDD.complete_minimization.script_minimization as script_mini
 
-runtimes = 4
-sizes = [*range(5, 76, 5)]
-#sizes = [40]
-loops = [1,2]
+runtimes = 1
+#sizes = [*range(5, 76, 5)]
+sizes = [50]
+loops = [2]
 runtime_upper_bound = 60 # minutes
 
 total_time = 0
