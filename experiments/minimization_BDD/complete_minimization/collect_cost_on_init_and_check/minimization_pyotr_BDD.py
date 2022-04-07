@@ -21,6 +21,7 @@ conn.set_session(readonly=False, autocommit=True)
 
 
 output_table_name = 'output'
+OPEN_OUTPUT = False
 
 # creates a new table with the deleted tuple
 def deleteTuple(new_table, new_table_name, cur):
@@ -56,8 +57,9 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get current table
     curr_table = getCurrentTable(tablename, cur)
-    print("current tablename:", tablename)
-    print("current table:", curr_table)
+    if OPEN_OUTPUT:
+        print("current tablename:", tablename)
+        print("current table:", curr_table)
 
     # Base condition for recursion
     if (len(curr_table) <= pos):
@@ -67,16 +69,19 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     tuple_to_remove = curr_table[pos]
     closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
     variables = closure_overhead.find_variables(curr_table)
-    print("variables",variables)
-    print("summary", summary)
-    print("tuple_to_remove: ", tuple_to_remove)
-    print("closure_group: ", closure_group)
+    if OPEN_OUTPUT:
+        print("variables",variables)
+        print("summary", summary)
+        print("tuple_to_remove: ", tuple_to_remove)
+        print("closure_group: ", closure_group)
 
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
     new_table = copy.deepcopy(curr_table)
     new_table.pop(pos)
-    print("after remove tuple:", new_table)
+
+    if OPEN_OUTPUT:
+        print("after remove tuple:", new_table)
     deleteTuple(new_table, new_table_name, cur)
 
 

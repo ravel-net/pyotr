@@ -10,13 +10,10 @@ sys.path.append(root)
 
 import script_minimization as script_mini
 
-
-runtimes = 5
-#sizes = [*range(5, 75, 5)]
-loops = [2]
-sizes = [20]
-#loops = [3]
-runtime_upper_bound = 30 # minutes
+sizes = [int(sys.argv[1])]
+loops = [int(sys.argv[2])]
+runtimes = int(sys.argv[3])
+runtime_upper_bound = 60 # minutes
 
 total_time = 0
 actual_rounds = 0 # actually runs
