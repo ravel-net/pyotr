@@ -10,10 +10,14 @@ sys.path.append(root)
 
 import script_minimization as script_mini
 
-runtimes = 1
+if len(sys.argv) < 4:
+    print("Requires {} arguments but only {} given. Format: ./exp_minimization_z3 [size] [loops] [runtimes]")
+
+
 # sizes = [*range(5, 76, 5)]
-sizes = [40]
-loops = [2]
+sizes = [int(sys.argv[1])]
+loops = [int(sys.argv[2])]
+runtimes = int(sys.argv[3])
 runtime_upper_bound = 60 # minutes
 
 total_time = 0

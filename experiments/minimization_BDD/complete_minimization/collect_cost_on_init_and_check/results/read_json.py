@@ -125,16 +125,18 @@ def read_components_file_BDD(filename, output):
 
         f.close()
 
-def read_components_file_Z3(filename, output):
+def read_components_file_Z3(filename, output, runtimes):
     f = open(output, "w")
     with open(filename) as d:
         total_init_nor = 0
         total_checking_nor = 0
         total_init_merged = 0
         total_checking_merged = 0
-        total_update_condition = 0
-        total_insertion = 0
+        # total_update_condition = 0
+        # total_insertion = 0
         for line in d:
+            line = line.replace("'", "\"")
+            print (line)
             data = json.loads(line.strip())
             
             contradiction_details = data["normalization"]["contrdiction"]
@@ -152,22 +154,24 @@ def read_components_file_Z3(filename, output):
                 total_init_merged += item["init"]
                 total_checking_merged += item["checking"]
             
-            total_insertion += data["check_tauto"]["insertion"]
-            total_update_condition += data["upd_time"]
+            # total_insertion += data["check_tauto"]["insertion"]
+            # total_update_condition += data["upd_time"]
         
-        f.write("\nUpdate condition\n")
-        f.write("|{:.4f}|\n".format(total_update_condition))
+        # f.write("\nUpdate condition\n")
+        # f.write("|{:.4f}|\n".format(total_update_condition))
 
         f.write("\nNormalization\n")
         f.write("|{}|{}|\n".format("initializaiton", "checking"))
-        f.write("|{:.4f}|{:.4f}|\n".format(total_init_nor, total_checking_nor))
+        f.write("|{:.4f}|{:.4f}|\n".format(total_init_nor/runtimes, total_checking_nor/runtimes))
         
         f.write("\nMerge tuples\n")
         f.write("|{}|{}|\n".format("initializaiton", "checking"))
-        f.write("|{:.4f}|{:.4f}|\n".format(total_init_merged, total_checking_merged))
+        f.write("|{:.4f}|{:.4f}|\n".format(total_init_merged/runtimes, total_checking_merged/runtimes))
 
-        f.write("\nInsertion\n")
-        f.write("|{:.4f}|\n".format(total_insertion))
+        f.write("\nTotal_Time " + str((total_init_merged+total_init_nor)/runtimes) + " " + str((total_checking_merged+total_checking_nor)/runtimes))
+
+        # f.write("\nInsertion\n")
+        # f.write("|{:.4f}|\n".format(total_insertion))
 
         f.close()
 
