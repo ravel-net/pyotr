@@ -1,0 +1,17 @@
+
+Total_time_averaged 0.2111 0.0003
+
+high level
+|total|data|condition|merged|checking|
+|44.2833|4.6629|25.8038|13.7372|0.0014|
+
+|data details|
+|0.7857|
+
+condition details
+|generate_condition|encode|str_to_BDD|operate_BDDs|refine_condition|update_condition|
+|0.2523|0.6454|0.3984|0.0084|4.4896|3.6366|
+
+merged details
+|get_condition|merge_tuples|operate_BDDs|insertion|
+|0.091|0.1293|0.0032|2.5441|

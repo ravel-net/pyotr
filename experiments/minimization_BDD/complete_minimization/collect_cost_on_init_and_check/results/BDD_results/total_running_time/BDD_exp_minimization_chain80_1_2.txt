@@ -1,0 +1,10 @@
+process_condition_on_ctable: 0.0858
+Total RUNNING TIME: 77.3290
+process_condition_on_ctable: 0.2190
+Total RUNNING TIME: 77.5821
+process_condition_on_ctable: 0.0702
+Total RUNNING TIME: 77.3951
+process_condition_on_ctable: 0.0536
+Total RUNNING TIME: 76.6799
+process_condition_on_ctable: 0.0621
+Total RUNNING TIME: 77.5842

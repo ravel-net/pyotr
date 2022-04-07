@@ -61,7 +61,7 @@ def read_components_file_BDD(filename, output, running_times):
     with open(filename) as d:
         high_level_keys = ["total", "data", "condition", "merged", "checking"]
         time_high_level =[0] * len(high_level_keys)
-
+        total_construction_time = 0
         time_data = 0
 
         condition_keys = [
@@ -94,16 +94,19 @@ def read_components_file_BDD(filename, output, running_times):
             condition_details = data["condition_details"]
             for item in condition_details:
                 for idx, key in enumerate(condition_keys):
+                    if (key == "encode" or key == "str_to_BDD" or key == "operate_BDDs"):
+                        total_construction_time += item[key]
                     time_condition[idx] += item[key]
             
             merged_details = data["merged_details"]
             for item in merged_details:
                 for idx, key in enumerate(merged_keys):
+                    if (key == "encode" or key == "str_to_BDD" or key == "operate_BDDs"):
+                        total_construction_time += item[key]
                     time_merged[idx] += item[key]
 
         checking_idx = high_level_keys.index("checking")
-        total_idx = high_level_keys.index("total")
-        f.write("\nTotal_time_averaged {} {}\n".format(str(time_high_level[total_idx]/running_times), str(time_high_level[checking_idx]/running_times)))
+        f.write("\nTotal_time_averaged {} {}\n".format(str(round(total_construction_time/running_times,4)), str(round(time_high_level[checking_idx]/running_times,4))))
         f.write("\nhigh level\n")
         f.write("|{}|\n".format("|".join(high_level_keys)))
         time_high_level_to_str = []
