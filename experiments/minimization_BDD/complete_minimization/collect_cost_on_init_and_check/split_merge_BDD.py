@@ -9,13 +9,13 @@ print(root)
 sys.path.append(root)
 
 import time 
-import minimization_BDD.complete_minimization.collect_components.merge_tuples_BDD as merge_tuples_BDD
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.merge_tuples_BDD as merge_tuples_BDD
 import utils.split_merge.reorder_tableau as reorder_tableau
 import databaseconfig as cfg
 import psycopg2
 
 import BDD_managerModule as bddmm
-import minimization_BDD.complete_minimization.collect_components.translator_pyotr_BDD as translator
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.translator_pyotr_BDD as translator
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 conn.set_session(readonly=False, autocommit=True)

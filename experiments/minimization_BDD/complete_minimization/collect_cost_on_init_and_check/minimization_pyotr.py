@@ -10,7 +10,7 @@ from tqdm import tqdm
 import time
 import copy
 import utils.closure_group.closure_overhead as closure_overhead
-from minimization_BDD.complete_minimization.collect_components.split_merge import split_merge
+from minimization_BDD.complete_minimization.collect_cost_on_init_and_check.split_merge import split_merge
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]

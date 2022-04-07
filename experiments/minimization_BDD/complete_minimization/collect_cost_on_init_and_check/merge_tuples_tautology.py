@@ -8,7 +8,7 @@ import time
 from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2
-import minimization_BDD.complete_minimization.collect_components.check_tautology as check_tautology
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.check_tautology as check_tautology
 import utils.check_tautology.condition_analyze as condition_analyze
 from psycopg2.extras import execute_values
 

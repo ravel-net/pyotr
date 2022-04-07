@@ -3,9 +3,9 @@ import pprint
 import time
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
-filename = join(root, 'util')
+filename = join(root, 'utils')
 sys.path.append(filename)
-filename = join(root, 'util', 'variable_closure_algo')
+filename = join(root, 'utils', 'closure_group')
 sys.path.append(filename)
 import tableau as tableau
 import DFS

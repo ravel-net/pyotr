@@ -16,10 +16,10 @@ import math
 import utils.chain_generation.gen_chain as gen_chain 
 import databaseconfig as cfg
 import psycopg2
-import minimization_BDD.complete_minimization.collect_components.minimization_pyotr as minimization_pyotr
-import minimization_BDD.complete_minimization.collect_components.minimization_pyotr_BDD as minimization_pyotr_BDD
-import minimization_BDD.complete_minimization.collect_components.translator_pyotr_BDD as translator_BDD
-import BDD_managerModule as bddmm
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr as minimization_pyotr
+# import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.minimization_pyotr_BDD as minimization_pyotr_BDD
+# import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.translator_pyotr_BDD as translator_BDD
+# import BDD_managerModule as bddmm
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 conn.set_session(readonly=False, autocommit=True)
@@ -85,6 +85,35 @@ def exp_minimization_chain_BDD(size, rate_summary, size_single_loop):
     f.write("Total RUNNING TIME: {:.4f}\n".format(end - begin))
     f.close()
     
+    return end-begin
+
+def exp_minimization_chain_naive(size, rate_summary, size_single_loop):
+
+    path, summary_nodes, variable_nodes, picked_nodes = gen_chain.gen_chain_with_loop(size=size, rate_summary=rate_summary, size_single_loop=size_single_loop)
+    # path, summary_nodes, loop_nodes, picked_nodes = gen_chain.gen_chain_with_loop(size=size, rate_summary=rate, rate_loops=rate_loops)
+    tuples = gen_chain.gen_tableau(path, picked_nodes)
+
+    tablename = "chain{}_{}_{}".format(size, int((1-rate_summary)*10), size_single_loop)
+    cursor.execute("drop table if exists {}".format(tablename))
+    cursor.execute("create table {} (n1 int4_faure, n2 int4_faure, condition text[])".format(tablename))
+    cursor.executemany("insert into {} values(%s, %s, %s)".format(tablename), tuples)
+
+    conn.commit()
+
+    current_directory = os.getcwd()
+    if not os.path.exists(current_directory+"/results"):
+        os.makedirs(current_directory+"/results")
+    f = open(current_directory+"/results/naive_exp_minimization_{}.txt".format(tablename), "a")
+    f.write("runtime(sec)\n")
+
+    begin = time.time()
+    minimization_naive.minimize(tablename=tablename, pos=0, summary=summary_nodes)
+    end = time.time()
+    print("\nRUNNING TIME:", end - begin)
+
+    f.write("{}\n".format(end - begin))
+    f.close()
+
     return end-begin
 
 if __name__ == "__main__":

@@ -10,9 +10,9 @@ sys.path.append(root)
 # sys.path.append(filename)
 
 import time 
-import minimization_BDD.complete_minimization.collect_components.translator_pyotr as translator
-import utils.tableau.gen_tableau as tableau
-import minimization_BDD.complete_minimization.collect_components.merge_tuples_tautology as merge_tuples_tautology
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.translator_pyotr as translator
+import utils.tableau.tableau as tableau
+import minimization_BDD.complete_minimization.collect_cost_on_init_and_check.merge_tuples_tautology as merge_tuples_tautology
 import utils.split_merge.reorder_tableau as reorder_tableau
 import databaseconfig as cfg
 import psycopg2
