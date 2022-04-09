@@ -309,6 +309,8 @@ def get_all_columns(tables):
 
 def get_extra_columns(select):
     extra_cols = []
+    if select == '*':
+        return extra_cols
     for s in select: # s format: [['t0', '.', 'n1'], '', ''] or [['', '', "'1'"], '', ''] select 1
         col = s[0][2]
         if "'" in col:
