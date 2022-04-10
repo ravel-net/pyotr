@@ -1,0 +1,169 @@
+{"source": "172.16.0.0/16"}
+{"source": "0.0.0.0/32"}
+{"source": "172.16.0.0/16"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.185"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.113"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.139"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.75"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.22"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.94"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.101"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.109"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.117"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.118"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.123"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.125"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.141"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.185"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.113"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.139"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.75"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.22"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.94"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.101"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.109"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.117"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.118"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.123"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.125"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.141"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.185"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.113"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.139"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.75"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.22"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.94"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.101"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.109"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.117"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.118"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.123"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.125"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.141"}
+{"source": "0.0.0.0/32"}
+{"source": "10.25.130.200", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.185"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.113"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.139"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.75"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.22"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.94"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.101"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.109"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.117"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.118"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.123"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.125"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.141"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.185"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.113"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.139"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.75"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.22"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.94"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.101"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.109"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.117"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.118"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.123"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.125"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.141"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.185"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.113"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.139"}
+{"source": "0.0.0.0/32", "destination": "171.64.8.75"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.22"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.94"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.101"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.109"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.117"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.118"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.123"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.125"}
+{"source": "0.0.0.0/32", "destination": "171.64.9.141"}
+{"source": "0.0.0.0/32"}
+{"source": "10.25.130.200", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "172.16.0.0/16"}
+{"source": "172.19.96.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.96.0/22", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "172.16.0.0/16"}
+{"source": "172.19.96.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.96.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "200.87.13.14", "destination": "0.0.0.0/32"}
+{"source": "202.181.206.18", "destination": "0.0.0.0/32"}
+{"source": "221.132.67.163", "destination": "0.0.0.0/32"}
+{"source": "210.132.185.87", "destination": "0.0.0.0/32"}
+{"source": "217.78.63.15", "destination": "0.0.0.0/32"}
+{"source": "171.64.157.100", "destination": "0.0.0.0/32"}
+{"source": "171.64.157.48", "destination": "0.0.0.0/32"}
+{"source": "171.66.236.91", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "200.87.13.14", "destination": "0.0.0.0/32"}
+{"source": "202.181.206.18", "destination": "0.0.0.0/32"}
+{"source": "221.132.67.163", "destination": "0.0.0.0/32"}
+{"source": "210.132.185.87", "destination": "0.0.0.0/32"}
+{"source": "217.78.63.15", "destination": "0.0.0.0/32"}
+{"source": "171.64.157.100", "destination": "0.0.0.0/32"}
+{"source": "171.64.157.48", "destination": "0.0.0.0/32"}
+{"source": "171.66.236.91", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "171.64.113.171", "destination": "0.0.0.0/32"}
+{"source": "171.64.113.171", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "172.16.0.0/16"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.44.0/23", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "172.16.0.0/16"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.44.0/23", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "172.19.60.0/22", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "171.64.249.0/24"}
+{"source": "171.66.120.0/21"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "171.64.74.80", "destination": "0.0.0.0/32"}
+{"source": "171.64.75.149", "destination": "129.198.0.0/16"}
+{"source": "171.64.0.0/14", "destination": "0.0.0.0/32"}
+{"source": "192.168.128.0/21", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "171.64.249.0/24"}
+{"source": "171.66.120.0/21"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "171.64.74.80", "destination": "0.0.0.0/32"}
+{"source": "171.64.75.149", "destination": "129.198.0.0/16"}
+{"source": "171.64.0.0/14", "destination": "0.0.0.0/32"}
+{"source": "192.168.128.0/21", "destination": "0.0.0.0/32"}
+{"source": "172.17.0.0/16", "destination": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32"}
+{"source": "0.0.0.0/32", "destination": "0.0.0.0/32"}
