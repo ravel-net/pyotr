@@ -18,44 +18,14 @@ user = 'postgres'
 password = 'mubashir'
 database = 'test'
 
-def generatePaths(g, depth, tries):
-	# g = random_graph.RandomGraph(vertices, probability_of_edge, numHosts)
-	print("Adj Matrix")
-	g.printAdjMatrix()
-	paths = g.randomPaths(depth, tries) # generates random paths between two nodes
-	print("paths:", paths)
-	print("length of paths:", len(paths))
-	return paths
-
 def value(pre_processed_val, constants):
 	if pre_processed_val in constants:
 		return str(pre_processed_val)
 	else:
 		return "x" + str(pre_processed_val)
 
-def generateOneBigSwitchTopo(g, depth, tries):
-	# paths = generatePaths(vertices, probability_of_edge, depth, tries, numHosts)
-	paths = g.randomPaths(depth, tries)
-	pathNum = 0
-	allPaths = []
-	for path in paths:
-		pathNum += 1
-		curr_path = []
-		for i in range(0, len(path)-1):
-			n1 = value(path[i], g.hosts)
-			n2 = value(path[i+1], g.hosts)
-			# f = "f"+str(pathNum)
-			# newTuple = (f, n1, n2)
-			newTuple = (n1, n2)
-			curr_path.append(newTuple)
-		allPaths.append(curr_path)
-	return allPaths
-
-
-def addOneBigSwitchTable(tablename, constants):
+def addOneBigSwitchTable(tablename, constants, cursor):
 	curr_type = 'int4_faure'
-	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-	cursor = conn.cursor()
 	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
 	cursor.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type))
 	conn.commit()
@@ -64,20 +34,10 @@ def addOneBigSwitchTable(tablename, constants):
 	    cursor.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(tablename, '1', str(hostSwitch)))
 	cursor.execute("INSERT INTO {} VALUES ('1', '1', array[]::text[]);".format(tablename))
 	conn.commit()
-	conn.close()
 
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
     return cur.fetchall()
-
-def nonEmpty(tablename):
-    conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-    cur = conn.cursor()
-
-    # get current table
-    curr_table = getCurrentTable(tablename, cur)
-    conn.commit()
-    return len(curr_table)>0
 
 def getConstants(table):
 	constants = []
@@ -89,6 +49,8 @@ def getConstants(table):
 	return constants
 
 if __name__ == "__main__":
+	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+	cur = conn.cursor()
 	tableName = "t_v"
 	# as_files = ["4755","3356","2914", "7018"]
 	as_files = ["4755"]
@@ -122,7 +84,7 @@ if __name__ == "__main__":
 			currentPathList = shortest_paths.getIndPaths(g, num_vertices, num_paths)
 			allPathsTableau = shortest_paths.getTableau(num_vertices, num_paths,currentPathList)
 			constants = getConstants(allPathsTableau)
-			addOneBigSwitchTable(tableName, constants)
+			addOneBigSwitchTable(tableName, constants, cur)
 			pp = pprint.PrettyPrinter(indent=4)
 			closure_groups = closure_overhead.getAllClosureGroups(allPathsTableau)
 			if (len(closure_groups) < num_paths):
@@ -132,21 +94,16 @@ if __name__ == "__main__":
 			i = 0
 			closure_group_num.append(len(closure_groups))
 			for group in closure_groups:
-				# addOneBigSwitchTableau(tableName, summary[i][1], summary[i][2])
-				# print(summary[i][1], summary[i][2])
 				summary = getConstants(group)
 				closure_group_length.append(len(group))
 				print(summary)
 				sql = tableau.convert_tableau_to_sql(group, tableName, summary) + " LIMIT 1"
-				# print(sql)
-				conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-				cur = conn.cursor()
 				begin = time.time()
 				cur.execute(sql)
 				end = time.time()
 				dat_times.append(end-begin)
 				result = cur.fetchall()
-				conn.close()
+				conn.commit()
 				if (len(result) > 0):
 					print("TRUE")
 				else:
