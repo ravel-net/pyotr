@@ -24,11 +24,15 @@ password = 'mubashir'
 database = 'test'
 output_table_name = 'output'
 
+
+
+
 if __name__ == "__main__":
 	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
 	cursor = conn.cursor()
 	curr_type = "inet_faure"
 	tablename = "T_o"
+	createFirewallOneBigSwitch(firewallRules, tablename, forwardNodeIP, firewallNodeIP, cursor)
 	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
 	cursor.execute("CREATE TABLE {}(F {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type, curr_type))
 	conn.commit()    
