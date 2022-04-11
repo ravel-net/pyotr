@@ -314,18 +314,18 @@ def get_all_columns(tables):
 
 def get_extra_columns(select):
     extra_cols = []
-    for s in select: # s format: [['t0', '.', 'n1'], '', ''] or [['', '', "'1'"], '', ''] select 1
+    if select == '*':
+        return extra_cols
+    for s in select: # s format: [['t0', '.', 'n1'], '', ''] or [['', '', "'1'"], '', ''] select 1 or  [['', '', "'w'"], '', ''] select 'w'
         col = s[0][2]
-        if "'" in col:
+        if "'" in col: # select constant value, such as '1', 'w'
             p = re.compile(r"'(.*?)'", re.S)
             col = re.findall(p, col)[0]
-        # elif '"' in col:
-        #     p = re.compile(r'"(.*?)"', re.S)
-        #     col = re.findall(p, col)[0]
+            extra_cols.append([['', '', s[0][2]], 'as', '"{}"'.format(col)]) 
         
-        if col.isdigit(): # select constant number such as 1
+        elif col.isdigit(): # select inetger number such as 1
             extra_cols.append([['', '', s[0][2]], 'as', '"{}"'.format(col)])
-    return extra_cols           
+    return extra_cols          
 
 #create data content
 def data(tree):
@@ -438,6 +438,10 @@ def upd_condition(tree):
         for col in selected_cols:
             if col[0][1] == '.': 
                 col[0][1] = '_'
+            
+            if "'" in col[0][2]: # working when select constant value
+                col[0][2] = col[0][2].replace("'", "")
+                
             name = "".join(col[0])
             select_col_dict[name] = col[2]
 
