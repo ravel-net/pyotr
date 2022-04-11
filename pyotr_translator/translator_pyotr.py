@@ -668,7 +668,7 @@ def has_redundancy(solver, tau_solver, conditions, datatype):
         for idx1 in range(len(conditions) - 1):
             expr1 = ""
             if idx1 not in processed_conditions.keys():
-                expr1 = analyzeBitVector(conditions[idx1],32)
+                expr1 = check_tautology.analyze(conditions[idx1],datatype)
                 processed_conditions[idx1] = expr1
             else:
                 expr1 = processed_conditions[idx1]
@@ -676,7 +676,7 @@ def has_redundancy(solver, tau_solver, conditions, datatype):
             for idx2 in range(idx1+1,len(conditions)):
                 expr2 = ""
                 if idx2 not in processed_conditions.keys():
-                    expr2 = analyzeBitVector(conditions[idx2],32)
+                    expr2 = check_tautology.analyze(conditions[idx2],datatype)
                     processed_conditions[idx2] = expr2  
                 else:
                     expr2 = processed_conditions[idx2]
@@ -743,139 +743,6 @@ def has_redundancy(solver, tau_solver, conditions, datatype):
 
     else:
         return has_redundant, result
-
-def convertIPToBits(IP, bits):
-    IP_stripped = IP.split(".")
-    bitValue = 0
-    i = bits-8
-    for rangeVals in IP_stripped:
-        bitValue += (int(rangeVals) << i)
-        i -= 8 
-    return (bitValue)
-    
-def convert_z3_variable_bit(condition, datatype, bits):
-    c_list = condition.split()
-
-    if c_list[0][0].isalpha():
-        op1 = f"z3.{datatype}('{c_list[0]}',{bits})"
-    else: 
-        val = convertIPToBits(c_list[0], 32)
-        op1 = f"z3.{datatype}Val('{val}',{bits})"
-    
-    if c_list[2][0].isalpha():
-        op2 = f"z3.{datatype}('{c_list[2]}',{bits})"
-    else:
-        val = convertIPToBits(c_list[2], 32)
-        op2 = f"z3.{datatype}Val('{val}',{bits})"
-    
-    operator = c_list[1]
-    return op1, operator, op2
-
-def analyzeBitVector(condition, bits):
-    cond_str = condition
-    prcd_cond = ""
-    if 'And' in cond_str or 'Or' in cond_str:
-        stack_last_post = []
-        i = 0
-        stack_last_post.insert(0, i)
-        condition_positions = []
-        while i < len(cond_str):
-            if cond_str[i] == '(':
-                if len(stack_last_post) != 0:
-                    stack_last_post.pop()
-                stack_last_post.insert(0, i+1)
-            elif cond_str[i] == ')' or cond_str[i] == ',':
-                begin_idx = stack_last_post.pop()
-                if i != begin_idx:
-                    condition_positions.append((begin_idx, i))
-                stack_last_post.insert(0, i+1)      
-            i += 1
-            
-        if len(stack_last_post) != 0:
-            begin_idx = stack_last_post.pop()
-            if begin_idx !=  len(cond_str):
-                condition_positions.append((begin_idx, len(cond_str)))
-        # print(cond_str[51:])
-        # print(stack_last_post)
-        # print(condition_positions)
-        for idx, pair in enumerate(condition_positions):
-            if idx == 0:
-                prcd_cond += cond_str[0:pair[0]]
-            else:
-                prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
-            
-            c = cond_str[pair[0]: pair[1]].strip()
-            op1, operator, op2 = convert_z3_variable_bit(c, 'BitVec', bits)
-            prcd_cond += "{} {} {}".format(op1, operator, op2)
-        prcd_cond += cond_str[condition_positions[-1][1]:]
-        # print(prcd_cond)
-    else:
-        op1, operator, op2 = convert_z3_variable_bit(condition, 'BitVec', bits)
-        prcd_cond += "{} {} {}".format(op1, operator, op2)
-        # print(prcd_cond)
-    return prcd_cond
-
-def convert_z3_variable(condition, datatype):
-    c_list = condition.split()
-
-    if c_list[0][0].isalpha():
-        op1 = f"z3.{datatype}('{c_list[0]}')"
-    else: 
-        op1 = f"z3.{datatype}Val('{c_list[0]}')"
-    
-    if c_list[2][0].isalpha():
-        op2 = f"z3.{datatype}('{c_list[2]}')"
-    else:
-        op2 = f"z3.{datatype}Val('{c_list[2]}')"
-    
-    operator = c_list[1]
-    return op1, operator, op2
-
-def analyze(condition):
-    cond_str = condition
-    prcd_cond = ""
-    if 'And' in cond_str or 'Or' in cond_str:
-        stack_last_post = []
-        last_pos = 0
-        i = 0
-        stack_last_post.insert(0, i)
-        condition_positions = []
-        while i < len(cond_str):
-            if cond_str[i] == '(':
-                if len(stack_last_post) != 0:
-                    stack_last_post.pop()
-                stack_last_post.insert(0, i+1)
-            elif cond_str[i] == ')' or cond_str[i] == ',':
-                begin_idx = stack_last_post.pop()
-                if i != begin_idx:
-                    condition_positions.append((begin_idx, i))
-                stack_last_post.insert(0, i+1)      
-            i += 1
-        if len(stack_last_post) != 0:
-            begin_idx = stack_last_post.pop()
-            if begin_idx !=  len(cond_str):
-                condition_positions.append((begin_idx, len(cond_str)))
-        # print(cond_str[51:])
-        # print(stack_last_post)
-        # print(condition_positions)
-        for idx, pair in enumerate(condition_positions):
-            if idx == 0:
-                prcd_cond += cond_str[0:pair[0]]
-            else:
-                prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
-            
-            c = cond_str[pair[0]: pair[1]].strip()
-            op1, operator, op2 = convert_z3_variable(c, 'Int')
-            prcd_cond += "{} {} {}".format(op1, operator, op2)
-        prcd_cond += cond_str[condition_positions[-1][1]:]
-        # print(prcd_cond)
-    else:
-        op1, operator, op2 = convert_z3_variable(condition, 'Int')
-        prcd_cond += "{} {} {}".format(op1, operator, op2)
-        # print(prcd_cond)
-
-    return prcd_cond
-
 
 if __name__ == "__main__":
     # sql = "select policy1.path, policy2.dest from policy1, policy2 where policy1.path = policy2.path and policy1.dest != policy2.dest;"

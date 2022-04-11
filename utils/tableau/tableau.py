@@ -192,7 +192,17 @@ def get_max(overlay):
 def isIPAddress(opd):
     return len(opd.split(".")) == 4
 
-def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
+def extractWhereCondition(c, i, column_names):
+    c = c.strip()
+    match = re.search('!=|<=|>=|<>|<|>|==', c)
+    left_opd = c[:match.span()[0]].strip()
+    opr = match.group()
+    right_opd = c[match.span()[1]:].strip()
+    if (opr == "=="): # TODO: Better this conversion
+        opr = "="
+    return "t{}.{} {} '{}'".format(i, column_names[2], opr, right_opd)
+
+def convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_names):
     """
     Convert tableau to corresponding SQL
 
@@ -218,7 +228,6 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     # cols = []
     tables = []
     constraints = []
-    column_names = ['n1', 'n2', 'F'] # TODO: Automate this. Take columns as parameter
     
     last = ""
     last_F = ""
@@ -243,12 +252,7 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
             if conditions != "":
                 conditionList = conditions.split(",")
                 for c in conditionList:
-                    c = c.strip()
-                    match = re.search('!=|<=|>=|<>|<|>|=', c)
-                    left_opd = c[:match.span()[0]].strip()
-                    opr = match.group()
-                    right_opd = c[match.span()[1]:].strip()
-                    constraints.append("t{}.{} {} '{}'".format(i, column_names[2], opr, right_opd))
+                    constraints.append(extractWhereCondition(c, i, column_names))
 
 
 
