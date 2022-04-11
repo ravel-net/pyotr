@@ -12,6 +12,8 @@ from tqdm import tqdm
 import z3
 from z3 import And, Not, Or, Implies
 import databaseconfig as cfg
+import utils.tableau.tableau as tableau
+import utils.check_tautology.check_tautology as check_tautology
 # import logging
 # logging.basicConfig(filename='joins_data/joins_typed.log', level=logging.DEBUG)
 
@@ -206,6 +208,8 @@ def process_from_clause(clause):
     # cols = [col.strip() for col in clause.split(',')]
     return cols
 
+
+
 def process_where_clause(clause):
     cond_list = []
     conditions = re.split('and|or', clause, flags=re.IGNORECASE)
@@ -218,7 +222,7 @@ def process_where_clause(clause):
         
         # whether specify table's name
         left_opr_list = ['', '', ''] # [tablename, '.'/'', col]
-        if '.' in left_opd:
+        if '.' in left_opd and not tableau.isIPAddress(left_opd):
             items = left_opd.split('.')
             left_opr_list[0] = items[0].strip()
             left_opr_list[1] = '.'
@@ -226,9 +230,10 @@ def process_where_clause(clause):
         else:
             left_opr_list[2] = left_opd
 
+        print(right_opd)
         # whether specify table's name
         right_opr_list = ['', '', ''] # [tablename, '.'/'', col]
-        if '.' in right_opd:
+        if '.' in right_opd and not tableau.isIPAddress(right_opd):
             items = right_opd.split('.')
             right_opr_list[0] = items[0].strip()
             right_opr_list[1] = '.'
@@ -471,7 +476,7 @@ def upd_condition(tree):
     # logging.warning("condition execution time: %s" % str(count_time))
     return count_time
             
-def normalization():
+def normalization(datatype):
     if OPEN_OUTPUT:
         print("\n************************Step 3: Normalization****************************")
     cursor = conn.cursor()
@@ -525,7 +530,7 @@ def normalization():
     solver = z3.Solver()
     for i in tqdm(range(contrad_count)):
         row = cursor.fetchone()
-        is_contrad = iscontradiction(solver, row[1])
+        is_contrad = iscontradiction(solver, row[1], datatype)
 
         if is_contrad:
             del_tuple.append(row[0])
@@ -558,7 +563,7 @@ def normalization():
     tauto_solver = z3.Solver()
     for i in tqdm(range(redun_count)):
         row = cursor.fetchone()
-        has_redun, result = has_redundancy(solver, tauto_solver, row[1])
+        has_redun, result = has_redundancy(solver, tauto_solver, row[1], datatype)
         if has_redun:
             if result != '{}':
                 result = ['"{}"'.format(r) for r in result]
@@ -591,14 +596,14 @@ def normalization():
     # return {"contradiction":[contrad_count, contr_end-contrd_begin]}
    
 
-def iscontradiction(solver, conditions):
+def iscontradiction(solver, conditions, datatype):
     solver.push()
 
     if len(conditions) == 0:
         return 
 
     for c in conditions:
-        prcd_cond = analyzeBitVector(c,32)
+        prcd_cond = check_tautology.analyze(c, datatype)
         solver.add(eval(prcd_cond))
 
     result = solver.check()
@@ -610,11 +615,11 @@ def iscontradiction(solver, conditions):
         solver.pop()
         return False
 
-def istauto(solver, conditions):
+def istauto(solver, conditions, datatype):
     if len(conditions) == 0:
         return True
     for c in conditions:
-        prcd_cond = analyzeBitVector(c,32)
+        prcd_cond = check_tautology.analyze(c, datatype)
         solver.push()
         solver.add(eval("Not({prcd_cond})".format(prcd_cond)))
         re = solver.check()
@@ -626,7 +631,7 @@ def istauto(solver, conditions):
             return False
     return True
 
-def has_redundancy(solver, tau_solver, conditions):
+def has_redundancy(solver, tau_solver, conditions, datatype):
     has_redundant = False
     is_tauto = True
     result = conditions[:]
@@ -641,7 +646,7 @@ def has_redundancy(solver, tau_solver, conditions):
     
     processed_conditions = {}
     if len(conditions) == 1:
-        expr = analyzeBitVector(conditions[0],32)
+        expr = check_tautology.analyze(conditions[0], datatype)
 
         # check tautology
         c = "Not({})".format(expr)

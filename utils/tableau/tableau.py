@@ -1,5 +1,7 @@
 import random
 import psycopg2
+import re
+
 
 """
  /- u -\
@@ -187,6 +189,9 @@ def get_max(overlay):
             max_val = int(node)
     return max_val
 
+def isIPAddress(opd):
+    return len(opd.split(".")) == 4
+
 def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     """
     Convert tableau to corresponding SQL
@@ -213,44 +218,61 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes):
     # cols = []
     tables = []
     constraints = []
+    column_names = ['n1', 'n2', 'F'] # TODO: Automate this. Take columns as parameter
     
     last = ""
+    last_F = ""
     var_dict = {}
-    max_val = get_max(overlay_nodes)
+    summary = {}
+    summary_nodes = []
     for i in range(len(tableau)):
         tables.append("{} t{}".format(tablename, i))
-        # (n1, n2, _) = tableau[i]
         n1 = tableau[i][0]
         n2 = tableau[i][1]
 
-        if n1.isdigit():
-            # if n1 in overlay_nodes or str(int(n1)-max_val) in overlay_nodes:
-            #     if n1 != n2 and n1 != last:
-            #         # cols.append("t{}.n1".format(i))
-            #         cols.append(n1)
+
+        # Extra logic to handle firewalls. Should be automated
+        if (len(tableau[i]) > 3): # when conditions occur
+            for j, column in enumerate(column_names):
+                val = tableau[i][j]
+                if val in overlay_nodes and val not in summary:
+                    summary[val] = 't{}.{}'.format(i, column)
+                    summary_nodes.append('t{}.{}'.format(i, column))
+            conditions = tableau[i][3]
+
+            if conditions != "":
+                conditionList = conditions.split(",")
+                for c in conditionList:
+                    c = c.strip()
+                    match = re.search('!=|<=|>=|<>|<|>|=', c)
+                    left_opd = c[:match.span()[0]].strip()
+                    opr = match.group()
+                    right_opd = c[match.span()[1]:].strip()
+                    constraints.append("t{}.{} {} '{}'".format(i, column_names[2], opr, right_opd))
+
+
+
+        if n1.isdigit() or isIPAddress(n1):
             constraints.append("t{}.n1 = '{}'".format(i, n1))
         
-        if n2.isdigit():
-            # if n2 in overlay_nodes or str(int(n2)-max_val) in overlay_nodes:
-            #     if n1 != n2:
-            #         # cols.append("t{}.n2".format(i))
-            #         cols.append(n2)
+        if n2.isdigit() or isIPAddress(n2):
             constraints.append("t{}.n2 = '{}'".format(i, n2))
 
         if n1 == last and not n1.isdigit():
             constraints.append("t{}.n2 = t{}.n1".format(i-1, i))
             var_dict[n1] = i
+            if (len(tableau[i]) > 2): # for firewalls
+                constraints.append("t{}.{} = t{}.{}".format(i-1, column_names[2], i, column_names[2]))
 
         if not n1.isdigit() and not n2.isdigit() and n1 == n2:
             constraints.append("t{}.n1 = t{}.n2".format(i, i))
             if n1 in var_dict.keys():
                 constraints.append("t{}.n1 = t{}.n2".format(var_dict[n1], i))
 
+
         last = n2
-    # print(cols)
-    # print(tables)
-    # print(constraints)
-    sql = "select " + ", ".join(overlay_nodes) + " from " + ", ".join(tables) + " where " + " and ".join(constraints)
+
+    sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables) + " where " + " and ".join(constraints)
     print(sql)
     return sql
 
