@@ -31,6 +31,34 @@ def convert_z3_variable(condition, datatype):
     operator = c_list[1]
     return op1, operator, op2
 
+
+def convertIPToBits(IP, bits):
+	IP_stripped = IP.split(".")
+	bitValue = 0
+	i = bits-8
+	for rangeVals in IP_stripped:
+		bitValue += (int(rangeVals) << i)
+		i -= 8 
+	return (bitValue)
+
+def convert_z3_variable_bit(condition, datatype, bits):
+    c_list = condition.split()
+
+    if c_list[0][0].isalpha():
+        op1 = f"z3.{datatype}('{c_list[0]}',{bits})"
+    else: 
+    	val = convertIPToBits(c_list[0], 32)
+    	op1 = f"z3.{datatype}Val('{val}',{bits})"
+    
+    if c_list[2][0].isalpha():
+        op2 = f"z3.{datatype}('{c_list[2]}',{bits})"
+    else:
+    	val = convertIPToBits(c_list[2], 32)
+    	op2 = f"z3.{datatype}Val('{val}',{bits})"
+    
+    operator = c_list[1]
+    return op1, operator, op2
+
 def analyze(condition):
     cond_str = condition
     prcd_cond = ""
@@ -75,6 +103,50 @@ def analyze(condition):
         # print(prcd_cond)
     return prcd_cond
 
+def analyzeBitVector(condition, bits):
+    cond_str = condition
+    prcd_cond = ""
+    if 'And' in cond_str or 'Or' in cond_str:
+        stack_last_post = []
+        i = 0
+        stack_last_post.insert(0, i)
+        condition_positions = []
+        while i < len(cond_str):
+            if cond_str[i] == '(':
+                if len(stack_last_post) != 0:
+                    stack_last_post.pop()
+                stack_last_post.insert(0, i+1)
+            elif cond_str[i] == ')' or cond_str[i] == ',':
+                begin_idx = stack_last_post.pop()
+                if i != begin_idx:
+                    condition_positions.append((begin_idx, i))
+                stack_last_post.insert(0, i+1)      
+            i += 1
+            
+        if len(stack_last_post) != 0:
+            begin_idx = stack_last_post.pop()
+            if begin_idx !=  len(cond_str):
+                condition_positions.append((begin_idx, len(cond_str)))
+        # print(cond_str[51:])
+        # print(stack_last_post)
+        # print(condition_positions)
+        for idx, pair in enumerate(condition_positions):
+            if idx == 0:
+                prcd_cond += cond_str[0:pair[0]]
+            else:
+                prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
+            
+            c = cond_str[pair[0]: pair[1]].strip()
+            op1, operator, op2 = convert_z3_variable_bit(c, 'BitVec', bits)
+            prcd_cond += "{} {} {}".format(op1, operator, op2)
+        prcd_cond += cond_str[condition_positions[-1][1]:]
+        # print(prcd_cond)
+    else:
+        op1, operator, op2 = convert_z3_variable_bit(condition, 'BitVec', bits)
+        prcd_cond += "{} {} {}".format(op1, operator, op2)
+        # print(prcd_cond)
+    return prcd_cond
+
 def get_max(overlay):
     max_val = 0
     for node in overlay:
@@ -91,7 +163,9 @@ def get_union_conditions(tablename='output', datatype='Int'):
         conditions = row[0]
         prced_conditions = []
         for c in conditions:
-            expr = analyze(c)
+            print(c)
+            expr = analyzeBitVector(c, 32)
+            print(expr)
             prced_conditions.append(expr)
         # print(prced_conditions)
         and_cond = "And({})".format(", ".join(prced_conditions)) # LogicaL And for all conditions in one tuple
@@ -148,11 +222,22 @@ def check_is_tautology(union_conditions, domain_conditions):
         return True, z3_end - z3_begin, ""
 
 if __name__ == '__main__':
-    datatype = "Int"
-    union_conditions, union_time = get_union_conditions(tablename="output", datatype=datatype)
-    domain_conditions, domain_time = get_domain_conditions(overlay_nodes=['1', '2'], variables_list=['y1', 'y2'], datatype=datatype)
-
-    ans, runtime, model = check_is_tautology(union_conditions, domain_conditions)
+    # datatype = "Int"
+    # union_conditions, union_time = get_union_conditions(tablename="output", datatype=datatype)
+    # domain_conditions, domain_time = get_domain_conditions(overlay_nodes=['1', '2'], variables_list=['y1', 'y2'], datatype=datatype)
+    # print(union_conditions)
+    # print(domain_conditions)
+    condition1 = "Or(z3.BitVec('x',3) == z3.BitVecVal(1, 3), z3.BitVec('x',3) == z3.BitVecVal(3, 3))"
+    condition1_before = "Or(x == 1, x == 3)"
+    condition1 = analyzeBitVector(condition1_before, 3)
+    # condition2 = "Or(z3.Int('x1') == z3.IntVal(1), z3.Int('x1') == z3.IntVal(2)), Or(z3.Int('x2') == z3.IntVal(1), z3.Int('x2') == z3.IntVal(2))"
+    solver = z3.Solver()
+    solver.add(eval(condition1)) # set negation union conditions
+    print(z3.solve(eval(condition1)))
+    ans = solver.check() 
+    # ans, time, _ = check_is_tautology(condition1, condition2)
+    # solver.add(eval(negation_union_conditions)) # set negation union conditions
+    
     print(ans)
 
     # cursor.execute("select distinct 1, 2, condition from output")
