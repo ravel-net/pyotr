@@ -1,3 +1,9 @@
 .DS_Store
 
 __pycache__
+databaseconfig.py
+*.bc
+*.o
+*.so
+dataypes/int_faure/int_faure.sql
+dataypes/int_faure/interface/int_faure.sql

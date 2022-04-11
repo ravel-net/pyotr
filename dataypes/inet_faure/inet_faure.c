@@ -816,16 +816,16 @@ c_not_equal(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL( network_cmp_internal(a1,a2) != 0);
 }
 
-// PG_FUNCTION_INFO_V1(is_var);
+PG_FUNCTION_INFO_V1(is_var);
 
-// Datum
-// is_var(PG_FUNCTION_ARGS)
-// {
-// 	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
+Datum
+is_var(PG_FUNCTION_ARGS)
+{
+	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
 
-// 	// PG_RETURN_BOOL(a1->inet_data.c_var != "0");
-// 	PG_RETURN_BOOL(strcmp(c_variables(a1),"0") != 0);
-// }
+	// PG_RETURN_BOOL(a1->inet_data.c_var != "0");
+	PG_RETURN_BOOL(strcmp(c_variables(a1),"0") != 0);
+}
 
 
 // /*
