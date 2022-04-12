@@ -192,7 +192,7 @@ def get_max(overlay):
 def isIPAddress(opd):
     return len(opd.split(".")) == 4
 
-def extractWhereCondition(c, i, column_names):
+def extractWhereCondition(c, i, column_names, var_names):
     c = c.strip()
     match = re.search('!=|<=|>=|<>|<|>|==', c)
     left_opd = c[:match.span()[0]].strip()
@@ -200,9 +200,10 @@ def extractWhereCondition(c, i, column_names):
     right_opd = c[match.span()[1]:].strip()
     if (opr == "=="): # TODO: Better this conversion
         opr = "="
-    return "t{}.{} {} '{}'".format(i, column_names[2], opr, right_opd)
+    indexOfColumns = var_names.index(left_opd)
+    return "t{}.{} {} '{}'".format(i, column_names[indexOfColumns], opr, right_opd)
 
-def convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_names):
+def convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_names, var_names):
     """
     Convert tableau to corresponding SQL
 
@@ -241,18 +242,19 @@ def convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_names):
 
 
         # Extra logic to handle firewalls. Should be automated
-        if (len(tableau[i]) > 3): # when conditions occur
+        if (len(tableau[i]) > len(column_names)): # when conditions occur
             for j, column in enumerate(column_names):
                 val = tableau[i][j]
                 if val in overlay_nodes and val not in summary:
                     summary[val] = 't{}.{}'.format(i, column)
                     summary_nodes.append('t{}.{}'.format(i, column))
-            conditions = tableau[i][3]
 
+            conditions = tableau[i][3]
             if conditions != "":
+                print (conditions)
                 conditionList = conditions.split(",")
                 for c in conditionList:
-                    constraints.append(extractWhereCondition(c, i, column_names))
+                    constraints.append(extractWhereCondition(c, i, column_names, var_names))
 
 
 

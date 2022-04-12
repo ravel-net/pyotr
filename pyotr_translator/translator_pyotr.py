@@ -229,8 +229,6 @@ def process_where_clause(clause):
             left_opr_list[2] = items[1].strip()
         else:
             left_opr_list[2] = left_opd
-
-        print(right_opd)
         # whether specify table's name
         right_opr_list = ['', '', ''] # [tablename, '.'/'', col]
         if '.' in right_opd and not tableau.isIPAddress(right_opd):
@@ -386,7 +384,6 @@ def upd_condition(tree):
             cond_list.append("{} || ' {} ' || {}".format(left_opd, cond[1], right_opd))
         
         where_list.append([left_opd, right_opd])
-
     begin = time.time()
     if keyword == '' or keyword == 'and':
         
@@ -394,6 +391,8 @@ def upd_condition(tree):
         for idx, c in enumerate(cond_list):
             # sql = "update output set condition = array_append(condition, {})".format(c)
             sql = "update output set condition = array_append(condition, {}) where is_var({}) or is_var({})".format(c, where_list[idx][0], where_list[idx][1])
+            # sql = "update output set condition = array_append(condition, {})".format(c)
+            print("sql", sql)
             if OPEN_OUTPUT:
                 print(sql)
             cursor.execute(sql)
@@ -535,7 +534,6 @@ def normalization(datatype):
     for i in tqdm(range(contrad_count)):
         row = cursor.fetchone()
         is_contrad = iscontradiction(solver, row[1], datatype)
-
         if is_contrad:
             del_tuple.append(row[0])
         
@@ -568,6 +566,9 @@ def normalization(datatype):
     for i in tqdm(range(redun_count)):
         row = cursor.fetchone()
         has_redun, result = has_redundancy(solver, tauto_solver, row[1], datatype)
+        print("has_redun", has_redun)
+        print("row[1]", row[1])
+        print("result", result)
         if has_redun:
             if result != '{}':
                 result = ['"{}"'.format(r) for r in result]
@@ -605,7 +606,6 @@ def iscontradiction(solver, conditions, datatype):
 
     if len(conditions) == 0:
         return 
-
     for c in conditions:
         prcd_cond = check_tautology.analyze(c, datatype)
         solver.add(eval(prcd_cond))
