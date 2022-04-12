@@ -3,7 +3,7 @@ from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
-from ipaddress import IPv4Address, IPv4Network
+
 import time
 import z3
 from z3 import Or, And, Not
@@ -30,7 +30,7 @@ def convert_z3_variable(condition, datatype):
 	else:
 		op2 = f"z3.{datatype}Val('{c_list[2]}')"
 	operator = c_list[1]
-	return "{} {} {}".format(op1, operator, op2)
+	return op1, operator, op2
 
 
 def convertIPToBits(IP, bits):
@@ -42,47 +42,23 @@ def convertIPToBits(IP, bits):
 		i -= 8 
 	return (bitValue)
 
-# Breaks IP into a range if it is subnetted
-def getRange(var, op, IP): 
-	net = IPv4Network(IP)
-	if (net[0] != net[-1]): # subnet
-		if op == "==":
-			return [var + " >= " + str(net[0]), var + " <= " + str(net[-1])]
-		elif op == "!=":
-			return [var + " < " + str(net[0]), var + " > " + str(net[-1])]
-		else:
-			print("Error, illegal operation in", condition)
-			exit()
-	else:
-		return ["{} {} {}".format(var,op,IP)]
-
 def convert_z3_variable_bit(condition, datatype, bits):
-    conditionSplit = condition.split()
-    constraints = [condition]
-    if not conditionSplit[2][0].isalpha():
-        constraints = getRange(conditionSplit[0], conditionSplit[1], conditionSplit[2])
-    elif not conditionSplit[0][0].isalpha():
-        constraints = getRange(conditionSplit[2], conditionSplit[1], conditionSplit[0])
-    conditionFinal = "And("
-    for i, constraint in enumerate(constraints):
-	    c_list = constraint.split()
-	    if c_list[0][0].isalpha():
-	        op1 = f"z3.{datatype}('{c_list[0]}',{bits})"
-	    else: 
-	    	val = convertIPToBits(c_list[0], 32)
-	    	op1 = f"z3.{datatype}Val('{val}',{bits})"
-	    
-	    if c_list[2][0].isalpha():
-	        op2 = f"z3.{datatype}('{c_list[2]}',{bits})"
-	    else:
-	    	val = convertIPToBits(c_list[2], 32)
-	    	op2 = f"z3.{datatype}Val('{val}',{bits})"
-	    operator = c_list[1]
-	    conditionFinal += "{} {} {}".format(op1, operator, op2)
-	    if i < len(constraints)-1:
-	    	conditionFinal += ","
-    conditionFinal += ')'
-    return conditionFinal
+    c_list = condition.split()
+
+    if c_list[0][0].isalpha():
+        op1 = f"z3.{datatype}('{c_list[0]}',{bits})"
+    else: 
+    	val = convertIPToBits(c_list[0], 32)
+    	op1 = f"z3.{datatype}Val('{val}',{bits})"
+    
+    if c_list[2][0].isalpha():
+        op2 = f"z3.{datatype}('{c_list[2]}',{bits})"
+    else:
+    	val = convertIPToBits(c_list[2], 32)
+    	op2 = f"z3.{datatype}Val('{val}',{bits})"
+    
+    operator = c_list[1]
+    return op1, operator, op2
 
 def get_domain_conditions_from_list(domains, datatype):
 	expressions = []
@@ -91,9 +67,10 @@ def get_domain_conditions_from_list(domains, datatype):
 	for var in domains:
 		conditions = []
 		for cond in domains[var]:
-			prcd_cond = convert_z3_variable(cond, datatype)
+			op1, operator, op2 = convert_z3_variable(cond, datatype)
+			prcd_cond = "{} {} {}".format(op1, operator, op2)
 			conditions.append(prcd_cond)
-		var_domain_list.append("And({})".format(", ".join(conditions)))
+		var_domain_list.append("Or({})".format(", ".join(conditions)))
 	domain_conditions = ", ".join(var_domain_list)
 	return domain_conditions
 
@@ -131,19 +108,14 @@ def analyze(condition, datatype):
                 prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
             
             c = cond_str[pair[0]: pair[1]].strip()
-            prcd_cond += convert_z3_variable(c, datatype)
-            # for num in range(len(op1)):# TODO: assert that length of op1, operator and op2 is the same
-            #     prcd_cond += "{} {} {}".format(op1[num], operator[num], op2[num])
-            #     if num < len(op1)-1:
-            #         prcd_cond += ","
+            op1, operator, op2 = convert_z3_variable(c, datatype)
+            prcd_cond += "{} {} {}".format(op1, operator, op2)
         prcd_cond += cond_str[condition_positions[-1][1]:]
         # print(prcd_cond)
     else:
-        prcd_cond += convert_z3_variable(condition, datatype)
-        # for num in range(len(op1)):# TODO: assert that length of op1, operator and op2 is the same
-        #     prcd_cond += "{} {} {}".format(op1[num], operator[num], op2[num])
-        #     if num < len(op1)-1:
-        #         prcd_cond += ","
+        op1, operator, op2 = convert_z3_variable(condition, datatype)
+        prcd_cond += "{} {} {}".format(op1, operator, op2)
+        # print(prcd_cond)
     return prcd_cond
 
 def get_max(overlay):
@@ -199,7 +171,7 @@ def check_is_tautology(union_conditions, domain_conditions):
     negation_union_conditions = "Not({})".format(union_conditions)
     z3_begin = time.time()
     solver = z3.Solver()
-    print(domain_conditions)
+    
     solver.add(eval(domain_conditions)) # set domain for variables
     solver.add(eval(negation_union_conditions)) # set negation union conditions
     
