@@ -30,26 +30,26 @@ DEST_VAR = 'd'
 F = 'f'
 
 # encodes a firwall rule in a bit-string format
-def encodeFirewallRule(firewallRule):
-	return firewallRule
+def encodeFirewallRule(acl):
+	return 'And(' + ",".join(acl) + ')'
 	#if (firewallRule == permit):
 	# source and destination?
 
 # Creates a one-big-switch table with a middlebox for firwall that contains all firewall rules in the network. The created table is stored as 'tablename' in postgreSQL.
-def addFirewallOneBigSwitch(cursor, firewallRules = [""], tablename = "T_o", forwardNodeIP = '1.0.0.0', firewallNodeIP = '2.0.0.0'):
+def addFirewallOneBigSwitch(cursor, aclList = [""], tablename = "T_o", forwardNodeIP = '1.0.0.0', firewallNodeIP = '2.0.0.0'):
 	curr_type = "inet_faure"
 	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
 	cursor.execute("CREATE TABLE {}(F {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type, curr_type))
 	conn.commit()    
 	encodedRules = []
-	for firewallRule in firewallRules:
-		encodedRules.append(encodeFirewallRule(firewallRule))
+	for acl in aclList:
+		encodedRules.append(encodeFirewallRule(acl))
 	bigFirewallRule = '\'{"Or(' + ",".join(encodedRules) + ')"}\''
 	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, SOURCE_VAR, forwardNodeIP))
-	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', {});".format(tablename, F, forwardNodeIP, firewallNodeIP, bigFirewallRule))
+	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, forwardNodeIP, firewallNodeIP))
 	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, forwardNodeIP, forwardNodeIP))
-	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, firewallNodeIP, firewallNodeIP))
-	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, firewallNodeIP, DEST_VAR))
+	# cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, firewallNodeIP, firewallNodeIP))
+	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', {});".format(tablename, F, firewallNodeIP, DEST_VAR, bigFirewallRule))
 	conn.commit()
 
 def extractFlows(F_variable, paths, conditionColumn):
@@ -75,12 +75,13 @@ if __name__ == "__main__":
 	cursor = conn.cursor()
 	tablename = "T_o"
 	datatype = "BitVec"
-	firewallRules = ["f == 2.0.0.1", "f == 1.0.0.1"]
-	addFirewallOneBigSwitch(firewallRules=firewallRules, tablename=tablename, cursor=cursor)
+	aclList = [["f < 4.0.0.0"], ["f > 2.0.0.0", "f < 30.0.0.0"]]
+	addFirewallOneBigSwitch(aclList=aclList, tablename=tablename, cursor=cursor)
 
-	paths = [('30.0.0.0', 'y', 'f2', ''), ('y', 'u', 'f2', 'f2 == 2.0.0.1'), ('u','w', 'f2', ''), ('w', '20.0.0.0', 'f2', '')]
-	flows = extractFlows(F, paths, 3)
-	sourceIP, destIP, flowID = extractSummary(paths, 0, 1, 2)
+	paths = [('30.0.0.0', 'y', 'f2', ''), ('y', 'u', 'f2', ''), ('u','w', 'f2', ''), ('w', '20.0.0.0', 'f2', '')]
+	flows = extractFlows(F_variable=F, paths=paths, conditionColumn=3)
+
+	sourceIP, destIP, flowID = extractSummary(paths=paths, source_col=0, dest_col=1, flow_col=2)
 	summary = [sourceIP, destIP, flowID]
 
 	sql2 = tableau.convert_tableau_to_sql(paths, tablename, summary, ['n1', 'n2', 'F'])
@@ -107,7 +108,11 @@ if __name__ == "__main__":
 
 	# ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
 	# print(union_conditions)
-	ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+	if union_conditions != "Or()":
+		ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+		print(model)
+	else:
+		ans = False
 	print(ans)
 	# upd_time = translator_pyotr.upd_condition(tree)
 	conn.close()
