@@ -230,7 +230,6 @@ def process_where_clause(clause):
         else:
             left_opr_list[2] = left_opd
 
-        print(right_opd)
         # whether specify table's name
         right_opr_list = ['', '', ''] # [tablename, '.'/'', col]
         if '.' in right_opd and not tableau.isIPAddress(right_opd):
@@ -309,6 +308,7 @@ def get_all_columns(tables):
                     columns.append([[t[2], '.', col[0]], 'as', '{}_{}'.format(t[2], col[0])])
         # print(col_conds)
     columns.append([['', '', ' || '.join(col_conds)], 'as', 'condition'])
+    conn.commit()
     # print(columns)
     return columns
 

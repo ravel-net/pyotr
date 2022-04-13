@@ -97,7 +97,7 @@ if __name__ == "__main__":
 				summary = getConstants(group)
 				closure_group_length.append(len(group))
 				print(summary)
-				sql = tableau.convert_tableau_to_sql(group, tableName, summary) + " LIMIT 1"
+				sql = tableau.convert_tableau_to_sql(group, tableName, summary, ['n1', 'n2']) + " LIMIT 1"
 				begin = time.time()
 				cur.execute(sql)
 				end = time.time()

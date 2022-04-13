@@ -44,10 +44,10 @@ def calculate_tableau(tuples, reverse_conns, number_components):
     for tuple in tuples:
         if (tuple[0] in reverse_conns):
             component_number = reverse_conns[tuple[0]]-1
-            tableau[component_number].append((tuple[0], tuple[1]))
+            tableau[component_number].append((tuple[0], tuple[1]) + tuple[2:])
         elif (tuple[1] in reverse_conns):
             component_number = reverse_conns[tuple[1]]-1
-            tableau[component_number].append((tuple[0], tuple[1]))
+            tableau[component_number].append((tuple[0], tuple[1]) + tuple[2:])
     return tableau
 
 # Given a tuple and a table, returns the closure group of the tuple from the table.

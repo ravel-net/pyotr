@@ -11,6 +11,16 @@ def addNodes(num_vertices, numNodes):
         self.add_edge(randomNode, node)
     return extraNodes
 
+def getShortestPaths(g, num_vertices, num_paths):
+	currentPathList = []
+	for extraNode in range(num_paths):
+		source = num_vertices+(2*extraNode)
+		dest = num_vertices+(2*extraNode)+1
+		paths = g.get_shortest_paths(source,dest)
+		currentPathList += paths
+	return currentPathList
+
+
 def getIndPaths(g, num_vertices, num_paths):
 	currentPathList = []
 	for extraNode in range(num_paths):
@@ -53,6 +63,18 @@ def getTableau(num_vertices, num_paths, paths):
 		if (node1.isdigit() and node2.isdigit()):
 			continue
 		tableau.append(tuple((node1, node2)))
+	return tableau
+
+def getTableauWithFlowID(num_vertices, num_paths, paths):
+	tableau = []
+	for f, path in enumerate(paths):
+		constants = range(num_vertices, num_vertices+(2*num_paths))
+		for i in range(len(path)-1):
+			node1 = value(path[i], constants)
+			node2 = value(path[i+1], constants)
+			if (node1.isdigit() and node2.isdigit()):
+				continue
+			tableau.append(tuple((node1, node2, 'f'+str(f))))
 	return tableau
 
         

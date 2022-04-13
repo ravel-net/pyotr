@@ -11,6 +11,7 @@ import databaseconfig as cfg
 import psycopg2
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+conn.set_session(readonly=False, autocommit=True)
 cursor = conn.cursor()
 
 # datatype = "String"
@@ -84,16 +85,19 @@ def convert_z3_variable_bit(condition, datatype, bits):
     conditionFinal += ')'
     return conditionFinal
 
-def get_domain_conditions_from_list(domains, datatype):
+def get_domain_conditions_from_list(domains, datatype, flow_var):
 	expressions = []
 	expressionsStr = []
 	var_domain_list = []
 	for var in domains:
-		conditions = []
-		for cond in domains[var]:
-			prcd_cond = convert_z3_variable(cond, datatype)
-			conditions.append(prcd_cond)
-		var_domain_list.append("And({})".format(", ".join(conditions)))
+		var_list = []
+		for conds in domains[var]:
+			conditions = []
+			for cond in conds:
+				prcd_cond = convert_z3_variable(cond, datatype)
+				conditions.append(prcd_cond)
+			var_list.append("And({})".format(", ".join(conditions)))
+		var_domain_list.append("Or({})".format(", ".join(var_list)))
 	domain_conditions = ", ".join(var_domain_list)
 	return domain_conditions
 
@@ -171,6 +175,7 @@ def get_union_conditions(tablename='output', datatype='Int'):
         
     union_condition = "Or({})".format(", ".join(union_cond)) # logical Or for every tuples' condition
     end = time.time()
+    conn.commit()
     return union_condition, end - begin
 
 def get_domain_conditions(overlay_nodes, variables_list, datatype):
@@ -199,10 +204,8 @@ def check_is_tautology(union_conditions, domain_conditions):
     negation_union_conditions = "Not({})".format(union_conditions)
     z3_begin = time.time()
     solver = z3.Solver()
-    print(domain_conditions)
     solver.add(eval(domain_conditions)) # set domain for variables
     solver.add(eval(negation_union_conditions)) # set negation union conditions
-    
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
     z3_end = time.time()
 
