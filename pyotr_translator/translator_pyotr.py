@@ -576,12 +576,13 @@ def normalization(datatype):
                 upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
     redun_end = time.time()
     
-    for k, v in solver.statistics():
-        if (k == "max memory"):
-            print ("Solver Max Memory: %s : %s" % (k, v))
-    for k, v in tauto_solver.statistics():
-        if (k == "max memory"):
-            print ("TSolver Max Memory: %s : %s" % (k, v))
+    if OPEN_OUTPUT:
+        for k, v in solver.statistics():
+            if (k == "max memory"):
+                print ("Solver Max Memory: %s : %s" % (k, v))
+        for k, v in tauto_solver.statistics():
+            if (k == "max memory"):
+                print ("TSolver Max Memory: %s : %s" % (k, v))
 
     # '''
     # delete duplicate rows

@@ -3,9 +3,11 @@ from tqdm import tqdm
 import time
 import sys
 import copy
+import random
 import re
 import shortest_paths
 from os.path import dirname, abspath, join
+import json
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
@@ -23,17 +25,19 @@ output_table_name = 'output'
 
 SOURCE_VAR = 's'
 DEST_VAR = 'd'
+# SOURCE = 's'
+# DEST = 'd'
 SOURCE = '192.168.1.1'
 DEST = '192.168.1.2'
 F = 'f'
-source_col=0
-dest_col=1
-flow_col=2
-condition_col =3
+SOURCE_COL=0
+DEST_COL=1
+FLOW_COL=2
+CONDITION_COL =3
 
-# encodes a firwall rule in a bit-string format
+# encodes a firwall rule. This is OR if we are using an allow list. It would be and for a deny list
 def encodeFirewallRule(acl):
-	return 'And(' + ",".join(acl) + ')'
+	return 'Or(' + ",".join(acl) + ')'
 	#if (firewallRule == permit):
 	# source and destination?
 
@@ -113,13 +117,15 @@ def getPaths(ISP_path, AS, num_paths):
 # 	return pathsWithFlowID
 
 # Given a node to ACL list mapping (distributed firewall) with paths, produces a tableau with conditions added
-def addConditions(closureGroups, nodeACLMapping, condition_col):
+def addConditions(closureGroups, nodeACLMapping, condition_col, source_col, flow_col, flow_var):
 	pathsWithConditions = [] 
 	for group in closureGroups:
 		curr_group = []
 		for tuple in group:
-			if (tuple[0] in nodeACLMapping):
-				curr_group.append(tuple + (nodeACLMapping[tuple[0]],))
+			if (tuple[source_col] in nodeACLMapping):
+				curr_condition = ",".join(nodeACLMapping[tuple[0]])
+				curr_condition = curr_condition.replace(flow_var, tuple[flow_col])
+				curr_group.append(tuple + (curr_condition,))
 			else:
 				curr_group.append(tuple + ('',))
 		pathsWithConditions.append(curr_group)
@@ -133,27 +139,67 @@ def getIPConditions(var, IPs):
 	return conditions
 
 # Makes the sources and destinations variables. Returns the sources and destinations
-def makeEndNodesVariable(paths, source_col, dest_col):
+def makeEndNodesVariable(path, source_col, dest_col, flow_col):
 	source_list = []
 	dest_list = []
-	for pathNum, path in enumerate(paths):
-		source = SOURCE_VAR+str(pathNum)
-		dest = DEST_VAR+str(pathNum)
-		path[0] = path[0][0:source_col] + (source,) + path[0][source_col+1:]
-		path[-1] = path[-1][0:dest_col] + (dest,) + path[-1][dest_col+1:]
-		source_list.append(source)
-		dest_list.append(dest)
+	for i, tuple in enumerate(path):
+		if tuple[source_col][0].isdigit():
+			source = SOURCE_VAR+tuple[flow_col]
+			path[i] = path[i][0:source_col] + (source,) + path[i][source_col+1:] 
+			source_list.append(source)
+		if tuple[dest_col][0].isdigit():
+			dest = DEST_VAR+tuple[flow_col]
+			path[i] = path[i][0:dest_col] + (dest,) + path[i][dest_col+1:] 
+			dest_list.append(dest)
 	return source_list, dest_list
 
 # Takes nodes as an input and divides ACL randomly to them. Each nodes can get 0,1,2, or 3 ACLs
 def getNodeACLMapping(nodes, aclList):
 	nodeACLMapping = {}
-	for acl in aclList:
+	for acl in aclList[0:10]:
 		random_index = random.randint(0,len(nodes)-1) # select random node
 		selected_node = nodes[random_index]
 		if selected_node not in nodeACLMapping:
 			nodeACLMapping[selected_node] = []
-		nodeACLMapping[selected_node].append()
+		nodeACLMapping[selected_node].append(acl)
+	return nodeACLMapping
+# iterates over paths and returns all distinct variable nodes
+def getNodes(path, source_col, dest_col):
+	nodes = []
+	for tuples in path:
+		if tuples[source_col] not in nodes and tuples[source_col][0].isalpha():
+			nodes.append(tuples[source_col])
+		if tuples[dest_col] not in nodes and tuples[dest_col][0].isalpha():
+			nodes.append(tuples[dest_col])
+	return nodes
+
+# List of acls
+def getDividedAccessList(nodeACLMapping):
+	dividedAccessList = []
+	for var in nodeACLMapping:
+		dividedAccessList.append(nodeACLMapping[var])
+	return dividedAccessList
+
+# listType is either "deny" or "allow"
+def getAccessListDest(filename, listType, F_variable):
+    access_list = []
+    opr = "=="
+    if listType == "deny":
+    	opr = "!="
+    with open(filename) as d:
+        rule_list = []
+        for line in d:
+            if line not in rule_list:
+                rule_list.append(line)
+                data = json.loads(line.strip())
+                if len(data) == 2:
+                    # if data["source"] == "0.0.0.0/32" and data["destination"] == "0.0.0.0/32":
+                    #     continue
+                    if data["destination"] == "0.0.0.0/32":
+                        continue
+                    rule = "{} {} {}".format(F_variable, opr, data["destination"])
+                    access_list.append(rule)
+    return access_list
 
 if __name__ == "__main__":
 	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
@@ -162,80 +208,55 @@ if __name__ == "__main__":
 
 	tablename = "T_o"
 	datatype = "BitVec"
-	aclList = [["f < 4.0.0.0"], ["f == 192.168.0.0/16"]]
-	# accessListDest = getAccessListDest("/path/to/accesslist")
-	# aclList = partitionAccessList(accessListDest)
-	addFirewallOneBigSwitch(aclList=aclList, tablename=tablename, cursor=cursor)
+	num_paths = 3
+	AS = "4755"
+	ISP_path = join(root, 'topo/ISP_topo/')
+	allow_list_path = join(root, 'experiments/arch_query/access_list/permit_list.txt')
+	deny_list_path = join(root, 'experiments/arch_query/access_list/deny_list.txt')
+	paths = getPaths(ISP_path, AS, num_paths)
+	# aclList = getAccessListDest(allow_list_path, "allow", F) + getAccessListDest(deny_list_path, "deny", F) 
+	aclList = getAccessListDest(allow_list_path, "allow", F) 
+	nodes = getNodes(paths, SOURCE_COL, DEST_COL)
+	nodeACLMapping = getNodeACLMapping(nodes, aclList)
+	dividedAccessList = getDividedAccessList(nodeACLMapping)
+	addFirewallOneBigSwitch(aclList=dividedAccessList, tablename=tablename, cursor=cursor)
 	conn.commit()
 	conn.close()
-	# num_paths = 3
-	# AS = "4755"
-	# ISP_path = join(root, 'topo/ISP_topo/')
-	# paths = getPaths(ISP_path, AS, num_paths)
-	# paths = [('s1', 'y', 'f0'), ('y', 'u', 'f0'), ('u','w', 'f0'), ('w', 'd', 'f0'), ('s2', 'x', 'f1'), ('x', 'z', 'f1'), ('z','n', 'f1'), ('n', 'd', 'f1')]
-	paths = [[('3.0.0.0', 'y', 'f2'), ('y', 'u', 'f2'), ('u','w', 'f2'), ('w', '4.0.0.0', 'f2')]]
-	# nodes = getNodes(paths)
-	# nodeACLMapping = getNodeACLMapping(nodes, aclList)
-	source_sumaries, dest_summaries = makeEndNodesVariable(paths, source_col, dest_col)
-	nodeACLMapping = {"x":', '.join(aclList[0]), "y":','.join(aclList[1]).replace("f","f2")}
+	source_sumaries, dest_summaries = makeEndNodesVariable(paths, SOURCE_COL, DEST_COL, FLOW_COL)
 	pathsClosureGroups = closure_overhead.getAllClosureGroups(paths)
-	pathsWithConditions = addConditions(pathsClosureGroups, nodeACLMapping, condition_col)
-	# for pathsTableau in paths:
-	i = 0
+	pathsWithConditions = addConditions(pathsClosureGroups, nodeACLMapping, CONDITION_COL, SOURCE_COL, FLOW_COL,F)
+
+	print("Closure Groups: ", len(pathsWithConditions))
+	if (len(pathsWithConditions) != 3):
+		exit()
 	for pathsTableau in pathsWithConditions:
-		# i += 1
-		# if (i == 1):
-		# 	continue
-		print(pathsTableau)
-		sourceIPs, destIPs, flowIDs = extractSummary(paths=pathsTableau, source_col=source_col, dest_col=dest_col, flow_col=flow_col)
-		print(sourceIPs, destIPs, flowIDs)
-		flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=condition_col)
+		sourceIPs, destIPs, flowIDs = extractSummary(paths=pathsTableau, source_col=SOURCE_COL, dest_col=DEST_COL, flow_col=FLOW_COL)
+		flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=CONDITION_COL)
 		summary = sourceIPs + destIPs + flowIDs + source_sumaries + dest_summaries
-		print("flows", flows)
-		print(pathsTableau)
 		sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'conditions'])
-		print(sql)
-		# sql = "select t0.n1, t4.n1, t4.F, t0.F, t3.n2 from T_o t0, T_o t1, T_o t2, T_o t3, T_o t4, T_o t5, T_o t6, T_o t7 where t1.F > '2.0.0.0' and t1.F < '30.0.0.0' and t0.n2 = t1.n1 and t0.F = t1.F and t1.n2 = t2.n1 and t1.F = t2.F and t3.n2 = '20.0.0.0' and t2.n2 = t3.n1 and t2.F = t3.F and t5.F < '4.0.0.0' and t4.n2 = t5.n1 and t4.F = t5.F and t5.n2 = t6.n1 and t5.F = t6.F and t7.n2 = '20.0.0.0' and t6.n2 = t7.n1 and t6.F = t7.F and t1.n2 = t5.n2 and t3.n1 = t7.n1"
 		domains = {
-			# SOURCE_VAR: getIPConditions(SOURCE_VAR, sourceIPs),
-			# [["{} == {}".format(SOURCE_VAR, sourceIP)], ["{} == {}".format(SOURCE_VAR, '40.0.0.0')]], 
-			# DEST_VAR: getIPConditions(DEST_VAR, destIPs),
 			F: [flows]
-			# F: aclList
 		}
 
-		domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
 		tree = translator_pyotr.generate_tree(sql)
 		data_time = translator_pyotr.data(tree)
 		upd_time = translator_pyotr.upd_condition(tree)
 		nor_time = translator_pyotr.normalization(datatype)
 		union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=datatype)
-		# exit()3
-		# domain_conditions, domain_time = check_tautology.get_domain_conditions(overlay_nodes=[], variables_list=[SOURCE_VAR, 'd'], datatype=datatype)
-		# domain_conditions = "Or(z3.Int(SOURCE_VAR) == z3.IntVal(30)), Or(z3.Int('d') == z3.IntVal(20)), Or(z3.Int('f') == z3.IntVal(2))"
-
-
-
-		# ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
-		# print(union_conditions)
+		domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
+		runtime = 0
 		if union_conditions != "Or()": # i.e. Empty table
 			ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
 			print(model)
 		else:
 			ans = False
+		print("=======================================")
 		print(ans)
+		print(flows)
 		print("Data time", data_time)
 		print("Update time", upd_time)
 		print("Normalization time", nor_time)
 		print("Check Tautology time", runtime)
-		# print("Total time", runtime+nor_time+upd_time+data_time)
-		# upd_time = translator_pyotr.upd_condition(tree)
-# Or(
-# 	And(And(z3.BitVec('s',32) == z3.BitVecVal('503316480',32))), 
-# 	And(And(z3.BitVec('s',32) == z3.BitVecVal('671088640',32)))), 
-# Or(And(And(z3.BitVec('d',32) == z3.BitVecVal('335544320',32)))), 
-# Or(
-# 	And(
-# 		And(z3.BitVec('f',32) > z3.BitVecVal('33554432',32)), 
-# 		And(z3.BitVec('f',32) < z3.BitVecVal('503316480',32))), 
-# 	And(And(z3.BitVec('f',32) < z3.BitVecVal('67108864',32))))
+		print("Total time", data_time+upd_time+runtime+nor_time["contradiction"][1]+nor_time["redundancy"][1])
+		print("Length of path", len(pathsTableau))
+		print("=======================================")

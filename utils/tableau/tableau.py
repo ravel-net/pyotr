@@ -204,8 +204,6 @@ def extractWhereCondition(c, i, variableList):
     left_opd = c[:match.span()[0]].strip()
     opr = match.group()
     right_opd = c[match.span()[1]:].strip()
-    print(variableList)
-    print(left_opd)
     column_name = variableList[left_opd][0] # TODO: Check if variable is in the tableau or not
     condition = ""
     if (opr == "=="): # TODO: Make this conversion better

@@ -10,10 +10,7 @@ from z3 import Or, And, Not
 import databaseconfig as cfg
 import psycopg2
 
-conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
-conn.set_session(readonly=False, autocommit=True)
-cursor = conn.cursor()
-
+OPEN_OUTPUT = False
 # datatype = "String"
 # datatype = "Int"
 def convert_z3_variable(condition, datatype):
@@ -50,7 +47,7 @@ def getRange(var, op, IP, sep):
 		if op == "==" or op == "=":
 			return [var + " >= " + sep + str(net[0]) + sep, var + " <= " + sep + str(net[-1]) + sep]
 		elif op == "!=":
-			return [var + " < " + sep + str(net[0]) + sep, var + "' > " + sep + str(net[-1]) + sep]
+			return [var + " <= " + sep + str(net[0]) + sep, var + " >= " + sep + str(net[-1]) + sep]
 		else:
 			print("Error, illegal operation in", condition)
 			exit()
@@ -158,8 +155,12 @@ def get_max(overlay):
     return max_val
 
 def get_union_conditions(tablename='output', datatype='Int'):
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(readonly=False, autocommit=True)
+    cursor = conn.cursor()
     begin = time.time()
     cursor.execute("select condition from {}".format(tablename))
+    # conn.commit()
     union_cond = []
     row = cursor.fetchone()
     while row is not None:
@@ -176,6 +177,7 @@ def get_union_conditions(tablename='output', datatype='Int'):
     union_condition = "Or({})".format(", ".join(union_cond)) # logical Or for every tuples' condition
     end = time.time()
     conn.commit()
+    conn.close()
     return union_condition, end - begin
 
 def get_domain_conditions(overlay_nodes, variables_list, datatype):
@@ -210,10 +212,10 @@ def check_is_tautology(union_conditions, domain_conditions):
     z3_end = time.time()
 
     # print("total execution time: ", z3_end - z3_begin)
-
-    for k, v in solver.statistics():
-        if (k == "max memory"):
-            print ("Check_Taut Max Memory: %s : %s" % (k, v))
+    if OPEN_OUTPUT:
+        for k, v in solver.statistics():
+            if (k == "max memory"):
+                print ("Check_Taut Max Memory: %s : %s" % (k, v))
     if ans == z3.sat:
         model = solver.model()
         # print(model)
