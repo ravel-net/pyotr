@@ -23,6 +23,8 @@ output_table_name = 'output'
 
 SOURCE_VAR = 's'
 DEST_VAR = 'd'
+SOURCE = '192.168.1.1'
+DEST = '192.168.1.2'
 F = 'f'
 source_col=0
 dest_col=1
@@ -44,9 +46,9 @@ def addFirewallOneBigSwitch(cursor, aclList = [""], tablename = "T_o", forwardNo
 	for acl in aclList:
 		encodedRules.append(encodeFirewallRule(acl))
 	bigFirewallRule = '\'{"Or(' + ",".join(encodedRules) + ')"}\''
-	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, SOURCE_VAR, firewallNodeIP))
+	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, SOURCE, firewallNodeIP))
 	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', {});".format(tablename, F, firewallNodeIP, forwardNodeIP, bigFirewallRule))
-	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, forwardNodeIP, DEST_VAR))
+	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, forwardNodeIP, DEST))
 	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, forwardNodeIP, forwardNodeIP))
 	cursor.execute("INSERT INTO {} VALUES ('{}', '{}', '{}', array[]::text[]);".format(tablename, F, firewallNodeIP, firewallNodeIP))
 
@@ -130,6 +132,29 @@ def getIPConditions(var, IPs):
 		conditions.append(["{} == {}".format(var, ip)])
 	return conditions
 
+# Makes the sources and destinations variables. Returns the sources and destinations
+def makeEndNodesVariable(paths, source_col, dest_col):
+	source_list = []
+	dest_list = []
+	for pathNum, path in enumerate(paths):
+		source = SOURCE_VAR+str(pathNum)
+		dest = DEST_VAR+str(pathNum)
+		path[0] = path[0][0:source_col] + (source,) + path[0][source_col+1:]
+		path[-1] = path[-1][0:dest_col] + (dest,) + path[-1][dest_col+1:]
+		source_list.append(source)
+		dest_list.append(dest)
+	return source_list, dest_list
+
+# Takes nodes as an input and divides ACL randomly to them. Each nodes can get 0,1,2, or 3 ACLs
+def getNodeACLMapping(nodes, aclList):
+	nodeACLMapping = {}
+	for acl in aclList:
+		random_index = random.randint(0,len(nodes)-1) # select random node
+		selected_node = nodes[random_index]
+		if selected_node not in nodeACLMapping:
+			nodeACLMapping[selected_node] = []
+		nodeACLMapping[selected_node].append()
+
 if __name__ == "__main__":
 	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
 	conn.set_session(readonly=False, autocommit=True)
@@ -148,9 +173,10 @@ if __name__ == "__main__":
 	# ISP_path = join(root, 'topo/ISP_topo/')
 	# paths = getPaths(ISP_path, AS, num_paths)
 	# paths = [('s1', 'y', 'f0'), ('y', 'u', 'f0'), ('u','w', 'f0'), ('w', 'd', 'f0'), ('s2', 'x', 'f1'), ('x', 'z', 'f1'), ('z','n', 'f1'), ('n', 'd', 'f1')]
-	paths = [('s1', 'y', 'f2'), ('y', 'u', 'f2'), ('u','w', 'f2'), ('w', 'd', 'f2')]
+	paths = [[('3.0.0.0', 'y', 'f2'), ('y', 'u', 'f2'), ('u','w', 'f2'), ('w', '4.0.0.0', 'f2')]]
 	# nodes = getNodes(paths)
 	# nodeACLMapping = getNodeACLMapping(nodes, aclList)
+	source_sumaries, dest_summaries = makeEndNodesVariable(paths, source_col, dest_col)
 	nodeACLMapping = {"x":', '.join(aclList[0]), "y":','.join(aclList[1]).replace("f","f2")}
 	pathsClosureGroups = closure_overhead.getAllClosureGroups(paths)
 	pathsWithConditions = addConditions(pathsClosureGroups, nodeACLMapping, condition_col)
@@ -164,7 +190,7 @@ if __name__ == "__main__":
 		sourceIPs, destIPs, flowIDs = extractSummary(paths=pathsTableau, source_col=source_col, dest_col=dest_col, flow_col=flow_col)
 		print(sourceIPs, destIPs, flowIDs)
 		flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=condition_col)
-		summary = sourceIPs + destIPs + flowIDs + ['s1'] + ['d']
+		summary = sourceIPs + destIPs + flowIDs + source_sumaries + dest_summaries
 		print("flows", flows)
 		print(pathsTableau)
 		sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'conditions'])
