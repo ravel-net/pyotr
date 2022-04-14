@@ -137,7 +137,7 @@ if __name__ == "__main__":
 
 	tablename = "T_o"
 	datatype = "BitVec"
-	aclList = [["f < 4.0.0.0"], ["f > 2.0.0.0", "f < 30.0.0.0"]]
+	aclList = [["f < 4.0.0.0"], ["f == 192.168.0.0/16"]]
 	# accessListDest = getAccessListDest("/path/to/accesslist")
 	# aclList = partitionAccessList(accessListDest)
 	addFirewallOneBigSwitch(aclList=aclList, tablename=tablename, cursor=cursor)
@@ -147,11 +147,11 @@ if __name__ == "__main__":
 	# AS = "4755"
 	# ISP_path = join(root, 'topo/ISP_topo/')
 	# paths = getPaths(ISP_path, AS, num_paths)
-	paths = [('30.0.0.0', 'y', 'f0'), ('y', 'u', 'f0'), ('u','w', 'f0'), ('w', '20.0.0.0', 'f0'), ('40.0.0.0', 'x', 'f1'), ('x', 'z', 'f1'), ('z','n', 'f1'), ('n', '60.0.0.0', 'f1')]
-	# paths = [('30.0.0.0', 'y', 'f2', ''), ('y', 'u', 'f2', 'f2 < 4.0.0.0'), ('u','w', 'f2', ''), ('w', '20.0.0.0', 'f2', '')]
+	# paths = [('s1', 'y', 'f0'), ('y', 'u', 'f0'), ('u','w', 'f0'), ('w', 'd', 'f0'), ('s2', 'x', 'f1'), ('x', 'z', 'f1'), ('z','n', 'f1'), ('n', 'd', 'f1')]
+	paths = [('s1', 'y', 'f2'), ('y', 'u', 'f2'), ('u','w', 'f2'), ('w', 'd', 'f2')]
 	# nodes = getNodes(paths)
 	# nodeACLMapping = getNodeACLMapping(nodes, aclList)
-	nodeACLMapping = {"x":', '.join(aclList[0]), "y":','.join(aclList[1])}
+	nodeACLMapping = {"x":', '.join(aclList[0]), "y":','.join(aclList[1]).replace("f","f2")}
 	pathsClosureGroups = closure_overhead.getAllClosureGroups(paths)
 	pathsWithConditions = addConditions(pathsClosureGroups, nodeACLMapping, condition_col)
 	# for pathsTableau in paths:
@@ -164,11 +164,21 @@ if __name__ == "__main__":
 		sourceIPs, destIPs, flowIDs = extractSummary(paths=pathsTableau, source_col=source_col, dest_col=dest_col, flow_col=flow_col)
 		print(sourceIPs, destIPs, flowIDs)
 		flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=condition_col)
-		summary = sourceIPs + destIPs + flowIDs
+		summary = sourceIPs + destIPs + flowIDs + ['s1'] + ['d']
 		print("flows", flows)
+		print(pathsTableau)
 		sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'conditions'])
 		print(sql)
 		# sql = "select t0.n1, t4.n1, t4.F, t0.F, t3.n2 from T_o t0, T_o t1, T_o t2, T_o t3, T_o t4, T_o t5, T_o t6, T_o t7 where t1.F > '2.0.0.0' and t1.F < '30.0.0.0' and t0.n2 = t1.n1 and t0.F = t1.F and t1.n2 = t2.n1 and t1.F = t2.F and t3.n2 = '20.0.0.0' and t2.n2 = t3.n1 and t2.F = t3.F and t5.F < '4.0.0.0' and t4.n2 = t5.n1 and t4.F = t5.F and t5.n2 = t6.n1 and t5.F = t6.F and t7.n2 = '20.0.0.0' and t6.n2 = t7.n1 and t6.F = t7.F and t1.n2 = t5.n2 and t3.n1 = t7.n1"
+		domains = {
+			# SOURCE_VAR: getIPConditions(SOURCE_VAR, sourceIPs),
+			# [["{} == {}".format(SOURCE_VAR, sourceIP)], ["{} == {}".format(SOURCE_VAR, '40.0.0.0')]], 
+			# DEST_VAR: getIPConditions(DEST_VAR, destIPs),
+			F: [flows]
+			# F: aclList
+		}
+
+		domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
 		tree = translator_pyotr.generate_tree(sql)
 		data_time = translator_pyotr.data(tree)
 		upd_time = translator_pyotr.upd_condition(tree)
@@ -178,15 +188,7 @@ if __name__ == "__main__":
 		# domain_conditions, domain_time = check_tautology.get_domain_conditions(overlay_nodes=[], variables_list=[SOURCE_VAR, 'd'], datatype=datatype)
 		# domain_conditions = "Or(z3.Int(SOURCE_VAR) == z3.IntVal(30)), Or(z3.Int('d') == z3.IntVal(20)), Or(z3.Int('f') == z3.IntVal(2))"
 
-		domains = {
-			SOURCE_VAR: getIPConditions(SOURCE_VAR, sourceIPs),
-			# [["{} == {}".format(SOURCE_VAR, sourceIP)], ["{} == {}".format(SOURCE_VAR, '40.0.0.0')]], 
-			DEST_VAR: getIPConditions(DEST_VAR, destIPs),
-			# F:flows
-			F: [flows]
-		}
 
-		domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
 
 		# ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
 		# print(union_conditions)
@@ -196,6 +198,11 @@ if __name__ == "__main__":
 		else:
 			ans = False
 		print(ans)
+		print("Data time", data_time)
+		print("Update time", upd_time)
+		print("Normalization time", nor_time)
+		print("Check Tautology time", runtime)
+		# print("Total time", runtime+nor_time+upd_time+data_time)
 		# upd_time = translator_pyotr.upd_condition(tree)
 # Or(
 # 	And(And(z3.BitVec('s',32) == z3.BitVecVal('503316480',32))), 

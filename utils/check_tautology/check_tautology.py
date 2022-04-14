@@ -43,27 +43,27 @@ def convertIPToBits(IP, bits):
 		i -= 8 
 	return (bitValue)
 
-# Breaks IP into a range if it is subnetted
-def getRange(var, op, IP): 
+# Breaks IP into a range if it is subnetted. sep is a separator. For z3, it must be empty. For sql, it must be a single quotation mark
+def getRange(var, op, IP, sep): 
 	net = IPv4Network(IP)
 	if (net[0] != net[-1]): # subnet
-		if op == "==":
-			return [var + " >= " + str(net[0]), var + " <= " + str(net[-1])]
+		if op == "==" or op == "=":
+			return [var + " >= " + sep + str(net[0]) + sep, var + " <= " + sep + str(net[-1]) + sep]
 		elif op == "!=":
-			return [var + " < " + str(net[0]), var + " > " + str(net[-1])]
+			return [var + " < " + sep + str(net[0]) + sep, var + "' > " + sep + str(net[-1]) + sep]
 		else:
 			print("Error, illegal operation in", condition)
 			exit()
 	else:
-		return ["{} {} {}".format(var,op,IP)]
+		return ["{} {} {}{}{}".format(var,op,sep,IP,sep)]
 
 def convert_z3_variable_bit(condition, datatype, bits):
     conditionSplit = condition.split()
     constraints = [condition]
     if not conditionSplit[2][0].isalpha():
-        constraints = getRange(conditionSplit[0], conditionSplit[1], conditionSplit[2])
+        constraints = getRange(conditionSplit[0], conditionSplit[1], conditionSplit[2], "")
     elif not conditionSplit[0][0].isalpha():
-        constraints = getRange(conditionSplit[2], conditionSplit[1], conditionSplit[0])
+        constraints = getRange(conditionSplit[2], conditionSplit[1], conditionSplit[0], "")
     conditionFinal = "And("
     for i, constraint in enumerate(constraints):
 	    c_list = constraint.split()

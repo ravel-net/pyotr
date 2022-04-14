@@ -1,7 +1,12 @@
 import random
 import psycopg2
 import re
-
+import sys
+from os.path import dirname, abspath, join
+root = dirname(dirname(dirname(abspath(__file__))))
+print(root)
+sys.path.append(root)
+import utils.check_tautology.check_tautology as check_tautology
 
 """
  /- u -\
@@ -192,15 +197,24 @@ def get_max(overlay):
 def isIPAddress(opd):
     return len(opd.split(".")) == 4
 
-def extractWhereCondition(c, i, column_names):
+# Assumes that the condition c is of the form "var opr constant".
+def extractWhereCondition(c, i, variableList):
     c = c.strip()
     match = re.search('!=|<=|>=|<>|<|>|==', c)
     left_opd = c[:match.span()[0]].strip()
     opr = match.group()
     right_opd = c[match.span()[1]:].strip()
+    print(variableList)
+    print(left_opd)
+    column_name = variableList[left_opd][0] # TODO: Check if variable is in the tableau or not
+    condition = ""
     if (opr == "=="): # TODO: Make this conversion better
         opr = "="
-    return "t{}.{} {} '{}'".format(i, column_names[2], opr, right_opd)
+    if (isIPAddress(right_opd)):
+        condition = check_tautology.getRange(column_name, opr, right_opd, "'")
+    else:
+        condition = ["t{}.{} {} '{}'".format(i, column_name, opr, right_opd)]
+    return condition
 
 def convert_tableau_to_sql_distributed(tableau, tablename, overlay_nodes, column_names):
     """
@@ -242,7 +256,7 @@ def convert_tableau_to_sql_distributed(tableau, tablename, overlay_nodes, column
             elif column_names[col] == 'conditions':
                 conditionList = val.split(",")
                 for c in conditionList:
-                    constraints.append(extractWhereCondition(c, i, column_names))
+                    constraints += extractWhereCondition(c, i, variableList)
             elif val[0].isdigit():
                 constraints.append("t{}.{} = '{}'".format(i, column_names[col], val))
             else: # variable
