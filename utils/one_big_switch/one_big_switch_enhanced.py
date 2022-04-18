@@ -30,6 +30,7 @@ DEST_VAR = 'd'
 SOURCE = '192.168.1.1'
 DEST = '192.168.1.2'
 F = 'f'
+SUMMARY_INSTANCE = [F, SOURCE, DEST]
 SOURCE_COL=0
 DEST_COL=1
 FLOW_COL=2
@@ -37,7 +38,7 @@ CONDITION_COL =3
 
 # encodes a firwall rule. This is OR if we are using an allow list. It would be and for a deny list
 def encodeFirewallRule(acl):
-	return 'Or(' + ",".join(acl) + ')'
+	return 'And(' + ",".join(acl) + ')'
 	#if (firewallRule == permit):
 	# source and destination?
 
@@ -70,16 +71,18 @@ def extractFlows(F_variable, paths, condition_col):
 			    rules.append("{} {} {}".format(F_variable, opr, right_opd))
 	return rules
 
-def extractSummary(paths, source_col, dest_col, flow_col):
+def extractSummary(paths, source_summaries, dest_summaries, flow_col):
 	sourceIPs = set()
 	destIPs = set()
 	flowIDs = set()
 	for tuple in paths:
-		if tuple[source_col][0].isdigit():
-			sourceIPs.add(tuple[source_col])		
-		if tuple[dest_col][0].isdigit():
-			destIPs.add(tuple[dest_col])
-		flowIDs.add(tuple[flow_col])
+		for col, val in enumerate(tuple):
+			if col == flow_col:
+				flowIDs.add(tuple[flow_col])
+			elif val in source_summaries:
+				sourceIPs.add(val)
+			elif val in dest_summaries:
+				destIPs.add(val)
 	return list(sourceIPs), list(destIPs), list(flowIDs)
 
 
@@ -154,9 +157,9 @@ def makeEndNodesVariable(path, source_col, dest_col, flow_col):
 	return source_list, dest_list
 
 # Takes nodes as an input and divides ACL randomly to them. Each nodes can get 0,1,2, or 3 ACLs
-def getNodeACLMapping(nodes, aclList):
+def getNodeACLMapping(nodes, aclList, numberOfACLs):
 	nodeACLMapping = {}
-	for acl in aclList[0:10]:
+	for acl in aclList[0:numberOfACLs]:
 		random_index = random.randint(0,len(nodes)-1) # select random node
 		selected_node = nodes[random_index]
 		if selected_node not in nodeACLMapping:
@@ -201,62 +204,85 @@ def getAccessListDest(filename, listType, F_variable):
                     access_list.append(rule)
     return access_list
 
-if __name__ == "__main__":
-	conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-	conn.set_session(readonly=False, autocommit=True)
-	cursor = conn.cursor()
-
-	tablename = "T_o"
-	datatype = "BitVec"
-	num_paths = 3
-	AS = "4755"
-	ISP_path = join(root, 'topo/ISP_topo/')
-	allow_list_path = join(root, 'experiments/arch_query/access_list/permit_list.txt')
-	deny_list_path = join(root, 'experiments/arch_query/access_list/deny_list.txt')
-	paths = getPaths(ISP_path, AS, num_paths)
-	# aclList = getAccessListDest(allow_list_path, "allow", F) + getAccessListDest(deny_list_path, "deny", F) 
-	aclList = getAccessListDest(allow_list_path, "allow", F) 
-	nodes = getNodes(paths, SOURCE_COL, DEST_COL)
-	nodeACLMapping = getNodeACLMapping(nodes, aclList)
-	dividedAccessList = getDividedAccessList(nodeACLMapping)
-	addFirewallOneBigSwitch(aclList=dividedAccessList, tablename=tablename, cursor=cursor)
-	conn.commit()
-	conn.close()
-	source_sumaries, dest_summaries = makeEndNodesVariable(paths, SOURCE_COL, DEST_COL, FLOW_COL)
-	pathsClosureGroups = closure_overhead.getAllClosureGroups(paths)
-	pathsWithConditions = addConditions(pathsClosureGroups, nodeACLMapping, CONDITION_COL, SOURCE_COL, FLOW_COL,F)
-
-	print("Closure Groups: ", len(pathsWithConditions))
-	if (len(pathsWithConditions) != 3):
-		exit()
-	for pathsTableau in pathsWithConditions:
-		sourceIPs, destIPs, flowIDs = extractSummary(paths=pathsTableau, source_col=SOURCE_COL, dest_col=DEST_COL, flow_col=FLOW_COL)
-		flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=CONDITION_COL)
-		summary = sourceIPs + destIPs + flowIDs + source_sumaries + dest_summaries
-		sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'conditions'])
-		domains = {
-			F: [flows]
-		}
-
-		tree = translator_pyotr.generate_tree(sql)
-		data_time = translator_pyotr.data(tree)
-		upd_time = translator_pyotr.upd_condition(tree)
-		nor_time = translator_pyotr.normalization(datatype)
-		union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=datatype)
-		domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
-		runtime = 0
-		if union_conditions != "Or()": # i.e. Empty table
-			ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
-			print(model)
+# Separates flows for paths
+def separateFlows(paths, flow_col):
+	pathFlows = []
+	curr_path = []
+	for i in range(len(paths)-1):
+		curr_tuple = paths[i]
+		next_tuple = paths[i+1]
+		if curr_tuple[flow_col] == next_tuple[flow_col]:
+			curr_path.append(curr_tuple)
 		else:
-			ans = False
-		print("=======================================")
-		print(ans)
-		print(flows)
-		print("Data time", data_time)
-		print("Update time", upd_time)
-		print("Normalization time", nor_time)
-		print("Check Tautology time", runtime)
-		print("Total time", data_time+upd_time+runtime+nor_time["contradiction"][1]+nor_time["redundancy"][1])
-		print("Length of path", len(pathsTableau))
-		print("=======================================")
+			curr_path.append(curr_tuple)
+			pathFlows.append(copy.deepcopy(curr_path))
+			curr_path = []
+	curr_path.append(paths[-1])
+	pathFlows.append(copy.deepcopy(curr_path))
+	return pathFlows
+
+if __name__ == "__main__":
+	experimentFile = open("Results/7018_const_norm.txt", "a")
+	experimentFile.write("Path Length\t\tTotal Time\n")
+	runtimes = 10
+	for time in range(runtimes):
+		conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+		conn.set_session(readonly=False, autocommit=True)
+		cursor = conn.cursor()
+		tablename = "T_o"
+		datatype = "BitVec"
+		num_paths = 3
+		AS = "7018"
+		ISP_path = join(root, 'topo/ISP_topo/')
+		allow_list_path = join(root, 'experiments/arch_query/access_list/permit_list.txt')
+		deny_list_path = join(root, 'experiments/arch_query/access_list/deny_list.txt')
+		paths = getPaths(ISP_path, AS, num_paths)
+		# aclList = getAccessListDest(allow_list_path, "allow", F) + getAccessListDest(deny_list_path, "deny", F) 
+		aclList = getAccessListDest(deny_list_path, "deny", F) 
+		nodes = getNodes(paths, SOURCE_COL, DEST_COL)
+		nodeACLMapping = getNodeACLMapping(nodes, aclList, len(aclList))
+		dividedAccessList = getDividedAccessList(nodeACLMapping)
+		addFirewallOneBigSwitch(aclList=dividedAccessList, tablename=tablename, cursor=cursor)
+		conn.commit()
+		conn.close()
+
+		source_summaries, dest_summaries = makeEndNodesVariable(paths, SOURCE_COL, DEST_COL, FLOW_COL)
+		# pathsClosureGroups = closure_overhead.getAllClosureGroups(paths)
+		pathFlows = separateFlows(paths, FLOW_COL)
+		pathsWithConditions = addConditions(pathFlows, nodeACLMapping, CONDITION_COL, SOURCE_COL, FLOW_COL,F)
+
+		for pathsTableau in pathsWithConditions:
+			sourceIPs, destIPs, flowIDs = extractSummary(paths=pathsTableau, source_summaries=source_summaries, dest_summaries=dest_summaries, flow_col=FLOW_COL)
+			flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=CONDITION_COL)
+			summary = flowIDs + sourceIPs + destIPs
+			substituted_tableau = tableau.summary_substitutions(pathsTableau, summary, SUMMARY_INSTANCE)
+			sql = tableau.convert_tableau_to_sql_distributed(substituted_tableau, tablename, SUMMARY_INSTANCE, ['n1', 'n2', 'F', 'conditions'])
+			print(sql)
+			domains = {
+				F: [flows]
+			}
+
+			tree = translator_pyotr.generate_tree(sql)
+			data_time = translator_pyotr.data(tree)
+			upd_time = translator_pyotr.upd_condition(tree)
+			nor_time = translator_pyotr.normalization(datatype)
+			union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=datatype)
+			domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
+			runtime = 0
+			if union_conditions != "Or()": # i.e. Empty table
+				ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+				print(model)
+			else:
+				ans = False
+			print(ans)
+			print(flows)
+			total_time = data_time+upd_time+runtime+nor_time["contradiction"][1]+nor_time["redundancy"][1]
+			# total_time = data_time+upd_time+runtime
+			print("Data time", data_time)
+			print("Update time", upd_time)
+			print("Normalization time", nor_time)
+			print("Check Tautology time", runtime)
+			print("Total time", total_time)
+			print("Length of path", len(pathsTableau))
+			print("=======================================")
+			experimentFile.write(str(len(pathsTableau)) + "\t\t\t\t" + str(data_time+upd_time+runtime) + "\n")
