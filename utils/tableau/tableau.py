@@ -214,6 +214,22 @@ def extractWhereCondition(c, i, variableList):
         condition = ["t{}.{} {} '{}'".format(i, column_name, opr, right_opd)]
     return condition
 
+# Takes a tableau query and substitutes the summary of that query with the summary of the instance tableau
+# Note: The index of summary_query and summary_instance matter
+def summary_substitutions(tableau_query, summary_query, summary_instance):
+	substituted_tableau = []
+	for i, tuple in enumerate(tableau_query):
+		new_tuple = ()
+		for col, val in enumerate(tuple):
+			curr_val = val
+			for index, answer in enumerate(summary_query):
+				if answer in val:
+					substitution = summary_instance[index]  
+					curr_val = val.replace(answer, substitution)
+			new_tuple += (curr_val,)
+		substituted_tableau.append(new_tuple)
+	return substituted_tableau
+
 def convert_tableau_to_sql_distributed(tableau, tablename, overlay_nodes, column_names):
     """
     Convert tableau to corresponding SQL
