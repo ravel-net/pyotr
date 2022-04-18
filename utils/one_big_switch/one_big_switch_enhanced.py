@@ -22,10 +22,10 @@ output_table_name = 'output'
 
 SOURCE_VAR = 's'
 DEST_VAR = 'd'
-# SOURCE = 's'
-# DEST = 'd'
-SOURCE = '192.168.1.1'
-DEST = '192.168.1.2'
+SOURCE = 's'
+DEST = 'd'
+# SOURCE = '192.168.1.1'
+# DEST = '192.168.1.2'
 F = 'f'
 SUMMARY_INSTANCE = [F, SOURCE, DEST]
 SOURCE_COL=0
@@ -225,7 +225,7 @@ def separateFlows(paths, flow_col):
 	return pathFlows
 
 if __name__ == "__main__":
-	experimentFile = open("Results/7018_const_norm.txt", "a")
+	experimentFile = open("Results/4755_const_norm.txt", "a")
 	experimentFile.write("Path Length\t\tTotal Time\n")
 	runtimes = 10
 	for time in range(runtimes):
@@ -235,7 +235,7 @@ if __name__ == "__main__":
 		tablename = "T_o"
 		datatype = "BitVec"
 		num_paths = 3
-		AS = "7018"
+		AS = "4755"
 		ISP_path = join(root, 'topo/ISP_topo/')
 		allow_list_path = join(root, 'experiments/arch_query/access_list/permit_list.txt')
 		deny_list_path = join(root, 'experiments/arch_query/access_list/deny_list.txt')
@@ -289,6 +289,3 @@ if __name__ == "__main__":
 			print("Total time", total_time)
 			print("Length of path", len(pathsTableau))
 			print("=======================================")
-			experimentFile.write(str(len(pathsTableau)) + "\t\t\t\t" + str(data_time+upd_time+runtime) + "\n")
-			if "/" in flows[-1]:
-				exit()

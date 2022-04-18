@@ -235,14 +235,14 @@ CREATE FUNCTION network_cmp(inet_faure, inet_faure) RETURNS int4
 
 -- now we can make the operator class
 
-CREATE OPERATOR CLASS inet_faure_abs_ops
-    DEFAULT FOR TYPE inet_faure USING btree AS
-        OPERATOR        1       < ,
-        OPERATOR        2       <= ,
-        OPERATOR        3       = ,
-        OPERATOR        4       >= ,
-        OPERATOR        5       > ,
-        FUNCTION        1       network_cmp(inet_faure, inet_faure);
+-- CREATE OPERATOR CLASS inet_faure_abs_ops
+--    DEFAULT FOR TYPE inet_faure USING btree AS
+--        OPERATOR        1       < ,
+--        OPERATOR        2       <= ,
+--        OPERATOR        3       = ,
+--        OPERATOR        4       >= ,
+--        OPERATOR        5       > ,
+--        FUNCTION        1       network_cmp(inet_faure, inet_faure);
 
 
 -- now, we can define a btree index on inet_faure types. First, let's populate
