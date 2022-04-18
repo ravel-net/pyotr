@@ -208,10 +208,10 @@ def extractWhereCondition(c, i, variableList):
     condition = ""
     if (opr == "=="): # TODO: Make this conversion better
         opr = "="
-    if (isIPAddress(right_opd)):
-        condition = check_tautology.getRange(column_name, opr, right_opd, "'")
-    else:
-        condition = ["t{}.{} {} '{}'".format(i, column_name, opr, right_opd)]
+    # if (isIPAddress(right_opd)):
+    #     condition = check_tautology.getRange(column_name, opr, right_opd, "'")
+    # else:
+    condition = ["{} {} '{}'".format(column_name, opr, right_opd)]
     return condition
 
 # Takes a tableau query and substitutes the summary of that query with the summary of the instance tableau

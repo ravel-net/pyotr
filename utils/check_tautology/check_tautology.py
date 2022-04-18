@@ -61,7 +61,7 @@ def convert_z3_variable_bit(condition, datatype, bits):
         constraints = getRange(conditionSplit[0], conditionSplit[1], conditionSplit[2], "")
     elif not conditionSplit[0][0].isalpha():
         constraints = getRange(conditionSplit[2], conditionSplit[1], conditionSplit[0], "")
-    conditionFinal = "And("
+    conditionFinal = "Or("
     for i, constraint in enumerate(constraints):
 	    c_list = constraint.split()
 	    if c_list[0][0].isalpha():

@@ -180,7 +180,7 @@ CREATE FUNCTION inet_faureor(inet_faure, inet_faure) RETURNS inet_faure
 CREATE FUNCTION inet_faureand(inet_faure, inet_faure) RETURNS inet_faure
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION is_var(inet_faure) RETURNS bool
-   AS '/home/mudbri/Documents/GitHub/pyotr/dataypes/inet_faure/inet_faure' LANGUAGE C IMMUTABLE STRICT;
+   AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 
 CREATE OPERATOR < (
    leftarg = inet_faure, rightarg = inet_faure, procedure = c_less,

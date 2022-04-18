@@ -11,16 +11,13 @@ import json
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
+import databaseconfig as cfg
 import utils.tableau.tableau as tableau
 import pyotr_translator.translator_pyotr as translator_pyotr
 import utils.closure_group.closure_overhead as closure_overhead
 import utils.check_tautology.check_tautology as check_tautology
 import pprint
 
-host = '127.0.0.1'
-user = 'postgres'
-password = 'mubashir'
-database = 'test'
 output_table_name = 'output'
 
 SOURCE_VAR = 's'
@@ -166,14 +163,20 @@ def getNodeACLMapping(nodes, aclList, numberOfACLs):
 			nodeACLMapping[selected_node] = []
 		nodeACLMapping[selected_node].append(acl)
 	return nodeACLMapping
+
 # iterates over paths and returns all distinct variable nodes
-def getNodes(path, source_col, dest_col):
+def getNodes(path, source_col, dest_col, flow_col):
 	nodes = []
-	for tuples in path:
-		if tuples[source_col] not in nodes and tuples[source_col][0].isalpha():
-			nodes.append(tuples[source_col])
-		if tuples[dest_col] not in nodes and tuples[dest_col][0].isalpha():
-			nodes.append(tuples[dest_col])
+	for i in range(len(path)-1):
+		curr_tuple = path[i]
+		next_tuple = path[i+1]
+		node_to_add = ""
+		if (i == len(path)-2):
+			node_to_add = next_tuple[source_col]
+		elif (curr_tuple[flow_col] != next_tuple[flow_col]):
+			node_to_add = curr_tuple[source_col]
+		if (node_to_add != "" and node_to_add not in nodes):
+			nodes.append(node_to_add)
 	return nodes
 
 # List of acls
@@ -226,7 +229,7 @@ if __name__ == "__main__":
 	experimentFile.write("Path Length\t\tTotal Time\n")
 	runtimes = 10
 	for time in range(runtimes):
-		conn = psycopg2.connect(host=host,user=user,password=password,database=database)
+		conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 		conn.set_session(readonly=False, autocommit=True)
 		cursor = conn.cursor()
 		tablename = "T_o"
@@ -239,12 +242,12 @@ if __name__ == "__main__":
 		paths = getPaths(ISP_path, AS, num_paths)
 		# aclList = getAccessListDest(allow_list_path, "allow", F) + getAccessListDest(deny_list_path, "deny", F) 
 		aclList = getAccessListDest(deny_list_path, "deny", F) 
-		nodes = getNodes(paths, SOURCE_COL, DEST_COL)
+		nodes = getNodes(paths, SOURCE_COL, DEST_COL, FLOW_COL)
 		nodeACLMapping = getNodeACLMapping(nodes, aclList, len(aclList))
 		dividedAccessList = getDividedAccessList(nodeACLMapping)
 		addFirewallOneBigSwitch(aclList=dividedAccessList, tablename=tablename, cursor=cursor)
 		conn.commit()
-		conn.close()
+		# conn.close()
 
 		source_summaries, dest_summaries = makeEndNodesVariable(paths, SOURCE_COL, DEST_COL, FLOW_COL)
 		# pathsClosureGroups = closure_overhead.getAllClosureGroups(paths)
@@ -257,6 +260,7 @@ if __name__ == "__main__":
 			summary = flowIDs + sourceIPs + destIPs
 			substituted_tableau = tableau.summary_substitutions(pathsTableau, summary, SUMMARY_INSTANCE)
 			sql = tableau.convert_tableau_to_sql_distributed(substituted_tableau, tablename, SUMMARY_INSTANCE, ['n1', 'n2', 'F', 'conditions'])
+			# sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'conditions'])
 			print(sql)
 			domains = {
 				F: [flows]
@@ -286,3 +290,5 @@ if __name__ == "__main__":
 			print("Length of path", len(pathsTableau))
 			print("=======================================")
 			experimentFile.write(str(len(pathsTableau)) + "\t\t\t\t" + str(data_time+upd_time+runtime) + "\n")
+			if "/" in flows[-1]:
+				exit()
