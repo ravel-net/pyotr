@@ -1,0 +1,31 @@
+/home/manwar/pyotr
+/home/manwar/pyotr
+/home/manwar/pyotr
+/home/manwar/pyotr
+[[11292, 8978, 9875, 5197, 2178, 2180, 7639, 10776, 11293], [11294, 10337, 6840, 6325, 2549, 293, 11295], [11296, 7008, 6844, 3354, 7094, 6330, 123, 9961, 6139, 11297]]
+SUCCESS
+select t0.n1, t0.F, t7.n2 from T_o t0, T_o t1, T_o t2, T_o t3, T_o t4, T_o t5, T_o t6, T_o t7 where t0.F != '171.64.8.185' and t0.F != '171.64.8.75' and t0.F != '171.64.9.94' and t0.F != '171.64.9.101' and t0.F != '171.64.9.109' and t0.F != '171.64.9.125' and t0.n2 = t1.n1 and t0.F = t1.F and t1.F = t2.F and t2.F = t3.F and t3.F = t4.F and t4.F = t5.F and t5.F = t6.F and t6.F = t7.F and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1
+
+True
+['f != 171.64.8.185', 'f != 171.64.8.75', 'f != 171.64.9.94', 'f != 171.64.9.101', 'f != 171.64.9.109', 'f != 171.64.9.125']
+Data time 0.62040114402771
+Update time 12.046903371810913
+Normalization time {'contradiction': [22529, 128.7960057258606], 'redundancy': [9515, 2095.3231654167175]}
+Check Tautology time 8.514557600021362
+Total time 2245.301033258438
+Length of path 8
+=======================================
+select t0.n1, t0.F, t8.n2 from T_o t0, T_o t1, T_o t2, T_o t3, T_o t4, T_o t5, T_o t6, T_o t7, T_o t8 where t0.F != '171.64.8.139' and t0.F != '171.64.9.22' and t0.F != '171.64.9.118' and t0.F != '171.64.9.123' and t0.n2 = t1.n1 and t0.F = t1.F and t1.F = t2.F and t2.F = t3.F and t3.F = t4.F and t4.F = t5.F and t5.F = t6.F and t6.F = t7.F and t7.F = t8.F and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1
+
+True
+['f != 171.64.8.139', 'f != 171.64.9.22', 'f != 171.64.9.118', 'f != 171.64.9.123']
+Data time 1.7153713703155518
+Update time 107.57942652702332
+Normalization time {'contradiction': [74409, 446.7801139354706], 'redundancy': [25448, 5619.9404463768005]}
+Check Tautology time 17.353670120239258
+Total time 6193.369028329849
+Length of path 9
+=======================================
+[[11292, 10329, 3536, 1761, 5179, 95, 5473, 2276, 2640, 3005, 11293], [11294, 11091, 7731, 10258, 1102, 6330, 123, 1409, 3169, 11295], [11296, 5301, 6009, 8180, 2276, 2282, 3540, 3541, 9454, 4247, 5642, 11297]]
+SUCCESS
+select t0.n1, t0.F, t8.n2 from T_o t0, T_o t1, T_o t2, T_o t3, T_o t4, T_o t5, T_o t6, T_o t7, T_o t8 where t0.F != '171.64.8.185' and t0.F != '171.64.8.139' and t0.F != '171.64.8.75' and t0.F != '171.64.9.101' and t0.F != '171.64.9.118' and t0.F != '171.64.9.123' and t0.F != '129.198.0.0/16' and t0.n2 = t1.n1 and t0.F = t1.F and t1.F = t2.F and t2.F = t3.F and t3.F = t4.F and t4.F = t5.F and t5.F = t6.F and t6.F = t7.F and t7.F = t8.F and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = t4.n1 and t4.n2 = t5.n1 and t5.n2 = t6.n1 and t6.n2 = t7.n1 and t7.n2 = t8.n1
