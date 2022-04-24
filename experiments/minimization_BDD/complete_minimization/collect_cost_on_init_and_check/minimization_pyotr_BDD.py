@@ -18,7 +18,7 @@ password = cfg.postgres["password"]
 database = cfg.postgres["db"]
 
 conn = psycopg2.connect(host=host,user=user,password=password,database=database)
-conn.set_session(readonly=False, autocommit=True)
+#conn.set_session(readonly=False, autocommit=True)
 
 
 output_table_name = 'output'
@@ -30,7 +30,6 @@ def deleteTuple(new_table, new_table_name, cur):
     cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition {});".format(new_table_name, "int4_faure", "int4_faure", "integer"))
     for tuple in new_table:
         cur.execute("INSERT INTO {} VALUES ('{}', '{}', {});".format(new_table_name, tuple[0], tuple[1], tuple[2]))
-
     conn.commit()
 
 # given a tablename and an open cursor to a database, returns the table as a list
@@ -59,6 +58,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get current table
     curr_table = getCurrentTable(tablename, cur)
+    conn.commit()
     if OPEN_OUTPUT:
         print("current tablename:", tablename)
         print("current table:", curr_table)
