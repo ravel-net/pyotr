@@ -145,11 +145,23 @@ def read_components_file_Z3(filename, output, runtimes):
         # total_update_condition = 0
         # total_insertion = 0
         total_delete_time = 0
+        total_split_merge_time = 0
+        total_rest_time = 0
+        total_data_time = 0
+        total_upda_time = 0
+        total_merge_time = 0
+        total_nor_time = 0
         for line in d:
             line = line.replace("'", "\"")
             print (line)
             data = json.loads(line.strip())
-            total_delete_time += data["delete"]
+            #total_delete_time += data["delete"]
+            #total_split_merge_time += data["split"]
+            #total_rest_time += data["total"]
+            #total_data_time += data["data"]
+            #total_upda_time += data["upd"]
+            #total_merge_time += data["merge"]
+            #total_nor_time += data["nor_time"]
             contradiction_details = data["normalization"]["contrdiction"]
             for item in contradiction_details:
                 total_init_nor += item["init"]
@@ -180,9 +192,13 @@ def read_components_file_Z3(filename, output, runtimes):
         f.write("|{:.4f}|{:.4f}|\n".format(total_init_merged/runtimes, total_checking_merged/runtimes))
 
         f.write("\nTotal_Time " + str((total_init_merged+total_init_nor)/runtimes) + " " + str((total_checking_merged+total_checking_nor)/runtimes))
-        f.write("\nDelete Time " + str(total_delete_time))
-        # f.write("\nInsertion\n")
-        # f.write("|{:.4f}|\n".format(total_insertion))
+        f.write("\nDelete Time: " + str(total_delete_time))
+        f.write("\nSplit Merge: " + str(total_rest_time))
+        f.write("\nData Time: " + str(total_data_time))
+        f.write("\nUpd Time: " + str(total_upda_time))
+        f.write("\nNor Time: " + str(total_nor_time)) 
+        f.write("\nMerge Time: " + str(total_merge_time))
+	# f.write("|{:.4f}|\n".format(total_insertion))
 
         f.close()
 

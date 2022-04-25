@@ -1,0 +1,16 @@
+
+Normalization
+|initializaiton|checking|
+|0.6174|0.1242|
+
+Merge tuples
+|initializaiton|checking|
+|9.3469|0.9774|
+
+Total_Time 9.96435260772705 1.1015441417694092
+Delete Time: 9.35621428489685
+Split Merge: 40.90139627456665
+Data Time: 4.5271687507629395
+Upd Time: 0.43294811248779297
+Nor Time: 13.993237733840942
+Merge Time: 16.896928548812866

@@ -1,0 +1,14 @@
+runtime(sec)
+runtime(sec)
+runtime(sec)
+runtime(sec)
+runtime(sec)
+39.47254204750061
+runtime(sec)
+39.4731650352478
+runtime(sec)
+40.08396363258362
+runtime(sec)
+39.69221115112305
+runtime(sec)
+39.18082618713379
