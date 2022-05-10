@@ -10,7 +10,7 @@ import json
 import utils.BDD_translator.translator_pyotr_BDD as translator
 import utils.tableau.gen_tableau as tableau
 import utils.merge_tuples.merge_tuples_BDD as merge_tuples
-from utils.closure_group.closure_overhead import find_variables, construct_Graph, calculate_tableau
+from utils.closure_group.closure_group import find_variables, construct_Graph, calculate_tableau
 import BDD_managerModule as bddmm
 import utils.BDD_translator.BDD_manager.encodeCUDD as encodeCUDD
 

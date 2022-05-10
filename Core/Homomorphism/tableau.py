@@ -6,7 +6,6 @@ from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
-import utils.check_tautology.check_tautology as check_tautology
 
 
 def display(tuples, self_tuples):
@@ -40,9 +39,6 @@ def extractWhereCondition(c, i, variableList):
     condition = ""
     if (opr == "=="): # TODO: Make this conversion better
         opr = "="
-    # if (isIPAddress(right_opd)):
-    #     condition = check_tautology.getRange(column_name, opr, right_opd, "'")
-    # else:
     condition = ["{} {} '{}'".format(column_name, opr, right_opd)]
     return condition
 

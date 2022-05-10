@@ -8,9 +8,8 @@ import time
 from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2
-import util.check_tautology.check_tautology as check_tautology
-import util.check_tautology.condition_analyze as condition_analyze
-import util.tableau.instantiate_tableau as instantiate_tableau
+import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
+import Backend.reasoning.Z3.check_tautology.condition_analyze as condition_analyze
 from psycopg2.extras import execute_values
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])

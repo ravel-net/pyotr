@@ -14,7 +14,7 @@ sys.path.append(filename)
 import time 
 from util.reorder_tableau import gen_splitjoin_sql, reorder_closure_group
 from gen_tableau import gen_chain_even_group, gen_tableau
-from closure_overhead import find_variables, construct_Graph, calculate_tableau
+from closure_group import find_variables, construct_Graph, calculate_tableau
 import support_int.translator_int as translator
 import translator_naive as translator_naive
 import splitjoin.merge_tuples_tautology as merge_tuples_tautology
@@ -25,7 +25,7 @@ import psycopg2
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-def group_query_splitjoin_tauto(size, runtimes, chain_topology):
+def group_query_splitjoin_tauto(size, runtimes, chain_topology, datatype):
     f = open("./data/chain{}_splitjoin_tauto.txt".format(size), "a")
     f.write("rate_summary runtime(sec)\n")
     for i in range(runtimes):
@@ -71,7 +71,7 @@ def group_query_splitjoin_tauto(size, runtimes, chain_topology):
             try:
                 tree = translator.generate_tree(sql)
                 data_time = translator.data(tree)
-                upd_time = translator.upd_condition(tree)
+                upd_time = translator.upd_condition(tree, datatype)
                 nor_time = translator.normalization()
                 merge_begin = time.time()
                 rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], chain_topology['overlay_nodes'], variables)
@@ -87,7 +87,7 @@ def group_query_splitjoin_tauto(size, runtimes, chain_topology):
                 break
     f.close()
 
-def group_query_splitjoin(size, runtimes, chain_topology):
+def group_query_splitjoin(size, runtimes, chain_topology, datatype):
     f = open("./data/chain{}_splitjoin.txt".format(size), "a")
     f.write("rate_summary runtime(sec)\n")
     for i in range(runtimes):
@@ -133,7 +133,7 @@ def group_query_splitjoin(size, runtimes, chain_topology):
             try:
                 tree = translator_naive.generate_tree(sql)
                 data_time = translator_naive.data(tree)
-                upd_time = translator_naive.upd_condition(tree)
+                upd_time = translator_naive.upd_condition(tree, datatype)
                 nor_time = translator_naive.normalization()
                 merge_begin = time.time()
                 rows = merge_tuples.merge_tuples("output", output_tables[idx])
@@ -160,5 +160,5 @@ if __name__ == "__main__":
         chain_topology["physical_nodes"] = physical_nodes
         chain_topology["overlay_path"] = overlay_path
         chain_topology["overlay_nodes"] = overlay_nodes
-        group_query_splitjoin_tauto(size, runtimes, chain_topology)
+        group_query_splitjoin_tauto(size, runtimes, chain_topology, "int4_faure")
         # group_query_splitjoin(size, runtimes, chain_topology)

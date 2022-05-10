@@ -4,7 +4,7 @@ import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root)
-import utils.closure_group.closure_overhead as closure_overhead
+import utils.closure_group.closure_group as closure_group
 
 class Graph:
     def __init__(self, nodeFile, edgesFile):
@@ -130,7 +130,7 @@ if __name__ == "__main__":
     for path in allPaths:
         f.write(path[0] + " " + path[1] + "\n")
     f.close()
-    closure_groups = closure_overhead.getAllClosureGroups(allPaths)
+    closure_groups = closure_group.getAllClosureGroups(allPaths)
     pp = pprint.PrettyPrinter(indent=4)
     pp.pprint(allPaths)
     pp.pprint(len(closure_groups))

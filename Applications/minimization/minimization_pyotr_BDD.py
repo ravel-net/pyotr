@@ -5,7 +5,7 @@ sys.path.append(root)
 import psycopg2
 from tqdm import tqdm 
 import copy
-import Core.Homomorphism.Optimizations.closure_group as closure_group
+import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_group
 import Core.Homomorphism.Optimizations.split_merge_BDD as split_merge
 import databaseconfig as cfg
 
@@ -16,7 +16,7 @@ database = cfg.postgres["db"]
 
 conn = psycopg2.connect(host=host,user=user,password=password,database=database)
 conn.set_session(readonly=False, autocommit=True)
-
+curr_type = "int4_faure"
 
 output_table_name = 'output'
 
@@ -63,8 +63,8 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
-    closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
-    variables = closure_overhead.find_variables(curr_table)
+    closure_group = closure_group.getClosureGroup(tuple_to_remove, curr_table)
+    variables = closure_group.find_variables(curr_table)
     print("variables",variables)
     print("summary", summary)
     print("tuple_to_remove: ", tuple_to_remove)
@@ -77,7 +77,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     print("after remove tuple:", new_table)
     deleteTuple(new_table, new_table_name, cur)
 
-    running_time, sat = split_merge(closure_group, new_table_name, variables, summary)
+    running_time, sat = split_merge(closure_group, new_table_name, variables, summary, curr_type)
     print("Satisfiability:", sat)
     print("Verification running time:", running_time, "\n")
 

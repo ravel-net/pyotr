@@ -1,3 +1,0 @@
-process_condition_on_ctable: 0.0780
-process_condition_on_ctable: 0.0865
-process_condition_on_ctable: 0.0710

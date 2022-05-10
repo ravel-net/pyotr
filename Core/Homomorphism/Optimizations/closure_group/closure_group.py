@@ -7,8 +7,8 @@ filename = join(root, 'utils')
 sys.path.append(filename)
 filename = join(root, 'utils', 'closure_group')
 sys.path.append(filename)
-import tableau as tableau
-import DFS
+import Core.Homomorphism.tableau as tableau
+import utils.graphs.DFS as DFS
 
 
 def find_variables(tuples):

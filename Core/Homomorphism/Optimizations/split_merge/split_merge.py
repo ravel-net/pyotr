@@ -9,17 +9,17 @@ sys.path.append(root)
 # sys.path.append(filename)
 
 import time 
-import pyotr_translator.translator_pyotr as translator
-import util.tableau.tableau as tableau
-import util.merge_tuples.merge_tuples_tautology as merge_tuples_tautology
-import util.split_merge.reorder_tableau as reorder_tableau
+import Core.Homomorphism.translator_pyotr as translator
+import Core.Homomorphism.tableau as tableau
+import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_tautology
+import Core.Homomorphism.Optimizations.split_merge.reorder_tableau as reorder_tableau
 import databaseconfig as cfg
 import psycopg2
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-def split_merge(group, tablename, variables_list, summary):
+def split_merge(group, tablename, variables_list, summary, datatype):
     
     ordered_group = reorder_tableau.reorder_closure_group(group)
     sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, summary)
@@ -29,8 +29,8 @@ def split_merge(group, tablename, variables_list, summary):
         print(sql)
         tree = translator.generate_tree(sql)
         data_time = translator.data(tree)
-        upd_time = translator.upd_condition(tree)
-        nor_time = translator.normalization()
+        upd_time = translator.upd_condition(tree, datatype)
+        nor_time = translator.normalization("Int")
         merge_begin = time.time()
         rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], summary, variables_list)
         merge_end = time.time()
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     sql = tableau.convert_tableau_to_sql(group, "t_prime", summary)
     tree = translator.generate_tree(sql)
     data_time = translator.data(tree)
-    upd_time = translator.upd_condition(tree)
+    upd_time = translator.upd_condition(tree, "int4_faure")
     nor_time = translator.normalization()
 
     merge_tuples_tautology.merge_tuples("output", "toy", summary, variable_lists)

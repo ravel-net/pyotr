@@ -11,7 +11,7 @@ sys.path.append(root)
 import time 
 import util.tableau.tableau as tableau
 import util.merge_tuples.merge_tuples_BDD as merge_tuples_BDD
-from util.variable_closure_algo.closure_overhead import find_variables, construct_Graph, calculate_tableau
+from util.variable_closure_algo.closure_group import find_variables, construct_Graph, calculate_tableau
 import util.split_merge.reorder_tableau as reorder_tableau
 import databaseconfig as cfg
 import psycopg2
@@ -25,7 +25,7 @@ cursor = conn.cursor()
 
 OPEN_OUTPUT = True
 
-def split_merge(group, tablename, variables_list, summary):    
+def split_merge(group, tablename, variables_list, summary, datatype):    
     print("DOMAIN", translator.DOMAIN)
     print("VARIABLES", translator.VARIABLES)
     ordered_group = reorder_tableau.reorder_closure_group(group)
@@ -37,7 +37,7 @@ def split_merge(group, tablename, variables_list, summary):
         begin = time.time()
         tree = translator.generate_tree(sql)
         translator.data(tree)
-        translator.upd_condition(tree)
+        translator.upd_condition(tree, datatype)
 
         rows = merge_tuples_BDD.merge_tuples("output", output_tables[idx])
         end = time.time()
@@ -80,8 +80,8 @@ if __name__ == '__main__':
     sql = tableau.convert_tableau_to_sql(group, "t_prime", summary)
     tree = translator.generate_tree(sql)
     data_time = translator.data(tree)
-    upd_time = translator.upd_condition(tree)
-    nor_time = translator.normalization()
+    upd_time = translator.upd_condition(tree, "int4_faure")
+    nor_time = translator.normalization("int4_faure")
 
     merge_tuples_tautology.merge_tuples("output", "toy", summary, variable_lists)
 

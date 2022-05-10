@@ -5,16 +5,16 @@ import sys
 import copy
 import random
 import re
-import shortest_paths
 from os.path import dirname, abspath, join
 import json
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 import databaseconfig as cfg
+import utils.graphs.shortest_paths as shortest_paths
 import Core.Homomorphism.tableau as tableau
 import Core.Homomorphism.translator_pyotr as translator_pyotr
-import Core.Homomorphism.Optimizations.closure_group as closure_group
+import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_group
 import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 import pprint
 
@@ -22,16 +22,17 @@ output_table_name = 'output'
 
 SOURCE_VAR = 's'
 DEST_VAR = 'd'
-SOURCE = 's'
-DEST = 'd'
-# SOURCE = '192.168.1.1'
-# DEST = '192.168.1.2'
+# SOURCE = 's'
+# DEST = 'd'
+SOURCE = '192.168.1.1'
+DEST = '192.168.1.2'
 F = 'f'
 SUMMARY_INSTANCE = [F, SOURCE, DEST]
 SOURCE_COL=0
 DEST_COL=1
 FLOW_COL=2
 CONDITION_COL =3
+curr_type = "inet_faure"
 
 # encodes a firwall rule. This is OR if we are using an allow list. It would be and for a deny list
 def encodeFirewallRule(acl):
@@ -41,7 +42,6 @@ def encodeFirewallRule(acl):
 
 # Creates a one-big-switch table with a middlebox for firwall that contains all firewall rules in the network. The created table is stored as 'tablename' in postgreSQL.
 def addFirewallOneBigSwitch(cursor, aclList = [""], tablename = "T_o", forwardNodeIP = '1.0.0.0', firewallNodeIP = '2.0.0.0'):
-	curr_type = "inet_faure"
 	cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
 	cursor.execute("CREATE TABLE {}(F {}, n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type, curr_type))  
 	encodedRules = []
@@ -225,9 +225,9 @@ def separateFlows(paths, flow_col):
 	return pathFlows
 
 if __name__ == "__main__":
-	experimentFile = open("Results/4755_const_norm.txt", "a")
-	experimentFile.write("Path Length\t\tTotal Time\n")
-	runtimes = 10
+	# experimentFile = open("4755_const_norm.txt", "a")
+	# experimentFile.write("Path Length\t\tTotal Time\n")
+	runtimes = 1
 	for time in range(runtimes):
 		conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 		conn.set_session(readonly=False, autocommit=True)
@@ -268,7 +268,7 @@ if __name__ == "__main__":
 
 			tree = translator_pyotr.generate_tree(sql)
 			data_time = translator_pyotr.data(tree)
-			upd_time = translator_pyotr.upd_condition(tree)
+			upd_time = translator_pyotr.upd_condition(tree, curr_type)
 			nor_time = translator_pyotr.normalization(datatype)
 			union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=datatype)
 			domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)

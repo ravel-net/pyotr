@@ -1,16 +1,16 @@
 import pprint
 import sys
 import psycopg2
-import shortest_paths
 import statistics
 import time
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
+import utils.graphs.shortest_paths as shortest_paths
 import Core.Homomorphism.tableau as tableau
 import Core.Homomorphism.translator_pyotr as translator_pyotr
-import Core.Homomorphism.Optimizations.closure_group as closure_group
+import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_group
 import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 import databaseconfig as cfg
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
 			constants = getConstants(allPathsTableau)
 			addOneBigSwitchTable(tableName, constants, cur)
 			pp = pprint.PrettyPrinter(indent=4)
-			closure_groups = closure_overhead.getAllClosureGroups(allPathsTableau)
+			closure_groups = closure_group.getAllClosureGroups(allPathsTableau)
 			if (len(closure_groups) < num_paths):
 				continue
 			run += 1

@@ -20,7 +20,7 @@ import psycopg2
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-def split_merge(group, tablename, variables_list, summary):
+def split_merge(group, tablename, variables_list, summary, datatype):
     
     ordered_group = reorder_tableau.reorder_closure_group(group)
     sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, summary)
@@ -30,7 +30,7 @@ def split_merge(group, tablename, variables_list, summary):
         #print(sql)
         tree = translator.generate_tree(sql)
         data_time = translator.data(tree)
-        upd_time = translator.upd_condition(tree)
+        upd_time = translator.upd_condition(tree, datatype)
         nor_time = translator.normalization()
         merge_begin = time.time()
         rows, check_tauto = merge_tuples_tautology.merge_tuples("output", output_tables[idx], summary, variables_list)

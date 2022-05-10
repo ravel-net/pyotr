@@ -4,26 +4,26 @@ root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 
-import os
 import psycopg2
 import copy
-import utils.tableau.tableau as tableau
-import translator_pyotr as translator
-import utils.closure_group.closure_group as closure_group
-import check_tautology_multi as check_tautology_multi
+import Core.Homomorphism.tableau as tableau
+import Core.Homomorphism.translator_pyotr as translator
+import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_group
+import Backend.reasoning.Z3.check_tautology.check_tautology_multi as check_tautology_multi
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]
 user = cfg.postgres["user"]
 password = cfg.postgres["password"]
 database = cfg.postgres["db"]
+curr_type = "int4_faure"
 
 output_table_name = 'output'
 
 # creates a new table with the deleted tuple
 def deleteTuple(new_table, new_table_name, cur):
 	cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
-	cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, "int4_faure", "int4_faure"))
+	cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, curr_type, curr_type))
 	for tuple in new_table:
 		cur.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(new_table_name, tuple[0], tuple[1]))
 
@@ -63,11 +63,11 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
-    closure_group = closure_group.getClosureGroup(tuple_to_remove, curr_table)
+    closure_group_curr = closure_group.getClosureGroup(tuple_to_remove, curr_table)
     variables = closure_group.find_variables(curr_table)
     print("variables:", variables)
     print("tuple_to_remove: ", tuple_to_remove)
-    print("closure_group: ", closure_group)
+    print("closure_group: ", closure_group_curr)
 
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
@@ -75,7 +75,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     new_table.pop(pos)
     deleteTuple(new_table, new_table_name, cur)
 
-    sql_query = tableau.convert_tableau_to_sql(closure_group, new_table_name, summary)
+    sql_query = tableau.convert_tableau_to_sql(closure_group_curr, new_table_name, summary, ["n1","n2","condition"])
     # print("sql:", sql_query)
 
     # check for query containment
@@ -83,21 +83,9 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     conn.commit()
     conn.close()
     data_time = translator.data(tree)
-    upd_time = translator.upd_condition(tree)
-    nor_time = translator.normalization()
+    upd_time = translator.upd_condition(tree, curr_type)
+    nor_time = translator.normalization("Int")
     conn.close()
-
-    check_tauto, is_tautology = check_tautology_multi.table_contains_answer(output_table_name, summary, variables)
-    running_time = {"normalization":nor_time, "check_tauto":check_tauto}
-
-
-    print("Verification running time:", running_time, "\n")
-    current_directory = os.getcwd()
-    if not os.path.exists(current_directory+"/results"):
-        os.makedirs(current_directory+"/results")
-    f = open(current_directory+"/results/Z3_naive_components.txt", "a")
-    f.write("{}\n".format(running_time))
-    f.close()
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
@@ -121,7 +109,6 @@ if __name__ == '__main__':
     cursor = conn.cursor()
 
     # # Toy example of minimization
-    curr_type = "int4_faure"
     tablename = "t_v"
     cursor.execute("DROP TABLE IF EXISTS {};".format(tablename))
     cursor.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(tablename, curr_type, curr_type))

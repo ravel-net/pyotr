@@ -8,7 +8,7 @@ sys.path.append(root)
 
 import psycopg2
 import copy
-import utils.closure_group.closure_overhead as closure_overhead
+import utils.closure_group.closure_group as closure_group
 from split_merge_BDD import split_merge
 import databaseconfig as cfg
 
@@ -71,8 +71,8 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     start_closure = time()
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
-    closure_group = closure_overhead.getClosureGroup(tuple_to_remove, curr_table)
-    variables = closure_overhead.find_variables(curr_table)
+    closure_group = closure_group.getClosureGroup(tuple_to_remove, curr_table)
+    variables = closure_group.find_variables(curr_table)
     if OPEN_OUTPUT:
         print("variables",variables)
         print("summary", summary)
@@ -94,7 +94,7 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     deleteTuple(new_table, new_table_name, cur)
     end_delete = time()
 
-    running_time, sat = split_merge(closure_group, new_table_name, variables, summary)
+    running_time, sat = split_merge(closure_group, new_table_name, variables, summary, "int4_faure")
     running_time["delete"] = end_delete - start_delete
     running_time["closure"] = end_closure - start_closure
     running_time["curr_table"] = end_curr_table - start_curr_table

@@ -356,7 +356,7 @@ def data(tree):
     conn.commit()
     return end-begin
 
-def upd_condition(tree):
+def upd_condition(tree, datatype):
     count_time = 0
     if OPEN_OUTPUT:
         print("\n************************Step 2: update condition****************************")
@@ -388,7 +388,7 @@ def upd_condition(tree):
         # for c in cond_list:
         for idx, c in enumerate(cond_list):
             # sql = "update output set condition = array_append(condition, {})".format(c)
-            sql = "update output set condition = array_append(condition, {}) where is_var({}) or is_var({})".format(c, where_list[idx][0], where_list[idx][1])
+            sql = "update output set condition = array_append(condition, {}) where is_var({}::{}) or is_var({}::{})".format(c, where_list[idx][0], datatype, where_list[idx][1], datatype)
             if OPEN_OUTPUT:
                 print(sql)
             cursor.execute(sql)
@@ -796,7 +796,7 @@ if __name__ == "__main__":
 
     begin = time.time()
     data(tree)
-    upd_condition(tree)
+    upd_condition(tree, "int4_faure")
     normalization()
     print("execution time: ", time.time() - begin)
 

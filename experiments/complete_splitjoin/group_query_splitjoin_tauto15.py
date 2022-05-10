@@ -10,7 +10,7 @@ import json
 import pyotr_translator.translator_pyotr as translator
 import util.tableau.tableau as tableau
 import util.merge_tuples.merge_tuples_tautology as merge_tuples_tautology
-from util.variable_closure_algo.closure_overhead import find_variables, construct_Graph, calculate_tableau
+from util.variable_closure_algo.closure_group import find_variables, construct_Graph, calculate_tableau
 import databaseconfig as cfg
 import psycopg2
 
@@ -18,6 +18,7 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 cursor = conn.cursor()
 
 size = 15
+curr_type = "int4_faure"
 
 with open('./variable_closure/data/chain{}.json'.format(size)) as fc:
     chain_data = json.load(fc)
@@ -85,7 +86,7 @@ f.write("R1_2 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -109,7 +110,7 @@ f.write("R13 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -133,7 +134,7 @@ f.write("R14 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -156,7 +157,7 @@ f.write("R15 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -179,7 +180,7 @@ f.write("R16 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -202,7 +203,7 @@ f.write("R17 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -225,7 +226,7 @@ f.write("R18 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -248,7 +249,7 @@ f.write("R19 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -271,7 +272,7 @@ f.write("R110 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -294,7 +295,7 @@ f.write("R111 sql: {}\n".format(sql))
 
 tree = translator.generate_tree(sql)
 data_time = translator.data(tree)
-upd_time = translator.upd_condition(tree)
+upd_time = translator.upd_condition(tree, curr_type)
 nor_time = translator.normalization()
 print("Contradiciton time: ", nor_time["contradiction"][1])
 print("Redundancy time: ", nor_time["redundancy"][1])
@@ -315,7 +316,7 @@ f.close()
 
 # tree = translator.generate_tree(sql)
 # data_time = translator.data(tree)
-# upd_time = translator.upd_condition(tree)
+# upd_time = translator.upd_condition(tree, curr_type)
 # nor_time = translator.normalization()
 # print("Contradiciton time: ", nor_time["contradiction"][1])
 # print("Redundancy time: ", nor_time["redundancy"][1])
@@ -336,7 +337,7 @@ f.close()
 
 # tree = translator.generate_tree(sql)
 # data_time = translator.data(tree)
-# upd_time = translator.upd_condition(tree)
+# upd_time = translator.upd_condition(tree, curr_type)
 # nor_time = translator.normalization()
 # print("Contradiciton time: ", nor_time["contradiction"][1])
 # print("Redundancy time: ", nor_time["redundancy"][1])

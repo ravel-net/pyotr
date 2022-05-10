@@ -22,7 +22,7 @@ sudo apt install postgresql-server-dev-13
 # Run sql file
 make
 sudo -u postgres -i
-psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/dataypes/inet_faure/inet_faure.sql
+psql -U postgres -d test -a -f /home/mudbri/Documents/GitHub/pyotr/Backend/storage/dataypes/int_faure/int_faure.sql
 
 
 Note:

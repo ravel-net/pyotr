@@ -159,7 +159,7 @@ def data(tree):
     conn.commit()
     return end-begin
 
-def upd_condition(tree):
+def upd_condition(tree, datatype):
     count_time = 0
     if OPEN_OUTPUT:
         print("\n************************Step 2: update condition****************************")
@@ -328,7 +328,7 @@ def upd_condition(tree):
             if cond[1] == '=':
                 left_opd = "".join(cond[0])
                 right_opd = "".join(cond[2])
-                sql = "update output set {} = {} where not is_var({})".format(left_opd, right_opd, right_opd)
+                sql = "update output set {} = {} where not is_var({}::{})".format(left_opd, right_opd, right_opd, datatype)
                 if right_opd in cols_name:
                     drop_cols.add(right_opd)
                 if OPEN_OUTPUT:

@@ -13,7 +13,7 @@ import json
 import translator_int as translator
 import gen_tableau as tableau
 import splitjoin.merge_tuples_tautology as merge_tuples_tautology
-from closure_overhead import find_variables, construct_Graph, calculate_tableau
+from closure_group import find_variables, construct_Graph, calculate_tableau
 import databaseconfig as cfg
 import psycopg2
 
@@ -21,6 +21,7 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 cursor = conn.cursor()
 
 # size = 50
+curr_type = "int4_faure"
 
 # with open('../variable_closure/data/chain{}.json'.format(size)) as fc:
 #     chain_data = json.load(fc)

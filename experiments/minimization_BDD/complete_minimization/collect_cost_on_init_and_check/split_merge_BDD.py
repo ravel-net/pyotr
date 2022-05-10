@@ -21,7 +21,7 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 conn.set_session(readonly=False, autocommit=True)
 cursor = conn.cursor()
 
-def split_merge(group, tablename, variables_list, summary):    
+def split_merge(group, tablename, variables_list, summary, datatype):    
     #print("DOMAIN", translator.DOMAIN)
     #print("VARIABLES", translator.VARIABLES)
     ordered_group = reorder_tableau.reorder_closure_group(group)
@@ -46,7 +46,7 @@ def split_merge(group, tablename, variables_list, summary):
         total_data += end_data - begin_data
 
         begin_condition = time.time()
-        condition = translator.upd_condition(tree)
+        condition = translator.upd_condition(tree, datatype)
         end_condition = time.time()
         condition_time.append(condition)
         total_condition += end_condition - begin_condition

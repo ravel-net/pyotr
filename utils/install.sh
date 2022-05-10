@@ -53,6 +53,7 @@ function postgres {
     wget --quiet -O - https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo apt-key add -
     $update
     $install postgresql-13
+    $apt install postgresql-server-dev-13
 }
 
 function ravel {
