@@ -18,6 +18,8 @@ q3 $\subset$ q2 (i.e.q2(T3)) holds
 
 ## Running code
 
+`run.py` is the script to run homo for link failure.
+
 ```python
 domain = [1, 2]
 variables = ['v', 'w']
