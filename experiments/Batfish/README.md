@@ -2,8 +2,7 @@
 
 ## Batfish
 
-**unit: seconds**
-|topo1|topo2|runtime|is_equal|
+|topo1|topo2|runtime (seconds)|is_equal|
 |---|---|---|---|
 |t1|t2|2.506450653076172|False|
 |t1|t3|3.017583131790161|False|
@@ -20,9 +19,8 @@
 
 ## Pyotr(symbolic and no acl added)
 
-**unit: seconds**
 
-|program|input|runtime|is_tautology|model|
+|program|input|runtime (seconds) |is_tautology|model|
 |---|---|---|---|---|
 |t1|t2|2.9772861003875732|False|[x = 0, w = 1, v = 1, u = 2, y = 1]|
 |t1|t3|1.2281668186187744|False|[x = 0, w = 1, v = 1, y = 1]|
