@@ -1,0 +1,10 @@
+{
+	"hostname" : "dest",
+	"hostInterfaces" : {
+		"eth0" : {
+			"name": "eth0",
+			"prefix" : "10.0.5.20/24",
+			"gateway" : "10.0.5.1"
+		}
+	}
+}
