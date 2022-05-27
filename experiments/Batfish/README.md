@@ -30,7 +30,7 @@
 |t3|t2|0.8010566234588623|True||
 
 ## Pyotr(symbolic, no ACL, constant instance)
-|query|instance|runtime|is_equal|model|
+|query|instance|runtime (seconds) |is_equal|model|
 |---|---|---|---|---|
 |t1|t2|0.18801259994506836|False|[x = 0, y = 0]|
 |t1|t3|0.18167948722839355|False|[x = 0, y = 0]|
