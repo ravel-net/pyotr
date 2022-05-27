@@ -179,6 +179,8 @@ CREATE FUNCTION inet_faureor(inet_faure, inet_faure) RETURNS inet_faure
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION inet_faureand(inet_faure, inet_faure) RETURNS inet_faure
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
+CREATE FUNCTION inet_faure_intersection(inet_faure, inet_faure) RETURNS inet_faure
+   AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 
 CREATE OPERATOR < (
    leftarg = inet_faure, rightarg = inet_faure, procedure = c_less,
@@ -227,20 +229,26 @@ CREATE OPERATOR & (
    commutator = & --, negator = <= ,
    -- restrict = scalargtsel, join = scalargtjoinsel
 );
+
+CREATE OPERATOR && (
+   leftarg = inet_faure, rightarg = inet_faure, procedure = inet_faure_intersection,
+   commutator = && --, negator = <= ,
+   -- restrict = scalargtsel, join = scalargtjoinsel
+);
 -- create the support function too
 CREATE FUNCTION network_cmp(inet_faure, inet_faure) RETURNS int4
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
 
 -- now we can make the operator class
 
-CREATE OPERATOR CLASS inet_faure_abs_ops
-    DEFAULT FOR TYPE inet_faure USING btree AS
-        OPERATOR        1       < ,
-        OPERATOR        2       <= ,
-        OPERATOR        3       = ,
-        OPERATOR        4       >= ,
-        OPERATOR        5       > ,
-        FUNCTION        1       network_cmp(inet_faure, inet_faure);
+-- CREATE OPERATOR CLASS inet_faure_abs_ops
+--     DEFAULT FOR TYPE inet_faure USING btree AS
+--         OPERATOR        1       < ,
+--         OPERATOR        2       <= ,
+--         OPERATOR        3       = ,
+--         OPERATOR        4       >= ,
+--         OPERATOR        5       > ,
+--         FUNCTION        1       network_cmp(inet_faure, inet_faure);
 
 
 -- now, we can define a btree index on inet_faure types. First, let's populate
@@ -248,6 +256,8 @@ CREATE OPERATOR CLASS inet_faure_abs_ops
 -- btree index during selects.
 INSERT INTO test_inet_faure VALUES ('192.168.100.1', '192.168.100.1');
 INSERT INTO test_inet_faure VALUES ('y', 'x');
+INSERT INTO test_inet_faure VALUES ('192.168.100.0/24', '192.168.0.0/16');
+INSERT INTO test_inet_faure VALUES ('192.168.100.0/24', '192.168.100.3');
 
 -- CREATE INDEX test_cplx_ind ON test_inet_faure
 --    USING btree(a inet_faure_abs_ops);
@@ -255,8 +265,9 @@ INSERT INTO test_inet_faure VALUES ('y', 'x');
 SELECT * from test_inet_faure;
 SELECT * from test_inet_faure where b = '192.168.100.1/24';
 SELECT * from test_inet_faure where b = '1.0.0.0/24';
+SELECT * FROM test_inet_faure;
 SELECT a | b from test_inet_faure;
-SELECT a & b from test_inet_faure;
+SELECT a && b from test_inet_faure;
 SELECT * from test_inet_faure where a < '192.168.100.20';
 SELECT * from test_inet_faure where a < '192.168.99.20';
 SELECT * from test_inet_faure where a > '192.168.99.20';

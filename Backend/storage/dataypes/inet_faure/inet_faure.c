@@ -1881,8 +1881,8 @@ inet_faureand(PG_FUNCTION_ARGS)
 
 
 	if (strcmp(c_variables(ip),"0") != 0 || strcmp(c_variables(ip2),"0") != 0) {
-        // c_variables(dst) = "or-ed";
-		strcpy(c_variables(dst), "or-ed");
+        // c_variables(dst) = "var";
+		strcpy(c_variables(dst), "var");
 
 		PG_RETURN_INET_P(dst);
     }
@@ -1923,8 +1923,8 @@ inet_faureor(PG_FUNCTION_ARGS)
 
 
 	if (strcmp(c_variables(ip),"0") != 0 || strcmp(c_variables(ip2),"0") != 0) {
-        // c_variables(dst) = "or-ed";
-		strcpy(c_variables(dst), "or-ed");
+        // c_variables(dst) = "var";
+		strcpy(c_variables(dst), "var");
 		PG_RETURN_INET_P(dst);
     }
 
@@ -1950,6 +1950,78 @@ inet_faureor(PG_FUNCTION_ARGS)
 	PG_RETURN_INET_P(dst);
 }
 
+PG_FUNCTION_INFO_V1(inet_faure_intersection);
+
+Datum
+inet_faure_intersection(PG_FUNCTION_ARGS)
+{
+	inet_faure	   *a1 = PG_GETARG_INET_PP(0);
+	inet_faure	   *a2 = PG_GETARG_INET_PP(1);
+	inet_faure	   *dst;
+
+	dst = (inet_faure *) palloc0(sizeof(inet_faure));
+
+
+	if (strcmp(c_variables(a1),"0") != 0 || strcmp(c_variables(a2),"0") != 0) {
+        // c_variables(dst) = "var";
+		strcpy(c_variables(dst), "var");
+
+		PG_RETURN_INET_P(dst);
+    }
+
+
+
+	if (ip_family(a1) != ip_family(a2))
+		ereport(ERROR,
+				(errcode(ERRCODE_INVALID_PARAMETER_VALUE),
+				 errmsg("cannot AND inet values of different sizes")));
+
+	strcpy(c_variables(dst), "0");
+
+	// a2 is contained within a1
+	if (ip_family(a1) == ip_family(a2) && ip_bits(a1) >= ip_bits(a2) && bitncmp(ip_addr(a1), ip_addr(a2), ip_bits(a2)) == 0)
+	{
+		ip_bits(dst) = ip_bits(a1);
+		strcpy(c_variables(dst), "0");
+		ip_family(dst) = ip_family(a1);
+		
+		int			nb = ip_addrsize(a1);
+		unsigned char *pip = ip_addr(a1);
+		unsigned char *pdst = ip_addr(dst);
+
+		while (nb-- > 0)
+			pdst[nb] = pip[nb];
+
+		SET_INET_VARSIZE(dst);
+		PG_RETURN_INET_P(dst);
+	}
+
+	// a1 is contained within a2
+	else if (ip_family(a2) == ip_family(a1) && ip_bits(a2) >= ip_bits(a1) && bitncmp(ip_addr(a2), ip_addr(a1), ip_bits(a1)) == 0) {
+		ip_bits(dst) = ip_bits(a2);
+		strcpy(c_variables(dst), "0");
+		ip_family(dst) = ip_family(a2);
+
+		int			nb = ip_addrsize(a2);
+		unsigned char *pip = ip_addr(a2);
+		unsigned char *pdst = ip_addr(dst);
+
+		while (nb-- > 0)
+			pdst[nb] = pip[nb];
+
+		SET_INET_VARSIZE(dst);
+		PG_RETURN_INET_P(dst);
+	}
+	else // no intersection
+	{
+		ip_family(dst) = ip_family(a1);
+		ip_bits(dst) = 0;
+	}
+
+	SET_INET_VARSIZE(dst);
+
+	PG_RETURN_INET_P(dst);
+}
 
 // static inet *
 // internal_inetpl(inet *ip, int64 addend)
