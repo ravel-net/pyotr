@@ -11,3 +11,4 @@ dataypes/int_faure/int_faure.bc
 dataypes/int_faure/int_faure.o
 dataypes/int_faure/int_faure.so
 dataypes/int_faure/int_faure.sql
+Backend/storage/dataypes/int_faure/int_faure.sql

@@ -68,6 +68,8 @@ def getClosureGroup(tuple, table):
 # Returnsn all closure groups from a given table
 def getAllClosureGroups(table):
     variables = find_variables(table)
+    if (len(variables) == 0):
+        return table
     graph = construct_Graph(variables, table)
     conns = graph.connectedComponents() # TODO: ineffecient. Don't need all connected components
     reverse_conns = graph.reverse_connectComponents(conns) 

@@ -259,8 +259,8 @@ if __name__ == "__main__":
 			flows = extractFlows(F_variable=F, paths=pathsTableau, condition_col=CONDITION_COL)
 			summary = flowIDs + sourceIPs + destIPs
 			substituted_tableau = tableau.summary_substitutions(pathsTableau, summary, SUMMARY_INSTANCE)
-			sql = tableau.convert_tableau_to_sql_distributed(substituted_tableau, tablename, SUMMARY_INSTANCE, ['n1', 'n2', 'F', 'conditions'])
-			# sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'conditions'])
+			sql = tableau.general_convert_tableau_to_sql(substituted_tableau, tablename, SUMMARY_INSTANCE, ['n1', 'n2', 'F', 'condition'])
+			# sql = tableau.convert_tableau_to_sql_distributed(pathsTableau, tablename, summary, ['n1', 'n2', 'F', 'condition'])
 			print(sql)
 			domains = {
 				F: [flows]
@@ -271,7 +271,7 @@ if __name__ == "__main__":
 			upd_time = translator_pyotr.upd_condition(tree, curr_type)
 			nor_time = translator_pyotr.normalization(datatype)
 			union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=datatype)
-			domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype, F)
+			domain_conditions = check_tautology.get_domain_conditions_from_list(domains, datatype)
 			runtime = 0
 			if union_conditions != "Or()": # i.e. Empty table
 				ans, runtime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)

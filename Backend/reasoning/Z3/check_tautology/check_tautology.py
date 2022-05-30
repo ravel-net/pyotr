@@ -82,14 +82,13 @@ def convert_z3_variable_bit(condition, datatype, bits):
     conditionFinal += ')'
     return conditionFinal
 
-def get_domain_conditions_from_list(domains, datatype, flow_var):
+def get_domain_conditions_from_list(domains, datatype):
 	expressions = []
 	expressionsStr = []
 	var_domain_list = []
 	for var in domains:
 		var_list = []
 		for conds in domains[var]:
-			conditions = []
 			for cond in conds:
 				prcd_cond = convert_z3_variable(cond, datatype)
 				conditions.append(prcd_cond)
@@ -200,6 +199,21 @@ def get_domain_conditions(overlay_nodes, variables_list, datatype):
     end = time.time()
     # print(domain_conditions)
     return domain_conditions, end - begin
+
+def get_domain_conditions(domain, datatype):
+    begin = time.time()
+    var_domain_list = []
+    for var in domain:
+        var_domain = []
+        for idx, val in enumerate(domain[var]):
+            condition = ""
+            condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
+            var_domain.append(condition)
+        var_domain_list.append("Or({})".format(", ".join(var_domain)))
+    domain_conditions = ", ".join(var_domain_list)  
+    end = time.time()
+    return domain_conditions, end - begin
+
 
 def check_is_tautology(union_conditions, domain_conditions):
 

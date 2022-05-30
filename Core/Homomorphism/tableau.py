@@ -58,7 +58,7 @@ def summary_substitutions(tableau_query, summary_query, summary_instance):
 		substituted_tableau.append(new_tuple)
 	return substituted_tableau
 
-def convert_tableau_to_sql_distributed(tableau, tablename, overlay_nodes, column_names):
+def general_convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_names):
     """
     Convert tableau to corresponding SQL
 
@@ -95,7 +95,7 @@ def convert_tableau_to_sql_distributed(tableau, tablename, overlay_nodes, column
         for col, val in enumerate(tuple):
             if len(val) < 1:
                 continue
-            elif column_names[col] == 'conditions':
+            elif column_names[col] == 'condition' and val:
                 conditionList = val.split(",")
                 for c in conditionList:
                     constraints += extractWhereCondition(c, i, variableList)
