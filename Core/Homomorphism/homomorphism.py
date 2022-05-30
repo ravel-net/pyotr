@@ -28,7 +28,6 @@ def faure_valuation(sql, domain, storage_types, reasoning_type, output_table_nam
 		simplification_time = translator_pyotr.normalization(reasoning_type)
 	union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=reasoning_type)
 	domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain=domain,datatype=reasoning_type)
-	print(domain_conditions)
 	checktime = 0
 	if union_conditions != "Or()": # i.e. Empty table
 		ans, checktime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
@@ -116,7 +115,7 @@ if __name__ == "__main__":
 	domain={"u":["1","2"], "v":["1","2"]}
 	data_summary=["1","2"]
 	column_names=["n1","n2", "condition"]
-	split_merge_on=True
+	split_merge_on=False
 	simplification_on=True
 	variable_clousre_on=False
 	storage_types=["int4_faure","int4_faure"]
@@ -144,9 +143,65 @@ if __name__ == "__main__":
 		("v","2",""), 
 	]
 
-	query = T_p
-	data_instance_table="T_v"
-	data_instance=T_v
+	query = T_p_prime
+	data_instance_table="T_v_prime"
+	data_instance=T_v_prime
 
 
 	print(homomorphism_test(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type, data_instance))
+
+# if __name__ == "__main__":
+# 	query_summary=["1","2","3"] 
+# 	domain={"u":["2"], "v":["3"]}
+# 	data_summary=["1","2","3"]
+# 	column_names=["n1","n2", "condition"]
+# 	split_merge_on=False
+# 	simplification_on=True
+# 	variable_clousre_on=False
+# 	storage_types=["int4_faure", "int4_faure"]
+# 	reasoning_type="Int"
+
+# 	T_2 = [
+# 		("1","u","1","y", ""),
+# 		("u","2","x","y",""),
+# 		("1","v","0","y",""),
+# 		("2","v","x","1",""),
+# 		("2","3","x","0",""),
+# 		("v","3","x","y",""),
+# 	]
+
+# 	T_3 = [
+# 		("1","2","1","y", ""),
+# 		("1","v","0","y",""),
+# 		("2","v","x","1",""),
+# 		("2","3","x","0",""),
+# 		("v","3","x","y",""),
+# 	]	
+
+# 	T_1 = [
+# 		("1","u","1","y", ""),
+# 		("u","2","x","y",""),
+# 		("1","2","0","y",""),
+# 		("2","v","x","1",""),
+# 		("v","3","x","y",""),
+# 		("2","3","x","0",""),
+# 	]
+
+# 	for x in ["0","1"]:
+# 		for y in ["0","1"]:
+# 			T_2_mod = []
+# 			T_1_mod = []
+# 			for tup in T_2:
+# 				if (tup[2] == "x" or tup[2] == x) and (tup[3] == "y" or tup[3] == y):
+# 					T_2_mod.append((tup[0],tup[1],tup[4]))
+# 			for tup in T_1:
+# 				if (tup[2] == "x" or tup[2] == x) and (tup[3] == "y" or tup[3] == y):
+# 					T_1_mod.append((tup[0],tup[1],tup[4]))
+
+# 			query = T_2_mod
+# 			data_instance_table="T_1_mod"
+# 			data_instance=T_1_mod
+# 			print(x,y)
+# 			print(T_1_mod)
+# 			print(T_2_mod)
+# 			print(homomorphism_test(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type, data_instance))
