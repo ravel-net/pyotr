@@ -19,25 +19,32 @@ import psycopg2
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-def split_merge(group, tablename, variables_list, summary, datatype):
+def split_merge(group, tablename, variables_list, summary, storage_types, reasoning_type):
     
     ordered_group = reorder_tableau.reorder_closure_group(group)
     sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, summary)
 
-    total_running_time = 0
+    total_data_time, total_upd_time, total_simplification_time, total_checktime = 0, 0, {'contradiction': [0, 0], 'redundancy': [0, 0]}, 0
     for idx, sql in enumerate(sqls):
         print(sql)
         tree = translator.generate_tree(sql)
         data_time = translator.data(tree)
-        upd_time = translator.upd_condition(tree, datatype)
-        nor_time = translator.normalization("Int")
+        upd_time = translator.upd_condition(tree, storage_types[0])
+        simplification_time = translator.normalization(reasoning_type)
         merge_begin = time.time()
         rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], summary, variables_list)
         merge_end = time.time()
+        
+        total_data_time += data_time + (merge_end - merge_begin)
+        total_upd_time += upd_time
+        total_simplification_time["contradiction"][0] += simplification_time["contradiction"][0]
+        total_simplification_time["contradiction"][1] += simplification_time["contradiction"][1]
+        total_simplification_time["redundancy"][0] += simplification_time["redundancy"][0]
+        total_simplification_time["redundancy"][1] += simplification_time["redundancy"][1]
+        total_checktime += total_checktime
         # print("Total time: ", merge_end-merge_begin)
 
-        total_running_time += data_time + upd_time + nor_time["contradiction"][1] + nor_time["redundancy"][1] + (merge_end - merge_begin)
-    return total_running_time, output_tables[-1]
+    return total_data_time, total_upd_time, total_simplification_time, total_checktime, output_tables[-1]
 
 
 if __name__ == '__main__':

@@ -200,7 +200,7 @@ def get_domain_conditions(overlay_nodes, variables_list, datatype):
     # print(domain_conditions)
     return domain_conditions, end - begin
 
-def get_domain_conditions(domain, datatype):
+def get_domain_conditions_general(domain, datatype):
     begin = time.time()
     var_domain_list = []
     for var in domain:
@@ -216,11 +216,11 @@ def get_domain_conditions(domain, datatype):
 
 
 def check_is_tautology(union_conditions, domain_conditions):
-
     negation_union_conditions = "Not({})".format(union_conditions)
     z3_begin = time.time()
     solver = z3.Solver()
-    solver.add(eval(domain_conditions)) # set domain for variables
+    if (domain_conditions):
+        solver.add(eval(domain_conditions))
     solver.add(eval(negation_union_conditions)) # set negation union conditions
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
     z3_end = time.time()
