@@ -29,6 +29,7 @@ def faure_valuation(sql, domain, storage_types, reasoning_type, output_table_nam
 	union_conditions, union_time = check_tautology.get_union_conditions(tablename=output_table_name, datatype=reasoning_type)
 	domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain=domain,datatype=reasoning_type)
 	checktime = 0
+	print(domain_conditions)
 	if union_conditions != "Or()": # i.e. Empty table
 		ans, checktime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
 		print(model)
@@ -110,45 +111,45 @@ def homomorphism_test(query=[("1","1",""),("1","2","")], query_summary=["1","2"]
 	return ans, model, total_runtime, data_time, upd_time, simplification_time, checktime
 
 
-if __name__ == "__main__":
-	query_summary=["1","2"] 
-	domain={"u":["1","2"], "v":["1","2"]}
-	data_summary=["1","2"]
-	column_names=["n1","n2", "condition"]
-	split_merge_on=False
-	simplification_on=True
-	variable_clousre_on=False
-	storage_types=["int4_faure","int4_faure"]
-	reasoning_type="Int"
-	T_v = [
-		("1","1",""),
-		("1","2","")
-	]
+# if __name__ == "__main__":
+# 	query_summary=["1","2"] 
+# 	domain={"u":["1","2"], "v":["1","2"]}
+# 	data_summary=["1","2"]
+# 	column_names=["n1","n2", "condition"]
+# 	split_merge_on=False
+# 	simplification_on=True
+# 	variable_clousre_on=False
+# 	storage_types=["int4_faure","int4_faure"]
+# 	reasoning_type="Int"
+# 	T_v = [
+# 		("1","1",""),
+# 		("1","2","")
+# 	]
 
-	T_p = [
-		("1","u",""),
-		("u","v",""),
-		("v","2",""), 
-		("1","1",""), 
-		("u","u",""), 
-		("v","v","")
-	]
-	T_v_prime = [
-		("1","2","")
-	]
+# 	T_p = [
+# 		("1","u",""),
+# 		("u","v",""),
+# 		("v","2",""), 
+# 		("1","1",""), 
+# 		("u","u",""), 
+# 		("v","v","")
+# 	]
+# 	T_v_prime = [
+# 		("1","2","")
+# 	]
 
-	T_p_prime = [
-		("1","u",""),
-		("u","v",""),
-		("v","2",""), 
-	]
+# 	T_p_prime = [
+# 		("1","u",""),
+# 		("u","v",""),
+# 		("v","2",""), 
+# 	]
 
-	query = T_p_prime
-	data_instance_table="T_v_prime"
-	data_instance=T_v_prime
+# 	query = T_p_prime
+# 	data_instance_table="T_v_prime"
+# 	data_instance=T_v_prime
 
 
-	print(homomorphism_test(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type, data_instance))
+# 	print(homomorphism_test(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type, data_instance))
 
 # if __name__ == "__main__":
 # 	query_summary=["1","2","3"] 
@@ -205,3 +206,63 @@ if __name__ == "__main__":
 # 			print(T_1_mod)
 # 			print(T_2_mod)
 # 			print(homomorphism_test(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type, data_instance))
+
+
+if __name__ == "__main__":
+	query_summary=["a","c","e"] 
+	domain={"x":["0","1"], "y":["0","1"]}
+	# domain={"u":["1","2"], "v":["2","3"], "x":["0","1"], "y":["0","1"]}
+	data_summary=["1","3","5"]
+	column_names=["n1","n2", "x_link", "y_link", "condition"]
+	split_merge_on=False
+	simplification_on=True
+	variable_clousre_on=False
+	storage_types=["int4_faure", "int4_faure", "int4_faure", "int4_faure"]
+	reasoning_type="Int"
+
+	T_2 = [
+		("1","2","1","y", ""),
+		("2","3","x","y",""),
+		("1","4","0","y",""),
+		("3","4","x","1",""),
+		("3","5","x","0",""),
+		("4","5","x","y",""),
+		("2","2","x","y",""),
+		("3","3","x","y",""),
+		("4","4","x","y",""),
+		("5","5","x","y",""),
+	]
+
+	T_3 = [
+		("1","2","1","y", ""),
+		("1","v","0","y",""),
+		("2","v","x","1",""),
+		("2","3","x","0",""),
+		("v","3","x","y",""),
+	]	
+
+	T_1 = [
+		("1","2","1","y", ""),
+		("2","3","x","y",""),
+		("1","3","0","y",""),
+		("3","4","x","1",""),
+		("4","5","x","y",""),
+		("3","5","x","0",""),
+		("1","1","x","y",""),
+		("2","2","x","y",""),
+		("3","3","x","y",""),
+		("4","4","x","y",""),
+		("5","5","x","y",""),
+	]
+
+	T_curr = [
+		("a","b","x","y", ""),
+		("b","c","x","y",""),
+		("c","d","x","y",""),
+		("d","e","x","y",""),
+	]
+
+	query = T_curr
+	data_instance_table="T_1"
+	data_instance=T_1
+	print(homomorphism_test(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type, data_instance))
