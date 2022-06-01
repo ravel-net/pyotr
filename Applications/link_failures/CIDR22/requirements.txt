@@ -1,0 +1,7 @@
+networkx
+tqdm
+psycopg2-binary
+z3-solver
+sortedcontainers
+numpy
+matplotlib
