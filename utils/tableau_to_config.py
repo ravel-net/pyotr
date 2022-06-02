@@ -3,6 +3,14 @@ import os
 import json
 from ipaddress import IPv4Address
 
+# Tuple location of each attribute
+SOURCE = 0
+DEST = 1
+FIREWALL = 2
+EMPTY_FIREWALL = ""
+FIREWALL_ACL1 = "\n!\nip access-list extended ACL1\n\tdeny ip 192.168.100.0 any\n\tpermit ip any any\n"
+FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tdeny ip 193.169.101.1 any\n\tpermit ip any any"
+FIREWALL_RULES = FIREWALL_ACL1+FIREWALL_ACL2
 
 def getHostFacingIP(router, source_links, destination_links, IP_curr, NEXT_IP_ADDER):
     """
@@ -70,7 +78,10 @@ def getLinks(tableau, sources, destinations):
         routers connected to sources
 
     destination_links : dictionary
-        routers connected to destinations
+        routers connected to destinations    
+
+    firewalls : dictionary
+        firewalls connected to each source in router_links
     """
 
     # Add hosts
@@ -78,7 +89,7 @@ def getLinks(tableau, sources, destinations):
     destination_links = {}
     sourceNum = 1
     if len(sources) == 0:
-        source_router = tableau[0][0]
+        source_router = tableau[0][SOURCE]
         source_links[source_router] = ["source"+str(sourceNum)]
         sourceNum += 1
     else:
@@ -90,7 +101,7 @@ def getLinks(tableau, sources, destinations):
 
     destNum = 1
     if len(destinations) == 0:
-        dest_router = tableau[-1][1]
+        dest_router = tableau[-1][DEST]
         destination_links[dest_router] = ["dest"+str(destNum)]
         destNum += 1
     else:
@@ -102,9 +113,17 @@ def getLinks(tableau, sources, destinations):
 
     # Add links
     router_links = {}
+    firewalls = {}
     for link in tableau:
-        source_router = link[0]
-        dest_router = link[1]
+        source_router = link[SOURCE]
+        dest_router = link[DEST]
+        firewall = link[FIREWALL] 
+
+        if (source_router not in firewalls):
+            firewalls[source_router] = []
+
+        firewalls[source_router].append(firewall)
+
         if (source_router == dest_router): # ignoring self links
             continue
         if (source_router not in router_links):
@@ -117,13 +136,16 @@ def getLinks(tableau, sources, destinations):
         #     router_links[dest_router].append(source_router)
     router_links[tableau[-1][1]] = []
 
-    return router_links, source_links, destination_links
+    return router_links, source_links, destination_links, firewalls
 
 def getHostNameStart(router):
     return "\n!\nhostname r_{}".format(str(router))
 
-def getInterface(IP, eth_num, subnet):
-    return "\n!\ninterface eth{}\n\tip address {}/{}".format(eth_num, str(IP), subnet)
+def getInterface(IP, eth_num, subnet, firewall):
+    interface_info = "\n!\ninterface eth{}\n\tip address {}/{}".format(eth_num, str(IP), subnet) 
+    if firewall != EMPTY_FIREWALL:
+        interface_info += "\n\tip access-group ACL{} out".format(firewall)
+    return interface_info
 
 def getOSPFInformation(IPs, subnet, NEXT_IP_ADDER):
     router_address = ""
@@ -178,41 +200,53 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
 
     NEXT_IP_ADDER = int(math.pow(2,32-subnet))
 
-    router_links, source_links, destination_links = getLinks(tableau, sources, destinations) # returns the links of each router - adjacency list for routers and hosts separately. e.g. {"r1":["r2", "r3"]}, {"r1":["h1","h2"]}. Make sure that each router only occurs once in router_links
+    router_links, source_links, destination_links, firewalls = getLinks(tableau, sources, destinations) # returns the links of each router - adjacency list for routers and hosts separately. e.g. {"r1":["r2", "r3"]}, {"r1":["h1","h2"]}. Make sure that each router only occurs once in router_links
 
     router_interfaces = {}
     # router_acls = {}
     router_host_ips = {}
     source_IPs = {}
     dest_IPs = {}
+    firewalls_both_sides = {}
     IP_curr = int(IPv4Address("1.0.0.1")) # will add 1 for same link at two different routers. 256 otherwise
     for router in router_links:
         if router not in router_interfaces:
             router_interfaces[router] = []
-            # router_acls[router] = []
+            firewalls_both_sides[router] = []
+
         if router in source_links or router in destination_links: 
             hostIPs, curr_source_IPs, curr_dest_IPs = getHostFacingIP(router, source_links, destination_links, IP_curr, NEXT_IP_ADDER)
-            router_interfaces[router] += hostIPs
+            for hostIP in hostIPs:
+                router_interfaces[router].append(hostIP)
+                firewalls_both_sides[router].append(EMPTY_FIREWALL) # denotes empty entry in firewall
+
             if len(curr_source_IPs) > 0:
                 source_IPs = curr_source_IPs
             if len(curr_dest_IPs) > 0:
                 dest_IPs = curr_dest_IPs
             IP_curr += NEXT_IP_ADDER*len(hostIPs) # multiplying by the number of hosts the router is connected to 
 
-        for router_2 in router_links[router]:
+        for count, router_2 in enumerate(router_links[router]):
             if router_2 not in router_interfaces: # thus interface hasn't already been added
                 router_interfaces[router_2] = []
+                firewalls_both_sides[router_2] = []
             router_interfaces[router].append(IPv4Address(IP_curr))
             router_interfaces[router_2].append(IPv4Address(IP_curr+1))
+
+            firewalls_both_sides[router].append(firewalls[router][count])
+            firewalls_both_sides[router_2].append(EMPTY_FIREWALL)
+            # if firewall, then add firewall. Else add emptiness
             IP_curr += NEXT_IP_ADDER
 
+    print(firewalls_both_sides)
+    print(router_interfaces)
     # Get router configs in string form
     configs = {}
     for router in router_interfaces:
         config = ""
         config += getHostNameStart(router)
         for count, IP in enumerate(router_interfaces[router]):
-            config += getInterface(IP, count, subnet) # add ACLs too
+            config += getInterface(IP, count, subnet, firewalls_both_sides[router][count]) # add ACLs too
         config += getOSPFInformation(router_interfaces[router], subnet, NEXT_IP_ADDER)
         # config += getACLInformation(router_acls[router]) #
         configs[router] = config
@@ -256,13 +290,14 @@ def createDirectories(toponame):
     if not os.path.exists(configs_directory):
         os.makedirs(configs_directory)
 
-def createConfigs(configs, toponame):
+def createConfigs(configs, toponame, firewall_rules):
     current_directory = os.getcwd()
     final_directory = os.path.join(current_directory, toponame)
     configs_directory = os.path.join(final_directory, r'configs')
     for router in configs:
         f = open("{}/r_{}.cfg".format(configs_directory,router), "w")
         f.write(configs[router])
+        f.write(firewall_rules)
         f.close()
 
 def createHosts(hosts, toponame):
@@ -275,39 +310,40 @@ def createHosts(hosts, toponame):
         f.close()
 
 
+
 if __name__ == "__main__":
     T1 = [
-        ("1","u",""),
+        ("1","u","1"),
         ("u","2",""),
-        ("1","2",""), 
-        ("2","v",""), 
+        ("1","2","1"), 
+        ("2","v","2"), 
         ("v","w",""), 
-        ("2","w","")
+        ("2","w","2")
     ]    
 
     T2 = [
-        ("1","u",""),
+        ("1","u","1"),
         ("u","2",""),
-        ("1","v",""), 
-        ("2","v",""), 
+        ("1","v","1"), 
+        ("2","v","2"), 
         ("v","w",""), 
-        ("2","w","")
+        ("2","w","2")
     ]   
 
     T3 = [
-        ("1","2",""),
-        ("1","v",""), 
-        ("2","v",""), 
+        ("1","2","1"),
+        ("1","v","1"), 
+        ("2","v","2"), 
         ("v","w",""), 
-        ("2","w","")
+        ("2","w","2")
     ]   
 
     T4 = [
-        ("1","2",""),
-        ("1","v",""), 
+        ("1","2","1"),
+        ("1","v","1"), 
         ("2","v",""), 
-        ("v","w",""), 
-        ("2","w","")
+        ("v","w","2"), 
+        ("2","w","2")
     ]   
 
     all_topos = [T1, T2, T3, T4]
@@ -316,6 +352,6 @@ if __name__ == "__main__":
     for i, topo in enumerate(all_topos):
         configs, hosts, source_IPs, dest_IPs = tableau_to_config(topo, sources=["1","1"])
         createDirectories(all_topo_names[i])
-        createConfigs(configs, all_topo_names[i])
+        createConfigs(configs, all_topo_names[i], FIREWALL_RULES)
         # print(hosts)
         createHosts(hosts, all_topo_names[i])
