@@ -4,15 +4,23 @@ import json
 from ipaddress import IPv4Address
 
 # Tuple location of each attribute
-SOURCE = 0
-DEST = 1
-FIREWALL = 2
+SOURCE_ID = 0
+DEST_ID = 1
+FIREWALL_ID = 2
+CONDITION_ID = 3
 EMPTY_FIREWALL = ""
-FIREWALL_ACL1 = "\n!\nip access-list extended ACL1\n\tdeny ip 192.168.100.0 any\n\tpermit ip any any\n"
-FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tdeny ip 193.169.101.1 any\n\tpermit ip any any"
+
+SOURCE_IP = "100.0.2.1"
+DEST_IP = "100.0.7.1"
+FIREWALL_ACL1 = "\n!\nip access-list extended ACL1\n\tpermit ip 100.0.2.20 any\n\tpermit ip 100.0.2.25 any\n\tdeny ip any any\n"
+FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tpermit ip 100.0.2.20 any\n\tdeny ip any any"
 FIREWALL_RULES = FIREWALL_ACL1+FIREWALL_ACL2
 
-def getHostFacingIP(router, source_links, destination_links, IP_curr, NEXT_IP_ADDER):
+# NEXT STEPS:
+#     Create API in which two tableau are given as input and batfish is run on them to check for homomorphism
+
+
+def getHostFacingIP(router, source_links, destination_links):
     """
     Given a router in question, returns the ip addresses of all the host facing interfaces
     Parameters:
@@ -41,16 +49,17 @@ def getHostFacingIP(router, source_links, destination_links, IP_curr, NEXT_IP_AD
     source_IPs = {}
     dest_IPs = {}
     if router in source_links:
-        for hosts in source_links[router]:
-            source_IPs[hosts] = IPv4Address(IP_curr)
-        hostIPs.append(IPv4Address(IP_curr))
-        IP_curr += NEXT_IP_ADDER
+        host1 = source_links[router][0]
+        host2 = source_links[router][1]
+        source_IPs[host1] = IPv4Address(SOURCE_IP)
+        source_IPs[host2] = IPv4Address(SOURCE_IP)
+        hostIPs.append(IPv4Address(SOURCE_IP))
 
     if router in destination_links:
-        for hosts in destination_links[router]:
-            dest_IPs[hosts] = IPv4Address(IP_curr)
-        hostIPs.append(IPv4Address(IP_curr))
-        IP_curr += NEXT_IP_ADDER
+        host = destination_links[router][0]
+        dest_IPs[host] = IPv4Address(DEST_IP)
+        hostIPs.append(IPv4Address(DEST_IP))
+
 
     return hostIPs, source_IPs, dest_IPs
 
@@ -84,12 +93,36 @@ def getLinks(tableau, sources, destinations):
         firewalls connected to each source in router_links
     """
 
+
+    # Add links
+    router_links = {}
+    firewalls = {}
+    for link in tableau:
+        source_router = link[SOURCE_ID]
+        dest_router = link[DEST_ID]
+        firewall = link[FIREWALL_ID] 
+
+        if (source_router not in firewalls):
+            firewalls[source_router] = []
+
+        firewalls[source_router].append(firewall)
+
+        if (source_router == dest_router): # ignoring self links
+            continue
+        if (source_router not in router_links):
+            router_links[source_router] = []
+        if dest_router not in router_links[source_router]:
+            router_links[source_router].append(dest_router)
+
+    router_links[tableau[-1][1]] = [] # Since final node never appears in source
+
+
     # Add hosts
     source_links = {}
     destination_links = {}
     sourceNum = 1
     if len(sources) == 0:
-        source_router = tableau[0][SOURCE]
+        source_router = tableau[0][SOURCE_ID]
         source_links[source_router] = ["source"+str(sourceNum)]
         sourceNum += 1
     else:
@@ -101,40 +134,15 @@ def getLinks(tableau, sources, destinations):
 
     destNum = 1
     if len(destinations) == 0:
-        dest_router = tableau[-1][DEST]
+        dest_router = tableau[-1][DEST_ID]
         destination_links[dest_router] = ["dest"+str(destNum)]
         destNum += 1
     else:
         for router in destinations:
             if router not in destination_links:
                 destination_links[router] = []
-            destination_links[router].append("d"+str(destNum))
+            destination_links[router].append("dest"+str(destNum))
             destNum += 1
-
-    # Add links
-    router_links = {}
-    firewalls = {}
-    for link in tableau:
-        source_router = link[SOURCE]
-        dest_router = link[DEST]
-        firewall = link[FIREWALL] 
-
-        if (source_router not in firewalls):
-            firewalls[source_router] = []
-
-        firewalls[source_router].append(firewall)
-
-        if (source_router == dest_router): # ignoring self links
-            continue
-        if (source_router not in router_links):
-            router_links[source_router] = []
-        # if (dest_router not in router_links):
-        #     router_links[dest_router] = []
-        if dest_router not in router_links[source_router]:
-            router_links[source_router].append(dest_router)
-        # if source_router not in router_links[dest_router]:
-        #     router_links[dest_router].append(source_router)
-    router_links[tableau[-1][1]] = []
 
     return router_links, source_links, destination_links, firewalls
 
@@ -164,8 +172,93 @@ def getOSPFInformation(IPs, subnet, NEXT_IP_ADDER):
 
     return OSPF
 
+def getLinkFailureConfig(primary_links, backup_links, network_name):
+    linkfailJSON = {}
+    topo_dir = './networks/{}'.format(network_name)
+    one_link_fails = {'fail_link':primary_links[0], 'backup_link':backup_links[1]}
+    another_link_fails = {'fail_link':primary_links[1], 'backup_link':backup_links[0]}
 
-def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
+    linkfailJSON["{}_config".format(network_name)] = {
+        'network_name': network_name,
+        'topo_dir': topo_dir,
+        'backup_links': backup_links,
+        'primary_links': primary_links,
+        'one_link_fails': one_link_fails,
+        'another_link_fails': another_link_fails
+    }
+
+    return linkfailJSON
+
+def getEthernetLinkID(link, ethernet_table):
+    """
+    Given an ethernet table and a link, returns the location of the link in the ethernet table
+
+    Parameters:
+    ------------
+    link : tuple
+        a tuple from tableau
+
+    ethernet_table : list
+        tableau with ethernet table. Each tuple is of the form: (source_router, dest_router, ethernet_source, ethernet_dest)
+
+    Returns
+    ------------
+    link_id : int
+        the id of the corresponding link in the ethernet table
+    """
+    for id, eth_link in enumerate(ethernet_table):
+        if eth_link[SOURCE_ID] == link[SOURCE_ID] and eth_link[DEST_ID] == link[DEST_ID]:
+            return id
+
+def getPrimaryBackupLinks(tableau, ethernet_table):
+    """
+    Given a tableau representing a forwarding state and the same tableau with ethernet information, return the set of primary and the corresponding backup links
+
+    Parameters:
+    ------------
+    tableau : list
+        a tableau where each tuple represents an interface
+
+    ethernet_table : list
+        tableau with ethernet table. Each tuple is of the form: (source_router, dest_router, ethernet_source, ethernet_dest)
+
+    Returns
+    ------------
+    primary_links : list
+        list of primary links. Each tuple in list is a tuple that contains a router name and the corresponding id. e.g [{router_1: ethernet_id_1, router_2: ethernet_id_2}, ...]
+
+    backup_links : list
+        list of backup links. Each tuple in list is a tuple that contains a router name and the corresponding id. e.g [{router_1: ethernet_id_1, router_2: ethernet_id_2}, ...]
+    """
+    if len(tableau) != len(ethernet_table):
+        print("Length of tableau and ethernet table is not equal. Exiting")
+        exit()
+
+    primary_links = []
+    backup_links = []
+    for link in tableau:
+        condition = link[CONDITION_ID]
+        if len(condition) == 0:
+            continue
+        link_name = condition.split("==")[0].strip()
+        link_status = condition.split("==")[1].strip()
+        primary_link_id = getEthernetLinkID(link, ethernet_table)
+        if link_status == "1":
+            for link2 in tableau: # find backup pair. This is done over here to ensure that the order of backup and primary links correspond to each other
+                condition2 = link2[CONDITION_ID]
+                if len(condition2) == 0:
+                    continue
+                link_name2 = condition2.split("==")[0].strip()
+                link_status2 = condition2.split("==")[1].strip()
+                if (link_name2 == link_name) and link_status2 == "0":
+                    backup_link_id = getEthernetLinkID(link2, ethernet_table)
+                    primary_links.append( {link[SOURCE_ID]: ethernet_table[primary_link_id][2], link[DEST_ID]: ethernet_table[primary_link_id][3]} )
+                    backup_links.append( {link2[SOURCE_ID]: ethernet_table[backup_link_id][2], link2[DEST_ID]: ethernet_table[backup_link_id][3]} )
+    return primary_links, backup_links
+
+
+
+def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, network_name="t1"):
     """
     Given a tableau representing a forwarding state, converts the state into individual router and switch configurations. If routers connected to source and destinations are not identified, the first and the last router are used as source and destination respectively
 
@@ -182,6 +275,9 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
 
     subnet : integer
         a number between 1-32
+
+    network_name : string
+        name of the network
 
     Returns
     ------------
@@ -202,8 +298,9 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
 
     router_links, source_links, destination_links, firewalls = getLinks(tableau, sources, destinations) # returns the links of each router - adjacency list for routers and hosts separately. e.g. {"r1":["r2", "r3"]}, {"r1":["h1","h2"]}. Make sure that each router only occurs once in router_links
 
+
     router_interfaces = {}
-    # router_acls = {}
+    ethernet_table = []
     router_host_ips = {}
     source_IPs = {}
     dest_IPs = {}
@@ -214,8 +311,21 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
             router_interfaces[router] = []
             firewalls_both_sides[router] = []
 
+        for count, router_2 in enumerate(router_links[router]):
+            if router_2 not in router_interfaces: # thus interface hasn't already been added
+                router_interfaces[router_2] = []
+                firewalls_both_sides[router_2] = []
+            router_interfaces[router].append(IPv4Address(IP_curr))
+            router_interfaces[router_2].append(IPv4Address(IP_curr+1))
+            ethernet_table.append((router, router_2, len(router_interfaces[router])-1, len(router_interfaces[router_2])-1)) # source_router, dest_router, ethernet_source, ethernet_dest
+
+            firewalls_both_sides[router].append(firewalls[router][count])
+            firewalls_both_sides[router_2].append(EMPTY_FIREWALL)
+            # if firewall, then add firewall. Else add emptiness
+            IP_curr += NEXT_IP_ADDER
+
         if router in source_links or router in destination_links: 
-            hostIPs, curr_source_IPs, curr_dest_IPs = getHostFacingIP(router, source_links, destination_links, IP_curr, NEXT_IP_ADDER)
+            hostIPs, curr_source_IPs, curr_dest_IPs = getHostFacingIP(router, source_links, destination_links)
             for hostIP in hostIPs:
                 router_interfaces[router].append(hostIP)
                 firewalls_both_sides[router].append(EMPTY_FIREWALL) # denotes empty entry in firewall
@@ -224,29 +334,16 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
                 source_IPs = curr_source_IPs
             if len(curr_dest_IPs) > 0:
                 dest_IPs = curr_dest_IPs
-            IP_curr += NEXT_IP_ADDER*len(hostIPs) # multiplying by the number of hosts the router is connected to 
+            # IP_curr += NEXT_IP_ADDER*len(hostIPs) # multiplying by the number of hosts the router is connected to 
 
-        for count, router_2 in enumerate(router_links[router]):
-            if router_2 not in router_interfaces: # thus interface hasn't already been added
-                router_interfaces[router_2] = []
-                firewalls_both_sides[router_2] = []
-            router_interfaces[router].append(IPv4Address(IP_curr))
-            router_interfaces[router_2].append(IPv4Address(IP_curr+1))
-
-            firewalls_both_sides[router].append(firewalls[router][count])
-            firewalls_both_sides[router_2].append(EMPTY_FIREWALL)
-            # if firewall, then add firewall. Else add emptiness
-            IP_curr += NEXT_IP_ADDER
-
-    print(firewalls_both_sides)
-    print(router_interfaces)
+    primary_links, backup_links = getPrimaryBackupLinks(tableau, ethernet_table)
     # Get router configs in string form
     configs = {}
     for router in router_interfaces:
         config = ""
         config += getHostNameStart(router)
-        for count, IP in enumerate(router_interfaces[router]):
-            config += getInterface(IP, count, subnet, firewalls_both_sides[router][count]) # add ACLs too
+        for ethernet_ID, IP in enumerate(router_interfaces[router]):
+            config += getInterface(IP, ethernet_ID, subnet, firewalls_both_sides[router][ethernet_ID]) # add ACLs too
         config += getOSPFInformation(router_interfaces[router], subnet, NEXT_IP_ADDER)
         # config += getACLInformation(router_acls[router]) #
         configs[router] = config
@@ -262,6 +359,9 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24):
     for host in dest_IPs:
         hosts[host] = getHostJSON(host, dest_IPs[host], subnet, adder)
         adder += 5
+
+    link_failure_config = getLinkFailureConfig(primary_links, backup_links, network_name)
+    print(json.dumps(link_failure_config))
     return configs, hosts, source_IPs, dest_IPs
 
 def getHostJSON(host, hostIP, subnet, adder):
@@ -313,44 +413,44 @@ def createHosts(hosts, toponame):
 
 if __name__ == "__main__":
     T1 = [
-        ("1","u","1"),
-        ("u","2",""),
-        ("1","2","1"), 
-        ("2","v","2"), 
-        ("v","w",""), 
-        ("2","w","2")
+        ("1","u","1", "l1u == 1"),
+        ("u","2","", ""),
+        ("1","2","1", "l1u == 0"), 
+        ("2","v","2", "l2v == 1"), 
+        ("v","w","", ""), 
+        ("2","w","2", "l2v == 0")
     ]    
 
     T2 = [
-        ("1","u","1"),
-        ("u","2",""),
-        ("1","v","1"), 
-        ("2","v","2"), 
-        ("v","w",""), 
-        ("2","w","2")
+        ("1","u","1", "x == 1"),
+        ("u","2","", ""),
+        ("1","v","1", "x == 0"), 
+        ("2","v","2", "y == 1"), 
+        ("v","w","", ""), 
+        ("2","w","2", "y == 0")
     ]   
 
     T3 = [
-        ("1","2","1"),
-        ("1","v","1"), 
-        ("2","v","2"), 
-        ("v","w",""), 
-        ("2","w","2")
+        ("1","2","1", "x == 1"),
+        ("1","v","1", "x == 0"), 
+        ("2","v","2", "y == 1"), 
+        ("v","w","", ""), 
+        ("2","w","2", "y == 0")
     ]   
 
     T4 = [
-        ("1","2","1"),
-        ("1","v","1"), 
-        ("2","v",""), 
-        ("v","w","2"), 
-        ("2","w","2")
+        ("1","2","1", "x == 1"),
+        ("1","v","1", "x == 0"), 
+        ("2","v","", "y == 1"), 
+        ("v","w","2", ""), 
+        ("2","w","2", "y == 0")
     ]   
 
     all_topos = [T1, T2, T3, T4]
     all_topo_names = ["t1", "t2", "t3", "t4"]
 
     for i, topo in enumerate(all_topos):
-        configs, hosts, source_IPs, dest_IPs = tableau_to_config(topo, sources=["1","1"])
+        configs, hosts, source_IPs, dest_IPs = tableau_to_config(topo, sources=["1","1"], network_name=all_topo_names[i])
         createDirectories(all_topo_names[i])
         createConfigs(configs, all_topo_names[i], FIREWALL_RULES)
         # print(hosts)

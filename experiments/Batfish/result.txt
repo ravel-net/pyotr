@@ -1,0 +1,12 @@
+topo1|topo2||runtime|is_equal
+t1|t2|2.309772491455078|False
+topo1|topo2||runtime|is_equal
+t1|t3|2.7748899459838867|False
+topo1|topo2||runtime|is_equal
+t1|t4|2.332447052001953|True
+topo1|topo2||runtime|is_equal
+t2|t3|2.3266870975494385|True
+topo1|topo2||runtime|is_equal
+t2|t4|2.303166389465332|False
+topo1|topo2||runtime|is_equal
+t3|t4|2.2707529067993164|False
