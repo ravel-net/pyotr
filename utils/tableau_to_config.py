@@ -256,6 +256,32 @@ def getPrimaryBackupLinks(tableau, ethernet_table):
                     backup_links.append( {link2[SOURCE_ID]: ethernet_table[backup_link_id][2], link2[DEST_ID]: ethernet_table[backup_link_id][3]} )
     return primary_links, backup_links
 
+def getFirewallMapping(tableau):
+    """
+    Given a tableau representing a forwarding state, converts the state into individual router and switch configurations. If routers connected to source and destinations are not identified, the first and the last router are used as source and destination respectively
+
+    Parameters:
+    ------------
+    tableau : list
+        a tableau where each tuple represents an interface
+
+    Returns
+    ------------
+    firwall_mapping : dictionary
+        Maps firewall in tableau to either ACL 1 or ACL 2 
+    """
+    firewall_mapping = {}
+    firewall_num = 1
+    for link in tableau:
+        firewall_ACL = link[FIREWALL_ID]
+        if len(firewall_ACL) == 0:
+            continue
+        elif (firewall_ACL in firewall_mapping):
+            continue
+        else:
+            firewall_mapping[firewall_ACL] = str(firewall_num)
+            firewall_num += 1
+    return firewall_mapping
 
 
 def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, network_name="t1"):
@@ -296,6 +322,8 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
 
     NEXT_IP_ADDER = int(math.pow(2,32-subnet))
 
+    firewall_mapping = getFirewallMapping(tableau) # maps firewalls to ACL1 and ACL2
+    print(firewall_mapping)
     router_links, source_links, destination_links, firewalls = getLinks(tableau, sources, destinations) # returns the links of each router - adjacency list for routers and hosts separately. e.g. {"r1":["r2", "r3"]}, {"r1":["h1","h2"]}. Make sure that each router only occurs once in router_links
 
 
@@ -343,7 +371,11 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
         config = ""
         config += getHostNameStart(router)
         for ethernet_ID, IP in enumerate(router_interfaces[router]):
-            config += getInterface(IP, ethernet_ID, subnet, firewalls_both_sides[router][ethernet_ID]) # add ACLs too
+            ACL_num = ''
+            curr_firewall_entry = firewalls_both_sides[router][ethernet_ID]
+            if curr_firewall_entry != '':
+                ACL_num = firewall_mapping[curr_firewall_entry]
+            config += getInterface(IP, ethernet_ID, subnet, ACL_num) # add ACLs too
         config += getOSPFInformation(router_interfaces[router], subnet, NEXT_IP_ADDER)
         # config += getACLInformation(router_acls[router]) #
         configs[router] = config
@@ -413,12 +445,12 @@ def createHosts(hosts, toponame):
 
 if __name__ == "__main__":
     T1 = [
-        ("1","u","1", "l1u == 1"),
+        ("1","u","123", "l1u == 1"),
         ("u","2","", ""),
-        ("1","2","1", "l1u == 0"), 
-        ("2","v","2", "l2v == 1"), 
+        ("1","2","1321", "l1u == 0"), 
+        ("2","v","123", "l2v == 1"), 
         ("v","w","", ""), 
-        ("2","w","2", "l2v == 0")
+        ("2","w","1321", "l2v == 0")
     ]    
 
     T2 = [
