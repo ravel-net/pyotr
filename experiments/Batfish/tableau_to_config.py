@@ -100,7 +100,9 @@ def getLinks(tableau, sources, destinations):
     for link in tableau:
         source_router = link[SOURCE_ID]
         dest_router = link[DEST_ID]
-        firewall = link[FIREWALL_ID] 
+        firewall = EMPTY_FIREWALL
+        if (len(link[FIREWALL_ID]) > 0):
+            firewall = str(link[FIREWALL_ID][0]) #TODO: Assuming single firewall
 
         if (source_router not in firewalls):
             firewalls[source_router] = []
@@ -174,11 +176,11 @@ def getOSPFInformation(IPs, subnet, NEXT_IP_ADDER):
 
 def getLinkFailureConfig(primary_links, backup_links, network_name):
     linkfailJSON = {}
-    topo_dir = './networks/{}'.format(network_name)
+    topo_dir = './{}'.format(network_name)
     one_link_fails = {'fail_link':primary_links[0], 'backup_link':backup_links[1]}
     another_link_fails = {'fail_link':primary_links[1], 'backup_link':backup_links[0]}
 
-    linkfailJSON["{}_config".format(network_name)] = {
+    linkfailJSON = {
         'network_name': network_name,
         'topo_dir': topo_dir,
         'backup_links': backup_links,
@@ -230,24 +232,24 @@ def getPrimaryBackupLinks(tableau, ethernet_table):
     backup_links : list
         list of backup links. Each tuple in list is a tuple that contains a router name and the corresponding id. e.g [{router_1: ethernet_id_1, router_2: ethernet_id_2}, ...]
     """
-    if len(tableau) != len(ethernet_table):
-        print("Length of tableau and ethernet table is not equal. Exiting")
-        exit()
+    # if len(tableau) != len(ethernet_table):
+    #     print("Length of tableau and ethernet table is not equal. Exiting")
+    #     exit()
 
     primary_links = []
     backup_links = []
     for link in tableau:
-        condition = link[CONDITION_ID]
-        if len(condition) == 0:
+        if len(link[CONDITION_ID]) == 1 and link[CONDITION_ID][0] == '' or len(link[CONDITION_ID]) == 0:
             continue
+        condition = link[CONDITION_ID][0] # TODO: Assuming single condition
         link_name = condition.split("==")[0].strip()
         link_status = condition.split("==")[1].strip()
         primary_link_id = getEthernetLinkID(link, ethernet_table)
         if link_status == "1":
             for link2 in tableau: # find backup pair. This is done over here to ensure that the order of backup and primary links correspond to each other
-                condition2 = link2[CONDITION_ID]
-                if len(condition2) == 0:
+                if len(link2[CONDITION_ID]) == 1 and link2[CONDITION_ID][0] == '' or len(link2[CONDITION_ID]) == 0:
                     continue
+                condition2 = link2[CONDITION_ID][0] # TODO: Assuming single condition
                 link_name2 = condition2.split("==")[0].strip()
                 link_status2 = condition2.split("==")[1].strip()
                 if (link_name2 == link_name) and link_status2 == "0":
@@ -273,7 +275,9 @@ def getFirewallMapping(tableau):
     firewall_mapping = {}
     firewall_num = 1
     for link in tableau:
-        firewall_ACL = link[FIREWALL_ID]
+        firewall_ACL = EMPTY_FIREWALL
+        if (len(link[FIREWALL_ID]) > 0):
+            firewall_ACL = str(link[FIREWALL_ID][0]) #TODO: Assuming single firewall
         if len(firewall_ACL) == 0:
             continue
         elif (firewall_ACL in firewall_mapping):
@@ -393,8 +397,7 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
         adder += 5
 
     link_failure_config = getLinkFailureConfig(primary_links, backup_links, network_name)
-    print(json.dumps(link_failure_config))
-    return configs, hosts, source_IPs, dest_IPs
+    return configs, hosts, source_IPs, dest_IPs, link_failure_config
 
 def getHostJSON(host, hostIP, subnet, adder):
     hostJSON = {}
@@ -442,13 +445,20 @@ def createHosts(hosts, toponame):
         f.close()
 
 
+def getAndStoreConfiguration(tableau, tableau_name):
+    configs, hosts, source_IPs, dest_IPs, link_failure_config = tableau_to_config(tableau, sources=[tableau[0][SOURCE_ID],tableau[0][SOURCE_ID]], network_name=tableau_name)
+    createDirectories(tableau_name)
+    createConfigs(configs, tableau_name, FIREWALL_RULES)
+    createHosts(hosts, tableau_name)
+    return link_failure_config
+
 
 if __name__ == "__main__":
     T1 = [
         ("1","u","123", "l1u == 1"),
         ("u","2","", ""),
-        ("1","2","1321", "l1u == 0"), 
-        ("2","v","123", "l2v == 1"), 
+        ("1","2","123", "l1u == 0"), 
+        ("2","v","1321", "l2v == 1"), 
         ("v","w","", ""), 
         ("2","w","1321", "l2v == 0")
     ]    
@@ -482,7 +492,7 @@ if __name__ == "__main__":
     all_topo_names = ["t1", "t2", "t3", "t4"]
 
     for i, topo in enumerate(all_topos):
-        configs, hosts, source_IPs, dest_IPs = tableau_to_config(topo, sources=["1","1"], network_name=all_topo_names[i])
+        configs, hosts, source_IPs, dest_IPs, link_failure_config = tableau_to_config(topo, sources=["472","472"], network_name=all_topo_names[i])
         createDirectories(all_topo_names[i])
         createConfigs(configs, all_topo_names[i], FIREWALL_RULES)
         # print(hosts)

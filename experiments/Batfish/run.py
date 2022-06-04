@@ -1,18 +1,28 @@
-from networks.run_config import config
 import performance 
+import tableau_to_config
+import sys
+import psycopg2
+from os.path import dirname, abspath, join
+root = dirname(dirname(dirname(abspath(__file__))))
+sys.path.append(root)
+import databaseconfig as cfg
 
-for i in range(1, 5):
-    for j in range(1+i, 5):
-        if i == j:
-            continue
+def add_Tableau(tableau, tableau_name):
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(readonly=False, autocommit=True)
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS {};".format(tableau_name))
+    cursor.execute("create table {} (n1 integer, n2 integer, s text[], condition text[]);".format(tableau_name))
+    for link in tableau:
+        cursor.execute("insert into {} values('{}', '{}');".format(tableau_name, link[0], link[1]))
+        # if link[2] != "":
+        cursor.execute("update {} set s = array_append(s, '{}') where n1 = {} and n2 = {};".format(tableau_name, link[2], link[0], link[1]))
+        # else:
+        #     a = '{}'
+        #     cursor.execute("update {} set s = array_append(s, '{}') where n1 = {} and n2 = {};".format(tableau_name, a, link[0], link[1]))
+        cursor.execute("update {} set condition = array_append(condition, '{}') where n1 = {} and n2 = {};".format(tableau_name, link[3], link[0], link[1]))
 
-        config_topo1 = "t{}_config".format(i)
-        config1 = config[config_topo1]
-
-        config_topo2 = "t{}_config".format(j)
-        config2 = config[config_topo2]
-        print('topo1 = t', i)
-        print('topo2 = t', j)
+def runBatfish(config1, config2):
         # no failures
         flow1_no_failure, time_config1_no_failure = performance.no_failure(config1['network_name'], config1['topo_dir'], config1['backup_links'])
         flow2_no_failure, time_config2_no_failure = performance.no_failure(config2['network_name'], config2['topo_dir'], config2['backup_links'])
@@ -46,5 +56,52 @@ for i in range(1, 5):
 
         f = open("result.txt", "a")
         f.write("topo1|topo2||runtime|is_equal\n")
-        f.write("t{}|t{}|{}|{}\n".format(i, j, total_time, is_equal))
+        f.write("t{}|t{}|{}|{}\n".format(config1['network_name'], config2['network_name'], total_time, is_equal))
         f.close()
+        return total_time
+
+def getCurrentTable(tablename, cur):
+    cur.execute('select * from {};'.format(tablename))
+    return cur.fetchall()
+
+def getTableau(tableau_db_name):
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(readonly=False, autocommit=True)
+    cursor = conn.cursor()
+    tableau = getCurrentTable(tableau_db_name, cursor)
+    conn.commit()
+    conn.close()
+    print(tableau)
+    return tableau
+
+def equivalence_link_failures(tableau_db_name_1, tableau_db_name_2):
+    tableau1 = getTableau(tableau_db_name_1)
+    tableau2 = getTableau(tableau_db_name_2)
+    failure_config1 = tableau_to_config.getAndStoreConfiguration(tableau1, tableau_db_name_1)
+    failure_config2 = tableau_to_config.getAndStoreConfiguration(tableau2, tableau_db_name_2)
+    print(failure_config1)
+    print(failure_config2)
+    total_time = runBatfish(failure_config1, failure_config2)
+    return total_time
+
+if __name__ == "__main__":
+    T1 = [
+        ("1","20","123", "l1u == 1"),
+        ("20","2","", ""),
+        ("1","2","123", "l1u == 0"), 
+        ("2","30","1321", "l2v == 1"), 
+        ("30","40","", ""), 
+        ("2","40","1321", "l2v == 0")
+    ]
+
+    T4 = [
+        ("1","2","123", "x == 1"),
+        ("1","30","123", "x == 0"), 
+        ("2","30","", "y == 1"), 
+        ("30","40","1321", ""), 
+        ("2","40","1321", "y == 0")
+    ]   
+    
+    add_Tableau(T1, "T_1")
+    add_Tableau(T4, "T_4")
+    print(equivalence_link_failures("T_1", "T_4"))

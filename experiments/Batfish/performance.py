@@ -31,7 +31,6 @@ def no_failure(network_name, topo_dir, backup_links):
         for r in routers:
             intf = Interface(hostname="r_{}".format(r), interface="Ethernet{}".format(link[r]))
             interfaces.append(intf)
-    
     bf.fork_snapshot(BASE_SNAPSHOT_NAME, BLINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
 
     begin_no_failures = time.time()
