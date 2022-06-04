@@ -1,2 +1,0 @@
-topo1|topo2||runtime|is_equal
-tT_1|tT_4|2.330334186553955|True

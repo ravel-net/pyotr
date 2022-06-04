@@ -116,8 +116,15 @@ def getLinks(tableau, sources, destinations):
         if dest_router not in router_links[source_router]:
             router_links[source_router].append(dest_router)
 
-    router_links[tableau[-1][1]] = [] # Since final node never appears in source
-
+    # router_links[tableau[-1][1]] = [] # Since final node never appears in source
+    # for routers that never appear in the source
+    for link in tableau:
+        source_router = link[SOURCE_ID]
+        dest_router = link[DEST_ID]
+        if source_router not in router_links:
+            router_links[source_router] = []
+        if dest_router not in router_links:
+            router_links[dest_router] = []
 
     # Add hosts
     source_links = {}

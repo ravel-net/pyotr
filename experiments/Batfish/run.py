@@ -56,9 +56,9 @@ def runBatfish(config1, config2):
 
         f = open("result.txt", "a")
         f.write("topo1|topo2||runtime|is_equal\n")
-        f.write("t{}|t{}|{}|{}\n".format(config1['network_name'], config2['network_name'], total_time, is_equal))
+        f.write("{}|{}|{}|{}\n".format(config1['network_name'], config2['network_name'], total_time, is_equal))
         f.close()
-        return total_time
+        return total_time, is_equal
 
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
@@ -71,7 +71,6 @@ def getTableau(tableau_db_name):
     tableau = getCurrentTable(tableau_db_name, cursor)
     conn.commit()
     conn.close()
-    print(tableau)
     return tableau
 
 def equivalence_link_failures(tableau_db_name_1, tableau_db_name_2):
@@ -79,10 +78,9 @@ def equivalence_link_failures(tableau_db_name_1, tableau_db_name_2):
     tableau2 = getTableau(tableau_db_name_2)
     failure_config1 = tableau_to_config.getAndStoreConfiguration(tableau1, tableau_db_name_1)
     failure_config2 = tableau_to_config.getAndStoreConfiguration(tableau2, tableau_db_name_2)
-    print(failure_config1)
-    print(failure_config2)
-    total_time = runBatfish(failure_config1, failure_config2)
-    return total_time
+    # print(failure_config1)
+    # print(failure_config2)
+    return(runBatfish(failure_config1, failure_config2))
 
 if __name__ == "__main__":
     T1 = [
@@ -105,3 +103,4 @@ if __name__ == "__main__":
     add_Tableau(T1, "T_1")
     add_Tableau(T4, "T_4")
     print(equivalence_link_failures("T_1", "T_4"))
+    # print(equivalence_link_failures("fwd_4755", "fwd_4756"))

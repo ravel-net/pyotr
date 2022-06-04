@@ -104,23 +104,18 @@ def two_failures(network_name, topo_dir, fail_links):
     return result.Flow, end_two_failures-begin_two_failures
 
 def compare_flows(flows1, flows2):
-    print("Comparing Flows")
     begin_compare = time.time()
     if len(flows1) != len(flows2):
         return False, time.time() - begin_compare
     
     set1 = set()
     for flow in flows1:
-        print("Set 1")
         sd_pair = "{}->{}".format(flow.srcIp, flow.dstIp)
-        print(sd_pair)
         set1.add(sd_pair)
     
     set2 = set()
     for flow in flows2:
-        print("Set 2")
         sd_pair = "{}->{}".format(flow.srcIp, flow.dstIp)
-        print(sd_pair)
         set2.add(sd_pair)
     
     set3 = set1.difference(set2)
