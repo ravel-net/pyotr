@@ -8,12 +8,13 @@ from pybatfish.datamodel.flow import HeaderConstraints, PathConstraints  # noqa:
 
 # %run startup.py
 bf = Session(host="localhost")
-bf2 = Session(host="localhost")
+
 
 def no_failure(network_name, topo_dir, backup_links):
     # Assign a friendly name to your network and snapshot
     BASE_NETWORK_NAME = network_name
     BASE_SNAPSHOT_NAME = network_name
+
 
     BASE_SNAPSHOT_PATH = topo_dir
 
@@ -31,11 +32,12 @@ def no_failure(network_name, topo_dir, backup_links):
         for r in routers:
             intf = Interface(hostname="r_{}".format(r), interface="Ethernet{}".format(link[r]))
             interfaces.append(intf)
+
+    
     bf.fork_snapshot(BASE_SNAPSHOT_NAME, BLINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
 
     begin_no_failures = time.time()
-    # result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS').answer(BLINKS_INACTIVE_SNAPSHOT_NAME).frame()
-    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS', ignoreFilters=False).answer(BLINKS_INACTIVE_SNAPSHOT_NAME).frame()
+    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='r_w'), actions='SUCCESS').answer(BLINKS_INACTIVE_SNAPSHOT_NAME).frame()
     end_no_failures = time.time()
     return result.Flow, end_no_failures-begin_no_failures
 
@@ -59,6 +61,7 @@ def one_link_fails(network_name, topo_dir, fail_link, backup_link):
     for r in b_routers:
         intf = Interface(hostname="r_{}".format(r), interface="Ethernet{}".format(backup_link[r]))
         interfaces.append(intf)
+
     f_routers = fail_link.keys()
     for r in f_routers:
         intf = Interface(hostname="r_{}".format(r), interface="Ethernet{}".format(fail_link[r]))
@@ -68,10 +71,10 @@ def one_link_fails(network_name, topo_dir, fail_link, backup_link):
 
     begin_one_failure = time.time()
     result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
+
     end_one_failure = time.time()
 
     return result.Flow, end_one_failure-begin_one_failure
-
 
 def two_failures(network_name, topo_dir, fail_links):
     # Assign a friendly name to your network and snapshot
@@ -99,7 +102,6 @@ def two_failures(network_name, topo_dir, fail_links):
 
     begin_two_failures = time.time()
     result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
-    end_two_failures = time.time()
 
     return result.Flow, end_two_failures-begin_two_failures
 
