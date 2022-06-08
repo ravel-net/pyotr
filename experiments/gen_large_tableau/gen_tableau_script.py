@@ -52,25 +52,33 @@ def gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablena
     conn.commit()
     conn.close()
 
+    
     # calculate the spanning tree, return tree links and its root
-    path_links, path_nodes, source, dest  = func_linkfail.gen_hamiltonian_path(connected_links)
+    path_links, path_nodes, source, dest  = func_linkfail.gen_shortest_path(connected_links)
+    # source = 4
+    # dest = 1
+    # path_nodes = [4, 2, 1]
+    # path_links = [(4, 2), (2, 1)]
     print("source", source)
     print("dest", dest)
-    print("hamiltonian path:", len(path_links))
+    print("path nodes", path_nodes)
+    print("lenght of path:", len(path_links))
 
     # load spanning tree into db (without backup and filters)
     func_linkfail.load_tree_in_f(path_links, fwd_tablename)
 
     # add backup links to spanning tree
-    func_linkfail.add_backup_links_and_filters(dest, path_nodes, topo_tablename, fwd_tablename, pick_num)
+    func_linkfail.add_backup_links_and_filters(path_nodes, fwd_tablename, pick_num)
 
 if __name__ == '__main__':
-    file_dir  = '/../../topo/ISP_topo/'
-    filename = "4755_edges.txt"
+    AS_num = 7018
 
-    as_tablename = 'as_4755'
-    topo_tablename = "topo_4755"
-    fwd_tablename = "fwd_4755"
+    file_dir  = '/../../topo/ISP_topo/'
+    filename = "{}_edges.txt".format(AS_num)
+
+    as_tablename = 'as_{}'.format(AS_num)
+    topo_tablename = "topo_{}".format(AS_num)
+    fwd_tablename = "fwd_{}".format(AS_num)
 
     pick_num = 2
 

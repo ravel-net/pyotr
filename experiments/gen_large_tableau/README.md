@@ -4,15 +4,9 @@
 
 1. Choose one of Rocketfuel topology.
 2. Find the largest compoenent of the Rocketfuel topology(treat the topology as a undirected graph), use this component as the topology to generate forwarding table. Some of Rocketfuel topologies are not connected. 
-
-![AS_topo](figures/AS_topo.png)
-
-3. Calculting Hamiltonian path from this topology. Using the first node of hamiltionian path as source node and the last node as destination node.
-4. The links in Hamiltonian path are primary links. 
-   
-![Hamilton_path](figures/Hamilton_path.png)
-
-5. Randomly pick n nodes adding a backup link and ACL. The backup link connects the picked node and the node after the picked node(in the order nodes sequence of hamiltonian path).
+3. Randomly pick two nodes as source node and destination node. Calculting the shortest path from source node to destination node in this topology. 
+4. The links in the generating shortest path are primary links. 
+5. Randomly pick n nodes adding a backup link and ACL. The backup link connects the picked node and the node after the picked node(in the order nodes sequence of the generating shortest path).
 
 ![add_backup](figures/add_backup.png)
 
