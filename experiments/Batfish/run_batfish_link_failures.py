@@ -23,42 +23,46 @@ def add_Tableau(tableau, tableau_name):
         cursor.execute("update {} set condition = array_append(condition, '{}') where n1 = {} and n2 = {};".format(tableau_name, link[3], link[0], link[1]))
 
 def runBatfish(config1, config2):
+        comparison_time = 0
+
         # no failures
-        flow1_no_failure, time_config1_no_failure = performance.no_failure(config1['network_name'], config1['topo_dir'], config1['backup_links'])
-        flow2_no_failure, time_config2_no_failure = performance.no_failure(config2['network_name'], config2['topo_dir'], config2['backup_links'])
+        flow1_no_failure, time_config1_no_failure, time_snap1_config1 = performance.no_failure(config1['network_name'], config1['topo_dir'], config1['backup_links'])
+        flow2_no_failure, time_config2_no_failure, time_snap1_config2 = performance.no_failure(config2['network_name'], config2['topo_dir'], config2['backup_links'])
         print('flow1', flow1_no_failure)
         print('flow2', flow2_no_failure)
         comp1, time_comp1 = performance.compare_flows(flow1_no_failure, flow2_no_failure)
 
         # one link fails
-        flow1_one_link_fails, time_config1_one_link_fails = performance.one_link_fails(config1['network_name'], config1['topo_dir'], config1['one_link_fails']['fail_link'], config1['one_link_fails']['backup_link'])
-        flow2_one_link_fails, time_config2_one_link_fails = performance.one_link_fails(config2['network_name'], config2['topo_dir'], config2['one_link_fails']['fail_link'], config2['one_link_fails']['backup_link'])
+        flow1_one_link_fails, time_config1_one_link_fails, time_snap2_config1 = performance.one_link_fails(config1['network_name'], config1['topo_dir'], config1['one_link_fails']['fail_link'], config1['one_link_fails']['backup_link'])
+        flow2_one_link_fails, time_config2_one_link_fails, time_snap2_config2 = performance.one_link_fails(config2['network_name'], config2['topo_dir'], config2['one_link_fails']['fail_link'], config2['one_link_fails']['backup_link'])
         print('flow1', flow1_one_link_fails)
         print('flow2', flow2_one_link_fails)
         comp2, time_comp2 = performance.compare_flows(flow1_one_link_fails, flow2_one_link_fails)
 
         # anther link fails
-        flow1_another_link_fails, time_config1_another_link_fails = performance.one_link_fails(config1['network_name'], config1['topo_dir'], config1['another_link_fails']['fail_link'], config1['another_link_fails']['backup_link'])
-        flow2_another_link_fails, time_config2_another_link_fails = performance.one_link_fails(config2['network_name'], config2['topo_dir'], config2['another_link_fails']['fail_link'], config2['another_link_fails']['backup_link'])
+        flow1_another_link_fails, time_config1_another_link_fails, time_snap3_config1 = performance.one_link_fails(config1['network_name'], config1['topo_dir'], config1['another_link_fails']['fail_link'], config1['another_link_fails']['backup_link'])
+        flow2_another_link_fails, time_config2_another_link_fails, time_snap3_config2 = performance.one_link_fails(config2['network_name'], config2['topo_dir'], config2['another_link_fails']['fail_link'], config2['another_link_fails']['backup_link'])
         print('flow1', flow1_another_link_fails)
         print('flow2', flow2_another_link_fails)
         comp3, time_comp3 = performance.compare_flows(flow1_another_link_fails, flow2_another_link_fails)
 
         # two links fail
-        flow1_two_failures, time_config1_two_failures = performance.two_failures(config1['network_name'], config1['topo_dir'], config1['primary_links'])
-        flow2_two_failures, time_config2_two_failures = performance.two_failures(config2['network_name'], config2['topo_dir'], config2['primary_links'])
+        flow1_two_failures, time_config1_two_failures, time_snap4_config1 = performance.two_failures(config1['network_name'], config1['topo_dir'], config1['primary_links'])
+        flow2_two_failures, time_config2_two_failures, time_snap4_config2 = performance.two_failures(config2['network_name'], config2['topo_dir'], config2['primary_links'])
         print('flow1', flow1_two_failures)
         print('flow2', flow2_two_failures)
         comp4, time_comp4 = performance.compare_flows(flow1_two_failures, flow2_two_failures)
 
-        total_time = time_config1_no_failure + time_config2_no_failure + time_config1_one_link_fails + time_config2_one_link_fails + time_config1_another_link_fails + time_config2_another_link_fails + time_config1_two_failures + time_config2_two_failures + time_comp1 + time_comp2 + time_comp3 + time_comp4
+        total_time = time_config1_no_failure + time_config2_no_failure + time_config1_one_link_fails + time_config2_one_link_fails + time_config1_another_link_fails + time_config2_another_link_fails + time_config1_two_failures + time_config2_two_failures + time_comp1 + time_comp2 + time_comp3 + time_comp4 + time_snap1_config1+time_snap2_config1+time_snap3_config1+time_snap4_config1+time_snap1_config2+time_snap2_config2+time_snap3_config2+time_snap4_config2
         is_equal = comp1 and comp2 and comp3 and comp4
 
         f = open("result.txt", "a")
         f.write("topo1|topo2||runtime|is_equal\n")
         f.write("{}|{}|{}|{}\n".format(config1['network_name'], config2['network_name'], total_time, is_equal))
         f.close()
-        return total_time, is_equal
+
+        times = {"comparison":time_comp1+time_comp2+time_comp3+time_comp4, "snap1_eval":time_config1_no_failure+time_config2_no_failure, "snap2_eval":time_config1_one_link_fails+time_config2_one_link_fails, "snap3_eval":time_config1_another_link_fails+time_config2_another_link_fails, "snap4_eval":time_config1_two_failures+time_config2_two_failures, "removing_interfaces":time_snap1_config1+time_snap2_config1+time_snap3_config1+time_snap4_config1+time_snap1_config2+time_snap2_config2+time_snap3_config2+time_snap4_config2, "total_time":total_time}
+        return times, is_equal
 
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
@@ -100,7 +104,7 @@ if __name__ == "__main__":
         ("2","40","1321", "y == 0")
     ]   
     
-    add_Tableau(T1, "T_1")
-    add_Tableau(T4, "T_4")
-    print(equivalence_link_failures("T_1", "T_4"))
-    # print(equivalence_link_failures("fwd_4755", "fwd_4756"))
+    # add_Tableau(T1, "T_1")
+    # add_Tableau(T4, "T_4")
+    # print(equivalence_link_failures("T_1", "T_4"))
+    print(equivalence_link_failures("fwd_4755", "fwd_4755_diff"))
