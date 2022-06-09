@@ -7,6 +7,7 @@ root = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root)
 import databaseconfig as cfg
 import experiments.gen_large_tableau.gen_tableau_script as gen_tableau_script
+import shutil
 
 def getFirewalls(old_table):
 	firewalls = []
@@ -14,7 +15,7 @@ def getFirewalls(old_table):
 		if (len(link[tableau_to_config.FIREWALL_ID]) > 0):
 			firewall = old_table[tableau_to_config.FIREWALL_ID][0]
 			firewalls.append(firewall)
-	return firewall
+	return firewalls
 
 # Switch the firewall policies so that network equivalence does not hold under failure
 def changeFirewalls(table="fwd_4755", final_name=""):
@@ -67,30 +68,63 @@ def genTableau(topo=4755, pick_num=2):
     topo_tablename = "topo_{}".format(topo)
     fwd_tablename = "fwd_{}".format(topo)
 
-    gen_tableau_script.gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablename, fwd_tablename, pick_num)
-    return fwd_tablename
+    success = gen_tableau_script.gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablename, fwd_tablename, pick_num)
+    if success[0]:
+    	source = success[1]
+    	dest = success[2]
+    	return fwd_tablename, source, dest
+    else:
+    	return "","", ""
+
+# if __name__ == '__main__':
+# 	topos = [4755]
+# 	num_runs = 1
+# 	for topo in topos:
+# 		comparison_time = 0
+# 		snap1_eval_time = 0
+# 		snap2_eval_time = 0
+# 		snap3_eval_time = 0
+# 		snap4_eval_time = 0
+# 		removing_interfaces_time = 0
+# 		total_time = 0
+# 		for i in range(num_runs):
+# 			fwd_name = genTableau(topo)
+# 			times, answer = equivalence_batfish(fwd_name)
+# 			comparison_time += times["comparison"]
+# 			snap1_eval_time += times["snap1_eval"]
+# 			snap2_eval_time += times["snap2_eval"]
+# 			snap3_eval_time += times["snap3_eval"]
+# 			snap4_eval_time += times["snap4_eval"]
+# 			removing_interfaces_time += times["removing_interfaces"]
+# 			total_time += times["total_time"]
+# 		total_times = {"comparison":comparison_time/num_runs, "snap1_eval":snap1_eval_time/num_runs, "snap2_eval":snap2_eval_time/num_runs, "snap3_eval":snap3_eval_time/num_runs, "snap4_eval":snap4_eval_time/num_runs, "removing_interfaces":removing_interfaces_time/num_runs, "total_time":total_time/num_runs}
+# 			print(answer)
+# 		print(total_times)
 
 if __name__ == '__main__':
-	topos = [4755]
-	num_runs = 1
+	topos = [4755, 3356, 2914, 7018]
+	num_runs = 20
+	f = open("result.txt", "a")
+	f.write("topo|eval_time||snap_time|total_time\n")
 	for topo in topos:
-		comparison_time = 0
-		snap1_eval_time = 0
-		snap2_eval_time = 0
-		snap3_eval_time = 0
-		snap4_eval_time = 0
-		removing_interfaces_time = 0
+		total_eval_time = 0
+		total_removing_interfaces_time = 0
 		total_time = 0
-		for i in range(num_runs):
-			fwd_name = genTableau(topo)
-			times, answer = equivalence_batfish(fwd_name)
-			print(answer)
-			comparison_time += times["comparison"]
-			snap1_eval_time += times["snap1_eval"]
-			snap2_eval_time += times["snap2_eval"]
-			snap3_eval_time += times["snap3_eval"]
-			snap4_eval_time += times["snap4_eval"]
-			removing_interfaces_time += times["removing_interfaces"]
-			total_time += times["total_time"]
-		total_times = {"comparison":comparison_time/num_runs, "snap1_eval":snap1_eval_time/num_runs, "snap2_eval":snap2_eval_time/num_runs, "snap3_eval":snap3_eval_time/num_runs, "snap4_eval":snap4_eval_time/num_runs, "removing_interfaces":removing_interfaces_time/num_runs, "total_time":total_time/num_runs}
-		print(total_times)
+		run = 0
+		final_ans = False
+		while run < num_runs:
+			result = genTableau(topo)
+			fwd_name = result[0]
+			if fwd_name == "":
+				continue
+			eval_time, snap_time, answer = run_batfish_link_failures.differentialLinkFailure(fwd_name, result[1], result[2])
+			total_eval_time += eval_time
+			total_removing_interfaces_time += snap_time
+			total_time += snap_time+eval_time
+			shutil.rmtree(fwd_name)
+			if (answer):
+				print("Answer", answer)
+			run += 1
+		f.write("{}|{}|{}|{}\n".format(topo, total_eval_time/num_runs, total_removing_interfaces_time/num_runs, total_time/num_runs))
+		print("{}|{}|{}|{}\n".format(topo, total_eval_time/num_runs, total_removing_interfaces_time/num_runs, total_time/num_runs))
+	f.close()

@@ -63,12 +63,13 @@ def gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablena
     print("dest", dest)
     print("path nodes", path_nodes)
     print("lenght of path:", len(path_links))
-
+    if len(path_links) <= pick_num+1:
+        return False, source, dest
     # load spanning tree into db (without backup and filters)
     func_linkfail.load_tree_in_f(path_links, fwd_tablename)
 
     # add backup links to spanning tree
-    func_linkfail.add_backup_links_and_filters(path_nodes, fwd_tablename, pick_num)
+    return func_linkfail.add_backup_links_and_filters(path_nodes, fwd_tablename, pick_num), source, dest
 
 if __name__ == '__main__':
     AS_num = 7018

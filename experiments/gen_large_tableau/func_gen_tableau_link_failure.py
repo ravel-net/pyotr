@@ -53,11 +53,12 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
 
     if pick_num > len(path_nodes[:-2]):
         print("invalid pick_num! Please decrease pick_num or rerun script")
-        exit()
+        return False
 
     # randomly pick `pick_num` nodes to set backup links
     picked_nodes = random.sample(path_nodes[:-2], pick_num)
-
+    if(len(set(picked_nodes)) != len(picked_nodes)): # non unique picked nodes
+        return False
     flag_variables = {}
     for picked_node in picked_nodes:
         idx_picked_node = path_nodes.index(picked_node)
@@ -79,14 +80,14 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
         cursor.execute("update {} set s = array_append(s, {}) where n1 = {} and n2 = {}".format(forward_tablename, picked_node, picked_node, path_nodes[idx_picked_node+1]))
         conn.commit()
 
-        bp_next_node = random.sample(path_nodes[idx_picked_node+1:], 1)[0]
-
+        bp_next_node = random.sample(path_nodes[idx_picked_node+2:], 1)[0]
         # condition for backup link (one backup link for a primary link)
         bp_cond = "{} == {}".format(flag_var, 0)
         cursor.execute("insert into {} values({}, {}, '{}', '{}')".format(forward_tablename, picked_node, bp_next_node, "{"+str(picked_node)+"}", "{"+ bp_cond + "}"))
 
         conn.commit()
     conn.close()
+    return True
 
 def load_tree_in_f(links, ftable_name):
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])

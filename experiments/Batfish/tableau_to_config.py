@@ -12,8 +12,8 @@ EMPTY_FIREWALL = ""
 
 SOURCE_IP = "100.0.2.1"
 DEST_IP = "100.0.7.1"
-FIREWALL_ACL1 = "\n!\nip access-list extended ACL1\n\tpermit ip 100.0.2.20 any\n\tpermit ip 100.0.2.25 any\n\tdeny ip any any\n"
-FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tpermit ip 100.0.2.20 any\n\tdeny ip any any"
+FIREWALL_ACL1 = "\n!\nip access-list extended ACL1\n\tdeny ip 100.0.2.20 any\n\tpermit ip any any\n"
+FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tdeny ip 100.0.2.25 any\n\tpermit ip any any"
 FIREWALL_RULES = FIREWALL_ACL1+FIREWALL_ACL2
 
 # NEXT STEPS:
@@ -51,8 +51,10 @@ def getHostFacingIP(router, source_links, destination_links):
     if router in source_links:
         host1 = source_links[router][0]
         host2 = source_links[router][1]
+        host3 = source_links[router][2]
         source_IPs[host1] = IPv4Address(SOURCE_IP)
         source_IPs[host2] = IPv4Address(SOURCE_IP)
+        source_IPs[host3] = IPv4Address(SOURCE_IP)
         hostIPs.append(IPv4Address(SOURCE_IP))
 
     if router in destination_links:
@@ -135,6 +137,7 @@ def getLinks(tableau, sources, destinations):
         source_links[source_router] = ["source"+str(sourceNum)]
         sourceNum += 1
     else:
+        print(sources)
         for router in sources:
             if router not in source_links:
                 source_links[router] = []
@@ -452,8 +455,8 @@ def createHosts(hosts, toponame):
         f.close()
 
 
-def getAndStoreConfiguration(tableau, tableau_name):
-    configs, hosts, source_IPs, dest_IPs, link_failure_config = tableau_to_config(tableau, sources=[tableau[0][SOURCE_ID],tableau[0][SOURCE_ID]], network_name=tableau_name)
+def getAndStoreConfiguration(tableau, tableau_name, sources, destinations):
+    configs, hosts, source_IPs, dest_IPs, link_failure_config = tableau_to_config(tableau, sources=sources, destinations=destinations, network_name=tableau_name)
     createDirectories(tableau_name)
     createConfigs(configs, tableau_name, FIREWALL_RULES)
     createHosts(hosts, tableau_name)

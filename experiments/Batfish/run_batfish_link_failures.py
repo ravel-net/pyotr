@@ -7,6 +7,18 @@ root = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root)
 import databaseconfig as cfg
 
+def Merge(dict1, dict2):
+    merged = {}
+    for r in dict1:
+        if r not in merged:
+            merged[r] = []
+        merged[r].append(dict1[r])
+    for r in dict2:
+        if r not in merged:
+            merged[r] = []
+        merged[r].append(dict2[r])
+    return merged
+
 def add_Tableau(tableau, tableau_name):
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(readonly=False, autocommit=True)
@@ -64,6 +76,15 @@ def runBatfish(config1, config2):
         times = {"comparison":time_comp1+time_comp2+time_comp3+time_comp4, "snap1_eval":time_config1_no_failure+time_config2_no_failure, "snap2_eval":time_config1_one_link_fails+time_config2_one_link_fails, "snap3_eval":time_config1_another_link_fails+time_config2_another_link_fails, "snap4_eval":time_config1_two_failures+time_config2_two_failures, "removing_interfaces":time_snap1_config1+time_snap2_config1+time_snap3_config1+time_snap4_config1+time_snap1_config2+time_snap2_config2+time_snap3_config2+time_snap4_config2, "total_time":total_time}
         return times, is_equal
 
+def runBatfishDiffer(config):
+    answer1, time_eval1, time_snap1 = performance.differentialAnalysis(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0], {}), Merge(config['backup_links'][0],config['backup_links'][1]))
+    print(answer1, config['primary_links'][0])
+    answer2, time_eval2, time_snap2 = performance.differentialAnalysis(config['network_name'], config['topo_dir'], Merge(config['primary_links'][1], {}), Merge(config['backup_links'][0],config['backup_links'][1]))
+    print(answer2, config['primary_links'][1])
+    answer3, time_eval3, time_snap3 = performance.differentialAnalysis(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0],config['primary_links'][1]),  Merge(config['backup_links'][0],config['backup_links'][1]))
+    print(answer3, Merge(config['primary_links'][0],config['primary_links'][1]))
+    return time_eval1+time_eval2+time_eval3, time_snap1+time_snap2+time_snap3, (answer1 and answer2 and answer3)
+
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
     return cur.fetchall()
@@ -80,17 +101,26 @@ def getTableau(tableau_db_name):
 def equivalence_link_failures(tableau_db_name_1, tableau_db_name_2):
     tableau1 = getTableau(tableau_db_name_1)
     tableau2 = getTableau(tableau_db_name_2)
-    failure_config1 = tableau_to_config.getAndStoreConfiguration(tableau1, tableau_db_name_1)
-    failure_config2 = tableau_to_config.getAndStoreConfiguration(tableau2, tableau_db_name_2)
+    failure_config1 = tableau_to_config.getAndStoreConfiguration(tableau1, tableau_db_name_1, [tableau[-4][tableau_to_config.SOURCE_ID],tableau[-4][tableau_to_config.SOURCE_ID], tableau[-4][tableau_to_config.SOURCE_ID]])
+    failure_config2 = tableau_to_config.getAndStoreConfiguration(tableau2, tableau_db_name_2, [tableau[-4][tableau_to_config.SOURCE_ID],tableau[-4][tableau_to_config.SOURCE_ID], tableau[-4][tableau_to_config.SOURCE_ID]])
     # print(failure_config1)
     # print(failure_config2)
     return(runBatfish(failure_config1, failure_config2))
+
+def differentialLinkFailure(tableau_db_name, source, dest):
+    tableau = getTableau(tableau_db_name)
+    failure_config = tableau_to_config.getAndStoreConfiguration(tableau, tableau_db_name, [source,source,source], [dest])
+    # print(failure_config1)
+    # print(failure_config2)
+    print(failure_config)
+    return runBatfishDiffer(failure_config)
+    # return(runBatfish(failure_config1, failure_config2))
 
 if __name__ == "__main__":
     T1 = [
         ("1","20","123", "l1u == 1"),
         ("20","2","", ""),
-        ("1","2","123", "l1u == 0"), 
+        ("1","2","", "l1u == 0"), 
         ("2","30","1321", "l2v == 1"), 
         ("30","40","", ""), 
         ("2","40","1321", "l2v == 0")
@@ -104,7 +134,8 @@ if __name__ == "__main__":
         ("2","40","1321", "y == 0")
     ]   
     
-    # add_Tableau(T1, "T_1")
+    add_Tableau(T1, "T_1")
     # add_Tableau(T4, "T_4")
     # print(equivalence_link_failures("T_1", "T_4"))
-    print(equivalence_link_failures("fwd_4755", "fwd_4755_diff"))
+    print(differentialLinkFailure("T_1", int(T1[0][tableau_to_config.SOURCE_ID]), int(T1[-1][tableau_to_config.DEST_ID])))
+    # print(equivalence_link_failures("fwd_4755", "fwd_4755_diff"))

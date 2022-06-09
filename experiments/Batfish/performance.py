@@ -30,7 +30,7 @@ def no_failure(network_name, topo_dir, backup_links):
 
     begin_no_failures = time.time()
     # result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS').answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
-    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=22, dstPorts=22, ipProtocols='TCP', applications='SSH'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
+    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
     end_no_failures = time.time()
     return result.Flow, end_no_failures-begin_no_failures, end_snap-begin_snap
 
@@ -61,7 +61,7 @@ def one_link_fails(network_name, topo_dir, fail_link, backup_link):
     end_snap = time.time()
 
     begin_one_failure = time.time()
-    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=22, dstPorts=22, ipProtocols='TCP', applications='SSH'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
+    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
     end_one_failure = time.time()
     return result.Flow, end_one_failure-begin_one_failure, end_snap-begin_snap
 
@@ -88,9 +88,79 @@ def two_failures(network_name, topo_dir, fail_links):
     bf.fork_snapshot(BASE_SNAPSHOT_NAME, LINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
     end_snap = time.time()
     begin_two_failures = time.time()
-    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=22, dstPorts=22, ipProtocols='TCP', applications='SSH'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
+    result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(LINKS_INACTIVE_SNAPSHOT_NAME).frame()
     end_two_failures = time.time()
     return result.Flow, end_two_failures-begin_two_failures, end_snap-begin_snap
+
+# def differentialAnalysis(network_name, topo_dir, fail_links, backup_links):
+#     print(network_name, topo_dir, fail_links, backup_links)
+#     BASE_NETWORK_NAME = network_name
+#     BASE_SNAPSHOT_NAME = network_name
+#     BASE_SNAPSHOT_PATH = topo_dir
+#     # Now create the network and initialize the snapshot
+#     bf.set_network(BASE_NETWORK_NAME)
+#     bf.init_snapshot(BASE_SNAPSHOT_PATH, name=BASE_SNAPSHOT_NAME, overwrite=True)
+
+
+#     interfaces = []
+#     b_routers = backup_links.keys()
+#     for r in b_routers:
+#         intf = Interface(hostname="r_{}".format(r), interface="Ethernet{}".format(backup_links[r]))
+#         interfaces.append(intf)    
+#     BASE_SNAPSHOT_NO_BACKUP_NAME = network_name+"NO_BACKUP"
+#     bf.fork_snapshot(BASE_SNAPSHOT_NAME, BASE_SNAPSHOT_NO_BACKUP_NAME, deactivate_interfaces=interfaces, overwrite=True)
+
+#     # interfaces = []
+#     # f_routers = fail_links.keys()
+#     # for r in f_routers:
+#     #     intf = Interface(hostname="r_{}".format(r), interface="Ethernet{}".format(fail_links[r]))
+#     #     interfaces.append(intf)
+#     # two failures
+#     # Fork a new snapshot with backup links inactive
+#     LINKS_INACTIVE_SNAPSHOT_NAME = "two_b_links_inactive"
+#     begin_snap = time.time()
+#     bf.fork_snapshot(BASE_SNAPSHOT_NAME, LINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
+#     end_snap = time.time()
+
+#     diff_reachability_answer = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=22, dstPorts=22, ipProtocols='UDP', applications='SSH'), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=BASE_SNAPSHOT_NO_BACKUP_NAME)
+#     # Display the results
+#     print(diff_reachability_answer.frame().Flow)
+
+def differentialAnalysis(network_name, topo_dir, fail_links, backup_links):
+    BASE_NETWORK_NAME = network_name
+    BASE_SNAPSHOT_NAME = network_name
+    BASE_SNAPSHOT_PATH = topo_dir
+    # Now create the network and initialize the snapshot
+    bf.set_network(BASE_NETWORK_NAME)
+    bf.init_snapshot(BASE_SNAPSHOT_PATH, name=BASE_SNAPSHOT_NAME, overwrite=True)
+
+    interfaces = []
+    for router in backup_links:
+        for eth in backup_links[router]:
+            intf = Interface(hostname="r_{}".format(router), interface="Ethernet{}".format(eth))
+            interfaces.append(intf)    
+    BASE_SNAPSHOT_NO_BACKUP_NAME = network_name+"NO_BACKUP"
+    bf.fork_snapshot(BASE_SNAPSHOT_NAME, BASE_SNAPSHOT_NO_BACKUP_NAME, deactivate_interfaces=interfaces, overwrite=True)
+
+    interfaces = []
+    for router in fail_links:
+        for eth in fail_links[router]:
+            intf = Interface(hostname="r_{}".format(router), interface="Ethernet{}".format(eth))
+            interfaces.append(intf)
+
+    # Fork a new snapshot with selected backup links inactive
+    LINKS_INACTIVE_SNAPSHOT_NAME = "b_links_inactive"
+    begin_snap = time.time()
+    bf.fork_snapshot(BASE_SNAPSHOT_NAME, LINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
+    end_snap = time.time()
+
+    begin_failures = time.time()
+    diff_reachability_answer = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/dest/', srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=BASE_SNAPSHOT_NO_BACKUP_NAME).frame()
+    end_failures = time.time()
+    answer = (len(diff_reachability_answer.Flow) == 0)
+    print(diff_reachability_answer.Flow)
+    return answer, end_failures-begin_failures, end_snap-begin_snap
+
 
 def compare_flows(flows1, flows2):
     begin_compare = time.time()
