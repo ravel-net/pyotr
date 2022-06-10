@@ -72,9 +72,10 @@ def genTableau(topo=4755, pick_num=2):
     if success[0]:
     	source = success[1]
     	dest = success[2]
-    	return fwd_tablename, source, dest
+    	length = success[3]
+    	return fwd_tablename, source, dest, length
     else:
-    	return "","", ""
+    	return "","", "", ""
 
 # if __name__ == '__main__':
 # 	topos = [4755]
@@ -102,29 +103,23 @@ def genTableau(topo=4755, pick_num=2):
 # 		print(total_times)
 
 if __name__ == '__main__':
-	topos = [4755, 3356, 2914, 7018]
-	num_runs = 20
+	topos = [7018]
+	num_runs = 100
 	f = open("result.txt", "a")
-	f.write("topo|eval_time||snap_time|total_time\n")
+	f.write("topo|length|eval_time|snap_time|total_time\n")
 	for topo in topos:
-		total_eval_time = 0
-		total_removing_interfaces_time = 0
-		total_time = 0
 		run = 0
-		final_ans = False
 		while run < num_runs:
 			result = genTableau(topo)
+			length = result[3]
 			fwd_name = result[0]
 			if fwd_name == "":
 				continue
 			eval_time, snap_time, answer = run_batfish_link_failures.differentialLinkFailure(fwd_name, result[1], result[2])
-			total_eval_time += eval_time
-			total_removing_interfaces_time += snap_time
-			total_time += snap_time+eval_time
 			shutil.rmtree(fwd_name)
 			if (answer):
 				print("Answer", answer)
 			run += 1
-		f.write("{}|{}|{}|{}\n".format(topo, total_eval_time/num_runs, total_removing_interfaces_time/num_runs, total_time/num_runs))
-		print("{}|{}|{}|{}\n".format(topo, total_eval_time/num_runs, total_removing_interfaces_time/num_runs, total_time/num_runs))
+			f.write("{}|{}|{}|{}|{}\n".format(topo, length, eval_time, snap_time, eval_time+snap_time))
+			print("{}|{}|{}|{}|{}\n".format(topo, length, eval_time, snap_time, eval_time+snap_time))
 	f.close()
