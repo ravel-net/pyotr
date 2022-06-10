@@ -7,11 +7,7 @@ sys.path.append(root)
 
 import psycopg2
 import databaseconfig as cfg
-import random
-import os
-import networkx as nx
-from networkx.algorithms import tournament
-import experiments.gen_large_tableau.func_gen_tableau_link_failure as func_linkfail
+import experiments.gen_large_tableau.func_gen_tableau as func_linkfail
 
 def gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablename, fwd_tablename, pick_num):
     """
@@ -53,8 +49,10 @@ def gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablena
     conn.close()
 
     
-    # calculate the spanning tree, return tree links and its root
+    # calculate the shortest path, ransomly select source and dest
     path_links, path_nodes, source, dest  = func_linkfail.gen_shortest_path(connected_links)
+    while len(path_nodes) - 2 < pick_num:
+        path_links, path_nodes, source, dest  = func_linkfail.gen_shortest_path(connected_links)
     # source = 4
     # dest = 1
     # path_nodes = [4, 2, 1]
@@ -69,6 +67,17 @@ def gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablena
 
     # add backup links to spanning tree
     func_linkfail.add_backup_links_and_filters(path_nodes, fwd_tablename, pick_num)
+
+    IP_tuples, symbolic_IP_mapping = func_linkfail.convert_symbol_to_IP(fwd_tablename)
+    attributes = {
+        'n1': 'inet_faure', 
+        'n2': 'inet_faure',
+        's':'inet_faure[]',
+        'condition':'text[]'
+    }
+    func_linkfail.load_table(fwd_tablename, attributes, IP_tuples)
+
+    return IP_tuples, symbolic_IP_mapping[source], symbolic_IP_mapping[dest]
 
 if __name__ == '__main__':
     AS_num = 7018

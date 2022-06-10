@@ -12,6 +12,7 @@ import random
 import os
 import networkx as nx
 from networkx.algorithms import tournament
+from ipaddress import IPv4Address
 
 '''
 Load ISP topology into database
@@ -79,7 +80,7 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
         cursor.execute("update {} set s = array_append(s, {}) where n1 = {} and n2 = {}".format(forward_tablename, picked_node, picked_node, path_nodes[idx_picked_node+1]))
         conn.commit()
 
-        bp_next_node = random.sample(path_nodes[idx_picked_node+1:], 1)[0]
+        bp_next_node = random.sample(path_nodes[idx_picked_node+2:], 1)[0]
 
         # condition for backup link (one backup link for a primary link)
         bp_cond = "{} == {}".format(flag_var, 0)
@@ -88,7 +89,20 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
         conn.commit()
     conn.close()
 
+    return flag_variables
+
 def load_tree_in_f(links, ftable_name):
+    """
+    Load the primary path into database
+
+    Parameters:
+    -----------
+    links: list[tuple]
+        The links of the primary forwarding path
+    
+    ftable_name: string
+        the name of database table to store `links`, the forwarding table
+    """
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
     cursor = conn.cursor()
     
@@ -98,7 +112,7 @@ def load_tree_in_f(links, ftable_name):
 
     sql = "Drop table if exists {}".format(ftable_name)
     cursor.execute(sql)
-
+    
     sql = "create table {} (n1 integer, n2 integer, s integer[], condition text[]);".format(ftable_name)
     cursor.execute(sql)
 
@@ -215,8 +229,101 @@ def gen_connectivity_view(path_nodes, tablename, table_attributes, table_datatyp
 
     conn.commit()
     conn.close()
+
+def convert_symbol_to_IP(ftable_name):
+    """
+    Convert symbolic integers to realistic IP address
+
+    Parameters:
+    -----------
+    ftable_name: string
+        the name of symbolic forwarding table
+    """
+    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+    cursor = conn.cursor()
+
+    cursor.execute("select * from {}".format(ftable_name))
+
+    ftable_tuples = cursor.fetchall()
     
+    IP_tuples = []
+    symbol_to_IP_mapping = {}
+    IPaddr = int(IPv4Address("1.0.0.1")) 
+    for tuple in ftable_tuples:
+        n1 = tuple[0]
+        n2 = tuple[1]
+        s = tuple[2]
+        condition = tuple[3]
+
+        if n1 in symbol_to_IP_mapping.keys():
+            n1 = symbol_to_IP_mapping[n1]
+        else:
+            n1_IP = str(IPv4Address(IPaddr))
+            IPaddr += 1
+
+            symbol_to_IP_mapping[n1] = n1_IP
+            n1 = n1_IP
         
+        if n2 in symbol_to_IP_mapping.keys():
+            n2 = symbol_to_IP_mapping[n2]
+        else:
+            n2_IP = str(IPv4Address(IPaddr))
+            IPaddr += 1
+
+            symbol_to_IP_mapping[n2] = n2_IP
+            n2 = n2_IP
+
+        s_IP = []
+        for acl in s:
+            if acl in symbol_to_IP_mapping.keys():
+                s_IP.append(symbol_to_IP_mapping[acl])
+            else:
+                acl_ip = str(IPv4Address(IPaddr))
+                IPaddr += 1
+
+                symbol_to_IP_mapping[acl] = acl_ip
+                s_IP.append(acl_ip)
+        
+        s = s_IP
+
+        IP_tuples.append((n1, n2, '{'+"{}".format(", ".join(s))+'}', '{'+"{}".format(", ".join(condition))+'}'))
+    
+    # print("IP_tuples", IP_tuples)
+    print("symbol_to_IP_mapping", symbol_to_IP_mapping)
+
+    return IP_tuples, symbol_to_IP_mapping
+
+def load_table(tablename, attributes, tuples):
+    """
+    Stores tuples into database
+
+    Parameters:
+    -----------
+    tablename: string
+        name of database table
+    
+    attributes: dict
+        the attributes and their corresponding datatype of the table `tablename`. e.g., {"src":"inet", ...}
+
+    tuples: list[tuple]
+        the tuples of table `tablename`    
+    """
+    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+    cursor = conn.cursor()
+
+    sql = "Drop table if exists {};".format(tablename)
+    cursor.execute(sql)
+
+    cols = []
+    for attr in attributes.keys():
+        cols.append("{} {}".format(attr, attributes[attr]))
+    
+    sql = "create table {} ({});".format(tablename, ", ".join(cols))
+    cursor.execute(sql)
+
+    execute_values(cursor, "insert into {} values %s".format(tablename), tuples)
+    conn.commit()
+    conn.close()
 
 if __name__ == '__main__':
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
