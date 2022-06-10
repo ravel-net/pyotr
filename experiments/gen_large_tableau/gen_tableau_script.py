@@ -7,7 +7,7 @@ sys.path.append(root)
 
 import psycopg2
 import databaseconfig as cfg
-import experiments.gen_large_tableau.func_gen_tableau as func_linkfail
+import experiments.gen_large_tableau.func_gen_tableau_link_failure as func_linkfail
 
 def gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablename, fwd_tablename, pick_num):
     """
