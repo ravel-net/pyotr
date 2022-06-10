@@ -42,7 +42,6 @@ def get_total_groups_time(filename):
 def gen_cdf(data):
     sorted_data = np.sort(data)
     cdf_data = 1 * np.arange(len(sorted_data)) / float(len(sorted_data) - 1)
-    print(cdf_data)
     return cdf_data
 
 def gen_data_file(data, cdf_data, out_filename):
@@ -57,38 +56,41 @@ def gen_data_file(data, cdf_data, out_filename):
     finally:
         f.close()
 
+def extractCol(col_name, filepath):
+    data = []
+    col_index = 0
+    with open(filepath) as f:
+        i = 0
+        tmp = f.readlines()
+        for line in tmp:
+            if (i == 0):
+                for col in line.split("|"):
+                    print(col)
+                    if col.strip() == col_name:
+                        break
+                    col_index += 1
+            else:
+                data_part = line.split("|")[col_index].strip()
+                data.append(float(data_part))
+            i += 1
+    return data
+            # data.append(line.strip())
+
 
 if __name__ == '__main__':
-    filepath = "../../variable_closure/data/"
-    systems = ["faure", "pyotr"]
-    # filenames = [
-    #     "exp_faure_close_data100.txt", 
-    #     "exp_faure_close_data1000.txt", 
-    #     "exp_faure_close_data10000.txt",
-    #     "exp_pytro_close_data100.txt",
-    #     "exp_pytro_close_data1000.txt"
-    #     ]
-    sizes = [100, 1000, 10000]
-    # col_index = [2, 3, -1] # length, data time, total time per group
-    # col_name = ["tuples", "data", "totalpergp"]
-
+    filepath = "../../experiments/Batfish/result_UDP.txt"
+    data = extractCol("total_time", filepath)
+    cdf_data = gen_cdf(data)
+    print(cdf_data)
+    out_filename = "7018_batfish.dat"
+    gen_data_file(data, cdf_data, out_filename)
     # for s in systems:
+    #     data = []
     #     for size in sizes:
     #         filename = "exp_{}_close_data{}.txt".format(s, size)
-
-    #         for idx, col_idx in enumerate(col_index):
-    #             data = get_data_scalibility(filepath+filename, col_idx)
-
-    #             cdf_data = gen_cdf(data)
-    #             out_filename = "data/{}_{}_{}.dat".format(s, size, col_name[idx])
-    #             gen_data_file(data, cdf_data, out_filename)
-    for s in systems:
-        data = []
-        for size in sizes:
-            filename = "exp_{}_close_data{}.txt".format(s, size)
-            t = get_total_groups_time(filepath+filename)
-            data.append(t)
-        cdf_data = gen_cdf(data)
-        out_filename = "data/{}_totalgps.dat".format(s)
-        gen_data_file(data, cdf_data, out_filename)
+    #         t = get_total_groups_time(filepath+filename)
+    #         data.append(t)
+    #     cdf_data = gen_cdf(data)
+    #     out_filename = "data/{}_totalgps.dat".format(s)
+    #     gen_data_file(data, cdf_data, out_filename)
     
