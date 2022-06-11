@@ -1,0 +1,2 @@
+total check_applicable1 check_applicable2 insert_time1 insert_time2 check_trivial
+3.4206 1.1861 0.8630 0.6394 0.0000 0.7321 
