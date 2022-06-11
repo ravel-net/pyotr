@@ -3,9 +3,9 @@
 # Results
 
 **Terms:**
-- `total`: total running time for the chase, including applying sigma 1 and sigma 2 as well as checking whether the answer is trivial.
+- `total`: total running time for the chase, including applying sigma 1 and sigma 2 as well as checking whether the answer is trivial. i.e. `total` = `check_applicable1`+`check_applicable2`+`insert_time1`+`insert_time2`+`check_trivial`.
 - `check_applicable1`: running time for checking if there is tuple matching the tgd(sigma 1) pattern.
-- `check_applicable12`: running time for checking if there is tuple matching the tgd(sigma 2) pattern.
+- `check_applicable2`: running time for checking if there is tuple matching the tgd(sigma 2) pattern.
 - `insert_time1`: running time for inserting tuple when there is tuple matching the tgd(sigma 1) pattern.
 - `insert_time2`: running time for inserting tuple when there is tuple matching the tgd(sigma 2) pattern.
 - `check_trivial`: running time for checking whether the final answer is trivial.
