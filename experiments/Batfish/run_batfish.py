@@ -85,6 +85,19 @@ def runBatfishDiffer(config):
     print(answer3, Merge(config['primary_links'][0],config['primary_links'][1]))
     return time_eval1+time_eval2+time_eval3, time_snap1+time_snap2+time_snap3, (answer1 and answer2 and answer3)
 
+def runReachability(config):
+    total_eval_time = 0
+    total_snap_time = 0
+    total_time = 0
+    for dest in config["dests"]:
+        answer, time_eval, time_snap = performance.NAT_reachability(config['network_name'], config['topo_dir'], dest)
+        total_eval_time += time_eval
+        total_snap_time += time_snap
+        total_time += time_eval+time_snap
+    destinations_num = len(config["dests"])
+    ans = True
+    return total_eval_time/destinations_num, total_snap_time/destinations_num, total_time/destinations_num, ans
+
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
     return cur.fetchall()
@@ -109,12 +122,25 @@ def equivalence_link_failures(tableau_db_name_1, tableau_db_name_2):
 
 def differentialLinkFailure(tableau_db_name, source, dest):
     tableau = getTableau(tableau_db_name)
-    failure_config = tableau_to_config.getAndStoreConfiguration(tableau, tableau_db_name, [source,source,source], [dest])
-    # print(failure_config1)
-    # print(failure_config2)
+    failure_config = tableau_to_config.getAndStoreConfiguration(tableau, tableau_db_name, [source,source], [dest, dest], False)
     print(failure_config)
     return runBatfishDiffer(failure_config)
-    # return(runBatfish(failure_config1, failure_config2))
+
+def NATAttack(tableau_db_name, source, dest, num_source, num_dest):
+    tableau_full = getTableau(tableau_db_name)
+    # Remove firewallID and conditions
+    tableau = []
+    for link in tableau_full:
+        curr_tuple = (link[tableau_to_config.SOURCE_ID], link[tableau_to_config.DEST_ID], "", "")
+        tableau.append(curr_tuple)
+    sources = []
+    dests = []
+    for i in range(num_source):
+        sources.append(source)
+    for i in range(num_dest):
+        dests.append(dest)
+    NAT_config = tableau_to_config.getAndStoreConfiguration(tableau, tableau_db_name, sources, dests, True)
+    return runReachability(NAT_config)
 
 if __name__ == "__main__":
     T1 = [
@@ -126,6 +152,20 @@ if __name__ == "__main__":
         ("2","40","1321", "l2v == 0")
     ]
 
+    Invariant2 = [
+        ("1","20","", ""),
+        ("20","2","", ""),
+    ]
+
+    # Example = [
+    #     ("1","u","", ""),
+    #     ("u","2","", ""),
+    #     ("1","2","", ""), 
+    #     ("2","v","", ""), 
+    #     ("v","w","", ""), 
+    #     ("2","w","", "")
+    # ] 
+
     T4 = [
         ("1","2","123", "x == 1"),
         ("1","30","123", "x == 0"), 
@@ -134,8 +174,9 @@ if __name__ == "__main__":
         ("2","40","1321", "y == 0")
     ]   
     
-    add_Tableau(T1, "T_1")
+    add_Tableau(Invariant2, "Invariant2")
+    print(NATAttack("Invariant2", int(Invariant2[0][tableau_to_config.SOURCE_ID]), int(Invariant2[-1][tableau_to_config.DEST_ID]), 3, 4))
     # add_Tableau(T4, "T_4")
     # print(equivalence_link_failures("T_1", "T_4"))
-    print(differentialLinkFailure("T_1", int(T1[0][tableau_to_config.SOURCE_ID]), int(T1[-1][tableau_to_config.DEST_ID])))
+    # print(differentialLinkFailure("Invariant2", int(Invariant2[0][tableau_to_config.SOURCE_ID]), int(Invariant2[-1][tableau_to_config.DEST_ID])))
     # print(equivalence_link_failures("fwd_4755", "fwd_4755_diff"))

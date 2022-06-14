@@ -12,15 +12,18 @@ EMPTY_FIREWALL = ""
 
 SOURCE_IP = "100.0.2.1"
 DEST_IP = "100.0.7.1"
-FIREWALL_ACL1 = "\n!\nip access-list extended ACL1\n\tdeny ip 100.0.2.20 any\n\tpermit ip any any\n"
+FIREWALL_ACL1 = "\n\nip access-list extended ACL1\n\tdeny ip 100.0.2.20 any\n\tpermit ip any any\n"
 FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tdeny ip 100.0.2.25 any\n\tpermit ip any any"
+NAT_RULE = "\n\n!\nip nat pool POOL 100.0.2.20 100.0.2.20 prefix-length 24\nip nat inside source list 1 pool POOL\naccess-list 1 permit 100.0.2.1 0.0.0.31"
+NAT_STATIC_RULE = "\n\n!\nip nat inside source static 100.0.8.25 100.0.7.20"
+NAT_FIREWALL = "\n\n!\nip access-list extended ACL300\n\tdeny ip 100.0.3.25 0.0.0.255 100.0.8.20 0.0.0.255\n\tpermit ip any any"
 FIREWALL_RULES = FIREWALL_ACL1+FIREWALL_ACL2
 
 # NEXT STEPS:
 #     Create API in which two tableau are given as input and batfish is run on them to check for homomorphism
 
 
-def getHostFacingIP(router, source_links, destination_links):
+def getHostFacingIP(router, source_links, destination_links, NEXT_IP_ADDER):
     """
     Given a router in question, returns the ip addresses of all the host facing interfaces
     Parameters:
@@ -34,9 +37,6 @@ def getHostFacingIP(router, source_links, destination_links):
     destination_links : list
         a list of routers connected to destinations
 
-    IP_curr : integer
-        current IP address being assinged
-
     NEXT_IP_ADDER : integer
         number to add to get the next IP assignment
 
@@ -45,23 +45,22 @@ def getHostFacingIP(router, source_links, destination_links):
     hosts : list
         list of host facing ip addresses for the router in question
     """
+    source_IP = int(IPv4Address(SOURCE_IP))
+    dest_IP = int(IPv4Address(DEST_IP))
     hostIPs = []
     source_IPs = {}
     dest_IPs = {}
     if router in source_links:
-        host1 = source_links[router][0]
-        host2 = source_links[router][1]
-        host3 = source_links[router][2]
-        source_IPs[host1] = IPv4Address(SOURCE_IP)
-        source_IPs[host2] = IPv4Address(SOURCE_IP)
-        source_IPs[host3] = IPv4Address(SOURCE_IP)
-        hostIPs.append(IPv4Address(SOURCE_IP))
+        for host in source_links[router]:
+            source_IPs[host] = IPv4Address(source_IP)
+            hostIPs.append(IPv4Address(source_IP))
+            source_IP += NEXT_IP_ADDER
 
     if router in destination_links:
-        host = destination_links[router][0]
-        dest_IPs[host] = IPv4Address(DEST_IP)
-        hostIPs.append(IPv4Address(DEST_IP))
-
+        for host in destination_links[router]:
+            dest_IPs[host] = IPv4Address(dest_IP)
+            hostIPs.append(IPv4Address(dest_IP))
+            dest_IP += NEXT_IP_ADDER
 
     return hostIPs, source_IPs, dest_IPs
 
@@ -137,7 +136,6 @@ def getLinks(tableau, sources, destinations):
         source_links[source_router] = ["source"+str(sourceNum)]
         sourceNum += 1
     else:
-        print(sources)
         for router in sources:
             if router not in source_links:
                 source_links[router] = []
@@ -161,8 +159,14 @@ def getLinks(tableau, sources, destinations):
 def getHostNameStart(router):
     return "\n!\nhostname r_{}".format(str(router))
 
-def getInterface(IP, eth_num, subnet, firewall):
+def getInterface(IP, eth_num, subnet, firewall, NAT):
     interface_info = "\n!\ninterface eth{}\n\tip address {}/{}".format(eth_num, str(IP), subnet) 
+    if (NAT != ""):
+        interface_info += "\n\tip nat {}".format(NAT)
+    if (NAT == "outside" and eth_num != 0):
+        interface_info += "\n\tip access-group ACL300 out"
+    if (NAT == "inside" and eth_num != 0):
+        interface_info += "\n\tip access-group ACL300 out"
     if firewall != EMPTY_FIREWALL:
         interface_info += "\n\tip access-group ACL{} out".format(firewall)
     return interface_info
@@ -184,9 +188,16 @@ def getOSPFInformation(IPs, subnet, NEXT_IP_ADDER):
 
     return OSPF
 
-def getLinkFailureConfig(primary_links, backup_links, network_name):
+def getLinkFailureConfig(primary_links, backup_links, network_name, NAT):
     linkfailJSON = {}
     topo_dir = './{}'.format(network_name)
+    if (NAT):
+        linkfailJSON = {
+            'network_name': network_name,
+            'topo_dir': topo_dir,
+        }  
+        return linkfailJSON
+
     one_link_fails = {'fail_link':primary_links[0], 'backup_link':backup_links[1]}
     another_link_fails = {'fail_link':primary_links[1], 'backup_link':backup_links[0]}
 
@@ -298,7 +309,7 @@ def getFirewallMapping(tableau):
     return firewall_mapping
 
 
-def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, network_name="t1"):
+def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, network_name="t1", NAT=False):
     """
     Given a tableau representing a forwarding state, converts the state into individual router and switch configurations. If routers connected to source and destinations are not identified, the first and the last router are used as source and destination respectively
 
@@ -337,7 +348,7 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
     NEXT_IP_ADDER = int(math.pow(2,32-subnet))
 
     firewall_mapping = getFirewallMapping(tableau) # maps firewalls to ACL1 and ACL2
-    print(firewall_mapping)
+    # print(firewall_mapping)
     router_links, source_links, destination_links, firewalls = getLinks(tableau, sources, destinations) # returns the links of each router - adjacency list for routers and hosts separately. e.g. {"r1":["r2", "r3"]}, {"r1":["h1","h2"]}. Make sure that each router only occurs once in router_links
 
 
@@ -367,7 +378,7 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
             IP_curr += NEXT_IP_ADDER
 
         if router in source_links or router in destination_links: 
-            hostIPs, curr_source_IPs, curr_dest_IPs = getHostFacingIP(router, source_links, destination_links)
+            hostIPs, curr_source_IPs, curr_dest_IPs = getHostFacingIP(router, source_links, destination_links, NEXT_IP_ADDER)
             for hostIP in hostIPs:
                 router_interfaces[router].append(hostIP)
                 firewalls_both_sides[router].append(EMPTY_FIREWALL) # denotes empty entry in firewall
@@ -382,31 +393,45 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
     # Get router configs in string form
     configs = {}
     for router in router_interfaces:
+        NAT_detail = ""
         config = ""
         config += getHostNameStart(router)
         for ethernet_ID, IP in enumerate(router_interfaces[router]):
+            if (NAT and ethernet_ID == 0 and (router == tableau[0][SOURCE_ID] or router == tableau[-1][DEST_ID])):
+                NAT_detail = "outside"
+            elif (NAT and ethernet_ID != 0 and (router == tableau[0][SOURCE_ID] or router == tableau[-1][DEST_ID])):
+                NAT_detail = "inside"
             ACL_num = ''
             curr_firewall_entry = firewalls_both_sides[router][ethernet_ID]
             if curr_firewall_entry != '':
                 ACL_num = firewall_mapping[curr_firewall_entry]
-            config += getInterface(IP, ethernet_ID, subnet, ACL_num) # add ACLs too
+            config += getInterface(IP, ethernet_ID, subnet, ACL_num, NAT_detail) # add ACLs too
         config += getOSPFInformation(router_interfaces[router], subnet, NEXT_IP_ADDER)
+        if (NAT):
+            if (router == tableau[0][SOURCE_ID]):
+                config += NAT_RULE
+            elif (router == tableau[-1][DEST_ID]):
+                config += NAT_STATIC_RULE
+            config += NAT_FIREWALL
+
         # config += getACLInformation(router_acls[router]) #
         configs[router] = config
 
     # Get host configs in string form. Assuming each host is only connected to a single router
     hosts = {}
-    adder  = 19
+    adder  = 2
     for host in source_IPs:
         hosts[host] = getHostJSON(host, source_IPs[host], subnet, adder)
-        adder += 5
+        adder += 0
 
-    adder  = 19
+    adder  = 2
     for host in dest_IPs:
         hosts[host] = getHostJSON(host, dest_IPs[host], subnet, adder)
-        adder += 5
+        adder += 0
 
-    link_failure_config = getLinkFailureConfig(primary_links, backup_links, network_name)
+    link_failure_config = getLinkFailureConfig(primary_links, backup_links, network_name, NAT)
+    # link_failure_config = {}
+
     return configs, hosts, source_IPs, dest_IPs, link_failure_config
 
 def getHostJSON(host, hostIP, subnet, adder):
@@ -435,7 +460,7 @@ def createDirectories(toponame):
     if not os.path.exists(configs_directory):
         os.makedirs(configs_directory)
 
-def createConfigs(configs, toponame, firewall_rules):
+def createConfigs(configs, toponame, firewall_rules, NAT):
     current_directory = os.getcwd()
     final_directory = os.path.join(current_directory, toponame)
     configs_directory = os.path.join(final_directory, r'configs')
@@ -454,12 +479,20 @@ def createHosts(hosts, toponame):
         f.write(json.dumps(hosts[host_name]))
         f.close()
 
+def addDests(config, hosts):
+    dests = []
+    for host in hosts:
+        if "dest" in host:
+            dests.append(host)
+    config["dests"] = dests
 
-def getAndStoreConfiguration(tableau, tableau_name, sources, destinations):
-    configs, hosts, source_IPs, dest_IPs, link_failure_config = tableau_to_config(tableau, sources=sources, destinations=destinations, network_name=tableau_name)
+def getAndStoreConfiguration(tableau, tableau_name, sources, destinations, NAT):
+    configs, hosts, source_IPs, dest_IPs, link_failure_config = tableau_to_config(tableau, sources=sources, destinations=destinations, network_name=tableau_name, NAT=NAT)
     createDirectories(tableau_name)
-    createConfigs(configs, tableau_name, FIREWALL_RULES)
+    createConfigs(configs, tableau_name, FIREWALL_RULES, NAT)
     createHosts(hosts, tableau_name)
+    if (NAT):
+        addDests(link_failure_config, hosts)
     return link_failure_config
 
 
@@ -471,6 +504,15 @@ if __name__ == "__main__":
         ("2","v","1321", "l2v == 1"), 
         ("v","w","", ""), 
         ("2","w","1321", "l2v == 0")
+    ]
+
+    Example = [
+        ("1","u","", ""),
+        ("u","2","", ""),
+        ("1","2","", ""), 
+        ("2","v","", ""), 
+        ("v","w","", ""), 
+        ("2","w","", "")
     ]    
 
     T2 = [
