@@ -21,8 +21,11 @@ def NAT_reachability(network_name, topo_dir, dest):
     bf.init_snapshot(BASE_SNAPSHOT_PATH, name=BASE_SNAPSHOT_NAME, overwrite=True)
     snap_end = time.time()
     result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/{}/'.format(dest), srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(BASE_SNAPSHOT_NAME).frame()
-    print(result.Traces[1])
-    return True, eval_end - eval_start, snap_end-snap_start
+    forbidden_source = ("node: source2" in str(result.Traces[1][0][0]))
+    forbidden_dest = ("node: dest2" in str(result.Traces[1][0][-1]))
+    print(result.Flow)
+    print((forbidden_source and forbidden_dest))
+    return (forbidden_source and forbidden_dest), eval_end - eval_start, snap_end-snap_start
 
 def no_failure(network_name, topo_dir, backup_links):
     # Assign a friendly name to your network and snapshot
