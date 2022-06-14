@@ -104,9 +104,9 @@ def genTableau(topo=4755, pick_num=2):
 
 if __name__ == '__main__':
 	topos = [7018]
-	# num_source_dest = [2, 5, 10, 50, 100]
-	num_source_dest = [2, 5, 50]
-	num_runs = 3
+	#num_source_dest = [2, 4, 8, 16, 32, 64, 128]
+	num_source_dest = [2, 5]
+	num_runs = 100
 	f = open("result_NAT.csv", "a")
 	f.write("topo,length,num_sources,num_dest,eval_time,snap_time,total_time\n")
 	for topo in topos:
@@ -121,7 +121,7 @@ if __name__ == '__main__':
 				if fwd_name == "":
 					continue
 				eval_time, snap_time, total_time, answer = run_batfish.NATAttack(fwd_name, result[1], result[2], num_sources, num_dest)
-				shutil.rmtree(fwd_name)
+				#shutil.rmtree(fwd_name)
 				if (answer):
 					print("Answer", answer)
 				run += 1

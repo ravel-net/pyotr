@@ -14,9 +14,9 @@ SOURCE_IP = "100.0.2.1"
 DEST_IP = "100.0.7.1"
 FIREWALL_ACL1 = "\n\nip access-list extended ACL1\n\tdeny ip 100.0.2.20 any\n\tpermit ip any any\n"
 FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tdeny ip 100.0.2.25 any\n\tpermit ip any any"
-NAT_RULE = "\n\n!\nip nat pool POOL 100.0.2.20 100.0.2.20 prefix-length 24\nip nat inside source list 1 pool POOL\naccess-list 1 permit 100.0.2.1 0.0.0.31"
-NAT_STATIC_RULE = "\n\n!\nip nat inside source static 100.0.8.25 100.0.7.20"
-NAT_FIREWALL = "\n\n!\nip access-list extended ACL300\n\tdeny ip 100.0.3.25 0.0.0.255 100.0.8.20 0.0.0.255\n\tpermit ip any any"
+NAT_RULE = "\n\n!\nip nat pool POOL 100.0.2.3 100.0.2.3 prefix-length 24\nip nat inside source list 1 pool POOL\naccess-list 1 permit 100.0.2.1 0.0.0.31"
+NAT_STATIC_RULE = "\n\n!\nip nat inside source static 100.0.8.3 100.0.7.3"
+NAT_FIREWALL = "\n\n!\nip access-list extended ACL300\n\tdeny ip 100.0.3.3 0.0.0.255 100.0.8.3 0.0.0.255\n\tpermit ip any any"
 FIREWALL_RULES = FIREWALL_ACL1+FIREWALL_ACL2
 
 # NEXT STEPS:
@@ -397,9 +397,9 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
         config = ""
         config += getHostNameStart(router)
         for ethernet_ID, IP in enumerate(router_interfaces[router]):
-            if (NAT and ethernet_ID == 0 and (router == tableau[0][SOURCE_ID] or router == tableau[-1][DEST_ID])):
+            if (NAT and ethernet_ID == 0 and (router in sources or router in destinations)):
                 NAT_detail = "outside"
-            elif (NAT and ethernet_ID != 0 and (router == tableau[0][SOURCE_ID] or router == tableau[-1][DEST_ID])):
+            elif (NAT and ethernet_ID != 0 and (router in sources or router in destinations)):
                 NAT_detail = "inside"
             ACL_num = ''
             curr_firewall_entry = firewalls_both_sides[router][ethernet_ID]
@@ -408,9 +408,9 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
             config += getInterface(IP, ethernet_ID, subnet, ACL_num, NAT_detail) # add ACLs too
         config += getOSPFInformation(router_interfaces[router], subnet, NEXT_IP_ADDER)
         if (NAT):
-            if (router == tableau[0][SOURCE_ID]):
+            if (router in sources):
                 config += NAT_RULE
-            elif (router == tableau[-1][DEST_ID]):
+            elif (router in destinations):
                 config += NAT_STATIC_RULE
             config += NAT_FIREWALL
 
