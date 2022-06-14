@@ -344,7 +344,6 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
     dest_summary : dictionary
         contains the summary for each dest host. Contains ip_address and name.
     """
-
     NEXT_IP_ADDER = int(math.pow(2,32-subnet))
 
     firewall_mapping = getFirewallMapping(tableau) # maps firewalls to ACL1 and ACL2
@@ -397,9 +396,9 @@ def tableau_to_config(tableau=[], sources=[], destinations=[], subnet=24, networ
         config = ""
         config += getHostNameStart(router)
         for ethernet_ID, IP in enumerate(router_interfaces[router]):
-            if (NAT and ethernet_ID == 0 and (router in sources or router in destinations)):
+            if (NAT and str(IP)[0:3] != '100' and (router in sources or router in destinations)):
                 NAT_detail = "outside"
-            elif (NAT and ethernet_ID != 0 and (router in sources or router in destinations)):
+            elif (NAT and str(IP)[0:3] == '100' and (router in sources or router in destinations)):
                 NAT_detail = "inside"
             ACL_num = ''
             curr_firewall_entry = firewalls_both_sides[router][ethernet_ID]

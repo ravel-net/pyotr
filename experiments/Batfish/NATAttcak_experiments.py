@@ -121,7 +121,7 @@ if __name__ == '__main__':
 				if fwd_name == "":
 					continue
 				eval_time, snap_time, total_time, answer = run_batfish.NATAttack(fwd_name, result[1], result[2], num_sources, num_dest)
-				#shutil.rmtree(fwd_name)
+				shutil.rmtree(fwd_name)
 				if (answer):
 					print("Answer", answer)
 				run += 1
