@@ -104,9 +104,9 @@ def genTableau(topo=4755, pick_num=2):
 
 if __name__ == '__main__':
 	topos = [7018]
-	#num_source_dest = [2, 4, 8, 16, 32, 64, 128]
-	num_source_dest = [2, 5]
-	num_runs = 100
+	num_source_dest = [128]
+	#num_source_dest = [2, 5]
+	num_runs = 2
 	f = open("result_NAT.csv", "a")
 	f.write("topo,length,num_sources,num_dest,eval_time,snap_time,total_time\n")
 	for topo in topos:

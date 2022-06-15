@@ -88,7 +88,7 @@ def runBatfishDiffer(config):
 def runReachability(config):
     answer, total_eval_time, total_snap_time = performance.NAT_reachability(config['network_name'], config['topo_dir'], config["dests"])
     destinations_num = len(config["dests"])
-    return total_eval_time/destinations_num, total_snap_time/destinations_num, (total_eval_time+total_snap_time)/destinations_num, answer
+    return total_eval_time, total_snap_time, (total_eval_time+total_snap_time), answer
 
 def getCurrentTable(tablename, cur):
     cur.execute('select * from {};'.format(tablename))
