@@ -53,6 +53,15 @@ def value(node, constants):
 	else:
 		return 'x'+str(node)
 
+def getTableauConst(num_vertices, num_paths, paths):
+	tableau = []
+	constants = range(num_vertices, num_vertices+(2*num_paths))
+	print(paths)
+	for i in range(len(paths)-1):
+		node1 = paths[i]
+		node2 = paths[i+1]
+		tableau.append(tuple((node1, node2)))
+	return tableau
 
 def getTableau(num_vertices, num_paths, paths):
 	tableau = []

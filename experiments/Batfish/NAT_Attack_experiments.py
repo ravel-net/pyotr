@@ -8,6 +8,18 @@ sys.path.append(root)
 import databaseconfig as cfg
 import experiments.gen_large_tableau.gen_tableau_script as gen_tableau_script
 import shutil
+import utils.graphs.shortest_paths as shortest_paths
+import databaseconfig as cfg
+
+def add_Tableau(tableau, tableau_name):
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(readonly=False, autocommit=True)
+    cursor = conn.cursor()
+    cursor.execute("DROP TABLE IF EXISTS {};".format(tableau_name))
+    cursor.execute("create table {} (n1 integer, n2 integer);".format(tableau_name))
+    for link in tableau:
+        cursor.execute("insert into {} values('{}', '{}');".format(tableau_name, link[0], link[1]))
+
 
 def getFirewalls(old_table):
 	firewalls = []
@@ -61,21 +73,33 @@ def equivalence_batfish(table="fwd_4755"):
 	return run_batfish.equivalence_link_failures(table, new_table_name)
 
 def genTableau(topo=4755, pick_num=2):
-    file_dir  = '/../../topo/ISP_topo/'
-    filename = "{}_edges.txt".format(topo)
+	file_dir  = '/../../topo/ISP_topo/'
+	filename = "{}_edges.txt".format(topo)
 
-    as_tablename = 'as_{}'.format(topo)
-    topo_tablename = "topo_{}".format(topo)
-    fwd_tablename = "fwd_{}".format(topo)
-
-    success = gen_tableau_script.gen_tableau_for_link_failures(file_dir, filename, as_tablename, topo_tablename, fwd_tablename, pick_num)
-    if success[0]:
-    	source = success[1]
-    	dest = success[2]
-    	length = success[3]
-    	return fwd_tablename, source, dest, length
-    else:
-    	return "","", "", ""
+	as_tablename = 'as_{}'.format(topo)
+	topo_tablename = "topo_{}".format(topo)
+	fwd_tablename = "fwd_{}".format(topo)
+	
+	filename2 = join(root, 'topo/ISP_topo/')
+	nodes = join(filename2,str(topo)+"_nodes.txt")
+	edges = join(filename2,str(topo)+"_edges.txt")
+	f = open(nodes,"r")
+	lines = f.readlines()
+	num_vertices = len(lines)
+	nodes = []
+	for node in lines:
+		nodes.append(node.strip())
+	mapping = shortest_paths.createNodeMappings(nodes)
+	f.close()
+	f = open(edges,"r")
+	edgeslines = f.readlines()
+	f.close()
+	num_paths = 1
+	g = shortest_paths.makeGraph(edgeslines, num_vertices, mapping, num_paths)
+	currentPathList = shortest_paths.getIndPaths(g, num_vertices, num_paths)
+	allPathsTableau = shortest_paths.getTableauConst(num_vertices, num_paths,currentPathList)
+	print(allPathsTableau)
+    add_Tableau(allPathsTableau, fwd_tablename)
 
 # if __name__ == '__main__':
 # 	topos = [4755]
@@ -104,7 +128,7 @@ def genTableau(topo=4755, pick_num=2):
 
 if __name__ == '__main__':
 	topos = [7018]
-	num_source_dest = [128]
+	num_source_dest = [2, 4, 8, 16, 32, 64, 128]
 	#num_source_dest = [2, 5]
 	num_runs = 2
 	f = open("result_NAT.csv", "a")
