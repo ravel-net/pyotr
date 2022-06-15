@@ -1,7 +1,7 @@
 
 def calculate_averages(sum):
 	f = open("result_NAT_avg.csv", "a")
-	f.write("destinations,num_runs,avg_eval_time,avg_snap_time,avg_total_time\n")
+	f.write("sources,destinations,num_runs,avg_eval_time,avg_snap_time,avg_total_time\n")
 	for dest in sums:
 		eval_sum = float(sums[dest][0])
 		snap_sum = float(sums[dest][1])
@@ -9,7 +9,7 @@ def calculate_averages(sum):
 		avg_eval_time = str(eval_sum/num_runs)
 		avg_snap_time = str(snap_sum/num_runs)
 		avg_total_time = str(float(avg_eval_time)+float(avg_snap_time))
-		f.write("{},{},{},{},{}\n".format(str(dest), str(num_runs), avg_eval_time, avg_snap_time, avg_total_time))
+		f.write("{},{},{},{},{},{}\n".format(str(dest),str(dest), str(num_runs), avg_eval_time, avg_snap_time, avg_total_time))
 
 
 def calculate_sums(fileName = "result_NAT.csv"):

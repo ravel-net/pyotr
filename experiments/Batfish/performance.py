@@ -17,13 +17,14 @@ def NAT_reachability(network_name, topo_dir, dests):
     snap_start = time.time()
     bf.init_snapshot(BASE_SNAPSHOT_PATH, name=BASE_SNAPSHOT_NAME, overwrite=True)
     snap_end = time.time()
-
+    source_node = 1
     final_ans = False
     time_eval = 0
     for dest in dests:
         print("dest", dest)
         eval_start = time.time()
-        result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/{}/'.format(dest), srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(BASE_SNAPSHOT_NAME).frame()
+        #result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/{}/'.format(dest), srcPorts=53, dstPorts=53, ipProtocols='UDP', applications='DNS'), actions='SUCCESS', ignoreFilters=False).answer(BASE_SNAPSHOT_NAME).frame()
+        result = bf.q.reachability(pathConstraints=PathConstraints(startLocation = '/source/'), headers=HeaderConstraints(dstIps='/{}/'.format(dest)), actions='SUCCESS', ignoreFilters=False).answer(BASE_SNAPSHOT_NAME).frame()
         eval_end = time.time()
         time_spent = eval_end-eval_start
         time_eval += time_spent

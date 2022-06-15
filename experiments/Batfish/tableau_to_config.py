@@ -11,12 +11,12 @@ CONDITION_ID = 3
 EMPTY_FIREWALL = ""
 
 SOURCE_IP = "100.0.2.1"
-DEST_IP = "100.0.7.1"
+DEST_IP = "101.0.7.1"
 FIREWALL_ACL1 = "\n\nip access-list extended ACL1\n\tdeny ip 100.0.2.20 any\n\tpermit ip any any\n"
 FIREWALL_ACL2 = "\nip access-list extended ACL2\n\tdeny ip 100.0.2.25 any\n\tpermit ip any any"
 NAT_RULE = "\n\n!\nip nat pool POOL 100.0.2.3 100.0.2.3 prefix-length 24\nip nat inside source list 1 pool POOL\naccess-list 1 permit any"
-NAT_STATIC_RULE = "\n\n!\nip nat inside source static 100.0.8.3 100.0.7.3"
-NAT_FIREWALL = "\n\n!\nip access-list extended ACL300\n\tdeny ip 100.0.3.3 0.0.0.255 100.0.8.3 0.0.0.255\n\tpermit ip any any"
+NAT_STATIC_RULE = "\n\n!\nip nat inside source static 101.0.8.3 101.0.7.3"
+NAT_FIREWALL = "\n\n!\nip access-list extended ACL300\n\tdeny ip 100.0.3.3 0.0.0.255 101.0.8.3 0.0.0.255\n\tpermit ip any any"
 FIREWALL_RULES = FIREWALL_ACL1+FIREWALL_ACL2
 
 # NEXT STEPS:
