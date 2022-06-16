@@ -156,6 +156,41 @@ def differentialAnalysis(network_name, topo_dir, fail_links, backup_links):
     print(diff_reachability_answer.Flow)
     return answer, end_failures-begin_failures, end_snap-begin_snap
 
+def differentialAnalysisSubset(network_name, topo_dir, fail_links, backup_links, endLoc):
+    print("ASDASDASDASD")
+    BASE_NETWORK_NAME = network_name
+    BASE_SNAPSHOT_NAME = network_name
+    BASE_SNAPSHOT_PATH = topo_dir
+    # Now create the network and initialize the snapshot
+    bf.set_network(BASE_NETWORK_NAME)
+    bf.init_snapshot(BASE_SNAPSHOT_PATH, name=BASE_SNAPSHOT_NAME, overwrite=True)
+    interfaces = []
+    for router in backup_links:
+        for eth in backup_links[router]:
+            intf = Interface(hostname="r_{}".format(router), interface="Ethernet{}".format(eth))
+            interfaces.append(intf) 
+
+    BASE_SNAPSHOT_NO_BACKUP_NAME = network_name+"NO_BACKUP"
+    bf.fork_snapshot(BASE_SNAPSHOT_NAME, BASE_SNAPSHOT_NO_BACKUP_NAME, deactivate_interfaces=interfaces, overwrite=True)
+
+    interfaces = []
+    for router in fail_links:
+        for eth in fail_links[router]:
+            intf = Interface(hostname="r_{}".format(router), interface="Ethernet{}".format(eth))
+            interfaces.append(intf)
+    print(interfaces)
+    # Fork a new snapshot with selected backup links inactive
+    LINKS_INACTIVE_SNAPSHOT_NAME = "b_links_inactive"
+    begin_snap = time.time()
+    bf.fork_snapshot(BASE_SNAPSHOT_NAME, LINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
+    end_snap = time.time()
+    print("end_loc", endLoc)
+    begin_failures = time.time()
+    diff_reachability_answer = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation = '/source/', endLocation=endLoc), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=BASE_SNAPSHOT_NO_BACKUP_NAME).frame()
+    end_failures = time.time()
+    answer = (len(diff_reachability_answer.Flow) == 0)
+    print(diff_reachability_answer.Flow)
+    return answer, end_failures-begin_failures, end_snap-begin_snap
 
 def compare_flows(flows1, flows2):
     begin_compare = time.time()

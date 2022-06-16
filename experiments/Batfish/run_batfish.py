@@ -76,6 +76,16 @@ def runBatfish(config1, config2):
         times = {"comparison":time_comp1+time_comp2+time_comp3+time_comp4, "snap1_eval":time_config1_no_failure+time_config2_no_failure, "snap2_eval":time_config1_one_link_fails+time_config2_one_link_fails, "snap3_eval":time_config1_another_link_fails+time_config2_another_link_fails, "snap4_eval":time_config1_two_failures+time_config2_two_failures, "removing_interfaces":time_snap1_config1+time_snap2_config1+time_snap3_config1+time_snap4_config1+time_snap1_config2+time_snap2_config2+time_snap3_config2+time_snap4_config2, "total_time":total_time}
         return times, is_equal
 
+def getBackupNode(primary, backup):
+    primary_nodes = []
+    for node in primary:
+        primary_nodes.append(node)
+    print("primary", primary_nodes)
+    for node in backup:
+        print("backup", node)
+        if node not in primary_nodes:
+            return "r_"+str(node)
+
 def runBatfishDiffer(config):
     answer1, time_eval1, time_snap1 = performance.differentialAnalysis(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0], {}), Merge(config['backup_links'][0],config['backup_links'][1]))
     print(answer1, config['primary_links'][0])
@@ -84,6 +94,13 @@ def runBatfishDiffer(config):
     answer3, time_eval3, time_snap3 = performance.differentialAnalysis(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0],config['primary_links'][1]),  Merge(config['backup_links'][0],config['backup_links'][1]))
     print(answer3, Merge(config['primary_links'][0],config['primary_links'][1]))
     return time_eval1+time_eval2+time_eval3, time_snap1+time_snap2+time_snap3, (answer1 and answer2 and answer3)
+
+def runBatfishDifferSubset(config):
+    sink = getBackupNode(config['primary_links'][0], config['backup_links'][0])
+    print(sink)
+    answer1, time_eval1, time_snap1 = performance.differentialAnalysisSubset(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0], {}), Merge(config['backup_links'][0],config['backup_links'][1]), sink)
+    print(answer1, config['primary_links'][0])
+    return time_eval1, time_snap1, answer1
 
 def runReachability(config):
     answer, total_eval_time, total_snap_time = performance.NAT_reachability(config['network_name'], config['topo_dir'], config["dests"])
@@ -117,6 +134,12 @@ def differentialLinkFailure(tableau_db_name, source, dest):
     failure_config = tableau_to_config.getAndStoreConfiguration(tableau, tableau_db_name, [source,source], [dest, dest], False)
     print(failure_config)
     return runBatfishDiffer(failure_config)
+
+def differentialLinkFailureSubset(tableau_db_name, source, dest):
+    tableau = getTableau(tableau_db_name)
+    failure_config = tableau_to_config.getAndStoreConfiguration(tableau, tableau_db_name, [source,source, source], [dest], False)
+    print(failure_config)
+    return runBatfishDifferSubset(failure_config)
 
 def NATAttack(tableau_db_name, source, dest, num_source, num_dest):
     tableau_full = getTableau(tableau_db_name)
@@ -166,9 +189,8 @@ if __name__ == "__main__":
         ("2","40","1321", "y == 0")
     ]   
     
-    add_Tableau(Invariant2, "Invariant2")
-    print(NATAttack("Invariant2", int(Invariant2[0][tableau_to_config.SOURCE_ID]), int(Invariant2[-1][tableau_to_config.DEST_ID]), 3, 4))
-    # add_Tableau(T4, "T_4")
+    add_Tableau(T1, "T1")
+    # print(NATAttack("Invariant2", int(Invariant2[0][tableau_to_config.SOURCE_ID]), int(Invariant2[-1][tableau_to_config.DEST_ID]), 3, 4))
     # print(equivalence_link_failures("T_1", "T_4"))
-    # print(differentialLinkFailure("Invariant2", int(Invariant2[0][tableau_to_config.SOURCE_ID]), int(Invariant2[-1][tableau_to_config.DEST_ID])))
+    print(differentialLinkFailureSubset("T1", int(T1[0][tableau_to_config.SOURCE_ID]), int(T1[-1][tableau_to_config.DEST_ID])))
     # print(equivalence_link_failures("fwd_4755", "fwd_4755_diff"))

@@ -104,9 +104,9 @@ def genTableau(topo=4755, pick_num=2):
 
 if __name__ == '__main__':
 	topos = [7018]
-	num_runs = 100
-	f = open("result.txt", "a")
-	f.write("topo|length|eval_time|snap_time|total_time\n")
+	num_runs = 2
+	f = open("result_link.txt", "a")
+	f.write("topo,length,eval_time,snap_time,total_time\n")
 	for topo in topos:
 		run = 0
 		while run < num_runs:
@@ -115,11 +115,12 @@ if __name__ == '__main__':
 			fwd_name = result[0]
 			if fwd_name == "":
 				continue
-			eval_time, snap_time, answer = run_batfish.differentialLinkFailure(fwd_name, result[1], result[2])
+			# eval_time, snap_time, answer = run_batfish.differentialLinkFailure(fwd_name, result[1], result[2])
+			eval_time, snap_time, answer = run_batfish.differentialLinkFailureSubset(fwd_name, result[1], result[2])
 			shutil.rmtree(fwd_name)
 			if (answer):
 				print("Answer", answer)
 			run += 1
-			f.write("{}|{}|{}|{}|{}\n".format(topo, length, eval_time, snap_time, eval_time+snap_time))
-			print("{}|{}|{}|{}|{}\n".format(topo, length, eval_time, snap_time, eval_time+snap_time))
+			f.write("{},{},{},{},{}\n".format(topo, length, eval_time, snap_time, eval_time+snap_time))
+			print("{},{},{},{},{}\n".format(topo, length, eval_time, snap_time, eval_time+snap_time))
 	f.close()
