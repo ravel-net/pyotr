@@ -80,9 +80,7 @@ def getBackupNode(primary, backup):
     primary_nodes = []
     for node in primary:
         primary_nodes.append(node)
-    print("primary", primary_nodes)
     for node in backup:
-        print("backup", node)
         if node not in primary_nodes:
             return "r_"+str(node)
 
@@ -97,9 +95,7 @@ def runBatfishDiffer(config):
 
 def runBatfishDifferSubset(config):
     sink = getBackupNode(config['primary_links'][0], config['backup_links'][0])
-    print(sink)
     answer1, time_eval1, time_snap1 = performance.differentialAnalysisSubset(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0], {}), Merge(config['backup_links'][0],config['backup_links'][1]), sink)
-    print(answer1, config['primary_links'][0])
     return time_eval1, time_snap1, answer1
 
 def runReachability(config):

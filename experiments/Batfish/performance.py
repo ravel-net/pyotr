@@ -157,7 +157,6 @@ def differentialAnalysis(network_name, topo_dir, fail_links, backup_links):
     return answer, end_failures-begin_failures, end_snap-begin_snap
 
 def differentialAnalysisSubset(network_name, topo_dir, fail_links, backup_links, endLoc):
-    print("ASDASDASDASD")
     BASE_NETWORK_NAME = network_name
     BASE_SNAPSHOT_NAME = network_name
     BASE_SNAPSHOT_PATH = topo_dir
