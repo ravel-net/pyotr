@@ -24,7 +24,7 @@ def reachability_link_failure(file_dir, filename, AS_num, pick_num):
 
     check_time = gen_reachability_table.check(r_table, 'Int')
     
-    return r1_time+rn_time+union_time+check_time
+    return len(path_links), r1_time, rn_time, union_time, check_time
 
 
 
@@ -33,15 +33,17 @@ if __name__ == '__main__':
     pick_num = [2]
 
     AS_num = 7018
-    runs = 50
+    runs = 100
     for p in pick_num:
         filename = "{}_edges.txt".format(AS_num)
-        f = open("./results/as_{}_IP.txt".format(AS_num, p), 'w')
+        f = open("./results/as_{}_IP_seperate.txt".format(AS_num, p), 'w')
+        f.write("len_path r1_time rn_time union_time check_time\n")
         for r in range(runs):
             
-            running_time = reachability_link_failure(file_dir, filename, AS_num, p)
-            f.write("{:.4f}\n".format(running_time*1000))
-            print("run{}".format(r), "AS_num{}".format(AS_num), "running time:{:.4f}(ms)".format(running_time*1000))
+            len_path, r1_time, rn_time, union_time, check_time = reachability_link_failure(file_dir, filename, AS_num, p)
+            total_time = r1_time + rn_time + union_time + check_time
+            f.write("{} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len_path, total_time*1000, r1_time*1000, rn_time*1000, union_time*1000, check_time*1000))
+            print("run{}".format(r), "AS_num{}".format(AS_num), "running time:{:.4f}(ms)".format(total_time*1000))
         f.close()
 
 
