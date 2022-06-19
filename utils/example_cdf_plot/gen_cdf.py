@@ -64,13 +64,13 @@ def extractCol(col_name, filepath):
         tmp = f.readlines()
         for line in tmp:
             if (i == 0):
-                for col in line.split("|"):
+                for col in line.split(","):
                     print(col)
                     if col.strip() == col_name:
                         break
                     col_index += 1
             else:
-                data_part = line.split("|")[col_index].strip()
+                data_part = line.split(",")[col_index].strip()
                 data.append(float(data_part))
             i += 1
     return data
@@ -78,7 +78,7 @@ def extractCol(col_name, filepath):
 
 
 if __name__ == '__main__':
-    filepath = "../../experiments/Batfish/result_UDP.txt"
+    filepath = "../../experiments/Batfish/result_single_link.csv"
     data = extractCol("total_time", filepath)
     cdf_data = gen_cdf(data)
     print(cdf_data)
