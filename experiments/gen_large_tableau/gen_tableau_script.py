@@ -145,7 +145,7 @@ def gen_dependencies_for_link_failures_on_chase(file_dir, filename, as_tablename
     attributes = {
         'n1': 'inet_faure', 
         'n2': 'inet_faure',
-        's':'inet_faure[]',
+        's':'integer[]',
         'condition':'text[]'
     }
     func_linkfail.load_table(fwd_tablename, attributes, IP_tuples)

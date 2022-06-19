@@ -37,78 +37,83 @@ def run_scalibility():
     # print("---------------------------\n")
 
     runs = 20
-    num_hosts_list = [2, 4, 8, 16, 32, 64, 128]
+    num_hosts_list = [2, 4, 8, 16, 32]#, 64, 128]
     for num_hosts in num_hosts_list:
         print("num_hosts", num_hosts)
-        
+
+        ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
+        egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
+        # print("ingress_hosts", ingress_hosts)
+        # print("egress_hosts", egress_hosts)
+
+        # generate dependencies
+        dependencies, relevant_in_hosts, relevant_out_hosts, block_list = chase_scripts.gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
+
+        gamma_attributes = ['f', 'n', 'x', 'condition']
+        gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+        gamma_summary = None
+
+        Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+        Z_datatypes = ['text', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
+
         f1 = open("./results/relevant/runtime_hosts{}_rel.txt".format(num_hosts), "w")
         f1.write("len(path) ans count_application gen_z check_applicable operation_time query_answer check_answer\n")
-
-        f2 = open("./results/all/runtime_hosts{}_all.txt".format(num_hosts), "w")
-        f2.write("len(path) ans count_application gen_z check_applicable operation_time query_answer check_answer\n")
         for r in tqdm(range(runs)):
-            ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
-            egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
-            # print("ingress_hosts", ingress_hosts)
-            # print("egress_hosts", egress_hosts)
-
-            # generate dependencies
-            dependencies, relevant_in_hosts, relevant_out_hosts, block_list = chase_scripts.gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
-
-            '''
-            get whitelist
-            case: relevant, all
-            '''
-            gamma_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-            gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
-            gamma_summary = None
-
-            gamma_attributes_switch = {
-                'f': True,
-                'src': False,
-                'dst': False,
-                'n': True,
-                'x': True,
-            }
-            
-            Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-            Z_datatypes = ['text', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
-            
             '''
             for `relevant` case
             '''
             gamma_tablename_relevant = "W_relevant"
             Z_tablename_relevant = "Z_relevant"
-            gamma_summary = chase_scripts.gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename_relevant, gamma_attributes, gamma_attributes_datatypes)
+            gamma_summary = chase_scripts.gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename_relevant, gamma_attributes, gamma_attributes_datatypes, 'relevant')
 
             # Step 1
-            Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tablename, gamma_tablename_relevant, gamma_attributes, gamma_attributes_datatypes, gamma_attributes_switch, Z_tablename_relevant, Z_attributes, Z_datatypes)
+            Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_relevant, Z_tablename_relevant, Z_attributes, Z_datatypes)
             
             #step2 and step3
-            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = chase_scripts. run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_relevant, gamma_summary)
+            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = chase_scripts.run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_relevant, gamma_summary)
             
             f1.write("{} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
 
+        f1.close()
+    
+    for num_hosts in num_hosts_list:
+        print("num_hosts", num_hosts)
+
+        ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
+        egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
+        # print("ingress_hosts", ingress_hosts)
+        # print("egress_hosts", egress_hosts)
+
+        # generate dependencies
+        dependencies, relevant_in_hosts, relevant_out_hosts, block_list = chase_scripts.gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
+
+        gamma_attributes = ['f', 'n', 'x', 'condition']
+        gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+        gamma_summary = None
+
+        Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+        Z_datatypes = ['text', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
+
+        f2 = open("./results/all/runtime_hosts{}_all.txt".format(num_hosts), "w")
+        f2.write("len(path) ans count_application gen_z check_applicable operation_time query_answer check_answer\n")
+        for r in tqdm(range(runs)):
             '''
             for `all` case
             '''
             gamma_tablename_all = "W_all"
             Z_tablename_all = "Z_all"
-            gamma_summary = chase_scripts.gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename_all, gamma_attributes, gamma_attributes_datatypes)
+            gamma_summary = chase_scripts.gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename_all, gamma_attributes, gamma_attributes_datatypes, 'all')
 
             # Step 1
-            Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tablename, gamma_tablename_all, gamma_attributes, gamma_attributes_datatypes, gamma_attributes_switch, Z_tablename_all, Z_attributes, Z_datatypes)
+            Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_all, Z_tablename_all, Z_attributes, Z_datatypes)
             
             #step2 and step3
-            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = chase_scripts. run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_all, gamma_summary)
+            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = chase_scripts.run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_all, gamma_summary)
 
             f2.write("{} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
-            
-        f1.close()
         f2.close()
 
-
-if __name__ == '__main__':
+def run_ordering_strategies():
     AS_num = 7018
 
     file_dir  = '/../../topo/ISP_topo/'
@@ -214,3 +219,6 @@ if __name__ == '__main__':
         f1.close()
         f2.close()
         f3.close()
+
+if __name__ == '__main__':
+    run_scalibility()

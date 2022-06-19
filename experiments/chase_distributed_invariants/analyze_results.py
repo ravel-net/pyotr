@@ -60,16 +60,47 @@ def gen_cdf_data_file(raw_data, out_filedir, out_filename):
     finally:
         f.close()
 
-if __name__ == '__main__':
-    file_dir = './plots/'
-    filename = "static.txt"
+def avg_time(filedir, filename, out_filedir, out_filename, host_num):
+    f = open(filedir+filename)
 
-    raw_data = []
-    f = open(file_dir+filename)
+    list_times = [[] for i in range(8)]
     for line in f:
-        raw_data.append(float(line.strip()))
+        if 'len' in line:
+            continue
+        items = line.split()
+        for col in range(3, len(items)):
+            list_times[col].append(float(items[col]))
+    f.close()
 
-    gen_cdf_data_file(raw_data, file_dir, "cdf_static.dat")
+    avg_times = []
+    for t in range(3, len(list_times)):
+        times = list_times[t]
+        avg_times.append(np.mean(times))
+    
+    f = open(out_filedir+out_filename, "a")
+    f.write("{} {}\n".format(host_num, " ".join(["{:.4f}".format(t) for t in avg_times])))
+    f.close()
+
+
+
+if __name__ == '__main__':
+    # file_dir = './plots/'
+    # filename = "static.txt"
+
+    # raw_data = []
+    # f = open(file_dir+filename)
+    # for line in f:
+    #     raw_data.append(float(line.strip()))
+
+    # gen_cdf_data_file(raw_data, file_dir, "cdf_static.dat")
+    filedir = './local_results/all/'
+    hosts_num = [2, 4, 8, 16]
+    out_filename = "avg_all.txt"
+
+    for h_num in hosts_num:
+        filename = 'runtime_hosts{}_all.txt'.format(h_num)
+        avg_time(filedir, filename, filedir, out_filename, h_num)
+
 
     # file_dir  = './results/'
     # filename = "chase_a.txt"

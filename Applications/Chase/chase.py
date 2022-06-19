@@ -1,7 +1,6 @@
 from copy import copy
 import sys
 from os.path import dirname, abspath
-from unittest import result
 
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
@@ -51,173 +50,66 @@ def load_table(attributes, datatypes, tablename, tableau):
     # conn.commit()
     # conn.close()
 
-def gen_z(T, W, W_attributes, W_attributes_datatypes, W_attributes_swtich=None):
-    # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    # cursor = conn.cursor()
-
-    sql = "select * from {}".format(W)
-    # print(sql)
-    cursor.execute(sql)
-    # row = cursor.fetchone()
-    # while row is not None:
-    #     print(row)
-    #     row = cursor.fetchone()
-    gama_table = cursor.fetchall()
-    conn.commit()
-
-    begin_time = time.time()
-    Z_table = []
-    z_tuple_num = 0
-    n_idx = W_attributes.index('n')
-    x_idx = W_attributes.index('x')
-    for idx, tuple in enumerate(gama_table):
-        '''
-        # N is on, X is off
-        '''
-        w_attr_switch = copy(W_attributes_swtich) 
-        w_attr_switch['n'] = True
-        w_attr_switch['x'] = False
-        
-        sql = gen_sql_gama_tuple(tuple, T, W_attributes, W_attributes_datatypes, w_attr_switch)
-        # print(sql)
-        cursor.execute(sql) # get the first node of path
-        results = cursor.fetchall()
-        # print("results", results)
-        next_node = None
-        if len(results) == 1:
-            next_node = results[0][x_idx]
-        else:
-            for row in results:
-                if not is_variable(row[n_idx], W_attributes_datatypes[n_idx]):
-                    next_node = row[x_idx]
-                else:
-                    continue
-        
-        # print("next_node", next_node)
-
-        derived_tuple = list(tuple)
-        derived_tuple[x_idx] = next_node
-        
-        z_tuple = gen_z_tuple(derived_tuple, z_tuple_num, idx, W_attributes, W_attributes_datatypes)
-        Z_table.append(z_tuple)
-        z_tuple_num += 1
-        
-        '''
-        When the next_hop is a variable and the next_hop is equal to the tuple's X(next hop), done.
-        '''
-        while not is_variable(next_node, W_attributes_datatypes[x_idx]) and next_node != tuple[x_idx]:
-            derived_tuple[n_idx] = next_node
-            derived_tuple[x_idx] = 'd'
-            sql = gen_sql_gama_tuple(derived_tuple, T, W_attributes, W_attributes_datatypes, W_attributes_swtich)
-            # print(sql)
-            cursor.execute(sql)
-            # next_node = cursor.fetchone()[x_idx]
-            results = cursor.fetchall()
-            # print("results", results)
-            if len(results) == 1:
-                next_node = results[0][x_idx]
-            else:
-                for row in results:
-                    if not is_variable(row[n_idx], W_attributes_datatypes[n_idx]):
-                        next_node = row[x_idx]
-                    else:
-                        continue
-
-            '''
-            if the next_hop is a variable, it reaches the end of the path
-            '''
-            if is_variable(next_node, W_attributes_datatypes[x_idx]):
-                derived_tuple[x_idx] = tuple[x_idx]
-            else:
-                derived_tuple[x_idx] = next_node
-
-            z_tuple = gen_z_tuple(derived_tuple, z_tuple_num, idx, W_attributes, W_attributes_datatypes)
-            Z_table.append(z_tuple)
-            z_tuple_num += 1
-            
-    end_time = time.time()
-    # print("Z_table", Z_table)
-        
-    # conn.close()
-    return Z_table, end_time-begin_time
-
-def gen_z_tuple(tuple, z_tuple_num, gama_index, attributes, attributes_datatypes):
-    z_tuple = []
-    for t_idx, val in enumerate(tuple):
-        if attributes_datatypes[t_idx].lower() in FAURE_DATATYPES:
-            z_tuple.append(val)
-            # consider generated src and dst are variables
-            # if val.isdigit():
-            #     z_tuple.append(val)
-            # else:
-            #     if attributes[t_idx] == 'f':
-            #         z_tuple.append("f{}".format(gama_index))
-            #     elif attributes[t_idx] == 'src':
-            #         z_tuple.append("s{}".format(z_tuple_num))
-            #     elif attributes[t_idx] == 'dst':
-            #         z_tuple.append("d{}".format(z_tuple_num))
-            #     elif attributes[t_idx] == 'n':
-            #         z_tuple.append("s{}".format(z_tuple_num))
-            #     elif attributes[t_idx] == 'd':
-            #         z_tuple.append("d{}".format(z_tuple_num))
-            #     else:
-            #         z_tuple.append(val)
-        else:
-            if 'condition' in attributes[t_idx]:
-                # z_tuple.append("{"+ ", ".join(val) + "}")
-                continue
-            else:
-                z_tuple.append(val)
-    return z_tuple
-
-def gen_sql_gama_tuple(gama_tuple, tablename, attributes, attributes_datatypes, attributes_swtich=None):
+def gen_z(E_tuples, gamma_tablename):
     """
+    generate the tuples of Z table
+
     Parameters:
     -----------
-    gama_tuple: tuple, one tuple of gama table. (f, src, dst, n, x)
-
-    tablename: string. 
-
-    attributes: list[string]. attributes for gama tuple.
-
-    attributes_datatypes: list[string]. attributes datatypes
-
-    attributes_switch: dict{attribute: Boolean}, default True. Whether cares augments when generating sql
+    E_tuples: list[tuple]
+        a list of tuples in table E. the tuple contains condition column
+    
+    gamma_tablename: string 
+        name of gamma table
 
     Returns:
-    -----------
-    sql: string, a SQL query
+    --------
+    Z_tuples: list[tuple]
+        a list of tuples for Z table. Convert gamma table to Z table.
+
+    gen_z: float
+        the time for generating a list of tuples for Z table.
+    
     """
-    if attributes_swtich is None:
-        for attr in attributes:
-            attributes_swtich[attr] = True
+    sql = "select * from {}".format(gamma_tablename)
+    cursor.execute(sql)
 
-    where_clauses = []
-    for idx, val in enumerate(gama_tuple):
-        if 'condition' in attributes_datatypes[idx]:
-            continue
+    gamma_table = cursor.fetchall()
+    conn.commit()
+    
+    Z_tuples = []
+    z_tuple_num = 1
 
-        '''
-        if datatype of attribute is faure_datatype, the first charater of value is an alphabet, it is a variable.
-        if the datatype is int4_faure and the value is a number, it should be determined in where clause.
-        if the datatype is inet_faure and the value is an IP address, it should be determined in where clause.
-        '''
-        if attributes_datatypes[idx] in FAURE_DATATYPES:
-            if attributes_datatypes[idx].lower() == INT4_FAURE:
-                if val.isdigit() and attributes_swtich[attributes[idx]]:
-                    where_clauses.append("{} = '{}'".format(attributes[idx], val))
-            else:
-                if isIPAddress(val) and attributes_swtich[attributes[idx]]:
-                    where_clauses.append("{} = '{}'".format(attributes[idx], val))
-        else:
-            if attributes_datatypes[idx].lower() in DIGIT_RELATED_TYPES:
-                where_clauses.append("{} = {}".format(attributes[idx], val))
-            elif attributes_datatypes[idx].lower() in STR_RELATED_TYPES:
-                where_clauses.append("{} = '{}'".format(attributes[idx], val))
+    begin_time = time.time()
+    for gamma_tuple in gamma_table:
+        f = gamma_tuple[0]
+        src = gamma_tuple[1]
+        dst = gamma_tuple[2]
 
-    sql = "select * from {} where {}".format(tablename, ' and '.join(where_clauses))
+        for e_tuple in E_tuples:
+            z_tuple = list(e_tuple)[:-1]
+            z_tuple[0] = f
 
-    return sql
+            s = 's{}'.format(z_tuple_num)
+            d = 'd{}'.format(z_tuple_num)
+
+            z_tuple[1] = s
+            z_tuple[2] = d
+                
+            if e_tuple[3] == 's':
+                z_tuple[1] = src
+                z_tuple[3] = src
+            if e_tuple[4] == 'd':
+                z_tuple[2] = dst
+                z_tuple[4] = dst
+
+            Z_tuples.append(z_tuple)
+
+            z_tuple_num += 1
+    
+    end_time = time.time()
+
+    return Z_tuples, end_time-begin_time
 
 def isIPAddress(value):
     if len(value.strip().split('.')) == 4:
@@ -356,7 +248,7 @@ def is_variable(value, datatype):
 
 #     return operate_time
 
-def apply_dependency(dependency, Z, checked_tuples):
+def apply_dependency(dependency, Z_tablename, checked_tuples):
     # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
     # cursor = conn.cursor()
     type = dependency['dependency_type']
@@ -368,55 +260,24 @@ def apply_dependency(dependency, Z, checked_tuples):
     does_updated = True
     operate_time = 0
     check_valid_time = 0
+    
     if type.lower() == 'tgd':
-        tgd_sql = convert_dependency_to_sql(type, dependency_tuples, Z, dependency_attributes, dependency_summary, dependency_summary_condition)
-        check_valid_begin = time.time()
-        cursor.execute(tgd_sql)
-        check_valid_end = time.time()
-        check_valid_time += (check_valid_end - check_valid_begin)
-
-        # matched_tuples = []
-        results = cursor.fetchall()
-        conn.commit()
-        # print(results)
-
-        inserted_tuples = []
-        check_valid_begin = time.time()
-        for valid_match in results:
-            if str(valid_match) in checked_tuples:
-                continue
-            else:
-                inserted_tuples.append(valid_match)
-                checked_tuples.append(str(valid_match))
-
-        if len(inserted_tuples) > 0:
-            check_valid_end = time.time()
-            check_valid_time += (check_valid_end - check_valid_begin)
-            # print("insert", results)
-            begin_time = time.time()
-            execute_values(cursor, "insert into {} values %s".format(Z), inserted_tuples)
-            end_time = time.time()
-            operate_time += (end_time - begin_time)
-            conn.commit()
-        else:  # if all matches are already checked, the algorithm is done
-            does_updated = False
-            check_valid_end = time.time()
-            check_valid_time += (check_valid_end - check_valid_begin)
-            conn.commit()
-            return  checked_tuples, does_updated, check_valid_time, operate_time
+        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd(dependency, Z_tablename, checked_tuples)
     elif type.lower() == 'egd':
-        node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z)
-        # print("node_dict", node_dict)
-
-        egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z, dependency_attributes, dependency_summary, dependency_summary_condition)
-
-        check_valid_egd_begin = time.time()
-        cursor.execute(egd_sql)
-        check_valid_egd_end = time.time()
-        check_valid_time += (check_valid_egd_end - check_valid_egd_begin)
-
+        
         if len(dependency_summary) == 0: # if dependency summary is empty, the matched tuples are deleted
+            node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z_tablename)
+            # print("node_dict", node_dict)
+
+            egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
+
+            check_valid_egd_begin = time.time()
+            cursor.execute(egd_sql)
+            check_valid_egd_end = time.time()
+
+            check_valid_time += (check_valid_egd_end - check_valid_egd_begin)
             operate_time += (check_valid_egd_end - check_valid_egd_begin)
+
             check_valid_begin = time.time()
             if cursor.rowcount == 0:
                 does_updated = False
@@ -425,136 +286,8 @@ def apply_dependency(dependency, Z, checked_tuples):
             conn.commit()
             return checked_tuples, does_updated, check_valid_time, operate_time
         else:
-            results = cursor.fetchall()
-            conn.commit()
-            
-            mapping_replace = gen_repalce_mapping_for_egd(dependency, node_dict)
-            # print("mapping_replace", mapping_replace)
-            updated_tuples = []
-            for valid_match in results:
-                if str(valid_match) in checked_tuples:
-                    continue
-                else:
-                    updated_tuples.append(valid_match)
-                    checked_tuples.append(str(valid_match))
-
-            summary_condition_mapping = {}
-            if dependency_summary_condition is not None:
-                for condition in dependency_summary_condition:
-                    items = condition.split()
-
-                    left_opd = items[0]
-                    opr = items[1]
-                    right_opd = items[2]
-
-                    # consider left opd is a variable, right opd is a value
-                    # TODO:generate it for two variables or left is a value and right is a variable
-                    tup_idx = list(node_dict[left_opd].keys())[0]
-                    col_idx = node_dict[left_opd][tup_idx][0]
-
-                    res_idx = tup_idx*(len(dependency_attributes)-1) + col_idx
-                    summary_condition_mapping[res_idx] = (opr, right_opd)
-
-            # print("gen update sql")        
-            set_clause = []
-            where_clause = []
-
-            
-            where_clause_set_clause_mapping = {}
-            if len(updated_tuples) > 0:
-                for upd_tuple in updated_tuples:
-                    # print("upd_tuple", upd_tuple)
-                    
-                    where_key_list = []
-                    set_key_list = []
-                    for var_idx, var in enumerate(upd_tuple):
-                        # print("var_idx", var_idx)
-                        # print("var", var)
-                        # print("upd_tuple", upd_tuple)
-                        col_idx = var_idx % (len(dependency_attributes)-1)
-                        if var_idx in mapping_replace.keys():
-                            set_clause.append("{} = '{}'".format(dependency_attributes[col_idx], upd_tuple[var_idx]))
-                            # set_clause.append("{} = '{}'".format(dependency_attributes[col_idx], upd_tuple[mapping_replace[var_idx]]))
-
-                        if dependency_attributes[col_idx] in dependency["dependency_cares_attributes"]:
-                            where_clause.append("{} = '{}'".format(dependency_attributes[col_idx], var))
-
-                        if col_idx == len(dependency_attributes) - 2: # minus condition column
-                            '''
-                            add summary conditions for update SQLs
-                            '''
-                            cond_idxs = summary_condition_mapping.keys()
-                            for idx in cond_idxs:
-                                if idx <= col_idx:
-                                    where_clause.append("{} {} {}".format(dependency_attributes[idx], summary_condition_mapping[idx][0], summary_condition_mapping[idx][1]))
-                            
-                            where_key = " and ".join(where_clause)
-                            set_key = ", ".join(set_clause)
-                            where_key_list.append(where_key)
-                            set_key_list.append(set_key)
- 
-                            # print("where_key", where_key)
-                            # print("set_key", set_key)
-
-                            set_clause.clear()
-                            where_clause.clear()
-                    
-                    # combine several where key for a updated tuple 
-                    combine_where_key_list = "|".join(where_key_list)
-
-                    if combine_where_key_list not in where_clause_set_clause_mapping.keys():
-                        where_clause_set_clause_mapping[combine_where_key_list] = {}
-                    
-                    # count set_key for a where_clause
-                    for set_key in set_key_list:
-                        if set_key in where_clause_set_clause_mapping[combine_where_key_list].keys():
-                            where_clause_set_clause_mapping[combine_where_key_list][set_key] += 1
-                        else:
-                            where_clause_set_clause_mapping[combine_where_key_list][set_key] = 1
-
-                            
-
-                # print("where_clause_set_clause_mapping", where_clause_set_clause_mapping)
-                update_sqls = []
-                
-                for where_key in where_clause_set_clause_mapping.keys():
-                    set_key = None
-                    max_num = 0
-                    set_keys = where_clause_set_clause_mapping[where_key].keys()
-                    for k in set_keys:
-                        if where_clause_set_clause_mapping[where_key][k] > max_num:
-                            set_key = k
-                            max_num = where_clause_set_clause_mapping[where_key][k]
-                    
-                    where_key_list = where_key.split("|")
-                    for where_key in where_key_list:
-                        sql = "update {} set {} where {}".format(Z, set_key, where_key)
-                        if sql not in update_sqls:
-                            update_sqls.append(sql)
-                    
-            else:
-                does_updated = False
-                conn.commit()
-                return checked_tuples, does_updated, check_valid_time, operate_time
-                
-            temp_does_updated = False
-            for sql in update_sqls:
-                # print(sql)
-                operate_beign = time.time()
-                cursor.execute(sql)
-                operate_end = time.time()
-                operate_time += (operate_end - operate_beign)
-                
-                check_valid_begin = time.time()
-                if cursor.rowcount == 0:
-                    temp_does_updated = (temp_does_updated or False)
-                else:
-                    temp_does_updated = (temp_does_updated or True)
-                check_valid_end = time.time()
-                check_valid_time += (check_valid_end - check_valid_begin)
-
-            does_updated = temp_does_updated
-            conn.commit()
+            # print("apply_egd")
+            checked_tuples, does_updated, check_valid_time, operate_time = apply_egd(dependency, Z_tablename, checked_tuples)
     else:
         check_valid_begin = time.time()
         does_updated = False
@@ -563,6 +296,270 @@ def apply_dependency(dependency, Z, checked_tuples):
         check_valid_time += (check_valid_end - check_valid_begin)
     conn.commit()
     return checked_tuples, does_updated, check_valid_time, operate_time
+
+def apply_tgd(dependency, Z_tablename, checked_tuples):
+    type = dependency['dependency_type']
+    dependency_tuples = dependency['dependency_tuples']
+    dependency_attributes = dependency['dependency_attributes']
+    dependency_summary = dependency['dependency_summary']
+    dependency_summary_condition = dependency['dependency_summary_condition']
+    check_valid_time = 0
+    operate_time = 0
+
+    tgd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
+    check_valid_begin = time.time()
+    cursor.execute(tgd_sql)
+    check_valid_end = time.time()
+    check_valid_time += (check_valid_end - check_valid_begin)
+
+    # matched_tuples = []
+    results = cursor.fetchall()
+    conn.commit()
+    # print(results)
+
+    does_updated = True
+    inserted_tuples = []
+    check_valid_begin = time.time()
+    for valid_match in results:
+        if str(valid_match) in checked_tuples:
+            continue
+        else:
+            inserted_tuples.append(valid_match)
+            checked_tuples.append(str(valid_match))
+
+    if len(inserted_tuples) > 0:
+        # print("inserted_tuples", inserted_tuples)
+        check_valid_end = time.time()
+        check_valid_time += (check_valid_end - check_valid_begin)
+        # print("insert", results)
+        begin_time = time.time()
+        execute_values(cursor, "insert into {} values %s".format(Z_tablename), inserted_tuples)
+        end_time = time.time()
+        operate_time += (end_time - begin_time)
+        conn.commit()
+        
+    else:  # if all matches are already checked, the algorithm is done
+        does_updated = False
+        check_valid_end = time.time()
+        check_valid_time += (check_valid_end - check_valid_begin)
+        conn.commit()
+        return  checked_tuples, does_updated, check_valid_time, operate_time
+    
+    return  checked_tuples, does_updated, check_valid_time, operate_time
+
+def apply_egd(dependency, Z_tablename, checked_tuples):
+    type = dependency['dependency_type']
+    dependency_tuples = dependency['dependency_tuples']
+    dependency_attributes = dependency['dependency_attributes']
+    dependency_summary = dependency['dependency_summary']
+    dependency_summary_condition = dependency['dependency_summary_condition']
+    check_valid_time = 0
+    operate_time = 0
+
+    node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z_tablename)
+    # print("node_dict", node_dict)
+
+    value_index_mapping = {}
+    flag_value = {}
+    for var in node_dict.keys():
+        if var not in value_index_mapping.keys():
+            value_index_mapping[var] = []
+        
+        for tup_idx in node_dict[var].keys():
+            col_idxs = node_dict[var][tup_idx]
+            value_index_mapping[var] += [tup_idx*(len(dependency_attributes)-1)+col_idx for col_idx in col_idxs]
+
+        if var.isdigit() or isIPAddress(var) or len(value_index_mapping[var])>1:
+            for idx in value_index_mapping[var]:
+                flag_value[idx] = var 
+        
+    # print("value_index_mapping", value_index_mapping)
+    # print("flag_value", flag_value)
+
+    equality_pairs = analyze_summary(dependency)
+    # print("equality_pairs", equality_pairs)
+    
+    check_valid_begin = time.time()
+    egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
+    check_valid_end = time.time()
+    check_valid_time += (check_valid_end-check_valid_begin)
+    # print("egd_sql", egd_sql)
+
+    check_valid_begin = time.time()
+    cursor.execute(egd_sql)
+    check_valid_end = time.time()
+    check_valid_time += (check_valid_end-check_valid_begin)
+    
+    space_pool = {}
+    where_clause_correspond_to_flag = {}
+    row = cursor.fetchone()
+    while row is not None:
+        # check_valid_begin = time.time()
+        if str(row) in checked_tuples:
+            row = cursor.fetchone()
+            # check_valid_end = time.time()
+            # check_valid_time += (check_valid_end - check_valid_begin)
+            continue
+        else:
+            checked_tuples.append(str(row))
+        # check_valid_end = time.time()
+        # check_valid_time += (check_valid_end - check_valid_begin)
+        
+        flag = None
+        flag_list = []
+        flag_where_clause = []
+        where_clause = []
+        current_tup_idx = 0
+        for idx in sorted(list(flag_value.keys())):
+            flag_list.append(row[idx])
+
+            if idx // (len(dependency_attributes)-1) > current_tup_idx: # change to another tuple's where clause(only for two-tuple pattern) # TODO generalize to multi-tuple pattern
+                flag_where_clause.append(where_clause.copy())
+                current_tup_idx = idx // (len(dependency_attributes)-1)
+                where_clause = []
+            
+            attr_idx = idx % (len(dependency_attributes)-1)
+            where_clause.append("{} = '{}'".format(dependency_attributes[attr_idx], row[idx]))
+        flag_where_clause.append(where_clause.copy())
+
+
+        flag = "|".join(flag_list)
+
+        if flag not in space_pool.keys():
+            space_pool[flag] = {}
+            where_clause_correspond_to_flag[flag] = flag_where_clause.copy() # generate where clause for each result who matches pattern
+
+        for var in equality_pairs.keys():
+            var_idx_in_attributes = value_index_mapping[var][0] % (len(dependency_attributes)-1)
+            attribute_correspond_to_var = dependency_attributes[var_idx_in_attributes]
+
+            if attribute_correspond_to_var not in space_pool[flag].keys():
+                space_pool[flag][attribute_correspond_to_var] = {}
+
+            var_idx_in_row = value_index_mapping[var][0]
+            val_idx_in_row = value_index_mapping[var][0]
+            if row[var_idx_in_row] in space_pool[flag][attribute_correspond_to_var].keys():
+                space_pool[flag][attribute_correspond_to_var][row[var_idx_in_row]] += 1
+            else:
+                space_pool[flag][attribute_correspond_to_var][row[var_idx_in_row]] = 1
+            
+            if row[val_idx_in_row] in space_pool[flag][attribute_correspond_to_var].keys():
+                space_pool[flag][attribute_correspond_to_var][row[val_idx_in_row]] += 1
+            else:
+                space_pool[flag][attribute_correspond_to_var][row[val_idx_in_row]] = 1
+
+        row = cursor.fetchone()
+    conn.commit()
+    # print("space_pool", space_pool)
+    # print("where_clause_correspond_to_flag", where_clause_correspond_to_flag)
+    check_valid_begin = time.time()
+    if len(space_pool.keys()) == 0: # if space_pool is empty, no tuples match to the pattern
+        check_valid_end = time.time()
+        check_valid_time += (check_valid_end - check_valid_begin)
+        return checked_tuples, False, check_valid_time, operate_time
+
+    # generate set clause
+    set_clause_correspond_to_flag = {}
+    
+    for flag in space_pool.keys():
+        if flag not in set_clause_correspond_to_flag.keys():
+            set_clause_correspond_to_flag[flag] = []
+        
+        for attr in space_pool[flag].keys():
+            space = space_pool[flag][attr]
+
+            # if space has values, set max number of value
+            max_num_value = 0
+            value = None
+
+            max_num_var = 0
+            var = None
+            for v in space.keys():
+                if v.isdigit() or isIPAddress(v):
+                    if max_num_value < space[v]:
+                        max_num_value = space[v]
+                        value = v
+                else:
+                    if max_num_var < space[v]:
+                        max_num_var = space[v]
+                        var = v
+            if value is not None:
+                set_clause_correspond_to_flag[flag].append("{} = '{}'".format(attr, value))
+            else:
+                set_clause_correspond_to_flag[flag].append("{} = '{}'".format(attr, var))
+        
+    # print("set_clause_correspond_to_flag", set_clause_correspond_to_flag)
+
+    summary_condition_clause = None
+    if dependency_summary_condition is not None:
+        summary_condition_clause = analyze_summary_condition(dependency, node_dict)
+    
+    # print("summary_condition_clause", summary_condition_clause)
+    
+    #generate update sqls 
+    update_sqls = []
+    for flag in set_clause_correspond_to_flag:
+        set_clause = set_clause_correspond_to_flag[flag]
+
+        for where_clause in where_clause_correspond_to_flag[flag]: 
+            if summary_condition_clause is not None:
+                where_clause += summary_condition_clause
+            upd_sql = "update {} set {} where {}".format(Z_tablename, ", ".join(set_clause), " and ".join(where_clause))
+
+            if upd_sql not in update_sqls:
+                update_sqls.append(upd_sql)
+    
+    does_update = False
+    for sql in update_sqls:
+        # print(sql)
+        operate_begin = time.time()
+        cursor.execute(sql)
+        operate_end = time.time()
+        operate_time += (operate_end-operate_begin)
+
+        if cursor.rowcount == 0:
+            does_update = (does_update or False)
+        else:
+            does_update = (does_update or True)
+    conn.commit()
+
+    return checked_tuples, does_update, check_valid_time, operate_time
+
+def analyze_summary(dependency): #when summary is not empty
+    dependency_summary = dependency["dependency_summary"]
+
+    equality_pairs = {}
+    #assume the operands of summary are variables. # TODO: generate it to variables and values.
+    for summary in dependency_summary:
+        items = summary.split()
+        left_opd = items[0]
+        right_opd = items[2]
+
+        equality_pairs[left_opd] = right_opd
+
+    return equality_pairs
+
+def analyze_summary_condition(dependency, node_dict):
+    dependency_attributes = dependency["dependency_attributes"]
+    dependency_summary_condition = dependency["dependency_summary_condition"]
+    summary_condition_clause = []
+    for condition in dependency_summary_condition:
+        # consider left opd is a variable, right opd is a value
+        # TODO:generate it for two variables or left is a value and right is a variable
+        items = condition.split()
+        left_opd = items[0]
+        opr = items[1]
+        right_opd = items[2]
+
+        for tup_idx in node_dict[left_opd]:
+            for col_idx in node_dict[left_opd][tup_idx]:
+                clause = "{} {} {}".format(dependency_attributes[col_idx], opr, right_opd)
+
+                if clause not in summary_condition_clause:
+                    summary_condition_clause.append(clause)
+    return summary_condition_clause
+
+
 
 def gen_repalce_mapping_for_egd(dependency, node_dict):
     # print("node_dict", node_dict)
@@ -767,6 +764,12 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     return conditions
 
 def apply_E(sql, gama_summary):
+
+    # sql = "CREATE INDEX index_fid_mark{}\
+    #         ON public.{} USING btree\
+    #         (fid varchar_ops ASC NULLS LAST, mark ASC NULLS LAST)\
+    #             TABLESPACE pg_default;".format(tablename,tablename)
+    # cur.execute(sql)
     
     query_begin = time.time()
     cursor.execute(sql)
@@ -784,15 +787,19 @@ def apply_E(sql, gama_summary):
             check_cols.append(var_idx)
     # print("check_cols", check_cols)
     gama_summary_item = "|".join([gama_summary[i] for i in check_cols])
-    check_begin = time.time()
-    answer = False
+    
+    
+    result_items = []
     for res_tup in results:
         res_item = "|".join(res_tup[i] for i in check_cols)
-        if res_item == gama_summary_item:
-            # print("gama_summary_item", gama_summary_item)
-            # print("res_item", res_item)
-            answer = True
-            break
+        result_items.append(res_item)
+
+    check_begin = time.time()
+    answer = False
+    if gama_summary_item in result_items:
+        # print("gama_summary_item", gama_summary_item)
+        # print("res_item", res_item)
+        answer = True
     check_end = time.time()
     conn.commit()
     return answer, query_end-query_begin, check_end-check_begin
@@ -864,44 +871,34 @@ def gen_E_query(E, E_attributes, E_summary, Z):
 
 
 if __name__ == '__main__':
-    T = [
-        ('f', 's1', 'd1', 's', '1', '{}'),
-        ('f', 's2', 'd2', '1', '2', '{}'),
-        ('f', 's3', 'd3', '2', 'd', '{}')
+    
+
+    E_tuples = [
+        ('f', 's1', 'd1', 's', '11.0.0.1', '{}'),
+        ('f', 's2', 'd2', '11.0.0.1', '11.0.0.2', '{}'),
+        ('f', 's3', 'd3', '11.0.0.2', 'd', '{}')
     ]
-    T_summary = ['f', 's', 'd']
-    T_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    T_attributes_datatypes = ['int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'text[]']
-    E = (T, T_summary)
+    E_summary = ['f', 's', 'd']
+    E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
+    E_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+
+    load_table(E_attributes, E_attributes_datatypes, "E", E_tuples)
 
     # 1.2 => 4, 1.1 =>3, 1.3 => 5, 1.4 =>6
-    W = [
-        ('f1', '4', '5', '4', '1', '{}'),
-        ('f2', '3', '6', '3', '6', '{}')
+    gamma_tuples = [
+        ('f1', '10.0.0.2', '12.0.0.3', '{}'),
+        ('f2', '10.0.0.1', '12.0.0.4', '{}')
     ]
-    W_summary = ['f3', '4', '6']
-    W_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    W_attributes_datatypes = ['int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'text[]']
-    Gama = (W, W_summary)
+    gamma_summary = ['f3', '10.0.0.2', '12.0.0.4']
+    gamma_attributes = ['f', 'n', 'x', 'condition']
+    gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    
+    load_table(gamma_attributes, gamma_attributes_datatypes, "W", gamma_tuples)
 
-    load_table(T_attributes, T_attributes_datatypes, "T", T)
-    load_table(W_attributes, W_attributes_datatypes, "W", W)
-
-    W_attributes_switch = {
-        'f': True,
-        'src': False,
-        'dst': False,
-        'n': True,
-        'x': True,
-    }
-
-    source_hosts = ['3', '4']
-    dest_hosts = ['5', '6']
-
-    Z_table = gen_z("T", "W", W_attributes, W_attributes_datatypes, W_attributes_switch)
+    Z_tuples = gen_z(E_tuples, "W")
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
-    load_table(Z_attributes, Z_attributes_datatypes, "Z", Z_table)
+    Z_attributes_datatypes = ['text', '', 'text', 'text', 'text']
+    load_table(Z_attributes, Z_attributes_datatypes, "Z", Z_tuples)
 
     tgd = [
         ('f', '4', '5', '4', '1', '{}')

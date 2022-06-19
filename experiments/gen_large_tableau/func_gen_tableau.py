@@ -328,8 +328,9 @@ def convert_symbol_to_IP_from_path_nodes(path_nodes, IP_address_begin='1.0.0.1')
             IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), 's', symbolic_IP_mapping[node], '{}'))
             continue
         elif idx == len(path_nodes) - 1:
+            IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
             IP_tuples.append(('f', 's{}'.format(idx+1), 'd{}'.format(idx+1), symbolic_IP_mapping[node], 'd', '{}'))
-            
+            continue
         
         IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
     return IP_tuples, symbolic_IP_mapping
