@@ -104,8 +104,8 @@ def genTableau(topo=4755, pick_num=2):
 
 if __name__ == '__main__':
 	topos = [7018]
-	num_runs = 1
-	f = open("result_single_link.csv", "a")
+	num_runs = 100
+	f = open("result_doubble_link_subnet.csv", "a")
 	f.write("topo,length,eval_time,snap_time,total_time\n")
 	for topo in topos:
 		run = 0
