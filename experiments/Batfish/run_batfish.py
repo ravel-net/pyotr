@@ -95,8 +95,9 @@ def runBatfishDiffer(config):
 
 def runBatfishDifferSubset(config):
     sink = getBackupNode(config['primary_links'][0], config['backup_links'][0])
-    answer1, time_eval1, time_snap1 = performance.differentialAnalysisSubset(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0], {}), Merge(config['backup_links'][0],config['backup_links'][1]), sink)
-    return time_eval1, time_snap1, answer1
+    answer1, time_eval1, time_snap1 = performance.differentialAnalysisSubset(config['network_name'], config['topo_dir'], Merge(config['primary_links'][0], {}), Merge(config['backup_links'][0],config['backup_links'][1]), "/source/", sink)
+    answer2, time_eval2, time_snap2 = performance.differentialAnalysisSubset(config['network_name'], config['topo_dir'], Merge(config['primary_links'][1], {}), Merge(config['backup_links'][0],config['backup_links'][1]), sink, '/dest/')
+    return time_eval1+time_eval2, time_snap1+time_snap2, (answer1 and answer2)
 
 def runReachability(config):
     answer, total_eval_time, total_snap_time = performance.NAT_reachability(config['network_name'], config['topo_dir'], config["dests"])
@@ -157,10 +158,10 @@ if __name__ == "__main__":
     T1 = [
         ("1","20","123", "l1u == 1"),
         ("20","2","", ""),
-        ("1","2","", "l1u == 0"), 
-        ("2","30","1321", "l2v == 1"), 
+        ("1","2","1324", "l1u == 0"), 
+        ("2","30","123", "l2v == 1"), 
         ("30","40","", ""), 
-        ("2","40","1321", "l2v == 0")
+        ("2","40","1324", "l2v == 0")
     ]
 
     Invariant2 = [

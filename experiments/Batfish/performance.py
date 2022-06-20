@@ -156,7 +156,7 @@ def differentialAnalysis(network_name, topo_dir, fail_links, backup_links):
     print(diff_reachability_answer.Flow)
     return answer, end_failures-begin_failures, end_snap-begin_snap
 
-def differentialAnalysisSubset(network_name, topo_dir, fail_links, backup_links, endLoc):
+def differentialAnalysisSubset(network_name, topo_dir, fail_links, backup_links, source, sink):
     BASE_NETWORK_NAME = network_name
     BASE_SNAPSHOT_NAME = network_name
     BASE_SNAPSHOT_PATH = topo_dir
@@ -169,6 +169,7 @@ def differentialAnalysisSubset(network_name, topo_dir, fail_links, backup_links,
             intf = Interface(hostname="r_{}".format(router), interface="Ethernet{}".format(eth))
             interfaces.append(intf) 
 
+    print(network_name, topo_dir, fail_links, backup_links, source, sink)
     BASE_SNAPSHOT_NO_BACKUP_NAME = network_name+"NO_BACKUP"
     bf.fork_snapshot(BASE_SNAPSHOT_NAME, BASE_SNAPSHOT_NO_BACKUP_NAME, deactivate_interfaces=interfaces, overwrite=True)
 
@@ -183,13 +184,23 @@ def differentialAnalysisSubset(network_name, topo_dir, fail_links, backup_links,
     begin_snap = time.time()
     bf.fork_snapshot(BASE_SNAPSHOT_NAME, LINKS_INACTIVE_SNAPSHOT_NAME, deactivate_interfaces=interfaces, overwrite=True)
     end_snap = time.time()
-    print("end_loc", endLoc)
     begin_failures = time.time()
-    diff_reachability_answer = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation = '/source/', endLocation=endLoc), headers=HeaderConstraints(dstIps='/dest/'), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=BASE_SNAPSHOT_NO_BACKUP_NAME).frame()
+    snapshot_ref = BASE_SNAPSHOT_NO_BACKUP_NAME
+    if 'source' in source:
+        snapshot_ref = network_name
+    # if 'source' in source:
+    #     source = '/source1/'
+    diff_reachability_answer1 = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation=source), headers=HeaderConstraints(srcIps='/source/', dstIps=sink), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=snapshot_ref).frame()
+    # if 'source' in source:
+    #     source = '/source2/'
+    # diff_reachability_answer2 = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation=source), headers=HeaderConstraints(srcIps='/source2/', dstIps=sink), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=snapshot_ref).frame()
+    # if 'source' in source:
+    #     source = '/source3/'
+    # diff_reachability_answer3 = bf.q.differentialReachability(pathConstraints=PathConstraints(startLocation=source), headers=HeaderConstraints(srcIps='/source3/', dstIps=sink), actions='SUCCESS', ignoreFilters=False).answer(snapshot=LINKS_INACTIVE_SNAPSHOT_NAME, reference_snapshot=snapshot_ref).frame()
     end_failures = time.time()
-    answer = (len(diff_reachability_answer.Flow) == 0)
-    print(diff_reachability_answer.Flow)
-    return answer, end_failures-begin_failures, end_snap-begin_snap
+    answer1 = (len(diff_reachability_answer1.Flow) == 0)
+    print(diff_reachability_answer1.Flow)
+    return answer1, end_failures-begin_failures, end_snap-begin_snap
 
 def compare_flows(flows1, flows2):
     begin_compare = time.time()
