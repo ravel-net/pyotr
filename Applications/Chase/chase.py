@@ -262,6 +262,7 @@ def replace_z_table(tablename, new_table):
 
 # The source must be first hop and the destination must be last hop
 def applySourceDestPolicy(Z_tablename):
+    begin_time = time.time()
     z_table = getCurrentTable(Z_tablename)
     unique_flows = {}
     for i, tuple in enumerate(z_table):
@@ -282,9 +283,11 @@ def applySourceDestPolicy(Z_tablename):
             exit()
         newTuple = (flowid, unique_flows[flowid][0], unique_flows[flowid][1], tuple[3], tuple[4])
         new_z_table.append(newTuple)
-
+    end_time = time.time()
     # Replace Z table code
     replace_z_table(Z_tablename, new_z_table)
+
+    return [], True, 0, end_time-begin_time
 
 def applyDestinationPolicy(dependency, Z_tablename):
     start_time = time.time()
@@ -854,7 +857,7 @@ def apply_E(sql, Z_tablename, gama_summary):
         conn.commit()
         # flow_condition = "t0.f = '{}'".format(flow_id[0])
         # sql += " and {}".format(flow_condition)
-        print(sql)
+        # print(sql)
         # exit()
         query_begin = time.time()
         cursor.execute(sql)

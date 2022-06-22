@@ -137,7 +137,7 @@ def run_ordering_strategies():
     # run_scalibility()
 
     runs = 100
-    num_hosts_list = [16]
+    num_hosts_list = [32]
     for num_hosts in num_hosts_list:
         print("num_hosts", num_hosts)
         
@@ -147,8 +147,8 @@ def run_ordering_strategies():
         f2 = open("./ordering_results/random/runtime_hosts{}_random.txt".format(num_hosts), "w")
         f2.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
 
-        f3 = open("./ordering_results/static/runtime_hosts{}_static.txt".format(num_hosts), "w")
-        f3.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
+        # f3 = open("./ordering_results/static/runtime_hosts{}_static.txt".format(num_hosts), "w")
+        # f3.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
         for r in tqdm(range(runs)):
             ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
             egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
@@ -203,35 +203,35 @@ def run_ordering_strategies():
 
             f2.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
 
-            '''
-            for `static` order
-            '''
-            gamma_tablename_random = "W_static"
-            Z_tablename_random = "Z_static"
-            # gamma_summary = chase_scripts.gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "relevant")
-            gamma_summary = chase_scripts.gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "all")
+            # '''
+            # for `static` order
+            # '''
+            # gamma_tablename_random = "W_static"
+            # Z_tablename_random = "Z_static"
+            # # gamma_summary = chase_scripts.gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "relevant")
+            # gamma_summary = chase_scripts.gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "all")
 
-            # Step 1
-            print("static")
-            Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_random, Z_tablename_random, Z_attributes, Z_datatypes)
+            # # Step 1
+            # print("static")
+            # Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_random, Z_tablename_random, Z_attributes, Z_datatypes)
             
-            #step2 and step3
-            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts.run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_random, gamma_summary)
-            # if count_application >= 12:
-            #     print("E_tuples = ", E_tuples)
-            #     print("path_nodes", path_nodes)
-            #     print("symbolic_IP_mapping", symbolic_IP_mapping)
-            #     print("block_list", block_list)
-            #     print("ingress_hosts", ingress_hosts)
-            #     print("egress_hosts", egress_hosts)
-            #     print("dependencies = ", dependencies)
-            #     exit()
-            f3.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
+            # #step2 and step3
+            # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts.run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_random, gamma_summary)
+            # # if count_application >= 12:
+            # #     print("E_tuples = ", E_tuples)
+            # #     print("path_nodes", path_nodes)
+            # #     print("symbolic_IP_mapping", symbolic_IP_mapping)
+            # #     print("block_list", block_list)
+            # #     print("ingress_hosts", ingress_hosts)
+            # #     print("egress_hosts", egress_hosts)
+            # #     print("dependencies = ", dependencies)
+            # #     exit()
+            # f3.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
             
         f1.close()
         f2.close()
-        f3.close()
+        # f3.close()
 
 if __name__ == '__main__':
-    run_scalibility()
-    # run_ordering_strategies()
+    # run_scalibility()
+    run_ordering_strategies()

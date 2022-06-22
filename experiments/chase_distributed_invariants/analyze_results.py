@@ -84,8 +84,8 @@ def avg_time(filedir, filename, out_filedir, out_filename, host_num):
 
 
 if __name__ == '__main__':
-    file_dir = './plots/orderings_all_hosts16/hate_this_one/'
-    case = "random"
+    file_dir = './plots/ordering_strategies/32hosts_all/'
+    case = "optimal"
     filename = "{}.txt".format(case)
 
     raw_data = []

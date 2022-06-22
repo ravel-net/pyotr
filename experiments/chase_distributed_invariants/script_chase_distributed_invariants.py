@@ -404,36 +404,47 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     total_query_times = 0
-    chase.applySourceDestPolicy(Z_tablename)
+    # chase.applySourceDestPolicy(Z_tablename)
+    current_run = 0
     while does_updated:
         temp_updated = False
         for idx in ordered_indexs:
             count_application += 1
             
-            dependency = dependencies[idx]
-            checked_tuples = checked_records[idx]
-            
-            # print("\n-------------------------------------")
-            # print(dependency['dependency_type'])
-            # print(dependency['dependency_tuples'])
-            # print(dependency['dependency_attributes'])
-            # print(dependency['dependency_attributes_datatypes'])
-            # print(dependency['dependency_summary'])
-            # print(dependency['dependency_summary_condition'])
-            # print("-------------------------------------\n")
-            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-            print("optimal", count_application, whether_updated)
-            total_check_applicable_time += check_valid_time
-            total_operation_time += operate_time
-            temp_updated = (temp_updated or whether_updated)
+            if current_run == 0 and idx == 0:
+                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.applySourceDestPolicy(Z_tablename)
+                print("random", count_application, whether_updated)
+                total_check_applicable_time += check_valid_time
+                total_operation_time += operate_time
+                temp_updated = (temp_updated or whether_updated)
+            else:
+
+                dependency = dependencies[idx]
+                checked_tuples = checked_records[idx]
+                
+                # print("\n-------------------------------------")
+                # print(dependency['dependency_type'])
+                # print(dependency['dependency_tuples'])
+                # print(dependency['dependency_attributes'])
+                # print(dependency['dependency_attributes_datatypes'])
+                # print(dependency['dependency_summary'])
+                # print(dependency['dependency_summary_condition'])
+                # print("-------------------------------------\n")
+                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
+                print("optimal", count_application, whether_updated)
+                total_check_applicable_time += check_valid_time
+                total_operation_time += operate_time
+                temp_updated = (temp_updated or whether_updated)
 
         does_updated = temp_updated
+        current_run += 1
 
             # print("gamma_summary", gamma_summary)
-    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    total_query_times += count_queries
-    total_query_answer_time += query_time
-    total_check_answer_time += check_time
+    answer = None
+    # answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    # total_query_times += count_queries
+    # total_query_answer_time += query_time
+    # total_check_answer_time += check_time
     # print("gamma_summary", gamma_summary)
     # answer, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
     # total_query_answer_time += query_time
@@ -457,6 +468,8 @@ def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_s
     count_application = 0 # count the number of the application of the chase
     total_query_times = 0
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
+
+    current_run = 0
     while does_updated:
         temp_updated = False
         temp_indexes = indexes.copy()
@@ -466,30 +479,39 @@ def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_s
             
             idx = random.sample(temp_indexes, 1)[0]
             temp_indexes.remove(idx)
-            dependency = dependencies[idx]
-            checked_tuples = checked_records[idx]
-            
-            # print("\n-------------------------------------")
-            # print(dependency['dependency_type'])
-            # print(dependency['dependency_tuples'])
-            # print(dependency['dependency_attributes'])
-            # print(dependency['dependency_attributes_datatypes'])
-            # print(dependency['dependency_summary'])
-            # print(dependency['dependency_summary_condition'])
-            # print("-------------------------------------\n")
-            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-            print("random", count_application, whether_updated)
-            total_check_applicable_time += check_valid_time
-            total_operation_time += operate_time
-            temp_updated = (temp_updated or whether_updated)
 
+            if current_run == 0 and idx == 0: # the first time run the \sigma_{D} should call applySourceDestPolicy()
+                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.applySourceDestPolicy(Z_tablename)
+                print("random", count_application, whether_updated)
+                total_check_applicable_time += check_valid_time
+                total_operation_time += operate_time
+                temp_updated = (temp_updated or whether_updated)
+
+            else:
+                dependency = dependencies[idx]
+                checked_tuples = checked_records[idx]
+                
+                # print("\n-------------------------------------")
+                # print(dependency['dependency_type'])
+                # print(dependency['dependency_tuples'])
+                # print(dependency['dependency_attributes'])
+                # print(dependency['dependency_attributes_datatypes'])
+                # print(dependency['dependency_summary'])
+                # print(dependency['dependency_summary_condition'])
+                # print("-------------------------------------\n")
+                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
+                print("random", count_application, whether_updated)
+                total_check_applicable_time += check_valid_time
+                total_operation_time += operate_time
+                temp_updated = (temp_updated or whether_updated)
+        current_run += 1
         does_updated = temp_updated
-
+    answer = None
         # print("gamma_summary", gamma_summary)
-    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    total_query_times += count_queries
-    total_query_answer_time += query_time
-    total_check_answer_time += check_time
+    # answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    # total_query_times += count_queries
+    # total_query_answer_time += query_time
+    # total_check_answer_time += check_time
     # print("random", count_application, answer)
     # print("gamma_summary", gamma_summary)
     # ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
