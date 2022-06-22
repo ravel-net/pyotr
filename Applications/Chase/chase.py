@@ -11,6 +11,7 @@ import time
 from psycopg2.extras import execute_values
 import databaseconfig as cfg
 from tqdm import tqdm
+from ipaddress import IPv4Address
 
 FAURE_DATATYPES = ['int4_faure', 'inet_faure']
 INT4_FAURE = 'int4_faure'
@@ -129,6 +130,7 @@ def is_variable(value, datatype):
 def apply_dependency(dependency, Z_tablename, checked_tuples):
     # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
     # cursor = conn.cursor()
+    print("starting dependency")
     type = dependency['dependency_type']
     dependency_tuples = dependency['dependency_tuples']
     dependency_attributes = dependency['dependency_attributes']
@@ -168,10 +170,12 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
             check_valid_end = time.time()
             check_valid_time += (check_valid_end - check_valid_begin)
             conn.commit()
+            print("ending dependency")
             return checked_tuples, does_updated, check_valid_time, operate_time
         else:
             # print("apply_egd")
             checked_tuples, does_updated, check_valid_time, operate_time = apply_egd(dependency, Z_tablename, checked_tuples)
+            # checked_tuples, does_updated, check_valid_time, operate_time = apply_egd_old(dependency, Z_tablename, checked_tuples)
     else:
         check_valid_begin = time.time()
         does_updated = False
@@ -179,6 +183,7 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
         check_valid_end = time.time()
         check_valid_time += (check_valid_end - check_valid_begin)
     conn.commit()
+    print("ending dependency")
     return checked_tuples, does_updated, check_valid_time, operate_time
 
 def apply_tgd(dependency, Z_tablename, checked_tuples):
@@ -237,7 +242,147 @@ def apply_tgd(dependency, Z_tablename, checked_tuples):
     
     return  checked_tuples, does_updated, check_valid_time, operate_time
 
+def checkCondition(where):
+    # print("================")
+    print(where)
+    # print("================")
+
+def getCurrentTable(tablename):
+    cursor.execute('select * from {};'.format(tablename))
+    table = cursor.fetchall()
+    conn.commit()
+    return table
+
+def replace_z_table(tablename, new_table):
+    cursor.execute("drop table if exists {}".format(tablename))
+    conn.commit()
+    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+    Z_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
+    load_table(Z_attributes, Z_attributes_datatypes, tablename, new_table)
+
+# The source must be first hop and the destination must be last hop
+def applySourceDestPolicy(Z_tablename):
+    z_table = getCurrentTable(Z_tablename)
+    unique_flows = {}
+    for i, tuple in enumerate(z_table):
+        flowid = tuple[0]
+        if flowid not in unique_flows:
+            unique_flows[flowid] = [] #0th element is the source, last element is the destination
+            src = tuple[1]
+            unique_flows[flowid].append(src)
+
+        elif i >= len(z_table)-1 or (z_table[i+1][0] != flowid and flowid in unique_flows): # get destination from last hop
+            dest = tuple[2]
+            unique_flows[flowid].append(dest)
+    new_z_table = []
+    for tuple in z_table:
+        flowid = tuple[0]
+        if flowid not in unique_flows:
+            print("Unknown flow id encountered. Something went wrong. Exiting")
+            exit()
+        newTuple = (flowid, unique_flows[flowid][0], unique_flows[flowid][1], tuple[3], tuple[4])
+        new_z_table.append(newTuple)
+
+    # Replace Z table code
+    replace_z_table(Z_tablename, new_z_table)
+
+def applyDestinationPolicy(dependency, Z_tablename):
+    start_time = time.time()
+    z_table = getCurrentTable(Z_tablename)
+
+    # extract unique flows
+    unique_flows = {}
+    for tuple in z_table:
+        flowid = tuple[0]
+        if flowid not in unique_flows:
+            src = tuple[1]
+            dest = tuple[2]
+            unique_flows[flowid] = (src,dest)
+
+    new_z_table = []
+    does_update = False
+    for tuple in z_table:
+        flowid = tuple[0]
+        if flowid not in unique_flows:
+            print("Unknown flow id encountered. Something went wrong. Exiting")
+            exit()
+        newTuple = (flowid, unique_flows[flowid][0], unique_flows[flowid][1], tuple[3], tuple[4])
+        if (unique_flows[flowid][0] != tuple[1] or unique_flows[flowid][1] != tuple[2]):
+            does_update = True
+        new_z_table.append(newTuple)
+
+    replace_z_table(Z_tablename, new_z_table)
+    end_time = time.time()
+    return [], does_update, 0, end_time - start_time
+
+def applyRewritePolicy(dependency, Z_tablename):
+    start_time = time.time()
+    z_table = getCurrentTable(Z_tablename)
+    pattern_source = dependency['dependency_tuples'][0][1]
+    pattern_dest = dependency['dependency_tuples'][0][2]
+    pattern_condition = dependency['dependency_summary_condition'][0] # assuming it is always less than equal to policy
+    if ("n1" not in pattern_condition or "<=" not in pattern_condition):
+        print("Hacky solution not working")
+        exit()
+    pattern_condition_IP = IPv4Address(pattern_condition[7:-1])    
+
+    replace_source = dependency['dependency_tuples'][1][1]
+    replace_dest = dependency['dependency_tuples'][1][2]
+    replace_condition = dependency['dependency_summary_condition'][1] # assuming it is always less than equal to policy
+    if ("n2" not in replace_condition or "<=" not in replace_condition):
+        print("Hacky solution not working")
+        exit()
+    replace_condition_IP = IPv4Address(replace_condition[7:-1])
+
+    # extract flow id of pattern tuple
+    targetFlow = ""
+    for tuple in z_table:
+        flowid = tuple[0]
+        src = tuple[1]
+        dest = tuple[2]
+        n = IPv4Address(tuple[3])
+        if (src == pattern_source and dest == pattern_dest and n <= pattern_condition_IP):
+            targetFlow = flowid
+    if targetFlow == "":
+        print("No flow found. Hacky solution might not be working")
+        end_time = time.time()
+        return [], False, 0, end_time - start_time
+
+    new_z_table = []
+    does_update = False
+    for tuple in z_table:
+        flowid = tuple[0]
+        src = tuple[1]
+        dest = tuple[2]
+        n = IPv4Address(tuple[3])
+        if (src == replace_source and dest == replace_dest and n <= replace_condition_IP):
+            if flowid != targetFlow:
+                does_update = True
+            new_z_table.append((targetFlow, tuple[1], tuple[2], tuple[3], tuple[4]))
+        else:
+            new_z_table.append((tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
+    replace_z_table(Z_tablename, new_z_table)
+    end_time = time.time()
+    # exit()
+    return [], does_update, 0, end_time - start_time
+
+    
+
+    # extract first source and destination
+
+# def apply_egd_in_memory(dependency, Z_tablename, checked_tuples):
 def apply_egd(dependency, Z_tablename, checked_tuples):
+    print("Starting egd")
+    if ('f' in dependency['dependency_cares_attributes']):
+        print("ending egd")
+        conn.commit()
+        return applyDestinationPolicy(dependency, Z_tablename)
+    else:
+        conn.commit()
+        print("ending egd")
+        return applyRewritePolicy(dependency, Z_tablename)
+
+def apply_egd_old(dependency, Z_tablename, checked_tuples):
     type = dependency['dependency_type']
     dependency_tuples = dependency['dependency_tuples']
     dependency_attributes = dependency['dependency_attributes']
@@ -247,8 +392,13 @@ def apply_egd(dependency, Z_tablename, checked_tuples):
     operate_time = 0
 
     node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z_tablename)
+    print(getCurrentTable(Z_tablename))
+    print("===============================")
+    print("dependency", dependency)
+    # print("Z_tablename", Z_tablename)
+    # print("checked_tuples", checked_tuples)
     # print("node_dict", node_dict)
-
+    print("===============================")
     value_index_mapping = {}
     flag_value = {}
     for var in node_dict.keys():
@@ -273,7 +423,7 @@ def apply_egd(dependency, Z_tablename, checked_tuples):
     egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
     check_valid_end = time.time()
     check_valid_time += (check_valid_end-check_valid_begin)
-    # print("egd_sql", egd_sql)
+    print("egd_sql", egd_sql)
 
     check_valid_begin = time.time()
     cursor.execute(egd_sql)
@@ -395,8 +545,10 @@ def apply_egd(dependency, Z_tablename, checked_tuples):
         for where_clause in where_clause_correspond_to_flag[flag]: 
             if summary_condition_clause is not None:
                 where_clause += summary_condition_clause
+            if (checkCondition(where_clause)):
+                a = 2
+                # update row
             upd_sql = "update {} set {} where {}".format(Z_tablename, ", ".join(set_clause), " and ".join(where_clause))
-
             if upd_sql not in update_sqls:
                 update_sqls.append(upd_sql)
 
@@ -418,6 +570,7 @@ def apply_egd(dependency, Z_tablename, checked_tuples):
     # f1.close()
     # f2.close()
     conn.commit()
+    print(getCurrentTable(Z_tablename))
 
     return checked_tuples, does_update, check_valid_time, operate_time
 
@@ -673,7 +826,6 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     return conditions
 
 def apply_E(sql, Z_tablename, gama_summary):
-
     # whether w in E(Z)
     check_cols = []
     for var_idx, var in enumerate(gama_summary):
@@ -702,7 +854,8 @@ def apply_E(sql, Z_tablename, gama_summary):
         conn.commit()
         # flow_condition = "t0.f = '{}'".format(flow_id[0])
         # sql += " and {}".format(flow_condition)
-        # print(sql)
+        print(sql)
+        exit()
         query_begin = time.time()
         cursor.execute(sql)
         query_end = time.time()

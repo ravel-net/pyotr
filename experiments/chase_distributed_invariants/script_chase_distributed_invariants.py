@@ -404,6 +404,7 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     total_query_times = 0
+    chase.applySourceDestPolicy(Z_tablename)
     while does_updated:
         temp_updated = False
         for idx in ordered_indexs:
