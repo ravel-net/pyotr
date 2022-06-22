@@ -126,128 +126,6 @@ def is_variable(value, datatype):
     else:
         return False
 
-# def apply_dependency(type, Z, Z_attributes, dependency, dependency_summary, dependency_attributes, dependency_condition=None):
-#     # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-#     # cursor = conn.cursor()
-#     operate_time = 0
-#     if type.lower() == 'tgd':
-#         tgd_sql = convert_dependency_to_sql(type, dependency, Z, dependency_attributes, dependency_summary, dependency_condition)
-#         cursor.execute(tgd_sql)
-
-#         matched_tuples = []
-#         results = cursor.fetchall()
-#         # print(results)
-#         while len(results) > 0:
-#             for idx, valid_match in enumerate(results):
-#                 if "|".join(valid_match) in matched_tuples:
-#                     results.pop(idx)
-#                 else:
-#                     matched_tuples.append("|".join(valid_match))
-
-#             if len(results) > 0:
-#                 # print("insert", results)
-#                 begin_time = time.time()
-#                 execute_values(cursor, "insert into {} values %s".format(Z), results)
-#                 end_time = time.time()
-#                 operate_time += end_time - begin_time
-#                 # conn.commit()
-                
-#             else:
-#                 # if all matches are already checked, the algorithm is done
-                
-#                 break
-        
-#             cursor.execute(tgd_sql)
-#             results = cursor.fetchall()
-#         # print("tgd Done!")
-#         conn.commit()
-
-#     elif type.lower() == 'egd':
-#         node_dict, _ = analyze_dependency(dependency, dependency_attributes, Z)
-#         # print("node_dict", node_dict)
-
-#         mapping_replace = {}
-#         for equation in dependency_summary:
-#             items = equation.split()
-#             left_opd = items[0]
-
-            
-#             left_idxs = set()
-#             for tup_idx in node_dict[left_opd].keys():
-#                 for col_idx in node_dict[left_opd][tup_idx]:
-#                     res_idx = tup_idx * len(Z_attributes) + col_idx
-#                     left_idxs.add(res_idx)
-            
-#             right_opd = items[2]
-#             right_idxs = set()
-#             for tup_idx in node_dict[right_opd].keys():
-#                 for col_idx in node_dict[right_opd][tup_idx]:
-#                     res_idx = tup_idx * len(Z_attributes) + col_idx
-#                     right_idxs.add(res_idx)
-
-#             mapping_keys = set(mapping_replace.keys())
-
-#             if left_idxs.isdisjoint(mapping_keys) and right_idxs.isdisjoint(mapping_keys):
-#                 replace_value = list(left_idxs)[0] # first left_idxs
-#                 for idx in left_idxs:
-#                     mapping_replace[idx] = replace_value
-#                 for idx in right_idxs:
-#                     mapping_replace[idx] = replace_value
-#             elif left_idxs.isdisjoint(mapping_keys) and not right_idxs.isdisjoint(mapping_keys):
-#                 common_idxs = right_idxs.intersection(mapping_keys)
-#                 c_idx = list(common_idxs)[0]
-#                 replace_value = mapping_replace[c_idx]
-#                 for idx in left_idxs:
-#                     mapping_replace[idx] = replace_value
-#             elif not left_idxs.isdisjoint(mapping_keys) and right_idxs.isdisjoint(mapping_keys):
-#                 common_idxs = left_idxs.intersection(mapping_keys)
-#                 c_idx = list(common_idxs)[0]
-#                 replace_value = mapping_replace[c_idx]
-#                 for idx in right_idxs:
-#                     mapping_replace[idx] = replace_value
-        
-#         # print("mapping_replace", mapping_replace)
-
-#         egd_sql = convert_dependency_to_sql(type, dependency, Z, dependency_attributes, dependency_summary, dependency_condition)
-
-#         cursor.execute(egd_sql)
-#         results = cursor.fetchall()
-
-#         # print("gen update sql")        
-#         update_sqls = []
-#         for valid_match in results:
-#             set_clause = []
-#             where_clause = []
-#             for var_idx, var in enumerate(valid_match):
-#                 col_idx = var_idx % len(Z_attributes)
-#                 if var_idx in mapping_replace.keys():
-#                     set_clause.append("{} = '{}'".format(Z_attributes[col_idx], valid_match[mapping_replace[var_idx]]))
-#                 where_clause.append("{} = '{}'".format(Z_attributes[col_idx], var))
-
-#                 if col_idx == len(Z_attributes) - 1:
-#                     sql = "update {} set {} where {}".format(Z, ", ".join(set_clause), " and ".join(where_clause))
-#                     if sql not in update_sqls:
-#                         update_sqls.append(sql)
-#                     set_clause.clear()
-#                     where_clause.clear()
-#         # print("update_sqls", update_sqls)
-#         # print("begin update")
-#         begin_time = time.time()
-#         # print("len(upd_sqls)", len(update_sqls))
-#         for sql in update_sqls:
-#             # print(sql)
-#             cursor.execute(sql)
-#         end_time = time.time()
-#         # print("upd time", end_time-begin_time)
-#         operate_time += end_time - begin_time
-#         conn.commit()
-
-#         # print('egd')
-#     else:
-#         print("wrong type!")
-
-#     return operate_time
-
 def apply_dependency(dependency, Z_tablename, checked_tuples):
     # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
     # cursor = conn.cursor()
@@ -270,10 +148,16 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
             # print("node_dict", node_dict)
 
             egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
-
+            # f = open("./sqls.txt", "a")
+            # f.write("{}\n".format(egd_sql))
+            # f.close()
+            # print(egd_sql)
             check_valid_egd_begin = time.time()
             cursor.execute(egd_sql)
             check_valid_egd_end = time.time()
+            # f = open("./sqls_time.txt", "a")
+            # f.write("{:.4f}\n".format(check_valid_egd_end - check_valid_egd_begin))
+            # f.close()
 
             check_valid_time += (check_valid_egd_end - check_valid_egd_begin)
             operate_time += (check_valid_egd_end - check_valid_egd_begin)
@@ -332,9 +216,15 @@ def apply_tgd(dependency, Z_tablename, checked_tuples):
         check_valid_end = time.time()
         check_valid_time += (check_valid_end - check_valid_begin)
         # print("insert", results)
+        # f = open("./sqls.txt", "a")
+        # f.write("{}\n".format(results))
+        # f.close()
         begin_time = time.time()
         execute_values(cursor, "insert into {} values %s".format(Z_tablename), inserted_tuples)
         end_time = time.time()
+        # f = open("./sqls_time.txt", "a")
+        # f.write("{:.4f}\n".format(end_time - begin_time))
+        # f.close()
         operate_time += (end_time - begin_time)
         conn.commit()
         
@@ -392,6 +282,7 @@ def apply_egd(dependency, Z_tablename, checked_tuples):
     
     space_pool = {}
     where_clause_correspond_to_flag = {}
+
     row = cursor.fetchone()
     while row is not None:
         # check_valid_begin = time.time()
@@ -508,19 +399,24 @@ def apply_egd(dependency, Z_tablename, checked_tuples):
 
             if upd_sql not in update_sqls:
                 update_sqls.append(upd_sql)
-    
+
+    # f1 = open("./sqls.txt", "a")
+    # f2 = open("./sqls_time.txt", "a")
     does_update = False
     for sql in update_sqls:
-        # print(sql)
+        print(sql)
+        # f1.write("{}\n".format(sql))
         operate_begin = time.time()
         cursor.execute(sql)
         operate_end = time.time()
         operate_time += (operate_end-operate_begin)
-
+        # f2.write("{:.4f}\n".format(operate_end-operate_begin))
         if cursor.rowcount == 0:
             does_update = (does_update or False)
         else:
             does_update = (does_update or True)
+    # f1.close()
+    # f2.close()
     conn.commit()
 
     return checked_tuples, does_update, check_valid_time, operate_time
@@ -710,6 +606,19 @@ def convert_dependency_to_sql(type, dependency, Z, dependency_attributes, depend
         if len(dependency_summary) == 0:
             sql = "delete from {} where {}".format(", ".join(tables), " and ".join(conditions))
         else:
+            # convert_summary_to_condition
+            additional_condition = [] 
+            for summary in  dependency_summary:
+                items = summary.split()
+                left_opd = items[0]
+                right_opd = items[2]
+                left_tup_idx = list(node_dict[left_opd].keys())[0]
+                left_attr_idx = node_dict[left_opd][left_tup_idx][0]
+                right_tup_idx = list(node_dict[right_opd].keys())[0]
+                right_attr_idx = node_dict[right_opd][right_tup_idx][0]
+                additional_condition.append(("t{}.{} != t{}.{}".format(left_tup_idx, dependency_attributes[left_attr_idx], right_tup_idx, dependency_attributes[right_attr_idx])))
+            conditions += additional_condition
+            # print("additional_condition", additional_condition)
             # select_clause.append("*")
             for idx in range(len(tables)):
                 for attr in dependency_attributes:
@@ -763,22 +672,7 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     
     return conditions
 
-def apply_E(sql, gama_summary):
-
-    # sql = "CREATE INDEX index_fid_mark{}\
-    #         ON public.{} USING btree\
-    #         (fid varchar_ops ASC NULLS LAST, mark ASC NULLS LAST)\
-    #             TABLESPACE pg_default;".format(tablename,tablename)
-    # cur.execute(sql)
-    
-    query_begin = time.time()
-    cursor.execute(sql)
-    query_end = time.time()
-    # print(query_end-query_begin)
-
-    results = cursor.fetchall()
-    conn.commit()
-    # print("results", results) 
+def apply_E(sql, Z_tablename, gama_summary):
 
     # whether w in E(Z)
     check_cols = []
@@ -786,23 +680,57 @@ def apply_E(sql, gama_summary):
         if var.isdigit() or isIPAddress(var):
             check_cols.append(var_idx)
     # print("check_cols", check_cols)
-    gama_summary_item = "|".join([gama_summary[i] for i in check_cols])
-    
-    
-    result_items = []
-    for res_tup in results:
-        res_item = "|".join(res_tup[i] for i in check_cols)
-        result_items.append(res_item)
 
-    check_begin = time.time()
-    answer = False
-    if gama_summary_item in result_items:
-        # print("gama_summary_item", gama_summary_item)
-        # print("res_item", res_item)
-        answer = True
-    check_end = time.time()
+    gama_summary_item = "|".join([gama_summary[i] for i in check_cols])
+
+    flow_sql = "select f, count(f) as num from {} group by f order by num desc".format(Z_tablename)
+    cursor.execute(flow_sql)
+
+    flow_ids_with_num = cursor.fetchall()
     conn.commit()
-    return answer, query_end-query_begin, check_end-check_begin
+
+    total_query_time = 0
+    total_check_time = 0
+    answer = False
+    count_queries = 0
+    for flow_id in flow_ids_with_num:
+        count_queries += 1
+
+        cursor.execute("drop table if exists temp")
+        temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
+        cursor.execute(temp_sql)
+        conn.commit()
+        # flow_condition = "t0.f = '{}'".format(flow_id[0])
+        # sql += " and {}".format(flow_condition)
+        # print(sql)
+        query_begin = time.time()
+        cursor.execute(sql)
+        query_end = time.time()
+        total_query_time += (query_end-query_begin)
+        # print("query_begin", query_begin, query_end)
+        # print(query_end-query_begin)
+
+        results = cursor.fetchall()
+        conn.commit()
+        # print("results", results) 
+        
+        result_items = []
+        for res_tup in results:
+            res_item = "|".join([res_tup[i] for i in check_cols])
+            result_items.append(res_item)
+
+        check_begin = time.time()
+        if gama_summary_item in result_items:
+            # print("gama_summary_item", gama_summary_item)
+            # print("res_item", res_item)
+            answer = True
+            check_end = time.time()
+            total_check_time += (check_end-check_begin)
+            break
+        check_end = time.time()
+        total_check_time += (check_end-check_begin)
+        
+    return answer,count_queries, total_query_time, total_check_time
 
 def gen_E_query(E, E_attributes, E_summary, Z):
     node_dict, tables = analyze_dependency(E, E_attributes, Z)

@@ -84,22 +84,23 @@ def avg_time(filedir, filename, out_filedir, out_filename, host_num):
 
 
 if __name__ == '__main__':
-    # file_dir = './plots/'
-    # filename = "static.txt"
+    file_dir = './plots/orderings_all_hosts16/hate_this_one/'
+    case = "random"
+    filename = "{}.txt".format(case)
 
-    # raw_data = []
-    # f = open(file_dir+filename)
-    # for line in f:
-    #     raw_data.append(float(line.strip()))
+    raw_data = []
+    f = open(file_dir+filename)
+    for line in f:
+        raw_data.append(float(line.strip()))
 
-    # gen_cdf_data_file(raw_data, file_dir, "cdf_static.dat")
-    filedir = './local_results/all/'
-    hosts_num = [2, 4, 8, 16]
-    out_filename = "avg_all.txt"
+    gen_cdf_data_file(raw_data, file_dir, "cdf_{}.dat".format(case))
+    # filedir = './results/relevant/'
+    # hosts_num = [2, 4, 8, 16, 32]#, 64]
+    # out_filename = "avg_relevant.txt"
 
-    for h_num in hosts_num:
-        filename = 'runtime_hosts{}_all.txt'.format(h_num)
-        avg_time(filedir, filename, filedir, out_filename, h_num)
+    # for h_num in hosts_num:
+    #     filename = 'runtime_hosts{}_rel.txt'.format(h_num)
+    #     avg_time(filedir, filename, filedir, out_filename, h_num)
 
 
     # file_dir  = './results/'

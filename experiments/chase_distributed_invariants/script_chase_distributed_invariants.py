@@ -388,8 +388,6 @@ def script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_t
     #step2 and step3
     run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
 
-    
-
 def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
 
     ordered_indexs = sorted(list(dependencies.keys())) 
@@ -397,15 +395,15 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
     for idx in ordered_indexs:
         checked_records[idx] = []
 
-    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename)
+    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
     # print("query sql", query_sql)
     total_check_applicable_time = 0
     total_operation_time = 0
     total_check_answer_time = 0
     total_query_answer_time = 0 
-    answer = None
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
+    total_query_times = 0
     while does_updated:
         temp_updated = False
         for idx in ordered_indexs:
@@ -423,30 +421,24 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
             # print(dependency['dependency_summary_condition'])
             # print("-------------------------------------\n")
             checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-            # print("optimal", count_application, whether_updated)
-            
+            print("optimal", count_application, whether_updated)
             total_check_applicable_time += check_valid_time
             total_operation_time += operate_time
             temp_updated = (temp_updated or whether_updated)
 
-            # print("gamma_summary", gamma_summary)
-        if not temp_updated:
-            ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
-
-            total_query_answer_time += query_time
-            total_check_answer_time += check_time
-            answer = ans
-            if ans:
-                break
-            # return ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application
-
         does_updated = temp_updated
-    
-    # print("gamma_summary", gamma_summary)
-    answer, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
+
+            # print("gamma_summary", gamma_summary)
+    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    total_query_times += count_queries
     total_query_answer_time += query_time
     total_check_answer_time += check_time
-    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application
+    # print("gamma_summary", gamma_summary)
+    # answer, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
+    # total_query_answer_time += query_time
+    # total_check_answer_time += check_time
+    # print("optimal", count_application, answer)
+    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
 
 def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
 
@@ -455,18 +447,19 @@ def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_s
     for idx in indexes:
         checked_records[idx] = []
 
-    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename)
+    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
     # print("query sql", query_sql)
     total_check_applicable_time = 0
     total_operation_time = 0
     total_check_answer_time = 0
     total_query_answer_time = 0 
     count_application = 0 # count the number of the application of the chase
+    total_query_times = 0
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     while does_updated:
         temp_updated = False
         temp_indexes = indexes.copy()
-        print("-----------------")
+        # print("-----------------")
         while len(temp_indexes) > 0:
             count_application += 1
             
@@ -489,21 +482,19 @@ def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_s
             total_operation_time += operate_time
             temp_updated = (temp_updated or whether_updated)
 
-            # print("gamma_summary", gamma_summary)
-            ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
-
-            total_query_answer_time += query_time
-            total_check_answer_time += check_time
-            if ans:
-                return ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application
-
         does_updated = temp_updated
-    
-    # print("gamma_summary", gamma_summary)
-    ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
+
+        # print("gamma_summary", gamma_summary)
+    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    total_query_times += count_queries
     total_query_answer_time += query_time
     total_check_answer_time += check_time
-    return ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application
+    # print("random", count_application, answer)
+    # print("gamma_summary", gamma_summary)
+    # ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
+    # total_query_answer_time += query_time
+    # total_check_answer_time += check_time
+    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
 
 def run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
 
@@ -512,21 +503,21 @@ def run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_s
     for idx in ordered_indexs:
         checked_records[idx] = []
 
-    static_order = [1, 2, 0, 5, 3, 4] # sigma1. sigma fw, sigma D, sigma2
+    static_order = [5, 4, 3, 2, 1, 0] # sigma1. sigma fw, sigma D, sigma2
 
-    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename)
+    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
     # print("query sql", query_sql)
     total_check_applicable_time = 0
     total_operation_time = 0
     total_check_answer_time = 0
     total_query_answer_time = 0 
     count_application = 0 # count the number of the application of the chase
+    total_query_times = 0 # the number of application of queries
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     while  does_updated:
         temp_updated = False
         for idx in static_order:
             count_application += 1
-            
             dependency = dependencies[idx]
             checked_tuples = checked_records[idx]
             
@@ -544,22 +535,19 @@ def run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_s
             total_check_applicable_time += check_valid_time
             total_operation_time += operate_time
             temp_updated = (temp_updated or whether_updated)
-
-        # print("gamma_summary", gamma_summary)
-        ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
-
-        total_query_answer_time += query_time
-        total_check_answer_time += check_time
-        if ans:
-            return ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application
-
         does_updated = temp_updated
     
     # print("gamma_summary", gamma_summary)
-    ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
+    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    total_query_times += count_queries
     total_query_answer_time += query_time
     total_check_answer_time += check_time
-    return ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application
+    # print("gamma_summary", gamma_summary)
+    # ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
+    # total_query_answer_time += query_time
+    # total_check_answer_time += check_time
+    # print("static", count_application, answer)
+    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
 
 if __name__ == '__main__':
     AS_num = 7018
@@ -599,14 +587,14 @@ if __name__ == '__main__':
 
     # chase.load_table(E_attributes, E_datatypes, E_tablename, E_tuples)
 
-    # E_tuples, path_nodes, symbolic_IP_mapping = gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
-
+    E_tuples, path_nodes, symbolic_IP_mapping = gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
+    
     runs = 1
     for r in range(runs):
         ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
         egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
 
-        # dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
+        dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
         # print("block_list", block_list)
         # print("ingress", ingress_hosts)
         # print("egress", egress_hosts)
@@ -617,9 +605,9 @@ if __name__ == '__main__':
         gamma_tablename = "W"
 
         # gamma_summary = gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'all')
-        # gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'relevant')
+        gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'relevant')
 
-        # Z_tuples, gen_z_time = gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
+        Z_tuples, gen_z_time = gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
         # print(Z_tuples)
         checked_tuples = {
             0: [], 
@@ -629,11 +617,9 @@ if __name__ == '__main__':
             4: [],
             5: []
         }
-        # print(dependencies)
-        dependencies = {1: {'dependency_tuples': [('f', '10.0.0.2', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.1', '12.0.0.2', '11.0.0.1', '11.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 2: {'dependency_tuples': [('f1', '10.0.0.2', '12.0.0.2', 'n1', '{}'), ('f2', '10.0.0.1', '12.0.0.2', 'n2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': ["n1 <= '11.0.0.1'", "n2 <= '11.0.0.1'"], 'dependency_type': 'egd'}, 3: {'dependency_tuples': [('f', '10.0.0.1', '12.0.0.2', '11.0.0.10', '12.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.1', '12.0.0.1', '11.0.0.10', '12.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 4: {'dependency_tuples': [('f1', '10.0.0.1', '12.0.0.2', 'n1', '{}'), ('f2', '10.0.0.1', '12.0.0.1', 'n2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': ["n1 <= '11.0.0.10'", "n2 <= '11.0.0.10'", "n1 >= '11.0.0.1'", "n2 >= '11.0.0.1'"], 'dependency_type': 'egd'}, 0: {'dependency_tuples': [('f', 's1', 'd1', '{}'), ('f', 's2', 'd2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst'], 'dependency_summary': ['s1 = s2', 'd1 = d2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 5: {'dependency_tuples': [('f', 's', 'd', 'n', 'x', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': [], 'dependency_summary_condition': ["s = '10.0.0.2'", "d = '12.0.0.1'"], 'dependency_type': 'egd'}}
         # chase.apply_egd(dependencies[0], Z_tablename, checked_tuples[0])
         # chase.apply_egd(dependencies[2], Z_tablename, checked_tuples[2])
-        # chase.apply_dependency(dependencies[0], Z_tablename, checked_tuples[0])
+        chase.apply_dependency(dependencies[0], Z_tablename, checked_tuples[0])
         # chase.apply_dependency(dependencies[1], Z_tablename, checked_tuples[1])
         # chase.apply_dependency(dependencies[2], Z_tablename, checked_tuples[2])
         # chase.apply_dependency(dependencies[3], Z_tablename, checked_tuples[3])
@@ -642,9 +628,9 @@ if __name__ == '__main__':
 
         # ans, _ = chase.apply_E(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
         # print("ans", ans)
-        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application = run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
+        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
+        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
+        ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
         # run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
         # print("ans", ans)
         # print("total_check_applicable_time: {:.4f}".format(total_check_applicable_time*1000))
