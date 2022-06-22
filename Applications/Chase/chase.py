@@ -257,7 +257,7 @@ def replace_z_table(tablename, new_table):
     cursor.execute("drop table if exists {}".format(tablename))
     conn.commit()
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
+    Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
     load_table(Z_attributes, Z_attributes_datatypes, tablename, new_table)
 
 # The source must be first hop and the destination must be last hop
@@ -855,7 +855,7 @@ def apply_E(sql, Z_tablename, gama_summary):
         # flow_condition = "t0.f = '{}'".format(flow_id[0])
         # sql += " and {}".format(flow_condition)
         print(sql)
-        exit()
+        # exit()
         query_begin = time.time()
         cursor.execute(sql)
         query_end = time.time()
