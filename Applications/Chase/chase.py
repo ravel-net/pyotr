@@ -346,6 +346,7 @@ def applyRewritePolicy(dependency, Z_tablename):
         n = IPv4Address(tuple[3])
         if (src == pattern_source and dest == pattern_dest and n <= pattern_condition_IP):
             targetFlow = flowid
+            break
     if targetFlow == "":
         print("No flow found. Hacky solution might not be working")
         end_time = time.time()
@@ -362,6 +363,12 @@ def applyRewritePolicy(dependency, Z_tablename):
             if flowid != targetFlow:
                 does_update = True
             new_z_table.append((targetFlow, tuple[1], tuple[2], tuple[3], tuple[4]))
+        elif (src == pattern_source and dest == pattern_dest and n <= pattern_condition_IP):
+            if flowid != targetFlow:
+                does_update = True
+                new_z_table.append((targetFlow, tuple[1], tuple[2], tuple[3], tuple[4]))
+            else:
+                new_z_table.append((tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
         else:
             new_z_table.append((tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
     replace_z_table(Z_tablename, new_z_table)
