@@ -142,7 +142,7 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
     check_valid_time = 0
     
     if type.lower() == 'tgd':
-        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd(dependency, Z_tablename, checked_tuples)
+        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd_new(dependency, Z_tablename, checked_tuples)
     elif type.lower() == 'egd':
         
         if len(dependency_summary) == 0: # if dependency summary is empty, the matched tuples are deleted
@@ -185,6 +185,48 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
     conn.commit()
     print("ending dependency")
     return checked_tuples, does_updated, check_valid_time, operate_time
+
+def apply_tgd_new(dependency, Z_tablename, checked_tuples):
+    type = dependency['dependency_type']
+    dependency_tuples = dependency['dependency_tuples']
+    dependency_attributes = dependency['dependency_attributes']
+    dependency_summary = dependency['dependency_summary']
+    dependency_summary_condition = dependency['dependency_summary_condition']
+    check_valid_time = 0
+    operate_time = 0
+
+    tgd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
+    print(tgd_sql)
+    check_valid_begin = time.time()
+    cursor.execute(tgd_sql)
+    check_valid_end = time.time()
+    check_valid_time += (check_valid_end - check_valid_begin)
+
+    # matched_tuples = []
+    results = cursor.fetchall()
+    print("results", results[:2])
+    conn.commit()
+
+    z_tuples = getCurrentTable(Z_tablename)
+
+    results_set = set(results)
+    z_tuples_set = set(z_tuples)
+    # print("results_set", results_set)
+    # print("z_tuples_set", z_tuples_set)
+    inserted_tuples_set = results_set.difference(z_tuples_set)
+    # print("inserted_tuples_set", inserted_tuples_set)
+    inserted_tuples = list(inserted_tuples_set)
+    does_updated = False
+    operation_time = 0
+    if len(inserted_tuples) != 0:
+        does_updated = True
+
+        begin_time = time.time()
+        execute_values(cursor, "insert into {} values %s".format(Z_tablename), inserted_tuples)
+        conn.commit()
+        end_time = time.time()
+        operation_time += (end_time - begin_time)
+    return [], does_updated, 0, operation_time
 
 def apply_tgd(dependency, Z_tablename, checked_tuples):
     type = dependency['dependency_type']
