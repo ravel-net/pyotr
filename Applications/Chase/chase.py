@@ -142,7 +142,7 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
     check_valid_time = 0
     
     if type.lower() == 'tgd':
-        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd_new(dependency, Z_tablename, checked_tuples)
+        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd(dependency, Z_tablename, checked_tuples)
     elif type.lower() == 'egd':
         
         # if len(dependency_summary) == 0: # if dependency summary is empty, the matched tuples are deleted
