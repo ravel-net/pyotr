@@ -38,7 +38,7 @@ def run_scalibility():
     # print("---------------------------\n")
 
     runs = 1
-    num_hosts_list = [32] # [2, 4, 8, 16, 32, 64, 128]
+    num_hosts_list = [128] # [2, 4, 8, 16, 32, 64, 128]
     # for num_hosts in num_hosts_list:
     #     f1 = open("./results/relevant/runtime_hosts{}_rel.txt".format(num_hosts), "w")
     #     f1.write("len(path) ans count_application gen_z check_applicable operation_time query_answer check_answer\n")
@@ -112,7 +112,7 @@ def run_scalibility():
             Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_all, Z_tablename_all, Z_attributes, Z_datatypes)
             
             #step2 and step3
-            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts.run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_all, gamma_summary)
+            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts.run_chase_distributed_invariants_in_random_repeating_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_all, gamma_summary)
 
             f2.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
         f2.close()
@@ -233,5 +233,5 @@ def run_ordering_strategies():
         # f3.close()
 
 if __name__ == '__main__':
-    # run_scalibility()
-    run_ordering_strategies()
+    run_scalibility()
+    # run_ordering_strategies()
