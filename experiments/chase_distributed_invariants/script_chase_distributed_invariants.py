@@ -413,7 +413,7 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
             
             if current_run == 0 and idx == 0:
                 checked_records[idx], whether_updated, check_valid_time, operate_time = chase.applySourceDestPolicy(Z_tablename)
-                print("random", count_application, whether_updated)
+                print("optimal", count_application, whether_updated)
                 total_check_applicable_time += check_valid_time
                 total_operation_time += operate_time
                 temp_updated = (temp_updated or whether_updated)
@@ -441,11 +441,12 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
 
             # print("gamma_summary", gamma_summary)
     answer = None
-    # answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    # total_query_times += count_queries
-    # total_query_answer_time += query_time
-    # total_check_answer_time += check_time
-    # print("gamma_summary", gamma_summary)
+    chase.convertToText(Z_tablename)
+    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    total_query_times += count_queries
+    total_query_answer_time += query_time
+    total_check_answer_time += check_time
+    print("gamma_summary", gamma_summary)
     # answer, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
     # total_query_answer_time += query_time
     # total_check_answer_time += check_time

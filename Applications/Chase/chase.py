@@ -299,8 +299,18 @@ def replace_z_table(tablename, new_table):
     cursor.execute("drop table if exists {}".format(tablename))
     conn.commit()
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
+    # Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
+    Z_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
     load_table(Z_attributes, Z_attributes_datatypes, tablename, new_table)
+
+def convertToText(tablename):
+    table = getCurrentTable(tablename)
+    cursor.execute("drop table if exists {}".format(tablename))
+    conn.commit()
+    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+    Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
+    # Z_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure']
+    load_table(Z_attributes, Z_attributes_datatypes, tablename, table)
 
 # The source must be first hop and the destination must be last hop
 def applySourceDestPolicy(Z_tablename):
