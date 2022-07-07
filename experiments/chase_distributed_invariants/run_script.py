@@ -37,8 +37,9 @@ def run_scalibility():
     # print("symbolic_IP_mapping", symbolic_IP_mapping)
     # print("---------------------------\n")
 
-    runs = 1
-    num_hosts_list = [64, 128] # [2, 4, 8, 16, 32, 64, 128]
+    runs = 10
+    num_hosts_list = [2, 4, 8, 16, 32, 64, 128]
+    # num_hosts_list = [4]
     # for num_hosts in num_hosts_list:
     #     f1 = open("./results/relevant/runtime_hosts{}_rel.txt".format(num_hosts), "w")
     #     f1.write("len(path) ans count_application gen_z check_applicable operation_time query_answer check_answer\n")
