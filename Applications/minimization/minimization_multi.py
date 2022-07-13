@@ -10,6 +10,7 @@ import Core.Homomorphism.tableau as tableau
 import Core.Homomorphism.translator_pyotr as translator
 import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_group
 import Backend.reasoning.Z3.check_tautology.check_tautology_multi as check_tautology_multi
+import Core.Homomorphism.Optimizations.split_merge.split_merge_BDD as split_merge_BDD
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]
@@ -75,7 +76,7 @@ def minimize_old(tablename = 't_v', pos = 0, summary = ['1','2']):
     new_table.pop(pos)
     storeTable(new_table, new_table_name, cur)
 
-    sql_query = tableau.convert_tableau_to_sql_distributed(closure_group_curr, new_table_name, summary, ["n1","n2","condition"])
+    sql_query = tableau.general_convert_tableau_to_sql(closure_group_curr, new_table_name, summary, ["n1","n2","condition"])
     print("sql:", sql_query)
 
     # check for query containment
@@ -103,6 +104,20 @@ def minimize_old(tablename = 't_v', pos = 0, summary = ['1','2']):
         conn.commit()
         conn.close()
         return minimize_old(tablename, pos+1, summary)
+
+# TODO: Need to move this to Core.Homomorphism
+def faure_eval(closure_group, curr_type, new_table_name, output_table_name, summary, variables, mode):
+    if mode == "naive":
+        # check for query containment
+        sql_query = tableau.general_convert_tableau_to_sql(closure_group, new_table_name, summary, ["n1","n2","condition"])
+        tree = translator.generate_tree(sql_query)
+        data_time = translator.data(tree)
+        upd_time = translator.upd_condition(tree, curr_type)
+        nor_time = translator.normalization("Int")
+        sat = check_tautology_multi.table_contains_answer(output_table_name, summary, variables)
+        return [data_time, upd_time, nor_time], sat
+    elif mode == "BDD":
+        return split_merge_BDD(closure_group, new_table_name, variables, summary, curr_type)
 
 def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], const_table = [(1,2)], var_table = [('y',2)]):
     """
@@ -141,25 +156,21 @@ def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], co
     new_table = copy.deepcopy(const_table)
     new_table.pop(pos)
     storeTable(new_table, new_table_name, cur)
-    sql_query = tableau.convert_tableau_to_sql_distributed(closure_group_curr, new_table_name, summary, ["n1","n2","condition"])
-    print("sql:", sql_query)
-
-    # check for query containment
-    tree = translator.generate_tree(sql_query)
     conn.commit()
     conn.close()
-    data_time = translator.data(tree)
-    upd_time = translator.upd_condition(tree, curr_type)
-    nor_time = translator.normalization("Int")
-    conn.close()
+
+    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, "naive")
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
-    if (check_tautology_multi.table_contains_answer(output_table_name, summary, variables)):
+    if (sat):
         cur.execute("DROP TABLE IF EXISTS {}".format(const_tablename))
         conn.commit()
         conn.close()
         var_table.pop(pos)
+        print("++++++++++++++++++++++++++++")
+        print("dropped ", tuple_to_remove)
+        print("++++++++++++++++++++++++++++")
         return minimize_recursive(new_table_name, pos, summary, new_table, var_table)
     else:
         cur.execute("DROP TABLE IF EXISTS {}".format(new_table_name))
@@ -215,8 +226,6 @@ def minimize(tablename = 't_v', summary = ['1','2']):
     ------------
     tablename : string 
         The name of table stored in postgres that needs to be minimized.
-    pos : int
-        The current index of tuple that is being tested for removal. When calling this function, pos should be 0
     summary : list
         the summary (beliefs) of the original tableau
     Returns:

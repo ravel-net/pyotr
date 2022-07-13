@@ -18,7 +18,7 @@ from psycopg2.extras import execute_values
 
 # BDD manager Module
 import BDD_managerModule as bddmm
-import pyotr_translator_BDD.BDD_manager.encodeCUDD as encodeCUDD
+import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
 
 OPEN_OUTPUT = True
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])

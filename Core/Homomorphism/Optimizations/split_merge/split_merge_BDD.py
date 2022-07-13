@@ -9,15 +9,15 @@ print(root)
 sys.path.append(root)
 
 import time 
-import util.tableau.tableau as tableau
-import util.merge_tuples.merge_tuples_BDD as merge_tuples_BDD
-from util.variable_closure_algo.closure_group import find_variables, construct_Graph, calculate_tableau
-import util.split_merge.reorder_tableau as reorder_tableau
+import Core.Homomorphism.tableau as tableau
+import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_BDD as merge_tuples_BDD
+# from utils.variable_closure_algo.closure_group import find_variables, construct_Graph, calculate_tableau
+import Core.Homomorphism.Optimizations.split_merge.reorder_tableau as reorder_tableau
 import databaseconfig as cfg
 import psycopg2
 
 import BDD_managerModule as bddmm
-import pyotr_translator_BDD.translator_pyotr_BDD as translator
+import Core.Homomorphism.translator_pyotr_BDD as translator
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 conn.set_session(readonly=False, autocommit=True)
