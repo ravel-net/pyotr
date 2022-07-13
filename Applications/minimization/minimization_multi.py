@@ -117,7 +117,7 @@ def faure_eval(closure_group, curr_type, new_table_name, output_table_name, summ
         sat = check_tautology_multi.table_contains_answer(output_table_name, summary, variables)
         return [data_time, upd_time, nor_time], sat
     elif mode == "BDD":
-        return split_merge_BDD(closure_group, new_table_name, variables, summary, curr_type)
+        return split_merge_BDD.split_merge(closure_group, new_table_name, variables, summary, curr_type)
 
 def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], const_table = [(1,2)], var_table = [('y',2)]):
     """
@@ -159,7 +159,7 @@ def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], co
     conn.commit()
     conn.close()
 
-    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, "naive")
+    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, "BDD")
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
