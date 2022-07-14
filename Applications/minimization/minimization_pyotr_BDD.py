@@ -6,7 +6,7 @@ import psycopg2
 from tqdm import tqdm 
 import copy
 import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_group
-import Core.Homomorphism.Optimizations.split_merge_BDD as split_merge
+import Core.Homomorphism.Optimizations.split_merge.split_merge_BDD as split_merge
 import databaseconfig as cfg
 
 host = cfg.postgres["host"]
@@ -63,12 +63,12 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
 
     # get closure group of tuple in question
     tuple_to_remove = curr_table[pos]
-    closure_group = closure_group.getClosureGroup(tuple_to_remove, curr_table)
+    closure_group_curr = closure_group.getClosureGroup(tuple_to_remove, curr_table)
     variables = closure_group.find_variables(curr_table)
     print("variables",variables)
     print("summary", summary)
     print("tuple_to_remove: ", tuple_to_remove)
-    print("closure_group: ", closure_group)
+    print("closure_group: ", closure_group_curr)
 
     # get new table with removed tuple
     new_table_name = tablename+str(pos)
@@ -77,7 +77,9 @@ def minimize(tablename = 't_v', pos = 0, summary = ['1','2']):
     print("after remove tuple:", new_table)
     deleteTuple(new_table, new_table_name, cur)
 
-    running_time, sat = split_merge(closure_group, new_table_name, variables, summary, curr_type)
+    print(closure_group_curr, new_table_name, variables, summary, curr_type)
+    exit()
+    running_time, sat = split_merge.split_merge(closure_group_curr, new_table_name, variables, summary, curr_type)
     print("Satisfiability:", sat)
     print("Verification running time:", running_time, "\n")
 

@@ -12,11 +12,10 @@ import script_minimization as script_mini
 
 
 runtimes = 1
-#sizes = [*range(5, 75, 5)]
+sizes = [*range(5, 11, 5)]
+#sizes = [40]
 loops = [2]
-sizes = [20]
-#loops = [3]
-runtime_upper_bound = 30 # minutes
+runtime_upper_bound = 60 # minutes
 
 total_time = 0
 actual_rounds = 0 # actually runs

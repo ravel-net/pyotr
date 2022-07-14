@@ -1,7 +1,7 @@
 
 from distutils.core import setup, Extension
 
-PATH = '/home/fangping/Projects/cudd'
+PATH = '/home/mudbri/cudd'
 
 
 # setup(

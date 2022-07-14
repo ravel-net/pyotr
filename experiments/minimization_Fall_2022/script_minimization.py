@@ -15,10 +15,10 @@ import utils.chain_generation.gen_chain as gen_chain
 import databaseconfig as cfg
 import psycopg2
 # import Applications.minimization.minimization_pyotr as minimization_pyotr
-# import Applications.minimization.minimization_pyotr_BDD as minimization_pyotr_BDD
+import Applications.minimization.minimization_pyotr_BDD as minimization_pyotr_BDD
 import Applications.minimization.minimization_multi as minimization_naive
-# import Core.Homomorphism.translator_pyotr_BDD as translator_BDD
-# import BDD_managerModule as bddmm
+import Core.Homomorphism.translator_pyotr_BDD as translator_BDD
+import BDD_managerModule as bddmm
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 conn.set_session(readonly=False, autocommit=True)
@@ -106,7 +106,7 @@ def exp_minimization_chain_naive(size, rate_summary, size_single_loop):
     f.write("runtime(sec)\n")
 
     begin = time.time()
-    minimization_naive.minimize(tablename=tablename, summary=summary_nodes)
+    minimization_naive.minimize(tablename=tablename, summary=summary_nodes, mode="naive")
     end = time.time()
     print("\nRUNNING TIME:", end - begin)
 

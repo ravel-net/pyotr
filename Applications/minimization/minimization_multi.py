@@ -12,6 +12,8 @@ import Core.Homomorphism.Optimizations.closure_group.closure_group as closure_gr
 import Backend.reasoning.Z3.check_tautology.check_tautology_multi as check_tautology_multi
 import Core.Homomorphism.Optimizations.split_merge.split_merge_BDD as split_merge_BDD
 import databaseconfig as cfg
+import BDD_managerModule as bddmm
+import Core.Homomorphism.translator_pyotr_BDD as translator_BDD
 
 host = cfg.postgres["host"]
 user = cfg.postgres["user"]
@@ -22,11 +24,18 @@ curr_type = "int4_faure"
 output_table_name = 'output'
 
 # creates a new table with the deleted tuple
-def storeTable(new_table, new_table_name, cur):
-	cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
-	cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, curr_type, curr_type))
-	for tuple in new_table:
-		cur.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(new_table_name, tuple[0], tuple[1]))
+def storeTable(new_table, new_table_name, cur, mode):
+    print(mode)
+    if mode == 'BDD':
+        cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
+        cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition integer);".format(new_table_name, curr_type, curr_type))
+        for tuple in new_table:
+            cur.execute("INSERT INTO {} VALUES ('{}', '{}', 0);".format(new_table_name, tuple[0], tuple[1]))
+    else:
+    	cur.execute('DROP TABLE IF EXISTS {};'.format(new_table_name))
+    	cur.execute("CREATE TABLE {}(n1 {}, n2 {}, condition TEXT[]);".format(new_table_name, curr_type, curr_type))
+    	for tuple in new_table:
+    		cur.execute("INSERT INTO {} VALUES ('{}', '{}', array[]::text[]);".format(new_table_name, tuple[0], tuple[1]))
 
 # given a tablename and an open cursor to a database, returns the table as a list
 def getCurrentTable(tablename, cur):
@@ -117,9 +126,10 @@ def faure_eval(closure_group, curr_type, new_table_name, output_table_name, summ
         sat = check_tautology_multi.table_contains_answer(output_table_name, summary, variables)
         return [data_time, upd_time, nor_time], sat
     elif mode == "BDD":
+        print(closure_group, new_table_name, variables, summary, curr_type)
         return split_merge_BDD.split_merge(closure_group, new_table_name, variables, summary, curr_type)
 
-def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], const_table = [(1,2)], var_table = [('y',2)]):
+def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], const_table = [(1,2)], var_table = [('y',2)], mode="BDD"):
     """
     Convert tableau to corresponding SQL
     Parameters:
@@ -155,11 +165,11 @@ def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], co
     new_table_name = const_tablename+str(pos)
     new_table = copy.deepcopy(const_table)
     new_table.pop(pos)
-    storeTable(new_table, new_table_name, cur)
+    storeTable(new_table, new_table_name, cur, mode)
     conn.commit()
     conn.close()
 
-    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, "BDD")
+    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, mode)
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
@@ -171,12 +181,12 @@ def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], co
         print("++++++++++++++++++++++++++++")
         print("dropped ", tuple_to_remove)
         print("++++++++++++++++++++++++++++")
-        return minimize_recursive(new_table_name, pos, summary, new_table, var_table)
+        return minimize_recursive(new_table_name, pos, summary, new_table, var_table, mode)
     else:
         cur.execute("DROP TABLE IF EXISTS {}".format(new_table_name))
         conn.commit()
         conn.close()
-        return minimize_recursive(const_tablename, pos+1, summary, const_table, var_table)
+        return minimize_recursive(const_tablename, pos+1, summary, const_table, var_table, mode)
 
 # maps variables in table to constants
 def getConstTable(table):
@@ -219,7 +229,7 @@ def getConstTable(table):
 
     return const_table
 
-def minimize(tablename = 't_v', summary = ['1','2']):
+def minimize(tablename = 't_v', summary = ['1','2'], mode="BDD"):
     """
     Convert tableau to corresponding SQL
     Parameters:
@@ -236,20 +246,30 @@ def minimize(tablename = 't_v', summary = ['1','2']):
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
 
-    # get current table
-    curr_table = getCurrentTable(tablename, cur)
-    print("current_table:", curr_table)
-    conn.commit()
+    if (mode == "BDD"):
+        # get current table
+        curr_table = getCurrentTable(tablename, cur)
+        conn.commit()
 
+        variable_nodes = closure_group.find_variables(curr_table)
+        bddmm.initialize(len(variable_nodes), len(summary))
+        translator_BDD.set_domain(summary)
+        translator_BDD.set_variables(variable_nodes)
+        # begin_ctable = time.time()
+        converted_table = translator_BDD.process_condition_on_ctable(tablename)
+        tablename = converted_table
+        # end_ctable = time.time()
+
+
+    curr_table = getCurrentTable(tablename, cur)
+    conn.commit()
     const_table = getConstTable(curr_table)
-    print(const_table)
-    # exit()
     new_table_name = tablename+"_const"
-    storeTable(const_table, new_table_name, cur)
+    storeTable(const_table, new_table_name, cur, mode)
     conn.commit()
     conn.close()
     print(new_table_name, 0, summary, const_table, curr_table)
-    return minimize_recursive(new_table_name, 0, summary, const_table, curr_table)
+    return minimize_recursive(new_table_name, 0, summary, const_table, curr_table, mode)
 
 
 if __name__ == '__main__':

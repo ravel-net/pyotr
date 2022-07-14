@@ -11,7 +11,7 @@ sys.path.append(root)
 import script_minimization as script_mini
 
 runtimes = 1
-sizes = [*range(5, 11, 5)]
+sizes = [*range(5, 76, 5)]
 #sizes = [40]
 loops = [2]
 runtime_upper_bound = 60 # minutes

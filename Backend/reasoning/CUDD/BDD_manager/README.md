@@ -27,7 +27,7 @@
         ```bash
         export CPATH=/path/to/cudd/:/path/to/cudd/cudd/:/path/to/cudd/util
         ```
-    3.  If cannot find cudd library, copy `libcudd.so`, `libcudd-3.0.0.so.0` and `libcudd-3.0.0.so.0.0.0` to `/usr/lib/x86_64-linux-gnu/`. In addition, add `extra_link_args=['-L/usr/lib/x86_64-linux-gnu/']` to `setup.py`.
+    3.  If cannot find cudd library, copy `libcudd.so`, `libcudd-3.0.0.so.0` and `libcudd-3.0.0.so.0.0.0` to `/usr/lib/x86_64-linux-gnu/`. In some processors, you might need to copy to `/usr/local/lib` instead. In addition, add `extra_link_args=['-L/usr/lib/x86_64-linux-gnu/']` to `setup.py`.
 
         ```bash
         cp path/to/cudd/cudd/.libs/libcudd.so /usr/lib/x86_64-linux-gnu/
