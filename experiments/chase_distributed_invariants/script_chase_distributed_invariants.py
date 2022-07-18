@@ -69,10 +69,12 @@ def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts
     #     node2 = temp
 
     # set rewrite location at first node and last node
-    node1 = path_nodes[0]
-    node2 = path_nodes[-1]
-    idx_node1 = path_nodes.index(node1)
-    idx_node2 = path_nodes.index(node2)
+    idx_node1 = 0
+    idx_node2 = len(path_nodes)-1
+    # node1 = path_nodes[idx_node1]
+    # node2 = path_nodes[idx_node2]
+    # idx_node1 = path_nodes.index(node1)
+    # idx_node2 = path_nodes.index(node2)
 
     relevant_in_hosts = []
     relevant_out_hosts = []
@@ -112,34 +114,41 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
     tgd_tuples = []
     egd_tuples = []
     node = path_nodes[loc]
-    x_IP = symbolic_IP_mapping[node]
-    # n_IP = symbolic_IP_mapping[node]
+    # x_IP = symbolic_IP_mapping[node]
+    n_IP = symbolic_IP_mapping[node]
 
-    prev_node = None
-    if loc == 0:
-        prev_node = source
-    else:
-        prev_node = symbolic_IP_mapping[path_nodes[loc-1]]
+    # prev_node = None
+    # if loc == 0:
+    #     prev_node = source
+    # else:
+    #     prev_node = symbolic_IP_mapping[path_nodes[loc-1]]
     
     next_node = None
     if loc == len(path_nodes)-1:
         next_node = dest
     else:
         next_node = symbolic_IP_mapping[path_nodes[loc+1]]
-    
-    tgd_tuples.append(('f', source, dest, prev_node, x_IP, '{}'))
-    # tgd_tuples.append(('f', source, dest, n_IP, next_node, '{}'))
-    egd_tuples.append(('f1', source, dest, 'n1', '{}'))
+
+    # tgd_tuples.append(('f', source, dest, prev_node, x_IP, '{}'))
+    tgd_tuples.append(('f', source, dest, n_IP, next_node, '{}'))
+    # egd_tuples.append(('f1', source, dest, 'n1', '{}'))
+    egd_tuples.append(('f1', source, dest, n_IP, next_node, '{}'))
 
     tgd_summary = None
     for key in rewrite_value.keys():
         if key == 'source' and rewrite_value[key] is not None:
-            source = rewrite_value[key]
+            rewrite_source = rewrite_value[key]
+            tgd_summary = ['f', rewrite_source, dest, n_IP, next_node]
+            egd_tuples.append(('f2', rewrite_source, dest, n_IP, next_node, '{}'))
         elif key == 'dest' and rewrite_value[key] is not None:
-            dest = rewrite_value[key]
-    tgd_summary = ['f', source, dest, prev_node, x_IP]
+            rewrite_dest = rewrite_value[key]
+            tgd_summary = ['f', source, rewrite_dest, n_IP, rewrite_dest]
+            egd_tuples.append(('f2', source, rewrite_dest, n_IP, rewrite_dest, '{}'))
+    # tgd_summary = ['f', source, dest, prev_node, x_IP]
     # tgd_summary = ['f', source, dest, n_IP, next_node]
-    egd_tuples.append(('f2', source, dest, 'n2', '{}'))
+    # egd_tuples.append(('f2', source, dest, 'n2', '{}'))
+
+    # egd_tuples.append(('f2', source, dest, n_IP, next_node, '{}'))
 
     tgd_summary_condition = None
     tgd_type = 'tgd'
@@ -155,8 +164,10 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
     }
 
     egd_summary = ['f1 = f2']
-    egd_summary_condition = ["n1 <= '{}'".format(x_IP), "n2 <= '{}'".format(x_IP)]
+    # egd_summary_condition = ["n1 <= '{}'".format(x_IP), "n2 <= '{}'".format(x_IP)]
     # egd_summary_condition = ["n1 <= '{}'".format(n_IP), "n2 <= '{}'".format(n_IP)]
+    # if loc == 0:
+    #     egd_summary_condition = None
     # if pre_rewrite_loc is not None:
     #     pre_rewite_node_IP = symbolic_IP_mapping[path_nodes[pre_rewrite_loc]]
     #     egd_summary_condition += ["n1 >= '{}'".format(pre_rewite_node_IP), "n2 >= '{}'".format(pre_rewite_node_IP)]
@@ -164,11 +175,11 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
     egd_type = 'egd'
     edg_dependency = {
         "dependency_tuples": egd_tuples,
-        "dependency_attributes": ['f', 'src', 'dst', 'n', 'condition'],
-        "dependency_attributes_datatypes": ["inet_faure", "inet_faure", "inet_faure", "inet_faure", "text[]"], 
-        "dependency_cares_attributes": ['src', 'dst'],
+        "dependency_attributes": ['f', 'src', 'dst', 'n', 'x', 'condition'],
+        "dependency_attributes_datatypes": ["inet_faure", "inet_faure", "inet_faure", "text[]"], 
+        "dependency_cares_attributes": ['src', 'dst', 'n', 'x'],
         "dependency_summary": egd_summary,
-        "dependency_summary_condition": egd_summary_condition,
+        "dependency_summary_condition": None,
         "dependency_type": egd_type
     }
 
@@ -248,6 +259,44 @@ def gen_firewall_dependency(block_list, firewall_attributes, firewall_datatypes)
     }
 
     return edg_dependency
+
+def gen_new_dependency(path_nodes, symbolic_IP_mapping):
+    """
+    x_f  x_s  x_d 1 2
+    x_f       x_d 2 x_n
+    ---------------------------
+    x_f  x_s  x_d 2 x_n
+    """
+
+    # the first and the last node of the path are the rewriting node
+    idx_node1 = 0
+    idx_node2 = -1
+
+    n1 = symbolic_IP_mapping[path_nodes[idx_node1]]
+    n1_next = symbolic_IP_mapping[path_nodes[idx_node1+1]]
+
+    n2 = symbolic_IP_mapping[path_nodes[idx_node2]]
+
+    new_dependency_tuples = [
+        ('x_f', 'x_s1', 'x_d', n1, n1_next, '{}'),
+        ('x_f', 'x_s2', 'x_d', n2, 'x_n', '{}')
+    ]
+    new_dependency_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
+    new_dependency_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+
+    new_dependency_summary = ['x_f', 'x_s1', 'x_d', n2, 'x_n']
+
+    tgd_dependency = {
+        "dependency_tuples": new_dependency_tuples,
+        "dependency_attributes": new_dependency_attributes,
+        "dependency_attributes_datatypes": new_dependency_datatypes, 
+        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
+        "dependency_summary": new_dependency_summary,
+        "dependency_summary_condition": None,
+        "dependency_type": 'tgd'
+    }
+
+    return tgd_dependency
 
 def gen_gamma_table(block_list, in_hosts, out_hosts, gamma_tablename, gamma_attributes, gamma_datatypes, case):
     """ 
@@ -331,6 +380,8 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
 
     dependencies[5] = firewall_dependency
 
+    dependencies[6] = gen_new_dependency(path_nodes, symbolic_IP_mapping)
+
     return dependencies, relevant_in_hosts, relevant_out_hosts, block_list
 
 def gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_attributes_datatypes):
@@ -404,56 +455,32 @@ def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     total_query_times = 0
-    random.shuffle(ordered_indexs)
     chase.applySourceDestPolicy(Z_tablename)
-    current_run = 0
     while does_updated:
         temp_updated = False
         for idx in ordered_indexs:
             count_application += 1
-            
+            print("idx", idx)
             if idx == 0:
-                # print(dependencies[idx])
                 continue
-                # checked_records[idx], whether_updated, check_valid_time, operate_time = chase.applySourceDestPolicy(Z_tablename)
-                # print("optimal", count_application, whether_updated)
-                # total_check_applicable_time += check_valid_time
-                # total_operation_time += operate_time
-                # temp_updated = (temp_updated or whether_updated)
-            else:
 
-                dependency = dependencies[idx]
-                checked_tuples = checked_records[idx]
-                
-                # print("\n-------------------------------------")
-                # print(dependency['dependency_type'])
-                # print(dependency['dependency_tuples'])
-                # print(dependency['dependency_attributes'])
-                # print(dependency['dependency_attributes_datatypes'])
-                # print(dependency['dependency_summary'])
-                # print(dependency['dependency_summary_condition'])
-                # print("-------------------------------------\n")
-                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-                print("optimal", count_application, whether_updated)
-                total_check_applicable_time += check_valid_time
-                total_operation_time += operate_time
-                temp_updated = (temp_updated or whether_updated)
-
+            dependency = dependencies[idx]
+            checked_tuples = checked_records[idx]
+            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
+            print("optimal", count_application, whether_updated)
+            total_check_applicable_time += check_valid_time
+            total_operation_time += operate_time
+            temp_updated = (temp_updated or whether_updated)
+            
         does_updated = temp_updated
-        current_run += 1
 
             # print("gamma_summary", gamma_summary)
     answer = None
-    chase.convertToText(Z_tablename)
     answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
     total_query_times += count_queries
     total_query_answer_time += query_time
     total_check_answer_time += check_time
-    print("gamma_summary", gamma_summary)
-    # answer, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
-    # total_query_answer_time += query_time
-    # total_check_answer_time += check_time
-    # print("optimal", count_application, answer)
+    # print("gamma_summary", gamma_summary)
     return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
 
 def run_chase_distributed_invariants_in_random_repeating_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
@@ -522,7 +549,8 @@ def run_chase_distributed_invariants_in_random_repeating_order(E_tuples, E_attri
 
 def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
 
-    indexes = list(dependencies.keys())
+    # indexes = list(dependencies.keys())
+    indexes = [0, 1, 2, 6, 3, 4, 5]
     checked_records = {} # record checked tuples
     for idx in indexes:
         checked_records[idx] = []
@@ -537,7 +565,8 @@ def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_s
     total_query_times = 0
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
 
-    current_run = 0
+    recorded_index = []
+    chase.applySourceDestPolicy(Z_tablename)
     while does_updated:
         temp_updated = False
         temp_indexes = indexes.copy()
@@ -546,45 +575,30 @@ def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_s
             count_application += 1
             
             idx = random.sample(temp_indexes, 1)[0]
+            recorded_index.append(str(idx))
             temp_indexes.remove(idx)
-
-            if current_run == 0 and idx == 0: # the first time run the \sigma_{D} should call applySourceDestPolicy()
-                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.applySourceDestPolicy(Z_tablename)
-                print("random", count_application, whether_updated)
-                total_check_applicable_time += check_valid_time
-                total_operation_time += operate_time
-                temp_updated = (temp_updated or whether_updated)
-
-            else:
-                dependency = dependencies[idx]
-                checked_tuples = checked_records[idx]
+            print("idx", idx)
+            if idx == 0:
+                continue
                 
-                # print("\n-------------------------------------")
-                # print(dependency['dependency_type'])
-                # print(dependency['dependency_tuples'])
-                # print(dependency['dependency_attributes'])
-                # print(dependency['dependency_attributes_datatypes'])
-                # print(dependency['dependency_summary'])
-                # print(dependency['dependency_summary_condition'])
-                # print("-------------------------------------\n")
-                checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-                print("random", count_application, whether_updated)
-                total_check_applicable_time += check_valid_time
-                total_operation_time += operate_time
-                temp_updated = (temp_updated or whether_updated)
-        current_run += 1
+            dependency = dependencies[idx]
+            checked_tuples = checked_records[idx]
+            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
+            print("random", count_application, whether_updated)
+            total_check_applicable_time += check_valid_time
+            total_operation_time += operate_time
+            temp_updated = (temp_updated or whether_updated)
         does_updated = temp_updated
+    f = open("./record_idx.txt", "a")
+    f.write("{}\n".format(" ".join(recorded_index)))
+    f.close()
     answer = None
-        # print("gamma_summary", gamma_summary)
-    # answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    # total_query_times += count_queries
-    # total_query_answer_time += query_time
-    # total_check_answer_time += check_time
+    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
+    total_query_times += count_queries
+    total_query_answer_time += query_time
+    total_check_answer_time += check_time
     # print("random", count_application, answer)
     # print("gamma_summary", gamma_summary)
-    # ans, query_time, check_time = chase.apply_E(query_sql, gamma_summary)
-    # total_query_answer_time += query_time
-    # total_check_answer_time += check_time
     return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
 
 def run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
@@ -643,7 +657,7 @@ def run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_s
 if __name__ == '__main__':
     AS_num = 7018
 
-    file_dir  = '/../../topo/ISP_topo/'
+    file_dir  = '/topo/ISP_topo/'
     filename = "{}_edges.txt".format(AS_num)
 
     as_tablename = 'as_{}'.format(AS_num)
@@ -665,38 +679,43 @@ if __name__ == '__main__':
     # script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes, num_hosts, case, Z_tablename, Z_attributes, Z_datatypes)
 
 
-    # path_nodes = [6147, 12788, 12588, 12591, 13130, 12504, 12505, 12619, 1531]
-    # symbolic_IP_mapping = {6147: '11.0.0.1', 12788: '11.0.0.2', 12588: '11.0.0.3', 12591: '11.0.0.4', 13130: '11.0.0.5', 12504: '11.0.0.6', 12505: '11.0.0.7', 12619: '11.0.0.8', 1531: '11.0.0.9'}
-    # E_tuples = [('f', 's0', 'd0', 's', '11.0.0.1', '{}'), ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), ('f', 's2', 'd2', '11.0.0.2', '11.0.0.3', '{}'), ('f', 's3', 'd3', '11.0.0.3', '11.0.0.4', '{}'), ('f', 's4', 'd4', '11.0.0.4', '11.0.0.5', '{}'), ('f', 's5', 'd5', '11.0.0.5', '11.0.0.6', '{}'), ('f', 's6', 'd6', '11.0.0.6', '11.0.0.7', '{}'), ('f', 's7', 'd7', '11.0.0.7', '11.0.0.8', '{}'), ('f', 's9', 'd9', '11.0.0.9', 'd', '{}'), ('f', 's8', 'd8', '11.0.0.8', '11.0.0.9', '{}')]
-    # ingress_hosts = ['10.0.0.1', '10.0.0.2', '10.0.0.3', '10.0.0.4', '10.0.0.5']
-    # egress_hosts = ['12.0.0.1', '12.0.0.2', '12.0.0.3', '12.0.0.4', '12.0.0.5']
-    # block_list = ('10.0.0.1', '12.0.0.4')
-    # dependencies = {1: {'dependency_tuples': [('f', '10.0.0.1', '12.0.0.1', '10.0.0.1', '11.0.0.1', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.4', '12.0.0.1', '10.0.0.1', '11.0.0.1'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 2: {'dependency_tuples': [('f1', '10.0.0.1', '12.0.0.1', 'n1', '{}'), ('f2', '10.0.0.4', '12.0.0.1', 'n2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'condition'], "dependency_cares_attributes": ['src', 'dst'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': ["n1 <= '11.0.0.1'", "n2 <= '11.0.0.1'"], 'dependency_type': 'egd'}, 3: {'dependency_tuples': [('f', '10.0.0.4', '12.0.0.1', '11.0.0.8', '11.0.0.9', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.4', '12.0.0.4', '11.0.0.8', '11.0.0.9'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 4: {'dependency_tuples': [('f1', '10.0.0.4', '12.0.0.1', 'n1', '{}'), ('f2', '10.0.0.4', '12.0.0.4', 'n2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], "dependency_cares_attributes": ['src', 'dst'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': ["n1 <= '11.0.0.9'", "n2 <= '11.0.0.9'"], 'dependency_type': 'egd'}, 0: {'dependency_tuples': [('f', 's1', 'd1', '{}'), ('f', 's2', 'd2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['s1 = s2', 'd1 = d2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 5: {'dependency_tuples': [('f', 's', 'd', 'n', 'x', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': [], 'dependency_summary_condition': ["s = '10.0.0.1'", "d = '12.0.0.4'"], 'dependency_type': 'egd'}}
-    # relevant_in_hosts = ['10.0.0.1', '10.0.0.4']
-    # relevant_out_hosts = ['12.0.0.1', '12.0.0.4']
-    # gamma_summary = ['f', '10.0.0.1', '12.0.0.4']
+    path_nodes =  [6621, 13095, 13126, 3703, 13135, 12475, 7109]
+    symbolic_IP_mapping =  {6621: '11.0.0.1', 13095: '11.0.0.2', 13126: '11.0.0.3', 3703: '11.0.0.4', 13135: '11.0.0.5', 12475: '11.0.0.6', 7109: '11.0.0.7'}
+    E_tuples =  [('f', 's0', 'd0', 's', '11.0.0.1', '{}'), ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), ('f', 's2', 'd2', '11.0.0.2', '11.0.0.3', '{}'), ('f', 's3', 'd3', '11.0.0.3', '11.0.0.4', '{}'), ('f', 's4', 'd4', '11.0.0.4', '11.0.0.5', '{}'), ('f', 's5', 'd5', '11.0.0.5', '11.0.0.6', '{}'), ('f', 's6', 'd6', '11.0.0.6', '11.0.0.7', '{}'), ('f', 's7', 'd7', '11.0.0.7', 'd', '{}')]
+    dependencies =  {1: {'dependency_tuples': [('f', '10.0.0.1', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.2', '12.0.0.2', '11.0.0.1', '11.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 2: {'dependency_tuples': [('f1', '10.0.0.1', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.2', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 3: {'dependency_tuples': [('f', '10.0.0.2', '12.0.0.2', '11.0.0.7', '12.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.2', '12.0.0.1', '11.0.0.7', '12.0.0.1'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 4: {'dependency_tuples': [('f1', '10.0.0.2', '12.0.0.2', '11.0.0.7', '12.0.0.2', '{}'), ('f2', '10.0.0.2', '12.0.0.1', '11.0.0.7', '12.0.0.1', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 0: {'dependency_tuples': [('f', 's1', 'd1', '{}'), ('f', 's2', 'd2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst'], 'dependency_summary': ['s1 = s2', 'd1 = d2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 5: {'dependency_tuples': [('f', 's', 'd', 'n', 'x', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': [], 'dependency_summary_condition': ["s = '10.0.0.1'", "d = '12.0.0.1'"], 'dependency_type': 'egd'}, 6: {'dependency_tuples': [('x_f', 'x_s1', 'x_d', '11.0.0.1', '11.0.0.2', '{}'), ('x_f', 'x_s2', 'x_d', '11.0.0.7', 'x_n', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['x_f', 'x_s1', 'x_d', '11.0.0.7', 'x_n'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}}
+    block_list =  ('10.0.0.1', '12.0.0.1')
+    ingress_hosts =  ['10.0.0.1', '10.0.0.2']
+    egress_hosts =  ['12.0.0.1', '12.0.0.2']
+    relevant_in_hosts =  ['10.0.0.1', '10.0.0.2']
+    relevant_out_hosts =  ['12.0.0.2', '12.0.0.1']
+    gamma_summary =  ['f', '10.0.0.1', '12.0.0.1']
 
     # chase.load_table(E_attributes, E_datatypes, E_tablename, E_tuples)
 
-    E_tuples, path_nodes, symbolic_IP_mapping = gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
+    # E_tuples, path_nodes, symbolic_IP_mapping = gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
     
     runs = 1
     for r in range(runs):
         ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
         egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
 
-        dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
-        # print("block_list", block_list)
-        # print("ingress", ingress_hosts)
-        # print("egress", egress_hosts)
-        # print("relevant in", relevant_in_hosts)
-        # print("relevant out", relevant_out_hosts)
+        # dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
+        # print("path_nodes = ", path_nodes)
+        # print("symbolic_IP_mapping = ", symbolic_IP_mapping)
+        # print("E_tuples = ", E_tuples)
+        # print("dependencies = ", dependencies)
+        # print("block_list = ", block_list)
+        # print("ingress_hosts = ", ingress_hosts)
+        # print("egress_hosts = ", egress_hosts)
+        # print("relevant_in_hosts = ", relevant_in_hosts)
+        # print("relevant_out_hosts = ", relevant_out_hosts)
         gamma_attributes = ['f', 'n', 'x', 'condition']
         gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
         gamma_tablename = "W"
 
         # gamma_summary = gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'all')
-        gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'relevant')
+        # gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'relevant')
+        # print("gamma_summary = ", gamma_summary)
 
         Z_tuples, gen_z_time = gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
         # print(Z_tuples)
@@ -706,22 +725,26 @@ if __name__ == '__main__':
             2: [],
             3: [], 
             4: [],
-            5: []
+            5: [],
+            6: []
         }
         # chase.apply_egd(dependencies[0], Z_tablename, checked_tuples[0])
         # chase.apply_egd(dependencies[2], Z_tablename, checked_tuples[2])
-        chase.apply_dependency(dependencies[0], Z_tablename, checked_tuples[0])
+        chase.applySourceDestPolicy(Z_tablename)
+        # chase.apply_dependency(dependencies[0], Z_tablename, checked_tuples[0])
         # chase.apply_dependency(dependencies[1], Z_tablename, checked_tuples[1])
         # chase.apply_dependency(dependencies[2], Z_tablename, checked_tuples[2])
+        # chase.apply_dependency(dependencies[6], Z_tablename, checked_tuples[6])
         # chase.apply_dependency(dependencies[3], Z_tablename, checked_tuples[3])
-        # chase.apply_dependency(dependencies[4], Z_tablename, checked_tuples[4])
+        chase.apply_dependency(dependencies[4], Z_tablename, checked_tuples[4])
         # chase.apply_dependency(dependencies[5], Z_tablename, checked_tuples[5])
-
-        # ans, _ = chase.apply_E(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
+        
+        # sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
+        # ans, _, _, _ = chase.apply_E(sql, Z_tablename, gamma_summary)
         # print("ans", ans)
         # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
         # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
+        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
         # run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
         # print("ans", ans)
         # print("total_check_applicable_time: {:.4f}".format(total_check_applicable_time*1000))
@@ -729,3 +752,4 @@ if __name__ == '__main__':
         # print("total_query_answer_time: {:.4f}".format(total_query_answer_time*1000))
         # print("total_check_answer_time: {:.4f}".format(total_check_answer_time*1000))
         # print("count_application: ", count_application)
+
