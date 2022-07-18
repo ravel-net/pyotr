@@ -277,14 +277,19 @@ def gen_new_dependency(path_nodes, symbolic_IP_mapping):
 
     n2 = symbolic_IP_mapping[path_nodes[idx_node2]]
 
+    # new_dependency_tuples = [
+    #     ('x_f', 'x_s1', 'x_d', n1, n1_next, '{}'),
+    #     ('x_f', 'x_s2', 'x_d', n2, 'x_n', '{}')
+    # ]
     new_dependency_tuples = [
         ('x_f', 'x_s1', 'x_d', n1, n1_next, '{}'),
-        ('x_f', 'x_s2', 'x_d', n2, 'x_n', '{}')
+        ('x_f', 'x_s2', 'x_d', n1_next, 'x_n', '{}')
     ]
     new_dependency_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
     new_dependency_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
 
-    new_dependency_summary = ['x_f', 'x_s1', 'x_d', n2, 'x_n']
+    # new_dependency_summary = ['x_f', 'x_s1', 'x_d', n2, 'x_n']
+    new_dependency_summary = ['x_f', 'x_s1', 'x_d', n1_next, 'x_n']
 
     tgd_dependency = {
         "dependency_tuples": new_dependency_tuples,
@@ -442,7 +447,7 @@ def script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_t
 def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
 
     # ordered_indexs = sorted(list(dependencies.keys())) 
-    ordered_indexs = [0, 1, 2, 6, 3, 4, 5]
+    ordered_indexs = [0, 1, 6, 2, 3, 4, 5]
     checked_records = {} # record checked tuples
     for idx in ordered_indexs:
         checked_records[idx] = []
