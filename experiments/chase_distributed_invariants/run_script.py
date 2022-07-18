@@ -136,7 +136,7 @@ def run_ordering_strategies():
         E_tuples, path_nodes, symbolic_IP_mapping = chase_scripts.gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
     # run_scalibility()
 
-    runs = 100
+    runs = 5
     num_hosts_list = [32]
     for num_hosts in num_hosts_list:
         print("num_hosts", num_hosts)
@@ -144,8 +144,8 @@ def run_ordering_strategies():
         f1 = open("./ordering_results/optimal/runtime_hosts{}_optimal.txt".format(num_hosts), "w")
         f1.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
 
-        f2 = open("./ordering_results/random/runtime_hosts{}_random.txt".format(num_hosts), "w")
-        f2.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
+        # f2 = open("./ordering_results/random/runtime_hosts{}_random.txt".format(num_hosts), "w")
+        # f2.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
 
         # f3 = open("./ordering_results/static/runtime_hosts{}_static.txt".format(num_hosts), "w")
         # f3.write("len(path) ans count_application total_query_times gen_z check_applicable operation_time query_answer check_answer\n")
@@ -186,22 +186,22 @@ def run_ordering_strategies():
             
             f1.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
 
-            '''
-            for `random` order
-            '''
-            gamma_tablename_random = "W_random"
-            Z_tablename_random = "Z_random"
-            # gamma_summary = chase_scripts.gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "relevant")
-            gamma_summary = chase_scripts.gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "all")
+            # '''
+            # for `random` order
+            # '''
+            # gamma_tablename_random = "W_random"
+            # Z_tablename_random = "Z_random"
+            # # gamma_summary = chase_scripts.gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "relevant")
+            # gamma_summary = chase_scripts.gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename_random, gamma_attributes, gamma_attributes_datatypes, "all")
 
-            # Step 1
-            print("random")
-            Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_random, Z_tablename_random, Z_attributes, Z_datatypes)
+            # # Step 1
+            # print("random")
+            # Z_tuples, gen_z_time = chase_scripts.gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename_random, Z_tablename_random, Z_attributes, Z_datatypes)
             
-            #step2 and step3
-            ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts. run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_random, gamma_summary)
+            # #step2 and step3
+            # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts. run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_random, gamma_summary)
 
-            f2.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
+            # f2.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
 
             # '''
             # for `static` order
@@ -229,9 +229,9 @@ def run_ordering_strategies():
             # f3.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
             
         f1.close()
-        f2.close()
+        # f2.close()
         # f3.close()
 
 if __name__ == '__main__':
-    run_scalibility()
-    # run_ordering_strategies()
+    # run_scalibility()
+    run_ordering_strategies()
