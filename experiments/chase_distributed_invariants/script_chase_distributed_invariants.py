@@ -282,14 +282,14 @@ def gen_new_dependency(path_nodes, symbolic_IP_mapping):
     #     ('x_f', 'x_s2', 'x_d', n2, 'x_n', '{}')
     # ]
     new_dependency_tuples = [
-        ('x_f', 'x_s1', 'x_d', n1, n1_next, '{}'),
-        ('x_f', 'x_s2', 'x_d', n1_next, 'x_n', '{}')
+        ('x_f', 'x_s1', 'x_d', 'x_n', 'x_x', '{}'),
+        ('x_f', 'x_s2', 'x_d', 'x_x', 'x_next', '{}')
     ]
     new_dependency_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
     new_dependency_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
 
     # new_dependency_summary = ['x_f', 'x_s1', 'x_d', n2, 'x_n']
-    new_dependency_summary = ['x_f', 'x_s1', 'x_d', n1_next, 'x_n']
+    new_dependency_summary = ['x_f', 'x_s1', 'x_d', 'x_x', 'x_next']
 
     tgd_dependency = {
         "dependency_tuples": new_dependency_tuples,
@@ -663,7 +663,7 @@ def run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_s
 if __name__ == '__main__':
     AS_num = 7018
 
-    file_dir  = '/topo/ISP_topo/'
+    file_dir  = '/../../topo/ISP_topo/'
     filename = "{}_edges.txt".format(AS_num)
 
     as_tablename = 'as_{}'.format(AS_num)
@@ -685,16 +685,16 @@ if __name__ == '__main__':
     # script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes, num_hosts, case, Z_tablename, Z_attributes, Z_datatypes)
 
 
-    path_nodes =  [6621, 13095, 13126, 3703, 13135, 12475, 7109]
-    symbolic_IP_mapping =  {6621: '11.0.0.1', 13095: '11.0.0.2', 13126: '11.0.0.3', 3703: '11.0.0.4', 13135: '11.0.0.5', 12475: '11.0.0.6', 7109: '11.0.0.7'}
-    E_tuples =  [('f', 's0', 'd0', 's', '11.0.0.1', '{}'), ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), ('f', 's2', 'd2', '11.0.0.2', '11.0.0.3', '{}'), ('f', 's3', 'd3', '11.0.0.3', '11.0.0.4', '{}'), ('f', 's4', 'd4', '11.0.0.4', '11.0.0.5', '{}'), ('f', 's5', 'd5', '11.0.0.5', '11.0.0.6', '{}'), ('f', 's6', 'd6', '11.0.0.6', '11.0.0.7', '{}'), ('f', 's7', 'd7', '11.0.0.7', 'd', '{}')]
-    dependencies =  {1: {'dependency_tuples': [('f', '10.0.0.1', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.2', '12.0.0.2', '11.0.0.1', '11.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 2: {'dependency_tuples': [('f1', '10.0.0.1', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.2', '12.0.0.2', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 3: {'dependency_tuples': [('f', '10.0.0.2', '12.0.0.2', '11.0.0.7', '12.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.2', '12.0.0.1', '11.0.0.7', '12.0.0.1'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 4: {'dependency_tuples': [('f1', '10.0.0.2', '12.0.0.2', '11.0.0.7', '12.0.0.2', '{}'), ('f2', '10.0.0.2', '12.0.0.1', '11.0.0.7', '12.0.0.1', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 0: {'dependency_tuples': [('f', 's1', 'd1', '{}'), ('f', 's2', 'd2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst'], 'dependency_summary': ['s1 = s2', 'd1 = d2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 5: {'dependency_tuples': [('f', 's', 'd', 'n', 'x', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': [], 'dependency_summary_condition': ["s = '10.0.0.1'", "d = '12.0.0.1'"], 'dependency_type': 'egd'}, 6: {'dependency_tuples': [('x_f', 'x_s1', 'x_d', '11.0.0.1', '11.0.0.2', '{}'), ('x_f', 'x_s2', 'x_d', '11.0.0.7', 'x_n', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['x_f', 'x_s1', 'x_d', '11.0.0.7', 'x_n'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}}
-    block_list =  ('10.0.0.1', '12.0.0.1')
+    path_nodes =  [11945, 12942, 13000, 13010, 12607, 12588, 12946, 2031]
+    symbolic_IP_mapping =  {11945: '11.0.0.1', 12942: '11.0.0.2', 13000: '11.0.0.3', 13010: '11.0.0.4', 12607: '11.0.0.5', 12588: '11.0.0.6', 12946: '11.0.0.7', 2031: '11.0.0.8'}
+    E_tuples =  [('f', 's0', 'd0', 's', '11.0.0.1', '{}'), ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), ('f', 's2', 'd2', '11.0.0.2', '11.0.0.3', '{}'), ('f', 's3', 'd3', '11.0.0.3', '11.0.0.4', '{}'), ('f', 's4', 'd4', '11.0.0.4', '11.0.0.5', '{}'), ('f', 's5', 'd5', '11.0.0.5', '11.0.0.6', '{}'), ('f', 's6', 'd6', '11.0.0.6', '11.0.0.7', '{}'), ('f', 's7', 'd7', '11.0.0.7', '11.0.0.8', '{}'), ('f', 's8', 'd8', '11.0.0.8', 'd', '{}')]
+    dependencies =  {1: {'dependency_tuples': [('f', '10.0.0.2', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.1', '12.0.0.1', '11.0.0.1', '11.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 2: {'dependency_tuples': [('f1', '10.0.0.2', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.1', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 3: {'dependency_tuples': [('f', '10.0.0.1', '12.0.0.1', '11.0.0.8', '12.0.0.1', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.1', '12.0.0.2', '11.0.0.8', '12.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 4: {'dependency_tuples': [('f1', '10.0.0.1', '12.0.0.1', '11.0.0.8', '12.0.0.1', '{}'), ('f2', '10.0.0.1', '12.0.0.2', '11.0.0.8', '12.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 0: {'dependency_tuples': [('f', 's1', 'd1', '{}'), ('f', 's2', 'd2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst'], 'dependency_summary': ['s1 = s2', 'd1 = d2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 5: {'dependency_tuples': [('f', 's', 'd', 'n', 'x', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': [], 'dependency_summary_condition': ["s = '10.0.0.2'", "d = '12.0.0.2'"], 'dependency_type': 'egd'}, 6: {'dependency_tuples': [('x_f', 'x_s1', 'x_d', 'x_n', 'x_x', '{}'), ('x_f', 'x_s2', 'x_d', 'x_x', 'x_next', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['x_f', 'x_s1', 'x_d', 'x_x', 'x_next'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}}
+    block_list =  ('10.0.0.2', '12.0.0.2')
     ingress_hosts =  ['10.0.0.1', '10.0.0.2']
     egress_hosts =  ['12.0.0.1', '12.0.0.2']
-    relevant_in_hosts =  ['10.0.0.1', '10.0.0.2']
-    relevant_out_hosts =  ['12.0.0.2', '12.0.0.1']
-    gamma_summary =  ['f', '10.0.0.1', '12.0.0.1']
+    relevant_in_hosts =  ['10.0.0.2', '10.0.0.1']
+    relevant_out_hosts =  ['12.0.0.1', '12.0.0.2']
+    gamma_summary =  ['f', '10.0.0.2', '12.0.0.2']
 
     # chase.load_table(E_attributes, E_datatypes, E_tablename, E_tuples)
 
@@ -723,7 +723,7 @@ if __name__ == '__main__':
         # gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'relevant')
         # print("gamma_summary = ", gamma_summary)
 
-        Z_tuples, gen_z_time = gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
+        # Z_tuples, gen_z_time = gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
         # print(Z_tuples)
         checked_tuples = {
             0: [], 
@@ -736,13 +736,13 @@ if __name__ == '__main__':
         }
         # chase.apply_egd(dependencies[0], Z_tablename, checked_tuples[0])
         # chase.apply_egd(dependencies[2], Z_tablename, checked_tuples[2])
-        chase.applySourceDestPolicy(Z_tablename)
+        # chase.applySourceDestPolicy(Z_tablename)
         # chase.apply_dependency(dependencies[0], Z_tablename, checked_tuples[0])
         # chase.apply_dependency(dependencies[1], Z_tablename, checked_tuples[1])
         # chase.apply_dependency(dependencies[2], Z_tablename, checked_tuples[2])
-        # chase.apply_dependency(dependencies[6], Z_tablename, checked_tuples[6])
+        chase.apply_dependency(dependencies[6], Z_tablename, checked_tuples[6])
         # chase.apply_dependency(dependencies[3], Z_tablename, checked_tuples[3])
-        chase.apply_dependency(dependencies[4], Z_tablename, checked_tuples[4])
+        # chase.apply_dependency(dependencies[4], Z_tablename, checked_tuples[4])
         # chase.apply_dependency(dependencies[5], Z_tablename, checked_tuples[5])
         
         # sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
