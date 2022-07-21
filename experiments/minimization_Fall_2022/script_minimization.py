@@ -106,7 +106,8 @@ def exp_minimization_chain_naive(size, rate_summary, size_single_loop):
     f.write("runtime(sec)\n")
 
     begin = time.time()
-    minimization_naive.minimize(tablename=tablename, summary=summary_nodes, mode="naive")
+    # minimization_naive.minimize(tablename=tablename, summary=summary_nodes, mode="naive")
+    minimization_naive.minimize(tablename=tablename, summary=summary_nodes, mode="constants")
     end = time.time()
     print("\nRUNNING TIME:", end - begin)
 

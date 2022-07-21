@@ -3,7 +3,7 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
-
+import time
 import psycopg2
 import copy
 import Core.Homomorphism.tableau as tableau
@@ -115,7 +115,7 @@ def minimize_old(tablename = 't_v', pos = 0, summary = ['1','2']):
         return minimize_old(tablename, pos+1, summary)
 
 # TODO: Need to move this to Core.Homomorphism
-def faure_eval(closure_group, curr_type, new_table_name, output_table_name, summary, variables, mode):
+def faure_eval(closure_group, curr_type, new_table_name, output_table_name, summary, variables, mode, conn, cur):
     if mode == "naive":
         # check for query containment
         sql_query = tableau.general_convert_tableau_to_sql(closure_group, new_table_name, summary, ["n1","n2","condition"])
@@ -128,6 +128,17 @@ def faure_eval(closure_group, curr_type, new_table_name, output_table_name, summ
     elif mode == "BDD":
         print(closure_group, new_table_name, variables, summary, curr_type)
         return split_merge_BDD.split_merge(closure_group, new_table_name, variables, summary, curr_type)
+    elif mode == "constants":
+        start = time.time()
+        sql = tableau.general_convert_tableau_to_sql(closure_group, new_table_name, summary, ["n1","n2","condition"]) + " LIMIT 1"
+        begin = time.time()
+        cur.execute(sql)
+        result = cur.fetchall()
+        conn.commit()
+        sat = (len(result) > 0)
+        end = time.time()
+        return end-start, sat
+
 
 def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], const_table = [(1,2)], var_table = [('y',2)], mode="BDD"):
     """
@@ -167,9 +178,9 @@ def minimize_recursive(const_tablename = 't_v', pos = 0, summary = ['1','2'], co
     new_table.pop(pos)
     storeTable(new_table, new_table_name, cur, mode)
     conn.commit()
-    conn.close()
 
-    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, mode)
+    time, sat = faure_eval(closure_group_curr, curr_type, new_table_name, output_table_name, summary, variables, mode, conn, cur)
+    conn.close()
 
     conn = psycopg2.connect(host=host,user=user,password=password,database=database)
     cur = conn.cursor()
