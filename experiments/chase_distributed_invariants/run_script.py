@@ -81,15 +81,16 @@ def run_scalibility():
     
     for num_hosts in num_hosts_list:
         f2 = open("./results/all/runtime_hosts{}_all.txt".format(num_hosts), "w")
-        f2.write("len(path) ans count_application total_queries gen_z check_applicable operation_time query_answer check_answer\n")
+        f2.write("len(path) ans count_application total_queries gen_z check_applicable operation_time query_answer check_answer total_time\n")
         print("num_hosts", num_hosts)
         for r in tqdm(range(runs)):
             E_tuples, path_nodes, symbolic_IP_mapping = chase_scripts.gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
-            
+           
             ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
             egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
             # print("ingress_hosts", ingress_hosts)
             # print("egress_hosts", egress_hosts)
+            start = time.time()
 
             # generate dependencies
             dependencies, relevant_in_hosts, relevant_out_hosts, block_list = chase_scripts.gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
@@ -114,7 +115,8 @@ def run_scalibility():
             #step2 and step3
             ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = chase_scripts.run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename_all, gamma_summary)
 
-            f2.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000))
+            end = time.time()
+            f2.write("{} {} {} {} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f} {:.4f}\n".format(len(path_nodes), ans, count_application, total_query_times, gen_z_time*1000, total_check_applicable_time*1000, total_operation_time*1000, total_query_answer_time*1000, total_check_answer_time*1000, (end-start)*1000))
         f2.close()
 
 def run_ordering_strategies():
@@ -233,5 +235,5 @@ def run_ordering_strategies():
         # f3.close()
 
 if __name__ == '__main__':
-    # run_scalibility()
-    run_ordering_strategies()
+    run_scalibility()
+    #run_ordering_strategies()
