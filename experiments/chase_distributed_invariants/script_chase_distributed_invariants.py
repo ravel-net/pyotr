@@ -444,16 +444,19 @@ def script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_t
     #step2 and step3
     run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
 
+# This is actually a random order
 def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
 
     # ordered_indexs = sorted(list(dependencies.keys())) 
-    ordered_indexs = [0, 1, 6, 2, 3, 4, 5]
+    ordered_indexs = [0, 1, 2, 3, 4, 5, 6]
+    random.shuffle(ordered_indexs)
+    # print("ordered_indexs", ordered_indexs)
     checked_records = {} # record checked tuples
     for idx in ordered_indexs:
         checked_records[idx] = []
 
     query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
-    # print("query sql", query_sql)
+    print("query sql", query_sql)
     total_check_applicable_time = 0
     total_operation_time = 0
     total_check_answer_time = 0

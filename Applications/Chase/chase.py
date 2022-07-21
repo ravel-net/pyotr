@@ -23,6 +23,8 @@ STR_RELATED_TYPES = ['char', 'text']
 conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 cursor = conn.cursor()
 
+# TODO: checked_tuples is redundant everywhere. Not deleting yet since it might break some things
+
 def load_table(attributes, datatypes, tablename, tableau):
     """
     Load data instance into database
@@ -127,6 +129,7 @@ def is_variable(value, datatype):
     else:
         return False
 
+# Main function of chase to apply dependencies. Calls apply_tgd and apply_egd.
 def apply_dependency(dependency, Z_tablename, checked_tuples):
     # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
     # cursor = conn.cursor()
@@ -142,7 +145,7 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
     check_valid_time = 0
     
     if type.lower() == 'tgd':
-        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd_new(dependency, Z_tablename, checked_tuples)
+        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd(dependency, Z_tablename, checked_tuples)
     elif type.lower() == 'egd':
         # if dependency_summary is empty, it is a deletion for firewall policy
         if len(dependency_summary) == 0: # if dependency summary is empty, the matched tuples are deleted
@@ -186,7 +189,8 @@ def apply_dependency(dependency, Z_tablename, checked_tuples):
     # print("ending dependency")
     return checked_tuples, does_updated, check_valid_time, operate_time
 
-def apply_tgd_new(dependency, Z_tablename, checked_tuples):
+# Checks for the given pattern and returns the summary (i.e. the tuple to add) IF the given pattern exists. Then computes the difference between the summary and the Z_table. Adds the extra tuple only if it does not already exist in the Z_table (preventing unnecessary additions)
+def apply_tgd(dependency, Z_tablename, checked_tuples):
     type = dependency['dependency_type']
     dependency_tuples = dependency['dependency_tuples']
     dependency_attributes = dependency['dependency_attributes']
@@ -229,73 +233,14 @@ def apply_tgd_new(dependency, Z_tablename, checked_tuples):
         operation_time += (end_time - begin_time)
     return [], does_updated, 0, operation_time
 
-def apply_tgd(dependency, Z_tablename, checked_tuples):
-    type = dependency['dependency_type']
-    dependency_tuples = dependency['dependency_tuples']
-    dependency_attributes = dependency['dependency_attributes']
-    dependency_summary = dependency['dependency_summary']
-    dependency_summary_condition = dependency['dependency_summary_condition']
-    check_valid_time = 0
-    operate_time = 0
-
-    tgd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
-    check_valid_begin = time.time()
-    cursor.execute(tgd_sql)
-    check_valid_end = time.time()
-    check_valid_time += (check_valid_end - check_valid_begin)
-
-    # matched_tuples = []
-    results = cursor.fetchall()
-    conn.commit()
-    # print(results)
-
-    does_updated = True
-    inserted_tuples = []
-    check_valid_begin = time.time()
-    for valid_match in results:
-        if str(valid_match) in checked_tuples:
-            continue
-        else:
-            inserted_tuples.append(valid_match)
-            checked_tuples.append(str(valid_match))
-
-    if len(inserted_tuples) > 0:
-        # print("inserted_tuples", inserted_tuples)
-        check_valid_end = time.time()
-        check_valid_time += (check_valid_end - check_valid_begin)
-        # print("insert", results)
-        # f = open("./sqls.txt", "a")
-        # f.write("{}\n".format(results))
-        # f.close()
-        begin_time = time.time()
-        execute_values(cursor, "insert into {} values %s".format(Z_tablename), inserted_tuples)
-        end_time = time.time()
-        # f = open("./sqls_time.txt", "a")
-        # f.write("{:.4f}\n".format(end_time - begin_time))
-        # f.close()
-        operate_time += (end_time - begin_time)
-        conn.commit()
-        
-    else:  # if all matches are already checked, the algorithm is done
-        does_updated = False
-        check_valid_end = time.time()
-        check_valid_time += (check_valid_end - check_valid_begin)
-        conn.commit()
-        return  checked_tuples, does_updated, check_valid_time, operate_time
-    
-    return  checked_tuples, does_updated, check_valid_time, operate_time
-
-def checkCondition(where):
-    # print("================")
-    print(where)
-    # print("================")
-
+# Returns the table tuples from postgres of the table given as a parameter
 def getCurrentTable(tablename):
     cursor.execute('select * from {};'.format(tablename))
     table = cursor.fetchall()
     conn.commit()
     return table
 
+# Replaces a given table with a new one (new_table given as tuples)
 def replace_z_table(tablename, new_table):
     cursor.execute("drop table if exists {}".format(tablename))
     conn.commit()
@@ -303,7 +248,7 @@ def replace_z_table(tablename, new_table):
     Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
     load_table(Z_attributes, Z_attributes_datatypes, tablename, new_table)
 
-# The source must be first hop and the destination must be last hop
+# The source must be first hop and the destination must be last hop. This is applied at the start to get rid of variables
 def applySourceDestPolicy(Z_tablename):
     begin_time = time.time()
     z_table = getCurrentTable(Z_tablename)
@@ -334,35 +279,9 @@ def applySourceDestPolicy(Z_tablename):
 
     return [], True, 0, end_time-begin_time
 
-def applyDestinationPolicy(dependency, Z_tablename):
-    start_time = time.time()
-    z_table = getCurrentTable(Z_tablename)
-
-    # extract unique flows
-    unique_flows = {}
-    for tuple in z_table:
-        flowid = tuple[0]
-        if flowid not in unique_flows:
-            src = tuple[1]
-            dest = tuple[2]
-            unique_flows[flowid] = (src,dest)
-
-    new_z_table = []
-    does_update = False
-    for tuple in z_table:
-        flowid = tuple[0]
-        if flowid not in unique_flows:
-            print("Unknown flow id encountered. Something went wrong. Exiting")
-            exit()
-        newTuple = (flowid, unique_flows[flowid][0], unique_flows[flowid][1], tuple[3], tuple[4])
-        if (unique_flows[flowid][0] != tuple[1] or unique_flows[flowid][1] != tuple[2]):
-            does_update = True
-        new_z_table.append(newTuple)
-
-    replace_z_table(Z_tablename, new_z_table)
-    end_time = time.time()
-    return [], does_update, 0, end_time - start_time
-
+# For rewrite policy (equalizing flow ids).
+# Searches for the flow ID of the first tuple pattern. Then searches for all flow IDs of the second tuple pattern. Replaces the later flow IDs with the former. This is a tableau wide substitutions (all replace flow IDs are replaced)
+# TODO: Unlike tgds, this is not general. It is specific to flow id equalization
 def applyRewritePolicy(dependency, Z_tablename):
     start_time = time.time()
     z_table = getCurrentTable(Z_tablename)
@@ -434,293 +353,12 @@ def applyRewritePolicy(dependency, Z_tablename):
     return [], does_update, 0, end_time - start_time
 
 
-# def apply_egd_in_memory(dependency, Z_tablename, checked_tuples):
+# Applies egd (specifically the one to set flow ids equal) in memory
 def apply_egd(dependency, Z_tablename, checked_tuples):
     return applyRewritePolicy(dependency, Z_tablename)
 
-    # # print("Starting egd")
-    # if ('f' in dependency['dependency_cares_attributes']): # forwarding dependency
-    #     # print("ending egd")
-    #     conn.commit()
-    #     return applyDestinationPolicy(dependency, Z_tablename)
-    # else: # rewrite dependency
-    #     conn.commit()
-    #     # print("ending egd")
-    #     return applyRewritePolicy(dependency, Z_tablename)
-
-def apply_egd_old(dependency, Z_tablename, checked_tuples):
-    type = dependency['dependency_type']
-    dependency_tuples = dependency['dependency_tuples']
-    dependency_attributes = dependency['dependency_attributes']
-    dependency_summary = dependency['dependency_summary']
-    dependency_summary_condition = dependency['dependency_summary_condition']
-    check_valid_time = 0
-    operate_time = 0
-
-    node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z_tablename)
-    print(getCurrentTable(Z_tablename))
-    print("===============================")
-    print("dependency", dependency)
-    # print("Z_tablename", Z_tablename)
-    # print("checked_tuples", checked_tuples)
-    # print("node_dict", node_dict)
-    print("===============================")
-    value_index_mapping = {}
-    flag_value = {}
-    for var in node_dict.keys():
-        if var not in value_index_mapping.keys():
-            value_index_mapping[var] = []
-        
-        for tup_idx in node_dict[var].keys():
-            col_idxs = node_dict[var][tup_idx]
-            value_index_mapping[var] += [tup_idx*(len(dependency_attributes)-1)+col_idx for col_idx in col_idxs]
-
-        if var.isdigit() or isIPAddress(var) or len(value_index_mapping[var])>1:
-            for idx in value_index_mapping[var]:
-                flag_value[idx] = var 
-        
-    # print("value_index_mapping", value_index_mapping)
-    # print("flag_value", flag_value)
-
-    equality_pairs = analyze_summary(dependency)
-    # print("equality_pairs", equality_pairs)
-    
-    check_valid_begin = time.time()
-    egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
-    check_valid_end = time.time()
-    check_valid_time += (check_valid_end-check_valid_begin)
-    print("egd_sql", egd_sql)
-
-    check_valid_begin = time.time()
-    cursor.execute(egd_sql)
-    check_valid_end = time.time()
-    check_valid_time += (check_valid_end-check_valid_begin)
-    
-    space_pool = {}
-    where_clause_correspond_to_flag = {}
-
-    row = cursor.fetchone()
-    while row is not None:
-        # check_valid_begin = time.time()
-        if str(row) in checked_tuples:
-            row = cursor.fetchone()
-            # check_valid_end = time.time()
-            # check_valid_time += (check_valid_end - check_valid_begin)
-            continue
-        else:
-            checked_tuples.append(str(row))
-        # check_valid_end = time.time()
-        # check_valid_time += (check_valid_end - check_valid_begin)
-        
-        flag = None
-        flag_list = []
-        flag_where_clause = []
-        where_clause = []
-        current_tup_idx = 0
-        for idx in sorted(list(flag_value.keys())):
-            flag_list.append(row[idx])
-
-            if idx // (len(dependency_attributes)-1) > current_tup_idx: # change to another tuple's where clause(only for two-tuple pattern) # TODO generalize to multi-tuple pattern
-                flag_where_clause.append(where_clause.copy())
-                current_tup_idx = idx // (len(dependency_attributes)-1)
-                where_clause = []
-            
-            attr_idx = idx % (len(dependency_attributes)-1)
-            where_clause.append("{} = '{}'".format(dependency_attributes[attr_idx], row[idx]))
-        flag_where_clause.append(where_clause.copy())
-
-
-        flag = "|".join(flag_list)
-
-        if flag not in space_pool.keys():
-            space_pool[flag] = {}
-            where_clause_correspond_to_flag[flag] = flag_where_clause.copy() # generate where clause for each result who matches pattern
-
-        for var in equality_pairs.keys():
-            var_idx_in_attributes = value_index_mapping[var][0] % (len(dependency_attributes)-1)
-            attribute_correspond_to_var = dependency_attributes[var_idx_in_attributes]
-
-            if attribute_correspond_to_var not in space_pool[flag].keys():
-                space_pool[flag][attribute_correspond_to_var] = {}
-
-            var_idx_in_row = value_index_mapping[var][0]
-            val_idx_in_row = value_index_mapping[var][0]
-            if row[var_idx_in_row] in space_pool[flag][attribute_correspond_to_var].keys():
-                space_pool[flag][attribute_correspond_to_var][row[var_idx_in_row]] += 1
-            else:
-                space_pool[flag][attribute_correspond_to_var][row[var_idx_in_row]] = 1
-            
-            if row[val_idx_in_row] in space_pool[flag][attribute_correspond_to_var].keys():
-                space_pool[flag][attribute_correspond_to_var][row[val_idx_in_row]] += 1
-            else:
-                space_pool[flag][attribute_correspond_to_var][row[val_idx_in_row]] = 1
-
-        row = cursor.fetchone()
-    conn.commit()
-    # print("space_pool", space_pool)
-    # print("where_clause_correspond_to_flag", where_clause_correspond_to_flag)
-    check_valid_begin = time.time()
-    if len(space_pool.keys()) == 0: # if space_pool is empty, no tuples match to the pattern
-        check_valid_end = time.time()
-        check_valid_time += (check_valid_end - check_valid_begin)
-        return checked_tuples, False, check_valid_time, operate_time
-
-    # generate set clause
-    set_clause_correspond_to_flag = {}
-    
-    for flag in space_pool.keys():
-        if flag not in set_clause_correspond_to_flag.keys():
-            set_clause_correspond_to_flag[flag] = []
-        
-        for attr in space_pool[flag].keys():
-            space = space_pool[flag][attr]
-
-            # if space has values, set max number of value
-            max_num_value = 0
-            value = None
-
-            max_num_var = 0
-            var = None
-            for v in space.keys():
-                if v.isdigit() or isIPAddress(v):
-                    if max_num_value < space[v]:
-                        max_num_value = space[v]
-                        value = v
-                else:
-                    if max_num_var < space[v]:
-                        max_num_var = space[v]
-                        var = v
-            if value is not None:
-                set_clause_correspond_to_flag[flag].append("{} = '{}'".format(attr, value))
-            else:
-                set_clause_correspond_to_flag[flag].append("{} = '{}'".format(attr, var))
-        
-    # print("set_clause_correspond_to_flag", set_clause_correspond_to_flag)
-
-    summary_condition_clause = None
-    if dependency_summary_condition is not None:
-        summary_condition_clause = analyze_summary_condition(dependency, node_dict)
-    
-    # print("summary_condition_clause", summary_condition_clause)
-    
-    #generate update sqls 
-    update_sqls = []
-    for flag in set_clause_correspond_to_flag:
-        set_clause = set_clause_correspond_to_flag[flag]
-
-        for where_clause in where_clause_correspond_to_flag[flag]: 
-            if summary_condition_clause is not None:
-                where_clause += summary_condition_clause
-            if (checkCondition(where_clause)):
-                a = 2
-                # update row
-            upd_sql = "update {} set {} where {}".format(Z_tablename, ", ".join(set_clause), " and ".join(where_clause))
-            if upd_sql not in update_sqls:
-                update_sqls.append(upd_sql)
-
-    # f1 = open("./sqls.txt", "a")
-    # f2 = open("./sqls_time.txt", "a")
-    does_update = False
-    for sql in update_sqls:
-        print(sql)
-        # f1.write("{}\n".format(sql))
-        operate_begin = time.time()
-        cursor.execute(sql)
-        operate_end = time.time()
-        operate_time += (operate_end-operate_begin)
-        # f2.write("{:.4f}\n".format(operate_end-operate_begin))
-        if cursor.rowcount == 0:
-            does_update = (does_update or False)
-        else:
-            does_update = (does_update or True)
-    # f1.close()
-    # f2.close()
-    conn.commit()
-    print(getCurrentTable(Z_tablename))
-
-    return checked_tuples, does_update, check_valid_time, operate_time
-
-def analyze_summary(dependency): #when summary is not empty
-    dependency_summary = dependency["dependency_summary"]
-
-    equality_pairs = {}
-    #assume the operands of summary are variables. # TODO: generate it to variables and values.
-    for summary in dependency_summary:
-        items = summary.split()
-        left_opd = items[0]
-        right_opd = items[2]
-
-        equality_pairs[left_opd] = right_opd
-
-    return equality_pairs
-
-def analyze_summary_condition(dependency, node_dict):
-    dependency_attributes = dependency["dependency_attributes"]
-    dependency_summary_condition = dependency["dependency_summary_condition"]
-    summary_condition_clause = []
-    for condition in dependency_summary_condition:
-        # consider left opd is a variable, right opd is a value
-        # TODO:generate it for two variables or left is a value and right is a variable
-        items = condition.split()
-        left_opd = items[0]
-        opr = items[1]
-        right_opd = items[2]
-
-        for tup_idx in node_dict[left_opd]:
-            for col_idx in node_dict[left_opd][tup_idx]:
-                clause = "{} {} {}".format(dependency_attributes[col_idx], opr, right_opd)
-
-                if clause not in summary_condition_clause:
-                    summary_condition_clause.append(clause)
-    return summary_condition_clause
-
-
-
-def gen_repalce_mapping_for_egd(dependency, node_dict):
-    # print("node_dict", node_dict)
-    dependency_summary = dependency['dependency_summary']
-    attributes = dependency['dependency_attributes']
-    mapping_replace = {}
-    for equation in dependency_summary:
-        items = equation.split()
-        left_opd = items[0]
-        
-        left_idxs = set()
-        for tup_idx in node_dict[left_opd].keys():
-            for col_idx in node_dict[left_opd][tup_idx]:
-                res_idx = tup_idx * (len(attributes)-1) + col_idx # len(attributes)-1 minus condition column
-                left_idxs.add(res_idx)
-        
-        right_opd = items[2]
-        right_idxs = set()
-        for tup_idx in node_dict[right_opd].keys():
-            for col_idx in node_dict[right_opd][tup_idx]:
-                res_idx = tup_idx * (len(attributes)-1) + col_idx
-                right_idxs.add(res_idx)
-
-        mapping_keys = set(mapping_replace.keys())
-
-        if left_idxs.isdisjoint(mapping_keys) and right_idxs.isdisjoint(mapping_keys):
-            replace_value = list(left_idxs)[0] # first left_idxs
-            for idx in left_idxs:
-                mapping_replace[idx] = replace_value
-            for idx in right_idxs:
-                mapping_replace[idx] = replace_value
-        elif left_idxs.isdisjoint(mapping_keys) and not right_idxs.isdisjoint(mapping_keys):
-            common_idxs = right_idxs.intersection(mapping_keys)
-            c_idx = list(common_idxs)[0]
-            replace_value = mapping_replace[c_idx]
-            for idx in left_idxs:
-                mapping_replace[idx] = replace_value
-        elif not left_idxs.isdisjoint(mapping_keys) and right_idxs.isdisjoint(mapping_keys):
-            common_idxs = left_idxs.intersection(mapping_keys)
-            c_idx = list(common_idxs)[0]
-            replace_value = mapping_replace[c_idx]
-            for idx in right_idxs:
-                mapping_replace[idx] = replace_value
-    # print("mapping_replace", mapping_replace)
-    return mapping_replace
-
+# Returns the position of each variable/constant in the dependency. Useful to check for equivalent variables/constants when converting to sql
+# e.g. for \sigma_new x_f appears in the 0th and 1st tuple both in the 0th column: {'x_f': {0: [0], 1: [0]}, 'x_s1': {0: [1]}, 'x_d': {0: [2], 1: [2]}, 'x_n': {0: [3]}, 'x_x': {0: [4], 1: [3]}, 'x_s2': {1: [1]}, 'x_next': {1: [4]}}
 def analyze_dependency(dependency_tuples, dependency_attributes, Z):
     node_dict = {}
     tables = []
@@ -891,6 +529,7 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     
     return conditions
 
+# sql query is the tableau E in query form. Gamma_summary is the forbidden source and destination
 def apply_E(sql, Z_tablename, gama_summary):
     # whether w in E(Z)
     check_cols = []
@@ -901,6 +540,7 @@ def apply_E(sql, Z_tablename, gama_summary):
 
     gama_summary_item = "|".join([gama_summary[i] for i in check_cols])
 
+    # Checking for each flow id individually. This optimization might no longer be very useful since after we fixed chase
     flow_sql = "select f, count(f) as num from {} group by f order by num desc".format(Z_tablename)
     cursor.execute(flow_sql)
 
@@ -915,6 +555,7 @@ def apply_E(sql, Z_tablename, gama_summary):
         count_queries += 1
 
         cursor.execute("drop table if exists temp")
+        # Select distinct attributes
         temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
         cursor.execute(temp_sql)
         conn.commit()
@@ -923,12 +564,14 @@ def apply_E(sql, Z_tablename, gama_summary):
         # print(sql)
         # exit()
         query_begin = time.time()
+        # Execute the query of tableau E to see reachabilities
         cursor.execute(sql)
         query_end = time.time()
         total_query_time += (query_end-query_begin)
         # print("query_begin", query_begin, query_end)
         # print(query_end-query_begin)
 
+        # The result is a set of all possible source and destinations that are reachable
         results = cursor.fetchall()
         conn.commit()
         # print("results", results) 
@@ -939,6 +582,8 @@ def apply_E(sql, Z_tablename, gama_summary):
             result_items.append(res_item)
 
         check_begin = time.time()
+
+        # Checking if the forbidden pair of source and destinations are in the reachability table
         if gama_summary_item in result_items:
             # print("gama_summary_item", gama_summary_item)
             # print("res_item", res_item)
