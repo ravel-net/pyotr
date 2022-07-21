@@ -1,3 +1,4 @@
+from ntpath import join
 import sys
 from os.path import dirname, abspath
 
@@ -60,6 +61,7 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
     picked_nodes = random.sample(path_nodes[:-2], pick_num)
 
     flag_variables = {}
+    bp_links = []
     for picked_node in picked_nodes:
         idx_picked_node = path_nodes.index(picked_node)
         # print("pickde_node", picked_node)
@@ -81,6 +83,7 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
         conn.commit()
 
         bp_next_node = random.sample(path_nodes[idx_picked_node+2:], 1)[0]
+        bp_links.append((picked_node, bp_next_node))
 
         # condition for backup link (one backup link for a primary link)
         bp_cond = "{} == {}".format(flag_var, 0)
@@ -89,7 +92,7 @@ def add_backup_links_and_filters(path_nodes, forward_tablename, pick_num):
         conn.commit()
     conn.close()
 
-    return flag_variables
+    return flag_variables, bp_links
 
 def load_tree_in_f(links, ftable_name):
     """
@@ -164,7 +167,7 @@ def get_largest_connected_network(links):
     G.add_edges_from(links)
 
     if not nx.is_connected(G):
-        print("not connected")
+        # print("not connected")
         max_comp = 0
         max_len = 0
         components = nx.connected_components(G)
@@ -230,7 +233,7 @@ def gen_connectivity_view(path_nodes, tablename, table_attributes, table_datatyp
     conn.commit()
     conn.close()
 
-def convert_symbol_to_IP(ftable_name):
+def convert_symbol_to_IP(ftable_name, IP_address_begin='1.0.0.1'):
     """
     Convert symbolic integers to realistic IP address
 
@@ -248,7 +251,7 @@ def convert_symbol_to_IP(ftable_name):
     
     IP_tuples = []
     symbol_to_IP_mapping = {}
-    IPaddr = int(IPv4Address("1.0.0.1")) 
+    IPaddr = int(IPv4Address(IP_address_begin)) 
     for tuple in ftable_tuples:
         n1 = tuple[0]
         n2 = tuple[1]
@@ -273,25 +276,91 @@ def convert_symbol_to_IP(ftable_name):
             symbol_to_IP_mapping[n2] = n2_IP
             n2 = n2_IP
 
-        s_IP = []
-        for acl in s:
-            if acl in symbol_to_IP_mapping.keys():
-                s_IP.append(symbol_to_IP_mapping[acl])
-            else:
-                acl_ip = str(IPv4Address(IPaddr))
-                IPaddr += 1
+        # s_IP = []
+        # for acl in s:
+        #     if acl in symbol_to_IP_mapping.keys():
+        #         s_IP.append(symbol_to_IP_mapping[acl])
+        #     else:
+        #         acl_ip = str(IPv4Address(IPaddr))
+        #         IPaddr += 1
 
-                symbol_to_IP_mapping[acl] = acl_ip
-                s_IP.append(acl_ip)
+        #         symbol_to_IP_mapping[acl] = acl_ip
+        #         s_IP.append(acl_ip)
         
-        s = s_IP
+        # s = s_IP
 
-        IP_tuples.append((n1, n2, '{'+"{}".format(", ".join(s))+'}', '{'+"{}".format(", ".join(condition))+'}'))
+        IP_tuples.append((n1, n2, '{'+"{}".format(", ".join([str(acl) for acl in s]))+'}', '{'+"{}".format(", ".join(condition))+'}'))
     
-    # print("IP_tuples", IP_tuples)
+    print("IP_tuples", IP_tuples)
     print("symbol_to_IP_mapping", symbol_to_IP_mapping)
 
     return IP_tuples, symbol_to_IP_mapping
+
+def convert_symbol_to_IP_from_path_nodes(path_nodes, IP_address_begin='1.0.0.1'):
+    """
+    Convert symbol to IP address from a list of nodes who form a path. It is used to the experiment of the chase on policies impact analysis.
+
+    Parameters:
+    -----------
+    path_nodes: list
+        a list of nodes who forms a path
+    
+    IP_address_begin: string(IP-address like)
+        the begin of IP addresses that used to mapping the symbolic integer to the real IP address
+
+    Returns:
+    --------
+    IP_tuples: list(tuple)
+        the encoding of E table
+    
+    symbolic_IP_mapping: dict
+        the mapping between symbolic integers and read IP addresses
+    
+    """
+    symbolic_IP_mapping = {}
+    IP_tuples = []
+    IPaddr = int(IPv4Address(IP_address_begin)) 
+    for idx, node in enumerate(path_nodes):
+        symbolic_IP_mapping[node] = str(IPv4Address(IPaddr))
+        IPaddr += 1
+
+        if idx == 0:
+            IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), 's', symbolic_IP_mapping[node], '{}'))
+            continue
+        elif idx == len(path_nodes) - 1:
+            IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
+            IP_tuples.append(('f', 's{}'.format(idx+1), 'd{}'.format(idx+1), symbolic_IP_mapping[node], 'd', '{}'))
+            continue
+        
+        IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
+    return IP_tuples, symbolic_IP_mapping
+
+def gen_hosts_IP_address(num_hosts, IP_address_begin='1.0.0.1'):
+    """
+    Generate a number of hosts' IP addresses. 
+
+    Parameters:
+    -----------
+    num_hosts: inetger
+        the number of hosts generated
+    
+    IP_address_begin: string(IP-address like)
+        the begin of IP addresses that used to mapping the symbolic integer to the real IP address
+
+    Returns:
+    --------
+    hosts_IPs: list
+        a list of IP addresses whose size is `num_hosts`.
+    
+    """
+    hosts_IPs = []
+    IPaddr = int(IPv4Address(IP_address_begin))
+    for i in range(num_hosts):
+        hosts_IPs.append(str(IPv4Address(IPaddr)))
+        IPaddr += 1
+
+    return hosts_IPs
+
 
 def load_table(tablename, attributes, tuples):
     """
