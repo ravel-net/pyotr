@@ -1,5 +1,7 @@
 # Homomorphism
-homomorphism.py provides the main function `homomorphism` that takes two tableux as input and returns whether or not there exists a homomorphism between them. If homomorphism does not exists and the data instance has variables, the function provides a counter example. The details of this function are given as comments in the code
+homomorphism.py provides the main function `homomorphism` that takes two tableux as input and returns whether or not there exists a homomorphism between them. If homomorphism does not exists and the data instance has variables, the function provides a counter example. The details of this function are given as comments in the code. The example can be run as:
+
+`python homomorphism.py`
 
 ### Requirements:
 1. Make sure that postgresql is installed.
