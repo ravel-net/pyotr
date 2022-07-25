@@ -9,6 +9,7 @@ make
 sudo -u [postgres username] -i
 psql -U [postgres username] -d [database name] -a -f [current folder location]/int_faure.sql
 ```
+Make sure that the database name and postgres user correspond to the one given in the database configuration file: https://github.com/ravel-net/pyotr/blob/cleanup/databaseconfig.py
 
 # Example
 If the postgres username is _postgres_, database name is _testDB_, and the root folder is at _/home/mudbri/pyotr/_ then the installation looks like the following: 
