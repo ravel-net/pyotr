@@ -1,5 +1,16 @@
 # Homomorphism
 homomorphism.py provides the main function `homomorphism` that takes two tableux as input and returns whether or not there exists a homomorphism between them. If homomorphism does not exists and the data instance has variables, the function provides a counter example. The details of this function are given as comments in the code
+
+### Requirements:
+1. Make sure that postgresql is installed.
+2. Make sure that the [databaseconfig](https://github.com/ravel-net/pyotr/blob/cleanup/databaseconfig.py) has correct information. The default usename and password is usually `postgres`. If a database does not exist, create one using:
+```
+sudo -u postgres -i # where postgres is a the user associated with postgres
+psql
+CREATE DATABASE [DB_NAME],
+```
+3. Make sure `int4_faure` is installed in the given database (e.g. in DB_name). The instructions to install are given [here](https://github.com/ravel-net/pyotr/blob/cleanup/Backend/storage/dataypes/int_faure/README.md) 
+
 ## Minimization Example
 Function `main` in homomorphism.py shows how to use the function for network minimization. Consider the network below:
 ![minimization_mubashir](https://user-images.githubusercontent.com/61048625/180695608-45a47a19-2883-465e-b190-153b9833d4f1.jpeg)
