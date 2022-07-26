@@ -232,11 +232,28 @@ def check_is_tautology(union_conditions, domain_conditions):
             if (k == "max memory"):
                 print ("Check_Taut Max Memory: %s : %s" % (k, v))
     if ans == z3.sat:
-        model = solver.model()
+        # model = solver.model()
         # print(model)
-        return False, z3_end - z3_begin, model
+        models = []
+
+        model = solver.model()
+        models.append(model)
+        solver.add(Not(And([v() == model[v] for v in model])))
+        
+        # get all valid combinations
+        while solver.check() == z3.sat:
+            model = solver.model()
+            models.append(model)
+            if not model:
+                break
+            solver.add(Not(And([v() == model[v] for v in model])))
+            # print(model)
+            if len(models) == 20:
+                break
+
+        return False, z3_end - z3_begin, models
     else:
-        return True, z3_end - z3_begin, ""
+        return True, z3_end - z3_begin, []
 
 if __name__ == '__main__':
     # datatype = "Int"
