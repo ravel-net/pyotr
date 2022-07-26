@@ -22,6 +22,8 @@ cursor = conn.cursor()
 
 def split_merge(group, tablename, table_attributes, domain, summary, storage_types, reasoning_type):
     """
+    Running homomorphism using split-merge method
+
     Parameters:
     -----------
     group: list[tuple]
@@ -45,15 +47,29 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
     reasoning_type: string
         the Z3 datatype of the variables when reasoning.
     
+    Returns:
+    ------------
+    ans : bool
+        Whether or not homomorphism exists between the given tableaux
+    model : list
+        a list of the counter examples if homomorphism doesn't exist (i.e. unsatisfiable condition encountered)
+    total_runtime : double
+        Total runtime of the process
+    data_time : double
+        Time taken to apply the query
+    upd_time : double
+        Time taken to update the conditions
+    simplification_time : dictionary
+        simplification_time["contradiction"] contains the time taken to remove contradictions while simplification_time["redundancy"] contains the time taken to remove redundancies
     """
     
-    ordered_group = reorder_tableau.reorder_closure_group(group)
+    # ordered_group = reorder_tableau.reorder_closure_group(group)
     # print("ordered_group", ordered_group)
-    sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary)
+    sqls, output_tables = reorder_tableau.gen_splitjoin_sql(group, tablename, table_attributes, summary)
     
     total_data_time, total_upd_time, total_simplification_time, total_checktime = 0, 0, {'contradiction': [0, 0], 'redundancy': [0, 0]}, 0
     
-
+    # data instance is constant
     if "condition" not in table_attributes:
 
         begin = time.time()

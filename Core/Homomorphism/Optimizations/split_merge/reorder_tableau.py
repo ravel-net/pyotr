@@ -23,7 +23,32 @@ def reorder_closure_group(group):
     # print(ordered_group)
     return ordered_group
 
-def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
+def gen_splitjoin_sql(group, tablename, table_attributes, summary):
+    """
+    Generate all SQLs when split a multi-join SQL into several subjoins
+
+    Parameters:
+    -----------
+    group: list[tuple]
+        a closure group
+    
+    tablename: string
+        the name of data instance table
+    
+    table_attributes: list[string]
+        the attributes of data instance table
+    
+    summary: list
+        the summary of the query
+
+    Returns:
+    ----------
+    sqls: list[string]
+        A list of SQLs that are subjoin SQLs
+    
+    output_tables: list[string]
+        A list of table names. Each table is the intermediate resulting table of the subjoin SQL.
+    """
     sqls = []
     output_tables = []
     comp_link = ""
@@ -32,28 +57,28 @@ def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
     if "condition" in table_attributes:
         contains_condition = True
 
-    if len(ordered_group) == 1:
+    if len(group) == 1:
         tables = [tablename, None]
         tables_attributes = [table_attributes, None]
 
-        sql = general_convert_tableau_to_sql(ordered_group, tables, tables_attributes, True, contains_condition, summary, None, None)
+        sql = general_convert_tableau_to_sql(group, tables, tables_attributes, True, contains_condition, summary, None, None)
         sqls.append(sql)
         output_tables.append("R1")
         return sqls, output_tables
-    elif len(ordered_group) == 2: # do not contains composition view but is final join
+    elif len(group) == 2: # do not contains composition view but is final join
         tables = [tablename, tablename]
         tables_attributes = [table_attributes, table_attributes]
-        sql = general_convert_tableau_to_sql(ordered_group, tables, tables_attributes, True, contains_condition, summary, None, None) # the final join does not need comp_link_attributes and comp_link_attributes_alias
+        sql = general_convert_tableau_to_sql(group, tables, tables_attributes, True, contains_condition, summary, None, None) # the final join does not need comp_link_attributes and comp_link_attributes_alias
         sqls.append(sql)
         output_tables.append("R1_2")
         return sqls, output_tables
 
     tables_attributes = None
-    for idx, link in enumerate(ordered_group):
+    for idx, link in enumerate(group):
         if idx == 0:
             continue
         elif idx == 1:
-            links = [ordered_group[idx-1], link]
+            links = [group[idx-1], link]
             tables = [tablename, tablename]
             tables_attributes = [table_attributes, table_attributes]
             node_dict = generate_node_dict(links)
@@ -69,7 +94,7 @@ def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
             node_dict = generate_node_dict(links)
             comp_link, comp_link_attributes, comp_link_attributes_alias = generate_composite_link(node_dict, tables.copy(), tables_attributes, contains_condition)
 
-            if idx == len(ordered_group) - 1: # contains composition view and is final join
+            if idx == len(group) - 1: # contains composition view and is final join
                 sql = general_convert_tableau_to_sql(links, tables, tables_attributes, True, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias)
             else:
                 sql = general_convert_tableau_to_sql(links, tables, tables_attributes, False, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias)
@@ -81,6 +106,37 @@ def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
     return sqls, output_tables
 
 def generate_node_dict(tableau):
+    """
+    Generate node dict for tableau.
+
+    Parameters:
+    -----------
+    tableau: list
+        A tableau
+
+    Returns:
+    ----------
+    node_dict: dict
+        the position information of each value in the tableau.The format is 
+        {   
+            value1: 
+                {   
+                    tuple_idx1: [column_idx1, column_idx2, ...], 
+                    tuple_idx2: [...], 
+                    ...
+                }, 
+            value2:{...}, 
+            ...
+        } 
+        For example, the node_dict is {1:{0:[0]}, 2:{0:[1], 1:[0], 3:{2:[1]}, 'x':{1:[1]}}}
+          | n1  n2   
+        --+------------
+          | 1    2
+        T | 2    x   
+          | x    3
+        --+-----------
+        u | 1    3
+    """
     node_dict = {}
     for idx, tup in enumerate(tableau):
         for i in range(len(tup)):
@@ -103,6 +159,34 @@ def generate_node_dict(tableau):
     return node_dict
 
 def generate_composite_link(node_dict, tables, tables_attributes, contains_condition):
+    """
+    Generate the headers of intermediate resulting table after applying subjoin
+
+    Parameters:
+    -----------
+    node_dict: dict
+        return by `generate_node_dict()`
+    
+    tables: list
+        list of table names
+    
+    tables_attributes:
+        list of attributes list for each table
+    
+    contains_condition: boolean
+        whether the attributes of data instance contains condition column 
+    
+    Returns:
+    ----------
+    composite_link: list
+        the selected values after applying subjoin
+    
+    comp_link_attributes:
+        the select clause of subjoin
+    
+    comp_link_attributes_alias:
+        the alias of each select clause of subjoin
+    """
     # print("tables_attributes", tables_attributes)
     if tables[0] == tables[1]: # defualt 2 tables
         tables[0] = tables[0]+'0'
@@ -147,6 +231,41 @@ def generate_composite_link(node_dict, tables, tables_attributes, contains_condi
     return composite_link, composite_link_attributes, composite_link_attributes_alias
 
 def general_convert_tableau_to_sql(tableau, tables, tableau_attributes, is_final_join, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias):
+    """
+    Convert tableau to SQL
+
+    Parameters:
+    -----------
+    tableau: list
+        one or two tuples by default. 
+    
+    tables: list
+        one or two table names. first table name is the table name of the first line of `tableau`, second table name is the table name of the second line of `tableau`
+    
+    tableau_attributes: list[list]
+        one or two list of table attributes. 
+    
+    is_final_join: boolean
+        Whether it is a final subjoin
+    
+    contains_condition: boolean
+        whether the attributes of data instance contains condition column
+    
+    summary: list
+        the summary of the query
+    
+    comp_link_attributes:
+        the select clause of subjoin
+    
+    comp_link_attributes_alias:
+        the alias of each select clause of subjoin
+
+    Returns:
+    ----------
+    sql: string
+        the subjoin SQL
+    
+    """
     # print("links", tableau)
     node_dict = generate_node_dict(tableau)
     # print("node_dict", node_dict)

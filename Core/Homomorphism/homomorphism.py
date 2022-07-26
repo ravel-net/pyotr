@@ -83,8 +83,8 @@ def homomorphism(query=[("1","1",""),("1","2","")], query_summary=["1","2"], dom
 	------------
 	ans : bool
 	    Whether or not homomorphism exists between the given tableaux
-	model : string
-		The counter example if homomorphism doesn't exist (i.e. unsatisfiable condition encountered)
+	model : list
+		a list of the counter examples if homomorphism doesn't exist (i.e. unsatisfiable condition encountered)
 	total_runtime : double
 		Total runtime of the process
 	data_time : double
