@@ -102,8 +102,8 @@ def homomorphism(query=[("1","1",""),("1","2","")], query_summary=["1","2"], dom
 		groups = closure_group.getAllClosureGroups(query)
 	for group in groups:
 		if (split_merge_on): # Not working. Need Fangping's input
-			variables = closure_group.find_variables(group)
-			data_time, upd_time, simplification_time, checktime, output_table = split_merge.split_merge(group, data_instance_table, variables, query_summary, storage_types, reasoning_type) #TODO: Split merge doesn't return individual runnin times
+			# variables = closure_group.find_variables(group)
+			data_time, upd_time, simplification_time, checktime, output_table = split_merge.split_merge(group, data_instance_table, column_names, domain, query_summary, storage_types, reasoning_type) #TODO: Split merge doesn't return individual runnin times
 
 			total_data_time += data_time
 			total_upd_time += upd_time

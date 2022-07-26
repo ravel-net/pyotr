@@ -181,23 +181,24 @@ def get_union_conditions(tablename='output', datatype='Int'):
 
 def get_domain_conditions(overlay_nodes, variables_list, datatype):
     begin = time.time()
-    max_node = get_max(overlay_nodes)
     var_domain_list = []
     for var in variables_list:
         var_domain = []
         
         for idx, val in enumerate(overlay_nodes):
             condition = ""
-            # if idx != 0 and idx != len(overlay_nodes) - 1:
-            #     interface_val = str(int(val) + max_node)
-            #     condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , interface_val)
-            #     var_domain.append(condition)
-            condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
+            if datatype.lower() == 'int':
+                if val.isdigit():
+                    condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
+                else:
+                    condition = "z3.{}('{}') == z3.{}('{}')".format(datatype, var, datatype , val)
+            else:
+                condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
             var_domain.append(condition)
         var_domain_list.append("Or({})".format(", ".join(var_domain)))
     domain_conditions = ", ".join(var_domain_list)  
     end = time.time()
-    # print(domain_conditions)
+    print(domain_conditions)
     return domain_conditions, end - begin
 
 def get_domain_conditions_general(domain, datatype):

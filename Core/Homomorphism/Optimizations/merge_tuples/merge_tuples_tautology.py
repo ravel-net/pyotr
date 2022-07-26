@@ -17,7 +17,7 @@ cursor = conn.cursor()
 
 OPEN_OUTPUT = False
 
-def merge_tuples(tablename, out_tablename, overlay_nodes, variables_list):
+def merge_tuples(tablename, out_tablename, domain, reasoning_type):
     if OPEN_OUTPUT:
         print("\n********************merge tuples******************************")
     cursor.execute("select * from {tablename} limit 1".format(tablename=tablename))
@@ -46,8 +46,7 @@ def merge_tuples(tablename, out_tablename, overlay_nodes, variables_list):
             tuple_dict[t] = [] 
 
         tuple_dict[t].append("And({conditions_no_dup})".format(conditions_no_dup=", ".join(conditions_no_duplicates)))
-        
-    domain_conditions, domain_time = check_tautology.get_domain_conditions(overlay_nodes, variables_list, 'Int')
+    domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain, reasoning_type)
 
     new_tuples = []
     for key in tuple_dict.keys():

@@ -19,11 +19,34 @@ import psycopg2
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-def split_merge(group, tablename, variables_list, summary, storage_types, reasoning_type):
+def split_merge(group, tablename, table_attributes, domain, summary, storage_types, reasoning_type):
+    """
+    Parameters:
+    -----------
+    group: list[tuple]
+        A list of variable closure group.
+
+    tablename: string
+        The table name of the tableau which contains the `group`
+    
+    domain: dict
+        domain of the variables. e.g. {"u":["1","2"], "v":["1","2"]}
+    
+    summary: list
+        the summary of the tableau
+    
+    storage_types: list
+        a list of attributes datatype
+    
+    reasoning_type: string
+        the Z3 datatype of the variables when reasoning.
+    
+    """
     
     ordered_group = reorder_tableau.reorder_closure_group(group)
-    sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, summary)
-
+    print("ordered_group", ordered_group)
+    sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary)
+    
     total_data_time, total_upd_time, total_simplification_time, total_checktime = 0, 0, {'contradiction': [0, 0], 'redundancy': [0, 0]}, 0
     for idx, sql in enumerate(sqls):
         print(sql)
@@ -32,7 +55,7 @@ def split_merge(group, tablename, variables_list, summary, storage_types, reason
         upd_time = translator.upd_condition(tree, storage_types[0])
         simplification_time = translator.normalization(reasoning_type)
         merge_begin = time.time()
-        rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], summary, variables_list)
+        rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], domain, reasoning_type)
         merge_end = time.time()
         
         total_data_time += data_time + (merge_end - merge_begin)
