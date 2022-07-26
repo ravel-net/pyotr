@@ -20,7 +20,7 @@ import Core.Homomorphism.Optimizations.split_merge.split_merge as split_merge
 OUTPUT_TABLE_NAME = "output" 
 
 def faure_valuation(sql, domain, storage_types, reasoning_type, output_table_name, simplification_on, column_names):
-	# For constant tables
+	# For constant tables (no variables so no need for conditions or reasoning)
 	if "condition" not in column_names:
 		begin = time.time()
 		conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
@@ -34,6 +34,7 @@ def faure_valuation(sql, domain, storage_types, reasoning_type, output_table_nam
 		end = time.time()
 		return sat, "", end-begin, 0, 0, 0
 
+	# For data table with variables
 	tree = translator_pyotr.generate_tree(sql)
 	data_time = translator_pyotr.data(tree)
 	upd_time = translator_pyotr.upd_condition(tree, storage_types[0]) # TODO: Need to update upd_condition to take into account different storage types for different columns
@@ -243,6 +244,16 @@ if __name__ == "__main__":
 	domain={"x":["1","2","3","4"], "y":["1","2","3","4"], "z":["1","2","3","4"]} #only relevant if the data instance has these variables
 	data_summary=["1","4"]
 
+	T_query = [
+		("1", "2"),
+		("2", "x"),
+		("x", "y"),
+		("y", "x"),
+		("x", "3"),
+		("3", "z"),
+		("z", "4"),
+	]
+
 	# ===================================
 	# minimization example with variables
 	# ===================================
@@ -281,16 +292,6 @@ if __name__ == "__main__":
 	# 	("7", "7"),
 	# ]	
 
-	T_query = [
-		("1", "2"),
-		("2", "x"),
-		("x", "y"),
-		("y", "x"),
-		("x", "3"),
-		("3", "z"),
-		("z", "4"),
-	]
-
 	results = homomorphism_test(query=T_query, query_summary=query_summary, data_instance=T_data, data_summary=data_summary, domain=domain, data_instance_table="T_data", column_names=column_names, storage_types=["int4_faure", "int4_faure"])
 
 	ans = results[0]
@@ -303,6 +304,7 @@ if __name__ == "__main__":
 		print("The applied query did not yield any tuples")
 
 
+	# =====================================================================================
 	# LINK FAILURE EXAMPLE
 	# =====================================================================================
 	# query_summary=["a","c","e"] 
@@ -314,6 +316,13 @@ if __name__ == "__main__":
 	# variable_clousre_on=False
 	# storage_types=["int4_faure", "int4_faure", "int4_faure", "int4_faure"]
 	# reasoning_type="Int"
+
+	# T_query = [
+	# 	("a","b","x","y",""),
+	# 	("b","c","x","y",""),
+	# 	("c","d","x","y",""),
+	# 	("d","e","x","y",""),
+	# ]
 
 	# ==========================================
 	# T_data_1 example (correct backup links)
@@ -349,13 +358,6 @@ if __name__ == "__main__":
 	# 	("3","3","x","y",""),
 	# 	("4","4","x","y",""),
 	# 	("5","5","x","y",""),
-	# ]
-
-	# T_query = [
-	# 	("a","b","x","y",""),
-	# 	("b","c","x","y",""),
-	# 	("c","d","x","y",""),
-	# 	("d","e","x","y",""),
 	# ]
 
 	# results = homomorphism_test(query=T_query, query_summary=query_summary, data_instance=T_data, data_summary=data_summary, domain=domain, data_instance_table="T_data", column_names=column_names)
