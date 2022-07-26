@@ -29,6 +29,9 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
 
     tablename: string
         The table name of the tableau which contains the `group`
+
+    table_attributes: list
+        the attrbutes of the tableau
     
     domain: dict
         domain of the variables. e.g. {"u":["1","2"], "v":["1","2"]}
@@ -49,37 +52,64 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
     sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary)
     
     total_data_time, total_upd_time, total_simplification_time, total_checktime = 0, 0, {'contradiction': [0, 0], 'redundancy': [0, 0]}, 0
-    for idx, sql in enumerate(sqls):
-        print(sql)
-        tree = translator.generate_tree(sql)
-        data_time = translator.data(tree)
-        upd_time = translator.upd_condition(tree, storage_types[0])
-        simplification_time = translator.normalization(reasoning_type)
-        merge_begin = time.time()
-        rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], domain, reasoning_type)
-        merge_end = time.time()
-        # exit()
-        total_data_time += data_time + (merge_end - merge_begin)
-        total_upd_time += upd_time
-        total_simplification_time["contradiction"][0] += simplification_time["contradiction"][0]
-        total_simplification_time["contradiction"][1] += simplification_time["contradiction"][1]
-        total_simplification_time["redundancy"][0] += simplification_time["redundancy"][0]
-        total_simplification_time["redundancy"][1] += simplification_time["redundancy"][1]
-        total_checktime += total_checktime
-        # print("Total time: ", merge_end-merge_begin)
+    
 
-    # check whether it is a tautology in the final result
-    final_output_table = output_tables[-1]
-    union_conditions, union_time = check_tautology.get_union_conditions(tablename=final_output_table, datatype=reasoning_type)
-    domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain=domain,datatype=reasoning_type)
-    checktime = 0
-    if union_conditions != "Or()": # i.e. Empty table
-        ans, checktime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
-        return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
+    if "condition" not in table_attributes:
+
+        begin = time.time()
+        conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+        conn.set_session()
+        cur = conn.cursor()
+
+        for idx, sql in enumerate(sqls):
+            print(sql)
+            cur.execute("drop table if exists {}".format(output_tables[idx]))
+            new_sql = "create table {} as {}".format(output_tables[idx], sql)
+            cur.execute(new_sql)
+            
+            end = time.time()
+            total_data_time += end-begin
+        conn.commit()
+
+        final_output_table = output_tables[-1]
+        cur.execute("select * from {}".format(final_output_table))
+        num_rows = cur.rowcount
+        ans = (num_rows == 0) 
+        conn.commit()
+        conn.close()
+        return ans, "", end-begin, 0, 0, 0
     else:
-        model = ""
-        ans = False
-        return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
+        for idx, sql in enumerate(sqls):
+            print(sql)
+            tree = translator.generate_tree(sql)
+            data_time = translator.data(tree)
+            upd_time = translator.upd_condition(tree, storage_types[0])
+            simplification_time = translator.normalization(reasoning_type)
+            merge_begin = time.time()
+            rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], domain, reasoning_type)
+            merge_end = time.time()
+            # exit()
+            total_data_time += data_time + (merge_end - merge_begin)
+            total_upd_time += upd_time
+            total_simplification_time["contradiction"][0] += simplification_time["contradiction"][0]
+            total_simplification_time["contradiction"][1] += simplification_time["contradiction"][1]
+            total_simplification_time["redundancy"][0] += simplification_time["redundancy"][0]
+            total_simplification_time["redundancy"][1] += simplification_time["redundancy"][1]
+            total_checktime += total_checktime
+            # print("Total time: ", merge_end-merge_begin)
+
+        # check whether it is a tautology in the final result
+        final_output_table = output_tables[-1]
+        union_conditions, union_time = check_tautology.get_union_conditions(tablename=final_output_table, datatype=reasoning_type)
+        domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain=domain,datatype=reasoning_type)
+        checktime = 0
+        if union_conditions != "Or()": # i.e. Empty table
+            ans, checktime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+            return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
+        else:
+            model = ""
+            ans = False
+            return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
     # return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime+checktime+domain_time
 
 

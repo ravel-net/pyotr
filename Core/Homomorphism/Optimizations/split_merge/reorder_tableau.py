@@ -28,18 +28,22 @@ def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
     output_tables = []
     comp_link = ""
     sql = ""
+    contains_condition = False
+    if "condition" in table_attributes:
+        contains_condition = True
+
     if len(ordered_group) == 1:
         tables = [tablename, None]
         tables_attributes = [table_attributes, None]
 
-        sql = general_convert_tableau_to_sql(ordered_group, tables, tables_attributes, True, summary, None, None)
+        sql = general_convert_tableau_to_sql(ordered_group, tables, tables_attributes, True, contains_condition, summary, None, None)
         sqls.append(sql)
         output_tables.append("R1")
         return sqls, output_tables
     elif len(ordered_group) == 2: # do not contains composition view but is final join
         tables = [tablename, tablename]
         tables_attributes = [table_attributes, table_attributes]
-        sql = general_convert_tableau_to_sql(ordered_group, tables, tables_attributes, True, summary, None, None) # the final join does not need comp_link_attributes and comp_link_attributes_alias
+        sql = general_convert_tableau_to_sql(ordered_group, tables, tables_attributes, True, contains_condition, summary, None, None) # the final join does not need comp_link_attributes and comp_link_attributes_alias
         sqls.append(sql)
         output_tables.append("R1_2")
         return sqls, output_tables
@@ -53,9 +57,9 @@ def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
             tables = [tablename, tablename]
             tables_attributes = [table_attributes, table_attributes]
             node_dict = generate_node_dict(links)
-            comp_link, comp_link_attributes, comp_link_attributes_alias = generate_composite_link(node_dict, tables.copy(), tables_attributes)
+            comp_link, comp_link_attributes, comp_link_attributes_alias = generate_composite_link(node_dict, tables.copy(), tables_attributes, contains_condition)
             
-            sql = general_convert_tableau_to_sql(links, tables, tables_attributes, False, summary, comp_link_attributes, comp_link_attributes_alias)
+            sql = general_convert_tableau_to_sql(links, tables, tables_attributes, False, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias)
 
             tables_attributes = [comp_link_attributes_alias, table_attributes]
             
@@ -63,12 +67,12 @@ def gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary):
             links = [comp_link, link]
             tables = ["R1_{}".format(idx), tablename]
             node_dict = generate_node_dict(links)
-            comp_link, comp_link_attributes, comp_link_attributes_alias = generate_composite_link(node_dict, tables.copy(), tables_attributes)
+            comp_link, comp_link_attributes, comp_link_attributes_alias = generate_composite_link(node_dict, tables.copy(), tables_attributes, contains_condition)
 
             if idx == len(ordered_group) - 1: # contains composition view and is final join
-                sql = general_convert_tableau_to_sql(links, tables, tables_attributes, True, summary, comp_link_attributes, comp_link_attributes_alias)
+                sql = general_convert_tableau_to_sql(links, tables, tables_attributes, True, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias)
             else:
-                sql = general_convert_tableau_to_sql(links, tables, tables_attributes, False, summary, comp_link_attributes, comp_link_attributes_alias)
+                sql = general_convert_tableau_to_sql(links, tables, tables_attributes, False, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias)
             
             tables_attributes = [comp_link_attributes_alias, table_attributes]
 
@@ -98,7 +102,7 @@ def generate_node_dict(tableau):
     # print("node_dict", node_dict)
     return node_dict
 
-def generate_composite_link(node_dict, tables, tables_attributes):
+def generate_composite_link(node_dict, tables, tables_attributes, contains_condition):
     # print("tables_attributes", tables_attributes)
     if tables[0] == tables[1]: # defualt 2 tables
         tables[0] = tables[0]+'0'
@@ -133,15 +137,16 @@ def generate_composite_link(node_dict, tables, tables_attributes):
         composite_link_attributes_alias.append("{}___{}__{}".format(t, attr_name, attr_mapping[t][attr_name]))
         composite_link.append(var)
     # for condition column
-    # composite_link.append('')
-    composite_link_attributes.append("condition")
-    composite_link_attributes_alias.append("condition")
+    if contains_condition:
+        composite_link.append("")
+        composite_link_attributes.append("condition")
+        composite_link_attributes_alias.append("condition")
     # print("composite_link", composite_link)
     # print("composite_link_attributes", composite_link_attributes)
     # print("composite_link_attributes_alias", composite_link_attributes_alias)
     return composite_link, composite_link_attributes, composite_link_attributes_alias
 
-def general_convert_tableau_to_sql(tableau, tables, tableau_attributes, is_final_join, summary, comp_link_attributes, comp_link_attributes_alias):
+def general_convert_tableau_to_sql(tableau, tables, tableau_attributes, is_final_join, contains_condition, summary, comp_link_attributes, comp_link_attributes_alias):
     # print("links", tableau)
     node_dict = generate_node_dict(tableau)
     # print("node_dict", node_dict)
@@ -181,7 +186,13 @@ def general_convert_tableau_to_sql(tableau, tables, tableau_attributes, is_final
 
     sql = None
     if is_final_join:
-        sql = "select {} from {} {}, {} {}".format(", ".join(summary), tables[0], "t0", tables[1], "t1")
+        if not contains_condition: # for the data instance is constant
+            select_clause = []
+            for val in summary:
+                select_clause.append('{} as "{}"'.format(val, val))
+            sql = "select {} from {} {}, {} {}".format(", ".join(select_clause), tables[0], "t0", tables[1], "t1")
+        else:
+            sql = "select {} from {} {}, {} {}".format(", ".join(summary), tables[0], "t0", tables[1], "t1")
     else:
         select_clause = []
         for i in range(len(comp_link_attributes)):
