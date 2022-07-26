@@ -77,7 +77,7 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
         ans = (num_rows == 0) 
         conn.commit()
         conn.close()
-        return ans, "", end-begin, 0, 0, 0
+        return ans, "", total_data_time, total_upd_time, total_simplification_time, total_checktime
     else:
         for idx, sql in enumerate(sqls):
             print(sql)
@@ -105,6 +105,7 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
         checktime = 0
         if union_conditions != "Or()": # i.e. Empty table
             ans, checktime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+            total_checktime += domain_time + checktime
             return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
         else:
             model = ""

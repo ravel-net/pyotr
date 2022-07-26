@@ -104,18 +104,17 @@ def homomorphism(query=[("1","1",""),("1","2","")], query_summary=["1","2"], dom
 	if (variable_clousre_on):
 		groups = closure_group.getAllClosureGroups(substituted_tableau)
 	for group in groups:
-		if (split_merge_on): # Not working. Need Fangping's input
-			# variables = closure_group.find_variables(group)
+		if (split_merge_on):
 			ans, model, data_time, upd_time, simplification_time, checktime = split_merge.split_merge(group, data_instance_table, column_names, domain, query_summary, storage_types, reasoning_type) #TODO: Split merge doesn't return individual runnin times
 
-			# total_data_time += data_time
-			# total_upd_time += upd_time
-			# total_simplification_time["contradiction"][0] += simplification_time["contradiction"][0]
-			# total_simplification_time["contradiction"][1] += simplification_time["contradiction"][1]
-			# total_simplification_time["redundancy"][0] += simplification_time["redundancy"][0]
-			# total_simplification_time["redundancy"][1] += simplification_time["redundancy"][1]
-			# total_checktime += total_checktime
-			# total_runtime += data_time+upd_time+checktime+simplification_time["contradiction"][1]+simplification_time["redundancy"][1]
+			total_data_time += data_time
+			total_upd_time += upd_time
+			total_simplification_time["contradiction"][0] += simplification_time["contradiction"][0]
+			total_simplification_time["contradiction"][1] += simplification_time["contradiction"][1]
+			total_simplification_time["redundancy"][0] += simplification_time["redundancy"][0]
+			total_simplification_time["redundancy"][1] += simplification_time["redundancy"][1]
+			total_checktime += total_checktime
+			total_runtime += data_time+upd_time+checktime+simplification_time["contradiction"][1]+simplification_time["redundancy"][1]
 
 			if (ans == False):
 				return ans, model, total_runtime, total_data_time, total_upd_time, total_simplification_time, total_checktime
