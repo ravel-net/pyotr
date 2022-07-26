@@ -9,6 +9,7 @@ sys.path.append(root)
 # sys.path.append(filename)
 
 import time 
+import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 import Core.Homomorphism.translator_pyotr as translator
 import Core.Homomorphism.tableau as tableau
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_tautology
@@ -44,7 +45,7 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
     """
     
     ordered_group = reorder_tableau.reorder_closure_group(group)
-    print("ordered_group", ordered_group)
+    # print("ordered_group", ordered_group)
     sqls, output_tables = reorder_tableau.gen_splitjoin_sql(ordered_group, tablename, table_attributes, summary)
     
     total_data_time, total_upd_time, total_simplification_time, total_checktime = 0, 0, {'contradiction': [0, 0], 'redundancy': [0, 0]}, 0
@@ -57,7 +58,7 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
         merge_begin = time.time()
         rows = merge_tuples_tautology.merge_tuples("output", output_tables[idx], domain, reasoning_type)
         merge_end = time.time()
-        
+        # exit()
         total_data_time += data_time + (merge_end - merge_begin)
         total_upd_time += upd_time
         total_simplification_time["contradiction"][0] += simplification_time["contradiction"][0]
@@ -67,7 +68,19 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
         total_checktime += total_checktime
         # print("Total time: ", merge_end-merge_begin)
 
-    return total_data_time, total_upd_time, total_simplification_time, total_checktime, output_tables[-1]
+    # check whether it is a tautology in the final result
+    final_output_table = output_tables[-1]
+    union_conditions, union_time = check_tautology.get_union_conditions(tablename=final_output_table, datatype=reasoning_type)
+    domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain=domain,datatype=reasoning_type)
+    checktime = 0
+    if union_conditions != "Or()": # i.e. Empty table
+        ans, checktime, model = check_tautology.check_is_tautology(union_conditions, domain_conditions)
+        return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
+    else:
+        model = ""
+        ans = False
+        return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime
+    # return ans, model, total_data_time, total_upd_time, total_simplification_time, total_checktime+checktime+domain_time
 
 
 if __name__ == '__main__':

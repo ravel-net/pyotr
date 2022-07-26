@@ -96,14 +96,17 @@ def homomorphism(query=[("1","1",""),("1","2","")], query_summary=["1","2"], dom
 	"""
 
 	ans, total_runtime, total_data_time, total_upd_time, total_simplification_time, total_checktime = False, 0, 0, 0, {'contradiction': [0, 0], 'redundancy': [0, 0]}, 0
-	groups = [query]
+	
+	# substitute summary
+	substituted_tableau = tableau.summary_substitutions(query, query_summary, data_summary)
+	groups = [substituted_tableau]
 
 	if (variable_clousre_on):
-		groups = closure_group.getAllClosureGroups(query)
+		groups = closure_group.getAllClosureGroups(substituted_tableau)
 	for group in groups:
 		if (split_merge_on): # Not working. Need Fangping's input
 			# variables = closure_group.find_variables(group)
-			data_time, upd_time, simplification_time, checktime, output_table = split_merge.split_merge(group, data_instance_table, column_names, domain, query_summary, storage_types, reasoning_type) #TODO: Split merge doesn't return individual runnin times
+			ans, model, data_time, upd_time, simplification_time, checktime = split_merge.split_merge(group, data_instance_table, column_names, domain, query_summary, storage_types, reasoning_type) #TODO: Split merge doesn't return individual runnin times
 
 			total_data_time += data_time
 			total_upd_time += upd_time
@@ -113,9 +116,13 @@ def homomorphism(query=[("1","1",""),("1","2","")], query_summary=["1","2"], dom
 			total_simplification_time["redundancy"][1] += simplification_time["redundancy"][1]
 			total_checktime += total_checktime
 			total_runtime += data_time+upd_time+checktime+simplification_time["contradiction"][1]+simplification_time["redundancy"][1]
+
+			if (ans == False):
+				return ans, model, total_runtime, total_data_time, total_upd_time, total_simplification_time, total_checktime
 		else:
-			substituted_tableau = tableau.summary_substitutions(query, query_summary, data_summary)
-			sql = tableau.general_convert_tableau_to_sql(substituted_tableau, data_instance_table, data_summary, column_names)
+			# substituted_tableau = tableau.summary_substitutions(query, query_summary, data_summary)
+			sql = tableau.general_convert_tableau_to_sql(group, data_instance_table, data_summary, column_names)
+			print(sql)
 			ans, model, data_time, upd_time, simplification_time, checktime = faure_valuation(sql, domain, storage_types, reasoning_type, OUTPUT_TABLE_NAME, simplification_on, column_names)
 
 			total_data_time += data_time
@@ -223,8 +230,9 @@ def homomorphism_test(query=[("1","1",""),("1","2","")], query_summary=["1","2"]
 	conn.set_session()
 	cursor = conn.cursor()
 	load_table(data_instance_table, data_instance, column_names, storage_types, cursor)
+	# exit()
 	ans, model, total_runtime, data_time, upd_time, simplification_time, checktime = homomorphism(query, query_summary, domain, data_instance_table, data_summary, column_names, split_merge_on, simplification_on, variable_clousre_on, storage_types, reasoning_type)
-	cursor.execute("DROP TABLE IF EXISTS {};".format(data_instance_table))
+	# cursor.execute("DROP TABLE IF EXISTS {};".format(data_instance_table))
 	conn.commit()
 	return ans, model, total_runtime, data_time, upd_time, simplification_time, checktime
 
