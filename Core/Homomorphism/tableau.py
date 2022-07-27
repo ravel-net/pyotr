@@ -42,7 +42,7 @@ def extractWhereCondition(c, i, variableList):
     condition = ["{} {} '{}'".format(column_name, opr, right_opd)]
     return condition
 
-# Takes a tableau query and substitutes the summary of that query with the summary of the instance tableau
+# Takes a tableau query and substitutes the summary of that query with the summary of the instance tableau (i.e. any variables in the query must map to the corresponding values in the data instance summary)
 # Note: The index of summary_query and summary_instance matter
 def summary_substitutions(tableau_query, summary_query, summary_instance):
 	substituted_tableau = []
@@ -51,14 +51,14 @@ def summary_substitutions(tableau_query, summary_query, summary_instance):
 		for col, val in enumerate(tuple):
 			curr_val = val
 			for index, answer in enumerate(summary_query):
-				if answer in val:
+				if answer in val and summary_instance[index].isdigit(): # if a matching entry is found and the match is not a variable
 					substitution = summary_instance[index]  
 					curr_val = val.replace(answer, substitution)
 			new_tuple += (curr_val,)
 		substituted_tableau.append(new_tuple)
 	return substituted_tableau
 
-def general_convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_names):
+def general_convert_tableau_to_sql(tableau, tablename, query_summary, column_names):
     """
     Convert tableau to corresponding SQL
 
@@ -73,8 +73,8 @@ def general_convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_nam
     tablename : string 
         The name of data table in database that stores the tableau
 
-    overlay_nodes : list
-        the list of constant nodes in overlay network    
+    query_summary : list
+        the summary of program/query tableau    
 
     column_names : list
         the list of column names in the network
@@ -105,7 +105,7 @@ def general_convert_tableau_to_sql(tableau, tablename, overlay_nodes, column_nam
                 if val not in variableList:
                     variableList[val] = []
                 variableList[val].append("t{}.{}".format(i, column_names[col]))
-            if val in overlay_nodes and val not in summary:
+            if val in query_summary and val not in summary:
                 summary.add(val)
                 summary_nodes.append('t{}.{}'.format(i, column_names[col]))
 

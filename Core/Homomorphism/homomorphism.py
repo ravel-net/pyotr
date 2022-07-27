@@ -20,6 +20,7 @@ import Core.Homomorphism.Optimizations.split_merge.split_merge as split_merge
 OUTPUT_TABLE_NAME = "output" 
 
 def faure_valuation(sql, domain, storage_types, reasoning_type, output_table_name, simplification_on, column_names):
+	print(sql)
 	# For constant tables (no variables so no need for conditions or reasoning)
 	if "condition" not in column_names:
 		begin = time.time()
@@ -115,7 +116,7 @@ def homomorphism(query=[("1","1",""),("1","2","")], query_summary=["1","2"], dom
 			total_runtime += data_time+upd_time+checktime+simplification_time["contradiction"][1]+simplification_time["redundancy"][1]
 		else:
 			substituted_tableau = tableau.summary_substitutions(query, query_summary, data_summary)
-			sql = tableau.general_convert_tableau_to_sql(substituted_tableau, data_instance_table, data_summary, column_names)
+			sql = tableau.general_convert_tableau_to_sql(substituted_tableau, data_instance_table, query_summary, column_names)
 			ans, model, data_time, upd_time, simplification_time, checktime = faure_valuation(sql, domain, storage_types, reasoning_type, OUTPUT_TABLE_NAME, simplification_on, column_names)
 
 			total_data_time += data_time
@@ -237,62 +238,26 @@ def homomorphism_test(query=[("1","1",""),("1","2","")], query_summary=["1","2"]
 # CREATE DATABASE [DB_NAME], 
 
 # 
+
+
 if __name__ == "__main__":
-	# MINIMIZATION EXAMPLE
-	# =====================================================================================
-	query_summary=["1","4"] 
-	domain={"x":["1","2","3","4"], "y":["1","2","3","4"], "z":["1","2","3","4"]} #only relevant if the data instance has these variables
-	data_summary=["1","4"]
+	query_summary=["1","3"] 
+	# domain={"x":["1","2","3","4"], "y":["1","2","3","4"], "z":["1","2","3","4"]} #only relevant if the data instance has these variables
+	domain={"u":["1","2","3"],"v":["1","2","3"]}
+	data_summary=["u","v"]
+	column_names=["n1","n2","condition"]
 
 	T_query = [
 		("1", "2"),
-		("2", "x"),
-		("x", "y"),
-		("y", "x"),
-		("x", "3"),
-		("3", "z"),
-		("z", "4"),
-	]
-
-	# ===================================
-	# minimization example with variables
-	# ===================================
-	column_names=["n1","n2", "condition"]
-	T_data = [
-		("1", "2", ""),
-		("2", "x", ""),
-		("x", "y", ""), # Homomorphism exists even after commenting this out (removing this tuple)
-		("y", "x", ""), # Homomorphism exists even after commenting this out (removing this tuple)
-		("x", "3", ""),
-		("3", "z", ""), 
-		("z", "4", ""),
-
-		# self loops
-		("x", "x", ""),
-		("y", "y", ""),
-		("z", "z", ""),
+		("2", "3"),
 	]	
 
-	# ===================================
-	# minimization example with constants
-	# ===================================
-	# column_names=["n1","n2"]
-	# T_data = [
-	# 	("1", "2"),
-	# 	("2", "5"),
-	# 	("5", "6"), # Homomorphism exists even after commenting this out (removing this tuple)
-	# 	("6", "5"), # Homomorphism exists even after commenting this out (removing this tuple)
-	# 	("5", "3"),
-	# 	("3", "7"),
-	# 	("7", "4"),
+	T_data = [
+		("u", "u",""),
+		("u", "v",""),
+	]
 
-	# 	# self loops
-	# 	("5", "5"),
-	# 	("6", "6"),
-	# 	("7", "7"),
-	# ]	
-
-	results = homomorphism_test(query=T_query, query_summary=query_summary, data_instance=T_data, data_summary=data_summary, domain=domain, data_instance_table="T_data", column_names=column_names, storage_types=["int4_faure", "int4_faure"])
+	results = homomorphism_test(query=T_query, query_summary=query_summary, data_instance=T_data, data_summary=data_summary, domain=domain, data_instance_table="T_data", column_names=column_names, storage_types=["int4_faure", "int4_faure"], simplification_on=False)
 
 	ans = results[0]
 	model = results[1]
@@ -302,6 +267,71 @@ if __name__ == "__main__":
 		print("Counter Example: ", model)
 	elif not ans and not model:
 		print("The applied query did not yield any tuples")
+
+# 	# MINIMIZATION EXAMPLE
+# 	# =====================================================================================
+# 	query_summary=["1","4"] 
+# 	domain={"x":["1","2","3","4"], "y":["1","2","3","4"], "z":["1","2","3","4"]} #only relevant if the data instance has these variables
+# 	data_summary=["1","4"]
+
+# 	T_query = [
+# 		("1", "2"),
+# 		("2", "x"),
+# 		("x", "y"),
+# 		("y", "x"),
+# 		("x", "3"),
+# 		("3", "z"),
+# 		("z", "4"),
+# 	]
+
+# 	# ===================================
+# 	# minimization example with variables
+# 	# ===================================
+# 	column_names=["n1","n2", "condition"]
+# 	T_data = [
+# 		("1", "2", ""),
+# 		("2", "x", ""),
+# 		("x", "y", ""), # Homomorphism exists even after commenting this out (removing this tuple)
+# 		("y", "x", ""), # Homomorphism exists even after commenting this out (removing this tuple)
+# 		("x", "3", ""),
+# 		("3", "z", ""), 
+# 		("z", "4", ""),
+
+# 		# self loops
+# 		("x", "x", ""),
+# 		("y", "y", ""),
+# 		("z", "z", ""),
+# 	]	
+
+# 	# ===================================
+# 	# minimization example with constants
+# 	# ===================================
+# 	# column_names=["n1","n2"]
+# 	# T_data = [
+# 	# 	("1", "2"),
+# 	# 	("2", "5"),
+# 	# 	("5", "6"), # Homomorphism exists even after commenting this out (removing this tuple)
+# 	# 	("6", "5"), # Homomorphism exists even after commenting this out (removing this tuple)
+# 	# 	("5", "3"),
+# 	# 	("3", "7"),
+# 	# 	("7", "4"),
+
+# 	# 	# self loops
+# 	# 	("5", "5"),
+# 	# 	("6", "6"),
+# 	# 	("7", "7"),
+# 	# ]	
+
+# 	results = homomorphism_test(query=T_query, query_summary=query_summary, data_instance=T_data, data_summary=data_summary, domain=domain, data_instance_table="T_data", column_names=column_names, storage_types=["int4_faure", "int4_faure"])
+
+# 	ans = results[0]
+# 	model = results[1]
+# 	print()
+# 	print("Homomorphism Exists?: ", ans)
+# 	if model:
+# 		print("Counter Example: ", model)
+# 	elif not ans and not model:
+# 		print("The applied query did not yield any tuples")
 
 
 	# =====================================================================================
