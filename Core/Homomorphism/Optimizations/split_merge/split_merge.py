@@ -90,7 +90,7 @@ def split_merge(group, tablename, table_attributes, domain, summary, storage_typ
         final_output_table = output_tables[-1]
         cur.execute("select * from {}".format(final_output_table))
         num_rows = cur.rowcount
-        ans = (num_rows == 0) 
+        ans = (num_rows != 0) 
         conn.commit()
         conn.close()
         return ans, "", total_data_time, total_upd_time, total_simplification_time, total_checktime

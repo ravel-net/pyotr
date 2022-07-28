@@ -308,7 +308,7 @@ def general_convert_tableau_to_sql(tableau, tables, tableau_attributes, is_final
         if not contains_condition: # for the data instance is constant
             select_clause = []
             for val in summary:
-                select_clause.append('{} as "{}"'.format(val, val))
+                select_clause.append("'{}' as \"{}\"".format(val, val))
             sql = "select {} from {} {}, {} {}".format(", ".join(select_clause), tables[0], "t0", tables[1], "t1")
         else:
             sql = "select {} from {} {}, {} {}".format(", ".join(summary), tables[0], "t0", tables[1], "t1")
