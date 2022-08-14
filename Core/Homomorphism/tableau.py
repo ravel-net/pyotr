@@ -51,12 +51,12 @@ def summary_substitutions(tableau_query, summary_query, summary_instance):
 		for col, val in enumerate(tuple):
 			curr_val = val
 			for index, answer in enumerate(summary_query):
-				if answer in val and summary_instance[index].isdigit(): # if a matching entry is found and the match is not a variable
+				if answer in val: # if a matching entry is found
 					substitution = summary_instance[index]  
 					curr_val = val.replace(answer, substitution)
 			new_tuple += (curr_val,)
 		substituted_tableau.append(new_tuple)
-	return substituted_tableau
+	return substituted_tableau, summary_instance
 
 def general_convert_tableau_to_sql(tableau, tablename, query_summary, column_names):
     """
@@ -108,7 +108,6 @@ def general_convert_tableau_to_sql(tableau, tablename, query_summary, column_nam
             if val in query_summary and val not in summary:
                 summary.add(val)
                 summary_nodes.append('t{}.{}'.format(i, column_names[col]))
-
     for var in variableList:
         for i in range(len(variableList[var])-1):
             constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
