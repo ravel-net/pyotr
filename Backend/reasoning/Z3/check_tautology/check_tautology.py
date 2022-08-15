@@ -181,23 +181,24 @@ def get_union_conditions(tablename='output', datatype='Int'):
 
 def get_domain_conditions(overlay_nodes, variables_list, datatype):
     begin = time.time()
-    max_node = get_max(overlay_nodes)
     var_domain_list = []
     for var in variables_list:
         var_domain = []
         
         for idx, val in enumerate(overlay_nodes):
             condition = ""
-            # if idx != 0 and idx != len(overlay_nodes) - 1:
-            #     interface_val = str(int(val) + max_node)
-            #     condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , interface_val)
-            #     var_domain.append(condition)
-            condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
+            if datatype.lower() == 'int':
+                if val.isdigit():
+                    condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
+                else:
+                    condition = "z3.{}('{}') == z3.{}('{}')".format(datatype, var, datatype , val)
+            else:
+                condition = "z3.{}('{}') == z3.{}Val({})".format(datatype, var, datatype , val)
             var_domain.append(condition)
         var_domain_list.append("Or({})".format(", ".join(var_domain)))
     domain_conditions = ", ".join(var_domain_list)  
     end = time.time()
-    # print(domain_conditions)
+    print(domain_conditions)
     return domain_conditions, end - begin
 
 def get_domain_conditions_general(domain, datatype):
@@ -231,11 +232,28 @@ def check_is_tautology(union_conditions, domain_conditions):
             if (k == "max memory"):
                 print ("Check_Taut Max Memory: %s : %s" % (k, v))
     if ans == z3.sat:
-        model = solver.model()
+        # model = solver.model()
         # print(model)
-        return False, z3_end - z3_begin, model
+        models = []
+
+        model = solver.model()
+        models.append(model)
+        solver.add(Not(And([v() == model[v] for v in model])))
+        
+        # get all valid combinations
+        while solver.check() == z3.sat:
+            model = solver.model()
+            models.append(model)
+            if not model:
+                break
+            solver.add(Not(And([v() == model[v] for v in model])))
+            # print(model)
+            if len(models) == 20:
+                break
+
+        return False, z3_end - z3_begin, models
     else:
-        return True, z3_end - z3_begin, ""
+        return True, z3_end - z3_begin, []
 
 if __name__ == '__main__':
     # datatype = "Int"

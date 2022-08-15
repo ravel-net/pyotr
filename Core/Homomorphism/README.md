@@ -1,5 +1,5 @@
 # Homomorphism
-homomorphism.py provides the main function `homomorphism` that takes two tableux as input and returns whether or not there exists a homomorphism between them. If homomorphism does not exists and the data instance has variables, the function provides a counter example. The details of this function are given as comments in the code. The example can be run as:
+homomorphism.py provides the main function `homomorphism` that takes two tableux as input and returns whether or not homomorphism exists between them. If homomorphism does not exist and the data instance has variables, the function provides a counter example. The details of this function are given as comments in the code. The example can be run as:
 
 `python homomorphism.py`
 
@@ -7,7 +7,7 @@ homomorphism.py provides the main function `homomorphism` that takes two tableux
 1. Make sure that postgresql is installed.
 2. Make sure that the [databaseconfig](https://github.com/ravel-net/pyotr/blob/cleanup/databaseconfig.py) has correct information. The default usename and password is usually `postgres`. If a database does not exist, create one using:
 ```
-sudo -u postgres -i # where postgres is a the user associated with postgres
+sudo -u postgres -i # where postgres is the user associated with postgres
 psql
 CREATE DATABASE [DB_NAME],
 ```
