@@ -1,19 +1,7 @@
 
 class DT_Atom:
     """
-    A class used to represent an bank account.
-    Attributes
-    ----------
-    __MIN_BALANCE : int
-        minimum allowed balance
-    Methods
-    -------
-    deposit(amount=0)
-        addas amount to balance
-    withdraw(amount=0)
-        subtracts amount from balance
-    from_csv(filepath)
-        returns class instance from csv file
+    A class used to represent a Datalog Atom
     """
     
     def __init__(self, atom_str):
