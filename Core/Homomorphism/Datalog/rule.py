@@ -15,20 +15,21 @@ class DT_Rule:
     A class used to represent a datalog rule.
     """
 
-    def __init__(self, rule_str):
+    def __init__(self, rule_str, databaseTypes={},operators=[]):
         head_str = rule_str.split(":-")[0].strip()
         body_str = rule_str.split(":-")[1].strip()
         self._variables = []
-        self._head = DT_Atom(head_str)
+        self._head = DT_Atom(head_str, databaseTypes, operators)
         self._body = []
         self._DBs = []
         self._mapping = {}
+        self._operators = operators
         db_names = []
         for atom_str in body_str.split("),"):
             atom_str = atom_str.strip()
             if atom_str[-1] != ")":
                 atom_str += ")"
-            currAtom = DT_Atom(atom_str)
+            currAtom = DT_Atom(atom_str, databaseTypes, operators)
             if currAtom.db["name"] not in db_names:
                 self._DBs.append(currAtom.db)
                 db_names.append(currAtom.db["name"])
@@ -77,10 +78,26 @@ class DT_Rule:
                         variableList[val] = []
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
         for param in self._head.parameters:
-            if param[0].isdigit():
-                summary_nodes.append(param)
-            else:
-                summary_nodes.append(variableList[param][0])
+            hasOperator = False
+            for op in self._operators:
+                concatinatingValues = []
+                if (op in param):
+                    hasOperator = True
+                    concatinatingVars = param.split(op)
+                    for concatinatingVar in concatinatingVars:
+                        concatinatingVar = concatinatingVar.strip()
+                        if not concatinatingVar[0].isdigit():
+                            concatinatingValues.append(variableList[concatinatingVar][0])
+                opString = " " + op + " "
+                summary = opString.join(concatinatingValues)
+                if summary:
+                    summary_nodes.append(summary)
+            if not hasOperator:
+                if param[0].isdigit():
+                    summary_nodes.append(param)
+                else:
+                    summary_nodes.append(variableList[param][0])
+            print(summary_nodes)
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
@@ -99,10 +116,27 @@ class DT_Rule:
     def isHeadContained(self, conn):
         constraints = []
         for col, param in enumerate(self._head.parameters):
-            if param[0].isdigit():
-                constraints.append("{} = {}".format(self._head.db["column_names"][col], param))
-            else:
-                constraints.append("{} = {}".format(self._head.db["column_names"][col], str(self._mapping[param])))
+            hasOperator = False
+            for op in self._operators:
+                concatinatingValues = []
+                if (op in param):
+                    hasOperator = True
+                    concatinatingVars = param.split(op)
+                    for concatinatingVar in concatinatingVars:
+                        concatinatingVar = concatinatingVar.strip()
+                        if not concatinatingVar[0].isdigit():
+                            concatinatingValues.append(str(self._mapping[concatinatingVar]))
+                    if op == "||":
+                        finalString = "{" + ",".join(concatinatingValues) +"}"
+                        constraints.append("{} = '{}'".format(self._head.db["column_names"][col], finalString))
+                    else:
+                        print("Error. Unsupported OP encountered")
+                        exit()
+            if not hasOperator:
+                if param[0].isdigit():
+                    constraints.append("{} = {}".format(self._head.db["column_names"][col], param))
+                else:
+                    constraints.append("{} = {}".format(self._head.db["column_names"][col], str(self._mapping[param])))
         sql = "select * from " + self._head.db["name"]
         if (constraints):
             sql += " where " + " and ".join(constraints)

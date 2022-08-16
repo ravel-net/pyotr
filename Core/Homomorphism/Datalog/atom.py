@@ -4,16 +4,30 @@ class DT_Atom:
     A class used to represent a Datalog Atom
     """
     
-    def __init__(self, atom_str):
+    def __init__(self, atom_str, databaseTypes={}, operators=[]):
         split_str = atom_str[:-1].split("(")
         self.db = {}
         self.variables = []
         self.parameters = split_str[1].split(",")
         self.db["name"] = split_str[0]
         self.db["column_names"] = []
+        self.db["column_types"] = []
         for i, var in enumerate(self.parameters):
             self.db["column_names"].append("c"+str(i))
-            if not var[0].isdigit() and var not in self.variables:
+            if self.db["name"] in databaseTypes:
+                self.db["column_types"].append(databaseTypes[self.db["name"]][i])
+            else:
+                self.db["column_types"].append("integer")
+            hasOperator = False
+            for op in operators:
+                if (op in var):
+                    hasOperator = True
+                    concatinatingVars = var.split(op)
+                    for concatinatingVar in concatinatingVars:
+                        concatinatingVar = concatinatingVar.strip()
+                        if not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
+                            self.variables.append(concatinatingVar)
+            if not hasOperator and not var[0].isdigit() and var not in self.variables:
                 self.variables.append(var)
         
     def __str__(self):
@@ -22,8 +36,11 @@ class DT_Atom:
 
     def addConstants(self, conn, mapping):
         variableConstants = []
-        for var in self.parameters:
-            variableConstants.append(str(mapping[var]))
+        for i, var in enumerate(self.parameters):
+            if self.db["column_types"][i] == "integer":
+                variableConstants.append(str(mapping[var]))
+            elif "[]" in self.db["column_types"][i]: # Only supports single dimensional array
+                variableConstants.append("ARRAY [" + str(mapping[var]) + "]")
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
         print(sql)
