@@ -39,6 +39,7 @@ class DT_Program:
     __MAX_ITERATIONS = 10
     __OPERATORS = ["||"]
     
+    # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
     def __init__(self, program_str, databaseTypes={}):
         rules_str = program_str.split("\n")
         self._rules = []
@@ -163,14 +164,18 @@ if __name__ == "__main__":
 
     # # Example 7 - Minimization
     p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
+    p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
     program1 = DT_Program(p1)
+    program2 = DT_Program(p2)
+    print(program1.contains(program2))
+    print(program2.contains(program1))    
     program1.minimize()
     print(program1)
 
     # # Control Plane Toy Example
     p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
     p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]})
+    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
     program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
     print(program2.contains(program1))
     print(program1.contains(program2))
