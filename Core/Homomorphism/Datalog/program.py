@@ -11,6 +11,29 @@ import databaseconfig as cfg
 class DT_Program:
     """
     A class used to represent a datalog program.
+
+    Attributes
+    ----------
+    __MAX_ITERATIONS : int
+        the maximum number of times a datalog program should be run (in case fixed point isn't reached)
+    __OPERATORS : string[]
+        operators supported in queries. Currently, only array concatination operator "||" is supported
+    _rules : DT_Rule[]
+        array of datalog rules
+
+
+    Methods
+    -------
+    contains(program2)
+        does this program uniformly contain program2?
+    minimize()
+        minimize this datalog program
+    execute(conn)
+        run this datalog program on database pointed by psycopg2 connection "conn"
+    initiateDB(conn)
+        initiate tables in this datalog program on database pointed by psycopg2 connection "conn"
+    contained_by_rule(rule2)
+        does rule2 uniformly contain this program?
     """
     
     __MAX_ITERATIONS = 10
@@ -62,7 +85,7 @@ class DT_Program:
                 table_creation_query += '{} {},'.format(db["column_names"][col], db["column_types"][col])
             table_creation_query = table_creation_query[:-1]
             table_creation_query += ");"
-            print(table_creation_query)
+            # print(table_creation_query)
             cursor.execute(table_creation_query)
         conn.commit()
 
@@ -130,16 +153,23 @@ class DT_Program:
     #     return date.replace("/", "-") 
     
 if __name__ == "__main__":
-    # p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
-    # p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
-    # program1 = DT_Program(p1)
-    # program2 = DT_Program(p2)
-    # print(program1.contains(program2))
-    # print(program2.contains(program1))    
+    # Example 6 - Containment
+    p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
+    p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
+    program1 = DT_Program(p1)
+    program2 = DT_Program(p2)
+    print(program1.contains(program2))
+    print(program2.contains(program1))    
 
+    # # Example 7 - Minimization
+    p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
+    program1 = DT_Program(p1)
+    program1.minimize()
+    print(program1)
+
+    # # Control Plane Toy Example
     p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
     p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
-    # p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
     program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]})
     program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
     print(program2.contains(program1))

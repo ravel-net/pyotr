@@ -2,6 +2,20 @@
 class DT_Atom:
     """
     A class used to represent a Datalog Atom
+    
+    Attributes
+    ----------
+    parameters : string[]
+        ordered list of parameters in the atom
+    db : dictionary{"name", "column_names", "column_types"}
+        databases referenced in the atom along with the column names and column types. The default column type is integer and the default column names is c1, c2, ..., cn
+    variables : string[]
+        list of variables in the atom
+
+    Methods
+    -------
+    addConstants(conn)
+        Add constants in place of variables referenced in this atom on database pointed by psycopg2 connection "conn". Conversion to sql and execution of sql occurs here
     """
     
     def __init__(self, atom_str, databaseTypes={}, operators=[]):
@@ -43,7 +57,7 @@ class DT_Atom:
                 variableConstants.append("ARRAY [" + str(mapping[var]) + "]")
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
-        print(sql)
+        # print(sql)
         cursor.execute(sql)
         conn.commit()
 

@@ -13,6 +13,29 @@ from atom import DT_Atom
 class DT_Rule:
     """
     A class used to represent a datalog rule.
+
+    Attributes
+    ----------
+    _head : DT_Atom
+        the head of the rule
+    _body : DT_Atom[]
+        the body of the rule, represented by an array of datalog rules
+    _DBs : dictionary{"name", "column_names", "column_types"}[]
+        list of databases referenced in the rule along with the column names and column types. The default column type is integer and the default column names is c1, c2, ..., cn
+    _variables : string[]
+        list of variables in rule
+    _mapping : dictionary{variable : integer}
+        mapping of variables to integers (used in containment). The only important part here is to map distinct variables to distinct constants
+    _operators : string[]
+        operators supported in queries. Currently, only array concatination operator "||" is supported
+
+
+    Methods
+    -------
+    execute(conn)
+        run this datalog rule on database pointed by psycopg2 connection "conn". Conversion to sql and execution of sql occurs here
+    isHeadContained(conn)
+        run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
 
     def __init__(self, rule_str, databaseTypes={},operators=[]):
@@ -97,7 +120,6 @@ class DT_Rule:
                     summary_nodes.append(param)
                 else:
                     summary_nodes.append(variableList[param][0])
-            print(summary_nodes)
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
@@ -106,7 +128,7 @@ class DT_Rule:
         if (constraints):
             sql += " where " + " and ".join(constraints)
         cursor = conn.cursor()
-        print(sql)
+        # print(sql)
         cursor.execute(sql)
         affectedRows = cursor.rowcount
         conn.commit()
@@ -140,7 +162,7 @@ class DT_Rule:
         sql = "select * from " + self._head.db["name"]
         if (constraints):
             sql += " where " + " and ".join(constraints)
-        print(sql)
+        # print(sql)
         cursor = conn.cursor()
         cursor.execute(sql)
         result = cursor.fetchall()
