@@ -7,8 +7,12 @@
 # Rule to sql
 # Populate with constants in database (return the expected head). Give connection
 # Expected head to sql
-from copy import deepcopy
-from atom import DT_Atom
+import sys
+from os.path import dirname, abspath
+root = dirname(dirname(dirname(dirname(abspath(__file__)))))
+sys.path.append(root)
+
+from Core.Homomorphism.Datalog.atom import DT_Atom
 
 class DT_Rule:
     """

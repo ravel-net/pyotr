@@ -1,12 +1,11 @@
 import sys
-import psycopg2 
-from copy import deepcopy
-from rule import DT_Rule
-from os.path import dirname, abspath, join
+from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
+import psycopg2 
+from copy import deepcopy
+from Core.Homomorphism.Datalog.rule import DT_Rule
 import databaseconfig as cfg
-
 
 class DT_Program:
     """
