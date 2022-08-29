@@ -1,6 +1,6 @@
 import sys
 from os.path import dirname, abspath, join
-root = dirname(dirname(abspath(__file__)))
+root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 
@@ -54,6 +54,81 @@ def generate_tree(query):
     return tree
 
 def tree_to_str(tree):
+    tree_copy = copy.deepcopy(tree)
+    sql_parts = []
+
+    select_clause = tree_copy['select']
+    select_part = ''
+    if '*' in select_clause:
+        select_part = '*'
+    else:
+        for idx, c in enumerate(select_clause):
+            c[0] = "".join(c[0])
+            if c[1] == 'as':
+                select_clause[idx] = " ".join(c)
+            else:
+                select_clause[idx] = "".join(c)
+        # select_clause = list(set(select_clause))
+        '''
+        remove duplicates in all columns and extra columns
+        '''
+        select_clause_no_dup = []
+        for s in select_clause:
+            if s not in select_clause_no_dup:
+                select_clause_no_dup.append(s)
+
+        select_part = ", ".join(select_clause_no_dup)
+    sql_parts.append('select')
+    sql_parts.append(select_part)
+
+    from_clause = tree_copy['from']
+    for idx, f in enumerate(from_clause):
+        if f[1] == '' or f[1] == ' ':
+            from_clause[idx] = "".join(f)
+        else:
+            from_clause[idx] = " ".join(f)
+    from_part = ", ".join(from_clause)
+    sql_parts.append('from')
+    sql_parts.append(from_part)
+
+    if 'where' in tree_copy.keys():
+        sql_parts.append('where')
+        where_clause = tree_copy['where']
+        key = list(where_clause.keys())[0]
+        where_part = where_clause['clause']
+        conditions = where_clause['conditions']
+        for idx, f in enumerate(conditions):
+            # '''
+            # len f = 3, use default operator [left_opd, operator, right_opd]
+            # len f = 4, use user-defined function [usr_func, '(', [left_opd, right_opd], ')']
+            # '''
+            # if len(f) == 3:
+            #     f[0] = "".join(f[0])
+            #     f[2] = "".join(f[2])
+            #     where_clause[key][idx] = " ".join(f)
+            # else:
+            #     f[2][0] = "".join(f[2][0])
+            #     f[2][1] = "".join(f[2][1])
+            #     f[2] = ", ".join(f[2])
+            #     where_clause[key][idx] = "".join(f)
+            # f = process_opr(f) # operator to user-defined function
+            # f[2][0] = "".join(f[2][0])
+            # f[2][1] = "".join(f[2][1])
+            # f[2] = ", ".join(f[2])
+            f[0] = "".join(f[0])
+            f[2] = "".join(f[2])
+            cond = " ".join(f)
+            placeholder = "POS{}".format(idx)
+            where_part = where_part.replace(placeholder, cond)
+        
+        # where_part = " {} ".format(key).join(where_clause[key])
+        sql_parts.append(where_part)
+
+    sql = " ".join(sql_parts)
+    # print(sql)
+    return sql
+
+def tree_to_str_old(tree):
     tree_copy = copy.deepcopy(tree)
     sql_parts = []
 
@@ -206,9 +281,90 @@ def process_from_clause(clause):
     # cols = [col.strip() for col in clause.split(',')]
     return cols
 
-
-
 def process_where_clause(clause):
+    i = 0
+    condition_positions = []
+    begin_trim_position = i
+    while i < len(clause):
+        if clause[i] == '(':
+            begin_trim_position = i + 1
+            i += 1
+            continue
+        elif clause[i] == ')' or (i < len(clause) - 3 and clause[i:i+4].lower() == ' or ') or (i < len(clause) - 4 and clause[i:i+5].lower() == ' and '):
+            # print("|{}|".format(clause[i: i+5]))
+            if begin_trim_position < i:
+                if len(clause[begin_trim_position:i].strip()) != 0:
+                    condition_positions.append((begin_trim_position, i))
+            else:
+                begin_trim_position = i + 1
+            
+            if clause[i] == ')':
+                begin_trim_position = i + 1
+            elif clause[i:i+4].lower() == ' or ':
+                i += 4
+                begin_trim_position = i
+                continue
+            elif clause[i:i+5].lower() == ' and ':
+                i += 5
+                begin_trim_position = i 
+                continue
+        i += 1
+    if i > begin_trim_position:
+        condition_positions.append((begin_trim_position, i))
+
+    # print("condition_positions", condition_positions)
+    condition_list = []
+    new_where_clause = ""
+    last_position = 0
+    for position, interval in enumerate(condition_positions):
+        begin = interval[0]
+        end = interval[1]
+
+        new_where_clause += clause[last_position:begin]
+        placehoder = "POS{}".format(position)
+
+        tree_formatted_condition = tool_tree_formatter_constraint(clause[begin:end])
+        condition_list.append(tree_formatted_condition)
+        new_where_clause += placehoder
+        last_position = end
+    
+    new_where_clause += clause[last_position: ]
+    # print("new_where_clause", new_where_clause)
+    # print("condition_list", condition_list)
+
+    return {'clause': new_where_clause, 'conditions': condition_list}
+             
+def tool_tree_formatter_constraint(condition):
+    match = re.search('!=|<=|>=|<>|<|>|=', condition)
+    left_opd = condition[:match.span()[0]].strip()
+    opr = match.group()
+    right_opd = condition[match.span()[1]:].strip()
+    
+    # whether specify table's name
+    left_opr_list = ['', '', ''] # [tablename, '.'/'', col]
+    if '.' in left_opd and not tableau.isIPAddress(left_opd):
+        items = left_opd.split('.')
+        left_opr_list[0] = items[0].strip()
+        left_opr_list[1] = '.'
+        left_opr_list[2] = items[1].strip()
+    else:
+        left_opr_list[2] = left_opd
+
+    # whether specify table's name
+    right_opr_list = ['', '', ''] # [tablename, '.'/'', col]
+    if '.' in right_opd and not tableau.isIPAddress(right_opd):
+        items = right_opd.split('.')
+        right_opr_list[0] = items[0].strip()
+        right_opr_list[1] = '.'
+        right_opr_list[2] = items[1].strip()
+    else:
+        right_opr_list[2] = right_opd
+    
+    # cond = process_opr([left_opr_list, opr, right_opr_list]) #(left_operand, operator, right_operand)
+    cond = [left_opr_list, opr, right_opr_list]
+    return cond
+
+def process_where_clause_old(clause):
     cond_list = []
     conditions = re.split('and|or', clause, flags=re.IGNORECASE)
     for c in conditions:
@@ -247,25 +403,6 @@ def process_where_clause(clause):
     keyword = match.group().lower() if match is not None else ""
 
     return {keyword:cond_list}
-
-def test(clause, cond_list):
-    last = 0 
-    i = 0
-    while i < len(clause):
-        if clause[i] == '(': 
-            if i > last:
-                cond_list.append(clause[last:i].strip())
-                temp_list = []
-                j = test(clause[i+1:], temp_list)
-                cond_list.append(temp_list)
-                i = i + j + 1
-                last = i
-        elif clause[i] == ')':
-            if i > last:
-                cond_list.append(clause[last:i].strip())
-            return i + 1
-        else:
-            i = i + 1
 
 def get_all_columns(tables):
     columns = []
@@ -325,6 +462,114 @@ def get_extra_columns(select):
             extra_cols.append([['', '', s[0][2]], 'as', '"{}"'.format(col)])
     return extra_cols          
 
+def tool_convert_sqllogic_to_z3logic(clause, conditions_list):
+    mapping_dict = {}
+    id_num = 0
+
+    while '(' in clause:
+        i = 0
+        left_parenth_position = i
+        while i < len(clause):
+            if clause[i] == '(':
+                left_parenth_position = i
+            elif clause[i] == ')':
+                block = clause[left_parenth_position + 1 : i]
+                new_clause = clause[:left_parenth_position] + '<{}>'.format(id_num) + clause[i+1:]
+                mapping_dict[id_num] = block
+                id_num += 1
+
+                clause = new_clause
+                break
+            i += 1
+    # print("clause", clause)
+    # print("mapping_dict", mapping_dict)
+
+    new_mapping_dict = {}
+    for b_id in mapping_dict.keys():
+        block_clause = mapping_dict[b_id]
+        sql_format_clause = tool_process_block(block_clause)
+        new_mapping_dict[b_id] = sql_format_clause
+    # print("new_mapping_dict", new_mapping_dict)
+    temp_clause = tool_process_block(clause)
+    # print("temp_clause", temp_clause)
+
+    temp_clause_id = len(new_mapping_dict.keys())
+    new_mapping_dict[temp_clause_id] = temp_clause
+
+    new_mapping_dict = replacement_for_blockid(new_mapping_dict)
+
+    placeholder_clause = new_mapping_dict[temp_clause_id]
+
+    split_parts = []
+    for idx, constraint in enumerate(conditions_list):
+        placeholder = "POS{}".format(idx)
+
+        parts = placeholder_clause.split(placeholder)
+        split_parts.append("'{}'".format(parts[0]))
+
+        if constraint[0][1] == '.': constraint[0][1] = '_'
+        if constraint[2][1] == '.': constraint[2][1] = '_'
+        left_opd = "".join(constraint[0])
+        opr = constraint[1]
+        right_opd = "".join(constraint[2])
+
+        combined_constraint = None
+        if opr == '=':
+            combined_constraint = "{} || ' == ' || {}".format(left_opd, right_opd)
+        else:
+            combined_constraint = "{} || ' {} ' || {}".format(left_opd, opr, right_opd)
+
+        split_parts.append(combined_constraint)
+        
+        if idx == len(conditions_list) - 1:
+            split_parts.append("'{}'".format(parts[1]))
+        else:
+            placeholder_clause = parts[1]
+
+
+    final_clause = " || ".join(split_parts)
+    # print("final_clause", final_clause)
+
+    return final_clause
+
+def replacement_for_blockid(new_mapping_dict):  
+    for key in new_mapping_dict.keys():
+        block = new_mapping_dict[key]
+
+        match = re.search('<[*0-9]>', block)
+        while match is not None:
+            id_num = int(match.group()[1:-1])
+
+            replace_block = new_mapping_dict[id_num]
+
+            block = block.replace(match.group(), replace_block)
+            
+            match = re.search('<[*0-9]>', block)
+        
+        new_mapping_dict[key] = block
+    
+    return new_mapping_dict
+
+def tool_process_block(clause):
+    or_conditions = re.split('or', clause, flags=re.IGNORECASE)
+    # print(or_conditions)
+
+    or_condition_list = []
+    for cond in or_conditions:
+        atoms = re.split('and', cond, flags=re.IGNORECASE )
+        atoms = [a.strip() for a in atoms]
+        if len(atoms) == 1:
+            or_condition_list.append(atoms[0])
+        else:
+            and_condition = "And({})".format(", ".join(atoms))
+            or_condition_list.append(and_condition)
+
+    if len(or_condition_list) == 1:
+        return or_condition_list[0]
+    
+    whole_condition = "Or({})".format(", ".join(or_condition_list))
+    return whole_condition
+
 #create data content
 def data(tree):
     if OPEN_OUTPUT:
@@ -365,43 +610,18 @@ def upd_condition(tree, datatype):
         print("\n************************Step 2: update condition****************************")
     cursor = conn.cursor()
 
-    where_caluse = tree['where']
-    keyword = list(where_caluse.keys())[0]
-    conditions = copy.deepcopy(where_caluse[keyword])
-
-    sql = ""
-    cond_list = []
-    where_list = []
-    for cond in conditions:
-        if cond[0][1] == '.': cond[0][1] = '_'
-        if cond[2][1] == '.': cond[2][1] = '_'
-        left_opd = "".join(cond[0])
-        right_opd = "".join(cond[2])
-
-        if cond[1] == '=':
-            cond_list.append("{} || ' {} ' || {}".format(left_opd, '==', right_opd))
-        else:
-            cond_list.append("{} || ' {} ' || {}".format(left_opd, cond[1], right_opd))
         
-        where_list.append([left_opd, right_opd])
+    where_caluse = tree['where']['clause']
+    conditions_list = copy.deepcopy(tree['where']['conditions'])
 
-    begin = time.time()
-    if keyword == '' or keyword == 'and':
-        
-        # for c in cond_list:
-        for idx, c in enumerate(cond_list):
-            # sql = "update output set condition = array_append(condition, {})".format(c)
-            sql = "update output set condition = array_append(condition, {}) where is_var({}::{}) or is_var({}::{})".format(c, where_list[idx][0], datatype, where_list[idx][1], datatype)
-            if OPEN_OUTPUT:
-                print(sql)
-            cursor.execute(sql)
-    else:
-        # keyword == or
-        sql = "update output set condition = array_append(condition, {})".format("'Or(' || " + " || ' , ' || ".join(cond_list) + " || ')'")
-        if OPEN_OUTPUT:
-            print(sql)
-        cursor.execute(sql)
-    count_time += (time.time() - begin)
+    conjunction_condition = tool_convert_sqllogic_to_z3logic(where_caluse, conditions_list)
+
+    begin_time = time.time()
+    sql = "update output set condition = array_append(condition, {})".format(conjunction_condition)
+    if OPEN_OUTPUT:
+        print(sql)
+    cursor.execute(sql)
+    count_time += (time.time() - begin_time)
 
     '''
     Check the selected columns
@@ -417,7 +637,7 @@ def upd_condition(tree, datatype):
         cursor.execute("select * from output limit 1")
         cols_name = [row[0] for row in cursor.description]
         begin = time.time()
-        for cond in conditions:
+        for cond in conditions_list:
             if cond[1] == '=':
                 left_opd = "".join(cond[0])
                 right_opd = "".join(cond[2])
@@ -759,13 +979,23 @@ if __name__ == "__main__":
     # sql = "select t1.n1, t3.n2 from tv t1, tv t2, tv t3, tv t4, tv t5, tv t6 where t1.n1 = '1' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = '2' and t4.n1 = '1' and t4.n2 = '1' and t5.n1 = t5.n2 and t6.n1 = t6.n2 and t1.n1 = t4.n1 and t2.n1 = t5.n1 and t3.n1 = t6.n1;"
     # sql = "select t1.n1, t3.n2 from tp t1, tp t2, tp t3, tp t4, tp t5, tp t6 where t1.n1 = '1' and t1.n2 = t2.n1 and t2.n2 = t3.n1 and t3.n2 = '2' and t4.n1 = '1' and t4.n2 = '1' and t5.n1 = t5.n2 and t6.n1 = t6.n2 and t1.n1 = t4.n1 and t2.n1 = t5.n1 and t3.n1 = t6.n1;"
     # sql = "select t0.n1 as n1, t1.n2 as n2 from f4755_intf t0, f4755_intf t1 where t0.n2 = t1.n1 and t0.n1 != t1.n2"
-    sql = "select t0.n1, t2.n2 from tp t0, tp t1, tp t2, tp t3, tp t4, tp t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = '2' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2"
+    # sql = "select t0.n1, t2.n2 from tp t0, tp t1, tp t2, tp t3, tp t4, tp t5 where t0.n1 = '1' and t0.n2 = t1.n1 and t2.n2 = '2' and t1.n2 = t2.n1 and t3.n1 = '1' and t3.n2 = '1' and t4.n1 = t4.n2 and t1.n1 = t4.n2 and t5.n1 = t5.n2 and t2.n1 = t5.n2"
+    sql = "select t0.a1, t2.a2 from r t0, r t1, r t2, r t3, r t4, r t5 where t0.a1 = '1' and t0.a2 = t1.a1 and t2.a2 = '2' and t1.a2 = t2.a1 and t3.a1 = '1' and t3.a2 = '1' and t4.a1 = t4.a2 and t1.a1 = t4.a2 and t5.a1 = t5.a2 and t2.a1 = t5.a2"
+    sql = "select * from r t0, r t1 where ((t0.a1 = '1' and t1.a2 = '1')  or t1.a1 != '4') and (t1.a2 = '1' or t1.a2 = '2')"
+    print(sql)
     tree = generate_tree(sql)
+    print(tree)
 
-    begin = time.time()
+    # tool_convert_sqllogic_to_z3logic(tree['where']['clause'])
+    # begin = time.time()
     data(tree)
     upd_condition(tree, "int4_faure")
-    normalization()
-    print("execution time: ", time.time() - begin)
+    # normalization()
+    # print("execution time: ", time.time() - begin)
 
     # update output set condition = array_cat(condition, '{"f2.fid || '' == '' || f3.fid", "f1.nid2 || '' == '' || f2.nid1", "f1.fid || '' == '' || f2.fid", "f2.nid2 || '' == '' || f3.nid1"}')
+
+    # where_caluse = "n2 = 1 or n1 = 2 and n1 < n2"
+    # where_caluse = "(n2 = 1 or n1 > n2) or (n1 = 2 and n1 < n2)"
+    # process_where_clause_new(where_caluse)
+    # tool_extract_constraints(where_caluse)

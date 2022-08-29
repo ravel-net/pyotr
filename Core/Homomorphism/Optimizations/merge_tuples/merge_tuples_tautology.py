@@ -45,13 +45,26 @@ def merge_tuples(tablename, out_tablename, domain, reasoning_type):
         if t not in tuple_dict.keys():
             tuple_dict[t] = [] 
 
-        tuple_dict[t].append("And({conditions_no_dup})".format(conditions_no_dup=", ".join(conditions_no_duplicates)))
+        if len(conditions_no_duplicates) == 0:
+            continue
+        elif len(conditions_no_duplicates) == 1:
+            tuple_dict[t].append(conditions_no_duplicates[0])
+        else:
+            tuple_dict[t].append("And({conditions_no_dup})".format(conditions_no_dup=", ".join(conditions_no_duplicates)))
     domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain, reasoning_type)
 
     new_tuples = []
     for key in tuple_dict.keys():
         tp = list(key)
-        or_cond = 'Or({tuple_conditions})'.format(tuple_conditions=", ".join(tuple_dict[key]))
+
+        or_cond = None
+        conditions = tuple_dict[key]
+        if len(conditions) == 0:
+            or_cond = "" # alsways true
+        elif len(conditions) == 1:
+            or_cond = conditions[0]
+        else:
+            or_cond = 'Or({tuple_conditions})'.format(tuple_conditions=", ".join(tuple_dict[key]))
         prcd_or_cond = condition_analyze.analyze(or_cond)
         is_tauto, check_time, model = check_tautology.check_is_tautology(prcd_or_cond, domain_conditions)
         if is_tauto:
