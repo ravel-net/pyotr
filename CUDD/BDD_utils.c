@@ -33,14 +33,22 @@ bool isLogicalOp(char letter){
 }
 
 DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* bdd_right) {
+    DdNode* tmp;
     if (curr_char == '&')
-        return Cudd_bddAnd(gbm, bdd_left, bdd_right);
+        tmp = Cudd_bddAnd(gbm, bdd_left, bdd_right);
     else if (curr_char == '^')
-        return Cudd_bddOr(gbm, bdd_left, bdd_right);    
+        tmp = Cudd_bddOr(gbm, bdd_left, bdd_right);    
     else if (curr_char == '$')
-        return Cudd_bddXnor(gbm, bdd_left, bdd_right);
-    assert(false);
-    return NULL;
+        tmp = Cudd_bddXnor(gbm, bdd_left, bdd_right);
+    else
+        assert(false);
+    return tmp;
+}
+
+DdNode* logicalNotBDD(DdNode* bdd) {
+    DdNode* bdd_not = Cudd_Not(bdd);
+    Cudd_Ref(bdd_not);
+    return bdd_not;
 }
 
 bool isLogicalNot(char curr_char) {
@@ -108,8 +116,7 @@ DdNode** initVars(int numVars, DdManager* gbm) {
     return variableNodes;
 }
 
-DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars) {
-    DdNode** variableNodes = initVars(numVars, gbm);
+DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars, DdNode** variableNodes) {
     int* i = malloc(sizeof(int));
     *i = 0;
     DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
@@ -133,8 +140,9 @@ int evaluateString(char* condition, int numVars, long* mem){
     // clock_t start, end;
     // double total_time;
     DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+    DdNode** variableNodes = initVars(numVars, gbm);
     // start = clock();
-    DdNode* bdd = convertToBDD(gbm, condition, numVars);
+    DdNode* bdd = convertToBDD(gbm, condition, numVars, variableNodes);
     int result = evaluateBDD(bdd);
     // end = clock();
     // total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
