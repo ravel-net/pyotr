@@ -18,6 +18,7 @@ The *BDD_manager* stores BDDs in a data structure and provides API calls to add 
 2. **int str_to_BDD(char\* C):** This function takes an encoded condition, converts it to a BDD, stores the BDD in an internal data structure, and returns a reference number (an integer) for that BDD. The reference number can then be used to access the corresponding BDD. The input string *C* must be encoded by calling function *convertToCUDD* defined in *encodeCUDD.py*. *str_to_BDD* uses the function *convertToBDD* defined in *BDD_utils* to convert the encoded string to a BDD. 
 3. **int operate_BDDs(int bdd_reference1, int bdd_reference2, char operation)**: Performs a logical operation between a BDD referenced by *bdd_reference1* and a BDD referenced by *bdd_reference2*. Note that the operation could be either ***'&'*** (logical AND) or ***'^'*** (logical OR). 
 4. **int evaluate(int bdd_reference)**: Evaluates the BDD referenced by bdd_reference. Returns either 0 (denotes Contradiction), 1 (denotes Tautology), or 2 (denotes Satisfiable).
+5. **bool is_implcation(int bdd_reference1, int bdd_reference2)**: Checks if the condition associated with bdd_reference1 implies the condition associated with bdd_reference2. Returns true if an implication exists
 
 ### BDD_array.c:
 ---
