@@ -11,13 +11,13 @@ import BDD_managerModule as bddmm
 import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_z3
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_BDD as merge_tuples_bdd
-import Backend.reasoning.Z3.check_tautology.condition_analyze as condition_analyze
+import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 cursor = conn.cursor()
 
-DATATYPE = 'int4_faure'
-REASONING_TYPE = 'Int'
+DATATYPE = 'inet_faure'
+REASONING_TYPE = 'BitVec'
 
 def check_programP_contains_ruleQ(P_programs, Q_data_instance, Q_summary, reasoning_type, datatype, reasoning_engine, simplification='On'):
     """
@@ -194,7 +194,7 @@ def check_programP_contains_ruleQ(P_programs, Q_data_instance, Q_summary, reason
                         if conditions are equavalent, meaning that two tuple are equivalent.
                         '''
                         if reasoning_engine == 'z3':
-                            is_equal = condition_analyze.check_equivalence_for_two_string_conditions(condition1, condition2)
+                            is_equal = check_tautology.check_equivalence_for_two_string_conditions(condition1, condition2, reasoning_type)
                             if is_equal:
                                 contains = True
                                 break
@@ -209,7 +209,7 @@ def check_programP_contains_ruleQ(P_programs, Q_data_instance, Q_summary, reason
                 
                 if contains:
                     return True
-            
+        exit()    
     return False
 
 # def check_equivalence_between_program_PandQ_integer():
@@ -217,21 +217,131 @@ def check_programP_contains_ruleQ(P_programs, Q_data_instance, Q_summary, reason
 
 
 if __name__ == '__main__':
+    # """
+    # Program P
+
+    # p1: R(z, d1)[d1 = 1] :- R(x, d1), R(y, d2), L(z, x), L(z, y), [d1 = 1]
+    # p2: R(z, d2)[d2 = 2] :- R(x, d1), R(y, d2), L(z, x), L(z, y), [d2 = 2]
+
+    # Program Q
+    # q1: R(v, d)[d = 1 or d = 2] :- R(u, d), L(v, u), [d = 1 or d = 2]
+    # """
+    
+    # # {tablename: str, sql: str, header: list, attributes:list}
+    # program_p1 = {
+    #     'tablename': 'R',
+    #     'sql':"select l1.a1 as a1, r1.a2 as a2 from R r1, R r2, L l1, L l2 where r1.a1 = l1.a2 and r2.a1 = l2.a2 and l1.a1 = l2.a1 and r1.a2 = '1'",
+    #     'header': ['z', 'd1', ["d1 == 1"]],
+    #     'attributes': ['a1', 'a2', 'condition']
+    # }
+
+    # # {tablename: {attributes:list, datatype: list, instance: list[tuple]}}
+    # instance_p1 = {
+    #     'R': {
+    #         'attributes': ['a1', 'a2', 'condition'],
+    #         'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #         'instance': [
+    #             ('3', 'd1', '{"d1 == 1"}'),
+    #             ('4', 'd2', '{}')
+    #         ]
+    #     },
+    #     'L': {
+    #         'attributes': ['a1', 'a2', 'condition'],
+    #         'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #         'instance': [
+    #             ('5', '3', '{}'),
+    #             ('5', '4', '{}')
+    #         ]
+    #     }
+    # }
+
+    # # {tablename: str, header: list, datatype: list, attributes:list}
+    # summary_p1 = {
+    #     'tablename': 'R',
+    #     'header': ['5', 'd1', ["d1 == 1"]],
+    #     'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #     'attributes': ['a1', 'a2', 'condition']
+    # }
+
+    # program_p2 = {
+    #     'tablename': 'R',
+    #     'sql': "select l1.a1 as a1, r1.a2 as a2 from R r1, R r2, L l1, L l2 where r1.a1 = l1.a2 and r2.a1 = l2.a2 and l1.a1 = l2.a1 and r2.a2 = '2'",
+    #     'header': ['z', 'd1', ["d1 == 1"]],
+    #     'attributes': ['a1', 'a2', 'condition']
+    # }
+
+    # instance_p2 = {
+    #     'R': {
+    #         'attributes': ['a1', 'a2', 'condition'],
+    #         'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #         'instance': [
+    #             ('3', 'd1', '{}'),
+    #             ('4', 'd2', '{"d2 == 2"}')
+    #         ]
+    #     },
+    #     'L': {
+    #         'attributes': ['a1', 'a2', 'condition'],
+    #         'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #         'instance': [
+    #             ('5', '3', '{}'),
+    #             ('5', '4', '{}')
+    #         ]
+    #     }
+    # }
+
+    # summary_p2 = {
+    #     'tablename': 'R',
+    #     'header': ['5', 'd2', ["d2 == 2"]],
+    #     'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #     'attributes': ['a1', 'a2', 'condition']
+    # }
+
+    # program_q1 = {
+    #     'tablename': 'R',
+    #     'sql':"select l1.a1 as a1, r1.a2 as a2 from R r1, L l1 where r1.a1 = l1.a2 and (r1.a2 = '1' or r1.a2 = '2')",
+    #     'header': ['v', 'd', ["Or(d == 1, d == 2)"]],
+    #     'attributes': ['a1', 'a2', 'condition']
+    # }
+
+    # instance_q1 = {
+    #     'R': {
+    #         'attributes': ['a1', 'a2', 'condition'],
+    #         'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #         'instance': [
+    #             ('3', 'd', '{"Or(d == 1, d == 2)"}')
+    #         ]
+    #     },
+    #     'L': {
+    #         'attributes': ['a1', 'a2', 'condition'],
+    #         'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #         'instance': [
+    #             ('4', '3', '{}')
+    #         ]
+    #     }
+    # }
+
+    # summary_q1 = {
+    #     'tablename': 'R',
+    #     'header': ['4', 'd', ["Or(d == 1, d == 2)"]],
+    #     'datatype': [DATATYPE, DATATYPE, 'text[]'],
+    #     'attributes': ['a1', 'a2', 'condition']
+    # }
+
     """
     Program P
 
-    p1: R(z, d1)[d1 = 1] :- R(x, d1), R(y, d2), L(z, x), L(z, y), [d1 = 1]
-    p2: R(z, d2)[d2 = 2] :- R(x, d1), R(y, d2), L(z, x), L(z, y), [d2 = 2]
+    p1: R(z, d1)[d1 = 10.0.0.0] :- R(x, d1), R(y, d2), L(z, x), L(z, y), [d1 = 10.0.0.0]
+    p2: R(z, d2)[d2 = 10.0.0.1] :- R(x, d1), R(y, d2), L(z, x), L(z, y), [d2 = 10.0.0.1]
 
     Program Q
-    q1: R(v, d)[d = 1 or d = 2] :- R(u, d), L(v, u), [d = 1 or d = 2]
+    q1: R(v, d)[d = 10.0.0.0/31] :- R(u, d), L(v, u), [d = 10.0.0.0/31]
     """
     
     # {tablename: str, sql: str, header: list, attributes:list}
     program_p1 = {
         'tablename': 'R',
-        'sql':"select l1.a1 as a1, r1.a2 as a2 from R r1, R r2, L l1, L l2 where r1.a1 = l1.a2 and r2.a1 = l2.a2 and l1.a1 = l2.a1 and r1.a2 = '1'",
-        'header': ['z', 'd1', ["d1 == 1"]],
+        'sql':"select l1.a1 as a1, r1.a2 as a2 from R r1, R r2, L l1, L l2 where r1.a1 = l1.a2 and r2.a1 = l2.a2 and l1.a1 = l2.a1 and r1.a2 = '10.0.0.0'",
+        'header': ['z', 'd1', ["d1 == 10.0.0.0"]],
         'attributes': ['a1', 'a2', 'condition']
     }
 
@@ -241,16 +351,16 @@ if __name__ == '__main__':
             'attributes': ['a1', 'a2', 'condition'],
             'datatype': [DATATYPE, DATATYPE, 'text[]'],
             'instance': [
-                ('x', 'd1', '{"d1 == 1"}'),
-                ('y', 'd2', '{}')
+                ('11.0.0.3', 'd1', '{"d1 == 10.0.0.0"}'),
+                ('11.0.0.4', 'd2', '{}')
             ]
         },
         'L': {
             'attributes': ['a1', 'a2', 'condition'],
             'datatype': [DATATYPE, DATATYPE, 'text[]'],
             'instance': [
-                ('z', 'x', '{}'),
-                ('z', 'y', '{}')
+                ('12.0.0.5', '11.0.0.3', '{}'),
+                ('12.0.0.5', '11.0.0.4', '{}')
             ]
         }
     }
@@ -258,15 +368,15 @@ if __name__ == '__main__':
     # {tablename: str, header: list, datatype: list, attributes:list}
     summary_p1 = {
         'tablename': 'R',
-        'header': ['z', 'd1', ["d1 == 1"]],
+        'header': ['12.0.0.5', 'd1', ["d1 == 10.0.0.0"]],
         'datatype': [DATATYPE, DATATYPE, 'text[]'],
         'attributes': ['a1', 'a2', 'condition']
     }
 
     program_p2 = {
         'tablename': 'R',
-        'sql': "select l1.a1 as a1, r1.a2 as a2 from R r1, R r2, L l1, L l2 where r1.a1 = l1.a2 and r2.a1 = l2.a2 and l1.a1 = l2.a1 and r2.a2 = '2'",
-        'header': ['z', 'd1', ["d1 == 1"]],
+        'sql': "select l1.a1 as a1, r1.a2 as a2 from R r1, R r2, L l1, L l2 where r1.a1 = l1.a2 and r2.a1 = l2.a2 and l1.a1 = l2.a1 and r2.a2 = '10.0.0.1'",
+        'header': ['z', 'd2', ["d2 == 10.0.0.1"]],
         'attributes': ['a1', 'a2', 'condition']
     }
 
@@ -275,31 +385,31 @@ if __name__ == '__main__':
             'attributes': ['a1', 'a2', 'condition'],
             'datatype': [DATATYPE, DATATYPE, 'text[]'],
             'instance': [
-                ('x', 'd1', '{}'),
-                ('y', 'd2', '{"d2 == 2"}')
+                ('11.0.0.3', 'd1', '{}'),
+                ('11.0.0.4', 'd2', '{"d2 == 10.0.0.1"}')
             ]
         },
         'L': {
             'attributes': ['a1', 'a2', 'condition'],
             'datatype': [DATATYPE, DATATYPE, 'text[]'],
             'instance': [
-                ('z', 'x', '{}'),
-                ('z', 'y', '{}')
+                ('12.0.0.5', '11.0.0.3', '{}'),
+                ('12.0.0.5', '11.0.0.4', '{}')
             ]
         }
     }
 
     summary_p2 = {
         'tablename': 'R',
-        'header': ['z', 'd2', ["d2 == 2"]],
+        'header': ['12.0.0.5', 'd2', ["d2 == 10.0.0.1"]],
         'datatype': [DATATYPE, DATATYPE, 'text[]'],
         'attributes': ['a1', 'a2', 'condition']
     }
 
     program_q1 = {
         'tablename': 'R',
-        'sql':"select l1.a1 as a1, r1.a2 as a2 from R r1, L l1 where r1.a1 = l1.a2 and (r1.a2 = '1' or r1.a2 = '2')",
-        'header': ['v', 'd', ["Or(d == 1, d == 2)"]],
+        'sql':"select l1.a1 as a1, r1.a2 as a2 from R r1, L l1 where r1.a1 = l1.a2 and r1.a2 = '10.0.0.0/31'",
+        'header': ['v', 'd', ["d == 10.0.0.0/31"]],
         'attributes': ['a1', 'a2', 'condition']
     }
 
@@ -308,21 +418,21 @@ if __name__ == '__main__':
             'attributes': ['a1', 'a2', 'condition'],
             'datatype': [DATATYPE, DATATYPE, 'text[]'],
             'instance': [
-                ('u', 'd', '{"Or(d == 1, d == 2)"}')
+                ('11.0.0.3', 'd', '{"d == 10.0.0.0/31"}')
             ]
         },
         'L': {
             'attributes': ['a1', 'a2', 'condition'],
             'datatype': [DATATYPE, DATATYPE, 'text[]'],
             'instance': [
-                ('v', 'u', '{}')
+                ('12.0.0.4', '11.0.0.3', '{}')
             ]
         }
     }
 
     summary_q1 = {
         'tablename': 'R',
-        'header': ['v', 'd', ["Or(d == 1, d == 2)"]],
+        'header': ['12.0.0.4', 'd', ["d == 10.0.0.0/31"]],
         'datatype': [DATATYPE, DATATYPE, 'text[]'],
         'attributes': ['a1', 'a2', 'condition']
     }

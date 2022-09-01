@@ -65,7 +65,7 @@ def merge_tuples(tablename, out_tablename, domain, reasoning_type):
             or_cond = conditions[0]
         else:
             or_cond = 'Or({tuple_conditions})'.format(tuple_conditions=", ".join(tuple_dict[key]))
-        prcd_or_cond = condition_analyze.analyze(or_cond)
+        prcd_or_cond = check_tautology.analyze(or_cond, reasoning_type)
         is_tauto, check_time, model = check_tautology.check_is_tautology(prcd_or_cond, domain_conditions)
         if is_tauto:
             tp.insert(idx_cond, '{}')

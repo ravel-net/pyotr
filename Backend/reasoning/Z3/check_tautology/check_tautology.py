@@ -1,6 +1,6 @@
 import sys
 from os.path import dirname, abspath, join
-root = dirname(dirname(dirname(abspath(__file__))))
+root = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
 print(root)
 sys.path.append(root)
 from ipaddress import IPv4Address, IPv4Network
@@ -61,7 +61,7 @@ def convert_z3_variable_bit(condition, datatype, bits):
         constraints = getRange(conditionSplit[0], conditionSplit[1], conditionSplit[2], "")
     elif not conditionSplit[0][0].isalpha():
         constraints = getRange(conditionSplit[2], conditionSplit[1], conditionSplit[0], "")
-    conditionFinal = "Or("
+    conditionFinal = "And("
     for i, constraint in enumerate(constraints):
 	    c_list = constraint.split()
 	    if c_list[0][0].isalpha():
@@ -98,6 +98,9 @@ def get_domain_conditions_from_list(domains, datatype):
 	return domain_conditions
 
 def analyze(condition, datatype):
+    if condition is None or len(condition) == 0:
+        return "True"
+
     cond_str = condition
     prcd_cond = ""
     if 'And' in cond_str or 'Or' in cond_str:
@@ -215,6 +218,29 @@ def get_domain_conditions_general(domain, datatype):
     end = time.time()
     return domain_conditions, end - begin
 
+def check_equivalence_for_two_string_conditions(condition1, condition2, reasoning_type='Int'):
+    # print("condition1", condition1)
+    # print("condition2", condition2)
+
+    prcd_condition1 = analyze(condition1, reasoning_type)
+    prcd_condition2 = analyze(condition2, reasoning_type)
+
+    C1 = eval(prcd_condition1)
+    C2 = eval(prcd_condition2)
+
+    # result = prove(C1 == C2)
+    s = z3.Solver()
+    # s.add(eval("Or(z3.BitVec('d',32) >= z3.BitVecVal('167772160',32),z3.BitVec('d',32) <= z3.BitVecVal('167772161',32))"))
+    s.add(Not(C1 == C2))
+    result = s.check()
+    if result == z3.unsat:
+        print("proved")
+        return True
+    else:
+        print("unproved")
+        print(s.model())
+        return False
+
 
 def check_is_tautology(union_conditions, domain_conditions):
     negation_union_conditions = "Not({})".format(union_conditions)
@@ -256,61 +282,23 @@ def check_is_tautology(union_conditions, domain_conditions):
         return True, z3_end - z3_begin, []
 
 if __name__ == '__main__':
-    # datatype = "Int"
-    # union_conditions, union_time = get_union_conditions(tablename="output", datatype=datatype)
-    # domain_conditions, domain_time = get_domain_conditions(overlay_nodes=['1', '2'], variables_list=['y1', 'y2'], datatype=datatype)
-    # print(union_conditions)
-    # print(domain_conditions)
-    condition1 = "Or(z3.BitVec('x',3) == z3.BitVecVal(1, 3), z3.BitVec('x',3) == z3.BitVecVal(3, 3))"
-    condition1_before = "Or(x == 1, x == 3)"
-    condition1 = analyzeBitVector(condition1_before, 3)
-    # condition2 = "Or(z3.Int('x1') == z3.IntVal(1), z3.Int('x1') == z3.IntVal(2)), Or(z3.Int('x2') == z3.IntVal(1), z3.Int('x2') == z3.IntVal(2))"
-    solver = z3.Solver()
-    solver.add(eval(condition1)) # set negation union conditions
-    print(z3.solve(eval(condition1)))
-    ans = solver.check() 
-    # ans, time, _ = check_is_tautology(condition1, condition2)
-    # solver.add(eval(negation_union_conditions)) # set negation union conditions
-    
-    print(ans)
 
-    # cursor.execute("select distinct 1, 2, condition from output")
 
-    # begin = time.time()
-    # union_cond = []
-    # row = cursor.fetchone()
-    # while row is not None:
-    #     conditions = row[2]
-    #     prced_conditions = []
-    #     for c in conditions:
-    #         op1, operator, op2 = analyze(c)
-    #         expr = "{} {} {}".format(op1, operator, op2)
-    #         prced_conditions.append(expr)
-    #     # print(prced_conditions)
-    #     and_cond = "And({})".format(", ".join(prced_conditions)) # LogicaL And for all conditions in one tuple
-    #     union_cond.append(and_cond)
-    #     row = cursor.fetchone()
-        
-    # union_condition = "Or({})".format(", ".join(union_cond)) # logical Or for every tuples' condition
-    # # print(condition)
+    cond1 = "Or(And(d == 10.0.0.0/31, And(11.0.0.3 == 11.0.0.3, 11.0.0.3 == 11.0.0.3, 12.0.0.4 == 12.0.0.4, d == 10.0.0.0)), And(d == 10.0.0.0/31, And(11.0.0.3 == 11.0.0.3, 11.0.0.3 == 11.0.0.3, 12.0.0.4 == 12.0.0.4, d == 10.0.0.1)), And(d == 10.0.0.0/31, And(11.0.0.3 == 11.0.0.3, 11.0.0.3 == 11.0.0.3, 12.0.0.4 == 12.0.0.4, d == 10.0.0.1)))"
+    cond2 = "d == 10.0.0.0/31"
+    check_equivalence_for_two_string_conditions(cond1, cond2, "BitVec")
 
-    # # domain_conditions = "Or(z3.Int('y1') == z3.IntVal('1'), z3.Int('y1') == z3.IntVal('2')), Or(z3.Int('y2') == z3.IntVal('1'), z3.Int('y2') == z3.IntVal('2'))"
-    # domain_conditions = "Or(z3.{}('y1') == z3.{}Val('1'), z3.{}('y1') == z3.{}Val('2')), \
-    #             Or(z3.{}('y2') == z3.{}Val('1'), z3.{}('y2') == z3.{}Val('2'))".format(datatype, datatype, datatype, datatype, datatype, datatype, datatype, datatype)
+    # d = z3.BitVec('d', 32)
+    # G = z3.Or(d == 167772161, d == 167772160)
+    # P = z3.And(d >= 167772160, d <= 167772161)
+    # # z3.prove(G == P)
 
-    # # domain_conditions.append(condition)
-    # final_condition = "Not({})".format(union_condition) # add negation to union condition
-    # print(final_condition)
-    # # print(union_cond)
-    # solver = z3.Solver()
-    
-    # solver.add(eval(domain_conditions)) # set domain for y1 and y2
-    # solver.add(eval(final_condition)) # set 
-    # z3_begin = time.time()
-    # ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
-    # if ans == z3.sat:
-    #     model = solver.model()
-    #     print(model)
-    # z3_end = time.time()
-    # print("Answer:", ans, "z3 execution time:", z3_end - z3_begin)
-    # print("total execution time: ", z3_end - begin)
+    # s = z3.Solver()
+    # s.add(z3.Or(d >= 167772160, d <= 167772161))
+    # s.add(Not(G == P))
+    # result = s.check()
+    # if result == z3.unsat:
+    #     print("proved")
+    # else:
+    #     print("unproved")
+    #     print(s.model())
