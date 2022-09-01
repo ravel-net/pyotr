@@ -1,9 +1,13 @@
+
 #include "util.h"
 #include "cudd.h"
 
 // #include "cuddInt.h"
 #include <time.h>
 #include <stdbool.h>
+#include <math.h>
+#include <unistd.h>
+#include <sys/time.h>
 
 #define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
 
@@ -19,7 +23,9 @@ int getVar(char* condition, int* i) {
     }
     var[j] = '\0';
     *i = *i+1; // skipping bracket/comma
-    return atoi(var);
+    int varIndex = atoi(var);
+    free(var);
+    return varIndex;
 }
 
 bool isLogicalOp(char letter){
@@ -27,14 +33,22 @@ bool isLogicalOp(char letter){
 }
 
 DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* bdd_right) {
+    DdNode* tmp;
     if (curr_char == '&')
-        return Cudd_bddAnd(gbm, bdd_left, bdd_right);
+        tmp = Cudd_bddAnd(gbm, bdd_left, bdd_right);
     else if (curr_char == '^')
-        return Cudd_bddOr(gbm, bdd_left, bdd_right);    
+        tmp = Cudd_bddOr(gbm, bdd_left, bdd_right);    
     else if (curr_char == '$')
-        return Cudd_bddXnor(gbm, bdd_left, bdd_right);
-    assert(false);
-    return NULL;
+        tmp = Cudd_bddXnor(gbm, bdd_left, bdd_right);
+    else
+        assert(false);
+    return tmp;
+}
+
+DdNode* logicalNotBDD(DdNode* bdd) {
+    DdNode* bdd_not = Cudd_Not(bdd);
+    Cudd_Ref(bdd_not);
+    return bdd_not;
 }
 
 bool isLogicalNot(char curr_char) {
@@ -45,32 +59,37 @@ bool isLogicalNot(char curr_char) {
 DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
     DdNode *bdd;
     char curr_char = condition[*i];
-    // int k = 0;i
     if (isLogicalOp(curr_char)) {
         *i = *i + 2; // Skipping bracket
         DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
-	DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
-	bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
-	Cudd_Ref(bdd);
+        DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
+        bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
+        Cudd_Ref(bdd);
+        // printf("\n1\n");
+        // Cudd_DebugCheck(gbm);
+        Cudd_RecursiveDeref(gbm,bdd_right);
+        Cudd_RecursiveDeref(gbm,bdd_left);
+        // printf("\n2\n");
+        // Cudd_DebugCheck(gbm);
     }
     else if (isLogicalNot(curr_char)) {
-	*i = *i + 2; // Skipping bracket
+        *i = *i + 2; // Skipping bracket
         DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
-	bdd = Cudd_Not(tmp);
+        bdd = Cudd_Not(tmp);
         Cudd_Ref(bdd);
         Cudd_RecursiveDeref(gbm,tmp);
     }
     else if (curr_char == ',' || curr_char == '(' || curr_char == ')') {
         *i = *i + 1;
-	bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); 
+        bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); 
     }
 
     // must be a variables at this point
     else if (isdigit(curr_char)) {
-	int index = getVar(condition,i);
+    int index = getVar(condition,i);
         if (index == 1) {
             bdd = Cudd_ReadOne(gbm);
-	    Cudd_Ref(bdd);
+            Cudd_Ref(bdd);
         }
         else if (index == 0) {
             bdd = Cudd_Not(Cudd_ReadOne(gbm));
@@ -78,12 +97,12 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
         }
         else {
             bdd = variableNodes[index-2];
-	    Cudd_Ref(bdd);
-	}
+            Cudd_Ref(bdd);
+        }
     }
     else {
-    	assert(false);
-	bdd = NULL;
+        assert(false);
+        bdd = NULL;
     }
     return bdd;
 }
@@ -92,16 +111,16 @@ DdNode** initVars(int numVars, DdManager* gbm) {
     DdNode** variableNodes = malloc(sizeof(DdNode*)*numVars);
     for (int i = 0; i < numVars; i++) {
         variableNodes[i] = Cudd_bddNewVar(gbm);
+        // Cudd_Ref(variableNodes[i]);
     }
     return variableNodes;
 }
 
-DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars) {
-    DdNode** variableNodes = initVars(numVars, gbm);
+DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars, DdNode** variableNodes) {
     int* i = malloc(sizeof(int));
     *i = 0;
     DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
-	//free(i); 
+    free(i); 
     return bdd;
 } 
 
@@ -117,19 +136,21 @@ int evaluateBDD(DdNode* bdd) {
     }
 }
  
-void evaluateString(char* condition, int numVars){
+int evaluateString(char* condition, int numVars, long* mem){
     // clock_t start, end;
     // double total_time;
     DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+    DdNode** variableNodes = initVars(numVars, gbm);
     // start = clock();
-    DdNode* bdd = convertToBDD(gbm, condition, numVars);
+    DdNode* bdd = convertToBDD(gbm, condition, numVars, variableNodes);
     int result = evaluateBDD(bdd);
     // end = clock();
     // total_time = ((double) (end - start)) / CLOCKS_PER_SEC;
     // printf("Total Time: %f\n", total_time);
-    printf("Result: %d\n", result);
+    // printf("Result: %d %ld", result);
+    *mem = Cudd_ReadMemoryInUse(gbm);
     Cudd_Quit(gbm);
-    return;
+    return result;
 }
 
 int numBinaryVars(int numberOfVariables, int domainCardinality) {
@@ -153,12 +174,25 @@ int evaluateFromFile (int argc, char *argv[])
         printf("File does not exist"); 
         exit(1); 
     }
-    printf("Case\t\tTotal Time\n");
+    printf("Case\t\tTotal Time (ms)\tMemory (mb)\n");
     while ((r = fscanf(fp, "%d %d", &numVars, &conditionSize)) != EOF) {
         condition = malloc(sizeof(char)*conditionSize+1);
         r = fscanf(fp, "%s", condition);
-        // printf("condition: \t\t%s\n\n", condition);
-        evaluateString(condition, numVars);
+        long* mem = malloc(sizeof(long));
+        
+        // measuring time
+        long start, end;
+        struct timeval timecheck;
+        gettimeofday(&timecheck, NULL);
+        start = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+
+        int result = evaluateString(condition, numVars, mem);
+
+        gettimeofday(&timecheck, NULL);
+        end = (long)timecheck.tv_sec * 1000 + (long)timecheck.tv_usec / 1000;
+
+        printf("%d\t\t%ld\t\t%ld\n", result, (end - start), (*mem)/1048576);
+        free(mem);
     }
 
     fclose(fp);

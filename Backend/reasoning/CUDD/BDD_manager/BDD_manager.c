@@ -7,16 +7,30 @@
 #define INITIALSIZE 16 // Initial Size of the array
 
 // Global variables for state management
- BDD_array BDDs; // Data structure to store BDDs
+BDD_array BDDs; // Data structure to store BDDs
 DdManager* gbm; // 
+DdNode** variableNodes; // stores variables
 int numVars; // Number of variables in program
 
+void write_dd (DdManager *gbm, DdNode *dd, char* filename)
+{
+    FILE *outfile; // output file pointer for .dot file
+    outfile = fopen(filename,"w");
+    DdNode **ddnodearray = (DdNode**)malloc(sizeof(DdNode*)); // initialize the function array
+    ddnodearray[0] = dd;
+    Cudd_DumpDot(gbm, 1, ddnodearray, NULL, NULL, outfile); // dump the function to .dot file
+    free(ddnodearray);
+    fclose (outfile); // close the file */
+}
+
 void Cinitialize(int numberOfVariables, int domainCardinality) { 
-  initializeBDD(&BDDs, INITIALSIZE);
-  gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-  numVars = numBinaryVars(numberOfVariables, domainCardinality);
-  //Cudd_AutodynEnable(gbm, CUDD_REORDER_RANDOM);
-  //Cudd_ReduceHeap(gbm, CUDD_REORDER_RANDOM, 30000);
+    initializeBDD(&BDDs, INITIALSIZE);
+    numVars = numBinaryVars(numberOfVariables, domainCardinality);
+    gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+    variableNodes = initVars(numVars, gbm);
+    // gbm = Cudd_Init(numVars,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+    // Cudd_AutodynEnable(gbm, CUDD_REORDER_SYMM_SIFT);
+    // Cudd_ReduceHeap(gbm, CUDD_REORDER_SYMM_SIFT, 3000);
 }
   
 static PyObject* initialize(PyObject* self, PyObject* args)
@@ -64,7 +78,7 @@ static PyObject* evaluate(PyObject* self, PyObject* args)
 // Input: Encoded string condition
 // Output: Index of the constructed BDD
 int Cstr_to_BDD(char* C) {
-    DdNode* bdd = convertToBDD(gbm, C, numVars);
+    DdNode* bdd = convertToBDD(gbm, C, numVars, variableNodes);
     return insertBDD(&BDDs, bdd);
 }
 
@@ -79,13 +93,35 @@ static PyObject* str_to_BDD(PyObject* self, PyObject* args)
     return Py_BuildValue("i", Cstr_to_BDD(C));
 }
 
+bool Cis_implcation(int bdd_reference1, int bdd_reference2) {
+    DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
+    DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
+    DdNode* bdd_1_not = logicalNotBDD(bdd_1);
+    DdNode* bdd_ans = logicalOpBDD('^', gbm, bdd_1_not, bdd_2);
+    // TODO: Might be a good idea to see if bdd_ans and bdd_1_not can be derefrenced
+    int answer = evaluateBDD(bdd_ans);
+    return (answer == 1); // If answer is 1, that means it's a tautology
+}    
+
+static PyObject* is_implcation(PyObject* self, PyObject* args)
+{
+    // instantiate our `n` value
+    int bdd_reference1; 
+    int bdd_reference2;
+    
+    // if our `n` value
+    if(!PyArg_ParseTuple(args, "ii", &bdd_reference1, &bdd_reference2))
+        return NULL;
+    bool result = Cis_implcation(bdd_reference1, bdd_reference2);
+    return Py_BuildValue("p", result);
+}
+
 // Input: Encoded string condition
 // Output: Index of the constructed BDD
 int Coperate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
     DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
     DdNode* bdd = logicalOpBDD(operation, gbm, bdd_1, bdd_2);
-    Cudd_Ref(bdd);
     return insertBDD(&BDDs, bdd);
 }
 
