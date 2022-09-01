@@ -93,7 +93,7 @@ static PyObject* str_to_BDD(PyObject* self, PyObject* args)
     return Py_BuildValue("i", Cstr_to_BDD(C));
 }
 
-bool Cis_implcation(int bdd_reference1, int bdd_reference2) {
+bool Cis_implication(int bdd_reference1, int bdd_reference2) {
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
     DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
     DdNode* bdd_1_not = logicalNotBDD(bdd_1);
@@ -103,7 +103,7 @@ bool Cis_implcation(int bdd_reference1, int bdd_reference2) {
     return (answer == 1); // If answer is 1, that means it's a tautology
 }    
 
-static PyObject* is_implcation(PyObject* self, PyObject* args)
+static PyObject* is_implication(PyObject* self, PyObject* args)
 {
     // instantiate our `n` value
     int bdd_reference1; 
@@ -112,8 +112,11 @@ static PyObject* is_implcation(PyObject* self, PyObject* args)
     // if our `n` value
     if(!PyArg_ParseTuple(args, "ii", &bdd_reference1, &bdd_reference2))
         return NULL;
-    bool result = Cis_implcation(bdd_reference1, bdd_reference2);
-    return Py_BuildValue("p", result);
+    bool result = Cis_implication(bdd_reference1, bdd_reference2);
+    if(result)
+        return Py_BuildValue("i", 1);
+    else
+        return Py_BuildValue("i", 0);
 }
 
 // Input: Encoded string condition
@@ -146,6 +149,7 @@ static PyMethodDef BDD_Methods[] = {
     {"str_to_BDD", str_to_BDD, METH_VARARGS, "Constrcut BDD for string condition."},
     {"operate_BDDs", operate_BDDs, METH_VARARGS, "Do logical operation between two BDDs."},
     {"readMemoryInUse", readMemoryInUse, METH_VARARGS, "Get memory of gbm"},
+    {"is_implication", is_implication, METH_VARARGS, "Check if BDD1 implies BDD2."},
     {NULL, NULL, 0, NULL}
 };
 
