@@ -3,6 +3,7 @@ from os.path import dirname, abspath, join
 import sys
 import math
 import time
+from ipaddress import IPv4Address
 
 TRUE = "(1)"
 FALSE = "(0)"
@@ -56,13 +57,13 @@ def preprocessCond(var1, var2):
 	else:
 		return str(var1), str(var2)
 
-def binaryRepresentation(var1, numBinDigits, binary_rep):
+def binaryRepresentation(var1, numBinDigits, binary_rep, expectedBinDigits):
 	newItems = []
 	iterator = 0
 	diff_len = numBinDigits - len(binary_rep)
 	for i in range(diff_len):
 		binary_rep = '0'+binary_rep
-	for val in binary_rep: # binary representation
+	for val in binary_rep[:expectedBinDigits]: # binary representation
 		# print(splitConditions[0])
 		# print(bin(updatedDomains[splitConditions[0]].index(splitConditions[1]))[2:])
 		# print(val)
@@ -74,35 +75,51 @@ def binaryRepresentation(var1, numBinDigits, binary_rep):
 		iterator += 1
 	return newItems
 
-def processCon(var1, var2, updatedDomains):
+def processCon(var1, var2, updatedDomains, is_ip):
 	newItems = []
 	processedCond = ""
-	numBinDigits = math.ceil(math.log(len(updatedDomains),2))
+	numBinDigits = 32
+	if not is_ip:
+		numBinDigits = math.ceil(math.log(len(updatedDomains),2))
 	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
 		for i in range(numBinDigits):
 			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
 		processedCond = combineItems(newItems, "&")
 	else:
 		newVar1, newVar2 = preprocessCond(var1, var2)
-		if (newVar1 != TRUE and newVar1 != FALSE): # case when it is constant = constant
+		if (newVar1 == TRUE or newVar1 == FALSE): # case when it is constant = constant
+			processedCond = newVar1
+		elif (is_ip): # For IP address. Only 32 bit ip addresses supported right now
+			ip = newVar2
+			subnet = 32
+			if '/' in newVar2:
+				varsplit = newVar2.split("/")
+				ip = varsplit[0]
+				subnet = int(varsplit[1])
+			addr = IPv4Address(ip)
+			binary_rep = bin(int(addr))[2:]
+			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, subnet)
+			processedCond = combineItems(newItems, "&")
+		else: # case when it is var = constant
 			binary_rep = bin(updatedDomains.index(newVar2))[2:]
-			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep)
+			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
 			processedCond = combineItems(newItems, "&")
 			if updatedDomains.index(newVar2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
 				allConditions = [processedCond]
 				for i in range(len(updatedDomains), int(math.pow(2,numBinDigits))):
 					binary_rep = bin(i)[2:]
-					newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep)
+					newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
 					allConditions.append(combineItems(newItems, "&"))
 				processedCond = combineItems(allConditions, "^")
-		else:
-			processedCond = newVar1
 	return processedCond
 
-def getUpdatedVariables(variables, input_domain):
+def getUpdatedVariables(variables, input_domain, is_ip):
 	newVariables = []
 	for var in variables:
-		for i in range(math.ceil(math.log(len(input_domain),2))):
+		numVars = 32
+		if not is_ip:
+			numVars = math.ceil(math.log(len(input_domain),2))
+		for i in range(numVars):
 			newVariables.append(var + "_" + str(i))
 	return newVariables
 
@@ -131,16 +148,16 @@ def findVariables(conditions):
 			splitConditions = condition.split('==')
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
-			if (not splitConditions[0].isdigit()):
+			if (not splitConditions[0][0].isdigit()):
 				variables.add(splitConditions[0])			
-			if (not splitConditions[1].isdigit()):
+			if (not splitConditions[1][0].isdigit()):
 				variables.add(splitConditions[1])
 			length = len(condition)
 			i+=length
 	return variables
 
 
-def convertToCUDD(conditions, input_domain, variables):
+def convertToCUDD(conditions, input_domain, variables, is_ip):
 	if (len(conditions) <= 1): # Empty condition
 		return TRUE, [] 
 	# variables = findVariables(conditions)
@@ -166,7 +183,7 @@ def convertToCUDD(conditions, input_domain, variables):
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, is_ip)
 			stack.append(encodedCond)
 			i+=length		
 		elif conditions[i:i+2] == "!=":
@@ -175,7 +192,7 @@ def convertToCUDD(conditions, input_domain, variables):
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, is_ip)
 			encodedCond = "~(" + encodedCond + ")"
 			stack.append(encodedCond)
 			i+=length
@@ -185,11 +202,14 @@ def convertToCUDD(conditions, input_domain, variables):
 		exit()
 	cuddFormCond = stack.pop()
 
-	variables = getUpdatedVariables(variables, input_domain)
-
+	variables = getUpdatedVariables(variables, input_domain, is_ip)
 	count = 2 # starting from 2 since 0 and 1 are reserved for true and false
 	for var in variables:
-		cuddFormCond = cuddFormCond.replace(var,str(count)) 
+		replacingVar = f'{var})' 
+		cuddFormCond = cuddFormCond.replace(replacingVar,str(count)+')') 
+
+		replacingVar = f'{var},' 
+		cuddFormCond = cuddFormCond.replace(replacingVar,str(count)+',') 
 		count += 1
 
 	return cuddFormCond, variables
@@ -219,8 +239,8 @@ if __name__ == "__main__":
 				t0 = time.time()
 
 				variables = findVariables(line)
-				condition, variablesArray = convertToCUDD(line, ['1','2','3','4','5'], variables)
-				# condition, variablesArray = convertToCUDD(line, ['1','2'], variables)
+				condition, variablesArray = convertToCUDD(line, [], variables, True)
+				# condition, variablesArray = convertToCUDD(line, ['1','2'], variables, False)
 				t1 = time.time()
 				total = t1-t0
 				numVars = len(variablesArray)

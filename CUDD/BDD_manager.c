@@ -75,13 +75,13 @@ void freeBDD(int bdd_reference) {
  
 int main (int argc, char *argv[])  
 {
-    // evaluateFromFile(argc, argv);  
-    initialize(2,2);
-    // int OR = str_to_BDD("^(~(^(&(~(3),~(2)),&(~(3),2))),&(~(3),~(3)))");
-    int p = str_to_BDD("^(&(~(3),~(2)),&(~(3),2))");
-    int q = str_to_BDD("&(~(3),~(3))");
-    bool OR = is_implcation(p, q);
-    printf("%d\n", OR);
+    evaluateFromFile(argc, argv);  
+    // initialize(2,2);
+    // // int OR = str_to_BDD("^(~(^(&(~(3),~(2)),&(~(3),2))),&(~(3),~(3)))");
+    // int p = str_to_BDD("^(&(~(3),~(2)),&(~(3),2))");
+    // int q = str_to_BDD("&(~(3),~(3))");
+    // bool OR = is_implcation(p, q);
+    // printf("%d\n", OR);
 
     // int q = str_to_BDD("&(~(2),~(2))");
     // bool imp = is_implcation(p,q);

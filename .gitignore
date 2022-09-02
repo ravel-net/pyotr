@@ -7,3 +7,7 @@ CUDD/Test/testBdd.c
 CUDD/Test/exampleManipulation
 CUDD/Utils/convertToBDD
 CUDD/BDD_manager
+Backend/reasoning/CUDD/BDD_manager/build/lib.linux-x86_64-3.8/BDD_managerModule.cpython-38-x86_64-linux-gnu.so
+CUDD/ip.txt
+CUDD/output.txt
+CUDD/tmp.txt
