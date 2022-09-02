@@ -12,6 +12,7 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 
+import re
 from Core.Homomorphism.Datalog.atom import DT_Atom
 
 class DT_Rule:
@@ -45,17 +46,31 @@ class DT_Rule:
     def __init__(self, rule_str, databaseTypes={},operators=[]):
         head_str = rule_str.split(":-")[0].strip()
         body_str = rule_str.split(":-")[1].strip()
-        self._variables = []
+        self._variables = [] 
+        self._c_variables = [] # assume c-variable starts with _, e.g. _d
         self._head = DT_Atom(head_str, databaseTypes, operators)
         self._body = []
         self._DBs = []
         self._mapping = {}
+        self._constraints = [] # additional constraints for variables
         self._operators = operators
         db_names = []
-        for atom_str in body_str.split("),"):
+        atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
+        for atom_str in atom_strs:
             atom_str = atom_str.strip()
-            if atom_str[-1] != ")":
-                atom_str += ")"
+            if "[" in atom_str:
+                if atom_str[-1] != "]":
+                    atom_str += "]"
+                
+            elif "(" in atom_str:
+                if atom_str[-1] != ")":
+                    atom_str += ")"
+            else:
+                constraints = atom_str.split(',')
+                for constraint in constraints:
+                    self._constraints.append(constraint.strip())
+                continue
+
             currAtom = DT_Atom(atom_str, databaseTypes, operators)
             if currAtom.db["name"] not in db_names:
                 self._DBs.append(currAtom.db)
@@ -64,7 +79,34 @@ class DT_Rule:
             for var in atomVars:
                 if var not in self._variables:
                     self._variables.append(var)
+            
+            atomCVars = currAtom.c_variables
+            for var in atomCVars:
+                if var not in self._c_variables:
+                    self._c_variables.append(var)
+                    
             self._body.append(currAtom)
+
+
+        # for atom_str in body_str.split("),"):
+        #     atom_str = atom_str.strip()
+        #     if "(" in atom_str: # atom, e.g., R(x, p)
+        #         if atom_str[-1] != ")":
+        #             atom_str += ")"
+        #         currAtom = DT_Atom(atom_str, databaseTypes, operators)
+        #         if currAtom.db["name"] not in db_names:
+        #             self._DBs.append(currAtom.db)
+        #             db_names.append(currAtom.db["name"])
+        #         atomVars = currAtom.variables
+        #         for var in atomVars:
+        #             if var not in self._variables:
+        #                 self._variables.append(var)
+        #         self._body.append(currAtom)
+        #     else: # additional constraints for variables and c-variables
+        #         constraints = atom_str.split(',')
+        #         for constraint in constraints:
+        #             self._constraints.append(constraint.strip())
+
         for i, var in enumerate(self._variables):
             self._mapping[var] = i
     
@@ -132,11 +174,14 @@ class DT_Rule:
         if (constraints):
             sql += " where " + " and ".join(constraints)
         cursor = conn.cursor()
-        # print(sql)
+        print(sql)
         cursor.execute(sql)
         affectedRows = cursor.rowcount
+        print("affectedRows", affectedRows)
         conn.commit()
         changed = (affectedRows > 0)
+        cursor.execute("select * from " + self._head.db['name'])
+        print(cursor.fetchall())
         return changed
 
     def isHeadContained(self, conn):
@@ -208,10 +253,13 @@ class DT_Rule:
         string = str(self._head) + " :- "
         for atom in self._body:
             string += str(atom) + ","
+        if self._constraints:
+            string += "[{}]".format(", ".join(self._constraints))
+            return string
         return string[:-1]
 
 if __name__ == "__main__":
     a = "Asd"
-    rule = DT_Rule("A(x,y,z) :- Gasd(x,1,y),B(z,x),C(y,z,2)")
-    rule.isHeadContained(a)
+    rule = DT_Rule("A(x,y,z) :- Gasd(x,1,y)[],B(z,x),C(y,z,2)")
+    # rule.isHeadContained(a)
     # print(atom.db)

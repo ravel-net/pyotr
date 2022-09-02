@@ -1,4 +1,4 @@
-
+import re
 class DT_Atom:
     """
     A class used to represent a Datalog Atom
@@ -19,9 +19,15 @@ class DT_Atom:
     """
     
     def __init__(self, atom_str, databaseTypes={}, operators=[]):
-        split_str = atom_str[:-1].split("(")
+        split_str = re.split(r'\(|\)\[', atom_str[:-1])
+        # split_str = atom_str[:-1].split("(")
         self.db = {}
         self.variables = []
+        self.c_variables = []
+        self.constraints = []
+        if len(split_str) == 3: # conditions for c-variables
+            for c in split_str[2].split(","):
+                self.constraints.append(c.strip())
         self.parameters = split_str[1].split(",")
         self.db["name"] = split_str[0]
         self.db["column_names"] = []
@@ -41,11 +47,18 @@ class DT_Atom:
                         concatinatingVar = concatinatingVar.strip()
                         if not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
                             self.variables.append(concatinatingVar)
-            if not hasOperator and not var[0].isdigit() and var not in self.variables:
-                self.variables.append(var)
+            if not hasOperator and not var[0].isdigit():
+                if var.startswith("_"):
+                    if var not in self.c_variables:
+                        self.c_variables.append(var)
+                elif var not in self.variables:
+                    self.variables.append(var)
         
     def __str__(self):
-        return self.db["name"]+"("+",".join(self.parameters)+")"
+        atom_str = self.db["name"]+"("+",".join(self.parameters)+")"
+        if self.constraints:
+            atom_str += "[{}]".format(", ".join(self.constraints))
+        return atom_str
 
 
     def addConstants(self, conn, mapping):
