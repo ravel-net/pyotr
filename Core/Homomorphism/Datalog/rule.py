@@ -52,7 +52,7 @@ class DT_Rule:
         self._body = []
         self._DBs = []
         self._mapping = {}
-        self._constraints = [] # additional constraints for variables
+        self._constraints = [] # additional constraints
         self._operators = operators
         db_names = []
         atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
@@ -106,7 +106,6 @@ class DT_Rule:
         #         constraints = atom_str.split(',')
         #         for constraint in constraints:
         #             self._constraints.append(constraint.strip())
-
         for i, var in enumerate(self._variables):
             self._mapping[var] = i
     
@@ -170,6 +169,8 @@ class DT_Rule:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
 
+        constraints += self.addtional_constraints2where_clause(self._constraints, variableList)
+
         sql = "insert into " + self._head.db["name"] + " select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
         if (constraints):
             sql += " where " + " and ".join(constraints)
@@ -218,6 +219,73 @@ class DT_Rule:
         conn.commit()
         changed = (len(result) > 0)
         return changed
+
+    def addtional_constraints2where_clause(self, constraints, variableList):
+        additional_conditions = []
+        for constraint in constraints:
+            # only support logical or/and Iexculding mixed use)
+            conditions = []
+            logical_opr = None
+            if '&' in constraint:
+                conditions = constraint.split('&')
+                logical_opr = 'and'
+            elif '^' in constraint:
+                conditions = constraint.split('^')
+                logical_opr = 'or'
+            else:
+                conditions.append(constraint)
+
+            temp_conditions = []
+            for cond in conditions:
+                cond = cond.strip()
+                processed_cond = self.condition2where_caluse(cond, variableList)
+                temp_conditions.append(processed_cond)
+            
+            if logical_opr == 'and':
+                additional_conditions.append(" and ".join(temp_conditions))
+            elif logical_opr == 'or':
+                additional_conditions.append("({})".format(" or ".join(temp_conditions)))
+            else:
+                additional_conditions += temp_conditions
+        
+        return additional_conditions
+
+    def condition2where_caluse(self, condition, variableList):
+        # assume there are spaces between operands and operator
+        items = condition.split()
+        if len(items) != 3:
+            print("Wrong condition format! The format of condition is {left_opd}{whitespace}{operator}{whitespace}{right_opd}!")
+            exit()
+        left_opd = items[0]
+        opr = items[1]
+        right_opd = items[2]
+        if left_opd[0].isalpha(): # it is a var or c-var
+            if left_opd not in variableList.keys():
+                print("No '{}' in variables! Unsafe rule!".format(left_opd))
+                exit()
+            left_opd = variableList[left_opd][0]
+        if right_opd[0].isalpha(): # it is a var or c-var
+            if right_opd not in variableList.keys():
+                print("No '{}' in variables! Unsafe rule!".format(right_opd))
+                exit()
+            right_opd = variableList[right_opd][0]
+
+        processed_condition = None
+        if '\\not_in' in opr:
+            if right_opd[0].isalpha():
+                processed_condition = "Not {} = Any({})".format(left_opd, right_opd)
+            else:
+                processed_condition = " {} not in {}".format(left_opd, right_opd)
+
+        elif '\\in' in opr:
+            if right_opd[0].isalpha():
+                processed_condition = "{} = Any({})".format(left_opd, right_opd)
+            else:
+                processed_condition = " {} in {}".format(left_opd, right_opd)
+        else:
+            processed_condition = " {} {} {}".format(left_opd, opr, right_opd)
+
+        return processed_condition
 
     # # Uniform containment. self rule C rule2 (self rule contains rule2). Treat self rule as constant and apply the rule in the argument as program
     # # Returns (containment result, any changes to database)
