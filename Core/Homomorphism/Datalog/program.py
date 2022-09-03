@@ -39,12 +39,11 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=True):
         rules_str = program_str.split("\n")
-        print("rules_str", rules_str)
         self._rules = []
         for rule in rules_str:
-            self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS))
+            self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on))
         
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
@@ -57,8 +56,9 @@ class DT_Program:
     
     # Uniform containment. self C dt_program2 (self program contains dt_program2)
     def contains(self, dt_program2):
-        for rule in self._rules:
-            if not dt_program2.contained_by_rule(rule):
+        # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
+        for rule in dt_program2._rules:
+            if not self.contains_rule(rule):
                 return False
         return True
 
@@ -91,8 +91,10 @@ class DT_Program:
         conn.commit()
 
 
-    # Uniform containment. rule2 C self (rule contains self program)
-    def contained_by_rule(self, rule2):
+    # Uniform containment. 
+    # self contains one rule of dt_program2
+    def contains_rule(self, rule2):
+        print("rule2", rule2)
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         conn.set_session()
         changed = True

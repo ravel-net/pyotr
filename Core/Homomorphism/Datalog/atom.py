@@ -20,17 +20,18 @@ class DT_Atom:
         Add constants in place of variables referenced in this atom on database pointed by psycopg2 connection "conn". Conversion to sql and execution of sql occurs here
     """
     
-    def __init__(self, atom_str, databaseTypes={}, operators=[]):
+    def __init__(self, atom_str, databaseTypes={}, operators=[], c_variables=[]):
         split_str = re.split(r'\(|\)\[', atom_str[:-1])
         # split_str = atom_str[:-1].split("(")
         self.db = {}
         self.variables = []
-        self.c_variables = []
-        self.constraints = []
+        self.c_variables = c_variables
+        self.constraints = [] # conditions for c-variables
         if len(split_str) == 3: # conditions for c-variables
             for c in split_str[2].split(","):
-                self.constraints.append(c.strip())
-        self.parameters = split_str[1].split(",")
+                processed_c = self.datalog_condition2z3_condition(c)
+                self.constraints.append(processed_c)
+        self.parameters = [p.strip() for p in split_str[1].split(",")]
         self.db["name"] = split_str[0]
         self.db["column_names"] = []
         self.db["column_types"] = []
@@ -50,11 +51,12 @@ class DT_Atom:
                         if not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
                             self.variables.append(concatinatingVar)
             if not hasOperator and not var[0].isdigit():
-                if var.startswith("_"):
-                    if var not in self.c_variables:
-                        self.c_variables.append(var)
-                elif var not in self.variables:
+                if var not in self.c_variables and var not in self.variables:
                     self.variables.append(var)
+        # column for condition attribute
+        if self.constraints:
+            self.db["column_names"].append("condition")
+            self.db["column_types"].append("text[]")
         
     def __str__(self):
         atom_str = self.db["name"]+"("+",".join(self.parameters)+")"
@@ -68,6 +70,7 @@ class DT_Atom:
         for i, var in enumerate(self.parameters):
             if var in self.c_variables:
                 variableConstants.append("'{}'".format(var))
+                continue
             if self.db["column_types"][i] == "integer":
                 variableConstants.append(str(mapping[var]))
             elif "[]" in self.db["column_types"][i]: # Only supports single dimensional array
@@ -77,11 +80,47 @@ class DT_Atom:
                 variableConstants.append("'{}'".format(str(IPv4Address(IPaddr))))
             elif self.db["column_types"][i] == "int4_faure":
                 variableConstants.append("'{}'".format(mapping[var]))
+
+        if self.c_variables:
+            variableConstants.append("'{" + ", ".join(['"{}"'.format(c) for c in self.constraints]) + "}'") 
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
         # print(sql)
         cursor.execute(sql)
         conn.commit()
+    
+    def datalog_condition2z3_condition(self, condition):
+        # Assume support logical Or/And, excluding mixed uses
+        logical_opr = None
+        if '^' in condition:
+            logical_opr = '^'
+        elif '&' in condition:
+            logical_opr = '&'
+        
+        conds = []
+        processed_cond = None
+        if logical_opr:
+            for c in condition.split(logical_opr):
+                c = c.strip()
+                if c.split()[1].strip() == '=':
+                    c = c.replace('=', '==')
+                conds.append(c)
+        else:
+            if condition.split()[1].strip() == '=':
+                condition = condition.replace('=', '==')
+            processed_cond = condition
+        
+        if logical_opr == '^':
+            processed_cond = "Or({})".format(", ".join(conds))
+        elif logical_opr == '&':
+            processed_cond = "And({})".format(", ".join(conds))
+        
+        if processed_cond is None:
+            print("Illegal condition: {}!".format(condition))
+            exit()
+        return processed_cond
+        
+
 
 
 if __name__ == "__main__":
