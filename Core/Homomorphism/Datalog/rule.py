@@ -13,6 +13,7 @@ root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 
 import re
+from copy import deepcopy
 from psycopg2.extras import execute_values
 from Core.Homomorphism.Datalog.atom import DT_Atom
 import Core.Homomorphism.translator_pyotr as translator_z3
@@ -174,14 +175,14 @@ class DT_Rule:
             if (constraints):
                 sql += " where " + " and ".join(constraints)
             cursor = conn.cursor()
-            print(sql)
+            # print(sql)
             cursor.execute(sql)
             affectedRows = cursor.rowcount
-            print("affectedRows", affectedRows)
+            # print("affectedRows", affectedRows)
             conn.commit()
             changed = (affectedRows > 0)
             cursor.execute("select * from " + self._head.db['name'])
-            print(cursor.fetchall())
+            # print(cursor.fetchall())
         else:
             attrs = []
             for i in range(len(summary_nodes)):

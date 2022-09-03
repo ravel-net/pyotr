@@ -94,7 +94,6 @@ class DT_Program:
     # Uniform containment. 
     # self contains one rule of dt_program2
     def contains_rule(self, rule2):
-        print("rule2", rule2)
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         conn.set_session()
         changed = True
@@ -125,16 +124,33 @@ class DT_Program:
         numRules = self.numRules
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
-            numAtoms = rule.numBodyAtoms
-            for atomNum in range(numAtoms):
+            # numAtoms = rule.numBodyAtoms
+            atomNum = 0
+            while atomNum < rule.numBodyAtoms:
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-                if self.contained_by_rule(rule_with_deleted_atom):
-                    self.replaceRule(ruleNum, rule_with_deleted_atom)                
-        for ruleNum in range(numRules):
+                if self.contains_rule(rule_with_deleted_atom):
+                    self.replaceRule(ruleNum, rule_with_deleted_atom) 
+                    rule = rule_with_deleted_atom
+                else:
+                    atomNum += 1
+            # for atomNum in range(numAtoms):
+            #     rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
+            #     if self.contains_rule(rule_with_deleted_atom):
+            #         self.replaceRule(ruleNum, rule_with_deleted_atom)    
+        ruleNum = 0
+        while ruleNum < self.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
             rule = self.getRule(ruleNum)
             newProgram = self.copyWithDeletedRule(ruleNum)
-            if newProgram.contained_by_rule(rule):
+            if newProgram.contains_rule(rule):
                 self.deleteRule(ruleNum)
+            else:
+                ruleNum += 1       
+        # for ruleNum in range(numRules):
+        #     rule = self.getRule(ruleNum)
+        #     newProgram = self.copyWithDeletedRule(ruleNum)
+        #     if newProgram.contains_rule(rule):
+        #         print("pop rule:", rule)
+        #         self.deleteRule(ruleNum)
     
     @property
     def numRules(self):
