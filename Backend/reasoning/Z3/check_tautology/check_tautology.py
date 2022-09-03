@@ -6,7 +6,7 @@ sys.path.append(root)
 from ipaddress import IPv4Address, IPv4Network
 import time
 import z3
-from z3 import Or, And, Not
+from z3 import Or, And, Not, Implies
 import databaseconfig as cfg
 import psycopg2
 
@@ -100,7 +100,6 @@ def get_domain_conditions_from_list(domains, datatype):
 def analyze(condition, datatype):
     if condition is None or len(condition) == 0:
         return "True"
-
     cond_str = condition
     prcd_cond = ""
     if 'And' in cond_str or 'Or' in cond_str:
@@ -241,6 +240,25 @@ def check_equivalence_for_two_string_conditions(condition1, condition2, reasonin
         print(s.model())
         return False
 
+def check_is_implication(condition1, condition2, reasoning_type='Int'):
+    prcd_condition1 = analyze(condition1, reasoning_type)
+    prcd_condition2 = analyze(condition2, reasoning_type)
+
+    C1 = eval(prcd_condition1)
+    C2 = eval(prcd_condition2)
+
+    # result = prove(C1 == C2)
+    s = z3.Solver()
+    # s.add(eval("Or(z3.BitVec('d',32) >= z3.BitVecVal('167772160',32),z3.BitVec('d',32) <= z3.BitVecVal('167772161',32))"))
+    s.add(Not(Implies(C1, C2)))
+    result = s.check()
+    if result == z3.unsat:
+        print("Implies")
+        return True
+    else:
+        print("Does not Imply")
+        print(s.model())
+        return False
 
 def check_is_tautology(union_conditions, domain_conditions):
     negation_union_conditions = "Not({})".format(union_conditions)
