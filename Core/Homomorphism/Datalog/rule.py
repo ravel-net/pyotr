@@ -27,6 +27,10 @@ import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 class DT_Rule:
     """
     A class used to represent a datalog rule.
+    rule format: head :- body
+            head: atom
+            body: atom1, atom2, ... [, constraint1, constraint2, ...]
+            atom: table(param1, param2, ...)[condition1, condition2, ...]
 
     Attributes
     ----------
@@ -548,7 +552,7 @@ class DT_Rule:
         for atom in self._body:
             string += str(atom) + ","
         if self._constraints:
-            string += "[{}]".format(", ".join(self._constraints))
+            string += "{}".format(", ".join(self._constraints))
             return string
         return string[:-1]
 
