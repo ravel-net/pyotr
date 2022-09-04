@@ -72,14 +72,14 @@ class DT_Rule:
         atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
         for atom_str in atom_strs:
             atom_str = atom_str.strip()
-            if "[" in atom_str:
+            if "[" in atom_str:  # atom with conditions for c-variables
                 if atom_str[-1] != "]":
                     atom_str += "]"
                 
-            elif "(" in atom_str:
+            elif "(" in atom_str: # atom without c-variables
                 if atom_str[-1] != ")":
                     atom_str += ")"
-            else:
+            else: # it's not an atom, instead additional conditions
                 constraints = atom_str.split(',')
                 for constraint in constraints:
                     self._constraints.append(constraint.strip())
@@ -167,22 +167,23 @@ class DT_Rule:
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
-
         constraints += self.addtional_constraints2where_clause(self._constraints, variableList)
 
         if len(self._c_variables) == 0:
-            sql = "insert into " + self._head.db["name"] + " select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
+
+            sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
             if (constraints):
                 sql += " where " + " and ".join(constraints)
             cursor = conn.cursor()
-            # print(sql)
-            cursor.execute(sql)
+            # print("sql", sql)
+            # remove the duplicates
+            except_sql = "insert into {header_table} ({sql} except select * from {header_table})".format(header_table=self._head.db["name"], sql = sql)
+            # print("except_sql", except_sql)
+            cursor.execute(except_sql)
             affectedRows = cursor.rowcount
             # print("affectedRows", affectedRows)
             conn.commit()
             changed = (affectedRows > 0)
-            cursor.execute("select * from " + self._head.db['name'])
-            # print(cursor.fetchall())
         else:
             attrs = []
             for i in range(len(summary_nodes)):
@@ -298,6 +299,7 @@ class DT_Rule:
 
         cursor.execute("select {} from {}".format(", ".join(self._head.db["column_names"]), header_table))
         existing_tuples = cursor.fetchall()
+        conn.commit()
 
         inserting_tuples = []
         for res_tup in output_results:
@@ -345,7 +347,7 @@ class DT_Rule:
         return changes
     
     def run_with_faure(self, conn, program_sql):
-        cursor = conn.cursor()
+        
         header_table = self._head.db["name"]
         changed = False
         '''
@@ -358,7 +360,7 @@ class DT_Rule:
 
             if self._simplication_on == 'On':
                 translator_z3.normalization(self._reasoning_type)
-
+            conn.commit()
             '''
             compare generating IDB and existing DB if there are new IDB generated
             if yes, the DB changes, continue run the program on DB
@@ -373,6 +375,7 @@ class DT_Rule:
                                     "{}_out".format(header_table), # output tablename
                                     [], # domain
                                     self._reasoning_type) # reasoning type of engine
+            cursor = conn.cursor()
             cursor.execute("drop table if exists {}".format(header_table))
             cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
             conn.commit()
@@ -385,6 +388,7 @@ class DT_Rule:
             translator_bdd.set_domain(self._domains)
             translator_bdd.set_variables(self._c_variables)
 
+            cursor = conn.cursor()
             for db in self._DBs:
                 bdd_tablename = translator_bdd.process_condition_on_ctable(db)
                 sql = "drop table if exists {db}".format(db=db)
@@ -405,7 +409,7 @@ class DT_Rule:
             '''
             merge_tuples_bdd.merge_tuples(header_table, # tablename of header
                                     "{}_out".format(header_table)) # output tablename
-                                    
+            cursor = conn.cursor()                        
             cursor.execute("drop table if exists {}".format(header_table))
             cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
             conn.commit()
@@ -417,24 +421,44 @@ class DT_Rule:
 
     def addtional_constraints2where_clause(self, constraints, variableList):
         additional_conditions = []
-        for constraint in constraints:
-            # only support logical or/and Iexculding mixed use)
+        pop_constraint_idx = []
+        for constraint_idx, constraint in enumerate(constraints):
+            # only support logical or/and exculding mixed use)
             conditions = []
             logical_opr = None
+            logical_sym = None
             if '&' in constraint:
                 conditions = constraint.split('&')
                 logical_opr = 'and'
+                logical_sym = '&'
             elif '^' in constraint:
                 conditions = constraint.split('^')
                 logical_opr = 'or'
+                logical_sym = '^'
             else:
                 conditions.append(constraint)
 
             temp_conditions = []
-            for cond in conditions:
+            unsafe_condition_idx = []
+            for i, cond in enumerate(conditions):
                 cond = cond.strip()
                 processed_cond = self.condition2where_caluse(cond, variableList)
-                temp_conditions.append(processed_cond)
+                if processed_cond is not None:
+                    temp_conditions.append(processed_cond)
+                else:
+                    unsafe_condition_idx.append(i)
+            
+            # update additional constraints
+            if len(unsafe_condition_idx) > 0:
+                for idx in unsafe_condition_idx:
+                    conditions.pop(idx)
+                
+                if len(conditions) == 0: 
+                    pop_constraint_idx.append(constraint_idx) # this subcondition should be popped
+                elif len(conditions) == 1:
+                    constraint = conditions[0]
+                else:
+                    constraint = logical_sym.join(conditions)
             
             if logical_opr == 'and':
                 additional_conditions.append(" and ".join(temp_conditions))
@@ -443,6 +467,11 @@ class DT_Rule:
             else:
                 additional_conditions += temp_conditions
         
+        # update additional constraints
+        if len(pop_constraint_idx) > 0: # pop out the empty subcondition
+            for idx in pop_constraint_idx:
+                constraints.pop(idx)
+
         return additional_conditions
 
     def condition2where_caluse(self, condition, variableList):
@@ -456,13 +485,13 @@ class DT_Rule:
         right_opd = items[2]
         if not left_opd[0].isdigit(): # it is a var or c-var
             if left_opd not in variableList.keys():
-                print("No '{}' in variables! Unsafe rule!".format(left_opd))
-                exit()
+                print("No '{}' in variables! Unsafe condition!".format(left_opd))
+                return None
             left_opd = variableList[left_opd][0]
         if not right_opd[0].isdigit(): # it is a var or c-var
             if right_opd not in variableList.keys():
-                print("No '{}' in variables! Unsafe rule!".format(right_opd))
-                exit()
+                print("No '{}' in variables! Unsafe condition!".format(right_opd))
+                return None
             right_opd = variableList[right_opd][0]
 
         processed_condition = None
