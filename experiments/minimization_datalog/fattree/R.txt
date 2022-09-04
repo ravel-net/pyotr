@@ -1,0 +1,2 @@
+R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp), x2 \not_in xp
+R(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp), x2 \in xp & x3 \in xp
