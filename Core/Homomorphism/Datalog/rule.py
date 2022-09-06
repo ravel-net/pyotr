@@ -9,6 +9,7 @@
 # Expected head to sql
 import sys
 from os.path import dirname, abspath
+from unicodedata import name
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 
@@ -108,9 +109,26 @@ class DT_Rule:
                     self._c_variables.append(var)
                     
             self._body.append(currAtom)
+        
+        # corner case, relation of atom in head does not appear in the body, e.g.,  R(n1, n2): link(n1, n2)
+        if self._head.db['name'] not in db_names:
+            self._DBs.append(self._head.db)
+            db_names.append(self._head.db["name"])
 
         for i, var in enumerate(self._variables):
             self._mapping[var] = i
+
+        # in case of unsafe rule
+        headVars = self._head.variables
+        for var in headVars:
+            if var not in self._variables:
+                self._variables.append(var)
+                self._mapping[var] = len(self._mapping.keys())
+                
+                print("\n------------------------")
+                print("Unsafe rule: {}!".format(self)) 
+                print("variable '{var}' does not appear in body! Initiate '{var}' to constants {con} when executing".format(var=var, con=self._mapping[var]))
+                print("------------------------\n")
     
     @property
     def numBodyAtoms(self):
@@ -138,7 +156,6 @@ class DT_Rule:
         variableList = {}
         summary = set()
         summary_nodes = []
-        query_summary = self._head.parameters
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
         for i, atom in enumerate(self._body):
             tables.append("{} t{}".format(atom.db["name"], i))
@@ -152,7 +169,6 @@ class DT_Rule:
                     if val not in variableList:
                         variableList[val] = []
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
-        
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
                 replace_var2attr = []
@@ -181,7 +197,11 @@ class DT_Rule:
                     if param[0].isdigit():
                         summary_nodes.append("{} as {}".format(param, self._head.db['column_names'][idx]))
                     else:
-                        summary_nodes.append("{} as {}".format( variableList[param][0], self._head.db['column_names'][idx]))
+                        # print("variableList", variableList)
+                        if param not in variableList.keys():
+                            summary_nodes.append("{} as {}".format(self._mapping[param], self._head.db['column_names'][idx]))
+                        else:
+                            summary_nodes.append("{} as {}".format(variableList[param][0], self._head.db['column_names'][idx]))
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
@@ -200,7 +220,7 @@ class DT_Rule:
             cursor = conn.cursor()
             # print("sql", sql)
             # remove the duplicates
-            except_sql = "insert into {header_table} ({sql} except select * from {header_table})".format(header_table=self._head.db["name"], sql = sql)
+            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = sql, attrs= ", ".join(self._head.db["column_names"]))
             # print("except_sql", except_sql)
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
@@ -263,8 +283,9 @@ class DT_Rule:
         cursor.execute(sql)
         result = cursor.fetchall()
         conn.commit()
-        changed = (len(result) > 0)
-        return changed
+        contained = (len(result) > 0)
+        print("contained", contained)
+        return contained
     
     def is_head_contained_faure(self, conn):
         cursor = conn.cursor()

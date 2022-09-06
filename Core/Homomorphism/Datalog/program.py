@@ -58,7 +58,6 @@ class DT_Program:
     def contains(self, dt_program2):
         # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
         for rule in dt_program2._rules:
-
             if not self.contains_rule(rule):
                 return False
         return True
@@ -78,6 +77,7 @@ class DT_Program:
                 if db["name"] not in db_names:
                     db_names.append(db["name"])
                     databases.append(db)
+
         for db in databases:
             cursor = conn.cursor()
             cursor.execute("DROP TABLE IF EXISTS {};".format(db["name"]))
@@ -125,12 +125,12 @@ class DT_Program:
         numRules = self.numRules
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
-            # print("minimizing rule:", rule)
+            print("minimizing rule:", rule)
             # numAtoms = rule.numBodyAtoms
             atomNum = 0
             while atomNum < rule.numBodyAtoms:
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-                # print("rule with deleted atom:", rule_with_deleted_atom)
+                print("rule with deleted atom:", rule_with_deleted_atom)
                 if self.contains_rule(rule_with_deleted_atom):
                     self.replaceRule(ruleNum, rule_with_deleted_atom) 
                     rule = rule_with_deleted_atom
@@ -146,7 +146,8 @@ class DT_Program:
         while ruleNum < self.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
             rule = self.getRule(ruleNum)
             newProgram = self.copyWithDeletedRule(ruleNum)
-            # print("newProgram program", newProgram)  
+            print("newProgram program", newProgram) 
+            print("deleted rule", rule) 
             if newProgram.contains_rule(rule):
                 self.deleteRule(ruleNum)
             else:
