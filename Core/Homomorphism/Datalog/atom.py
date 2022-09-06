@@ -1,3 +1,4 @@
+from copy import copy
 import re
 from ipaddress import IPv4Address
 
@@ -21,18 +22,55 @@ class DT_Atom:
     """
     
     def __init__(self, atom_str, databaseTypes={}, operators=[], c_variables=[]):
-        split_str = re.split(r'\(|\)\[', atom_str[:-1])
-        # split_str = atom_str[:-1].split("(")
+        relation = None
+        condition = None
+        if ')[' in atom_str: # contains conditions for atom, e.g., R(a1, xd, p)[a1 = 1]
+            items = atom_str.strip().split(')[')
+            relation = items[0] + ')'
+            if items[1][-1] == ']':
+                condition = items[1][:-1] # condition = 'a1 = 1'
+            else:
+                condition = items[1]
+        else: # without conditions for atom, e.g., R(a1, xd, p)
+            relation = atom_str.strip()
+        split_str = relation.split("(")
         self.db = {}
         self.variables = []
         self.c_variables = c_variables
+
         self.constraints = [] # conditions for c-variables
-        if len(split_str) == 3: # conditions for c-variables
-            for c in split_str[2].split(","):
+        if condition is not None: # conditions for c-variables
+            for c in condition.split(","):
                 processed_c = self.datalog_condition2z3_condition(c)
                 self.constraints.append(processed_c)
-        self.parameters = [p.strip() for p in split_str[1].split(",")]
-        self.db["name"] = split_str[0]
+
+        self.parameters =  []
+        parameter_str = split_str[1].strip() # parameter_str = 'a1, xd, p'
+        if parameter_str[-1] == ')':
+            parameter_str = parameter_str[:-1] 
+        # if '[' in parameter_str: # there is an array in parameters, e.g., R(a1, xd, [a1, e1]), then parameter_str = 'a1, xd, [a1, e1]'
+        #     items = parameter_str.split('[')
+        in_sqr_parenth = False
+        vars_in_sqr_parenth = []
+        for var in parameter_str.split(','):
+            if '[' in var and ']' in var: # special case, parameter_str = 'a1, xd, [a1]'
+                value_in_array = re.findall(r'\[(.*?)\]', var)
+                self.parameters.append(copy(value_in_array))
+            if '[' in var:
+                in_sqr_parenth = True
+                vars_in_sqr_parenth.append(var.split('[')[1].strip())
+            elif ']' in var:
+                in_sqr_parenth = False
+                vars_in_sqr_parenth.append(var.split(']')[0].strip())
+                self.parameters.append(copy(vars_in_sqr_parenth))
+                vars_in_sqr_parenth.clear()
+            else:
+                if in_sqr_parenth:
+                    vars_in_sqr_parenth.append(var.strip())
+                else:
+                    self.parameters.append(var.strip())
+
+        self.db["name"] = split_str[0].strip()
         self.db["column_names"] = []
         self.db["column_types"] = []
         for i, var in enumerate(self.parameters):
@@ -41,25 +79,49 @@ class DT_Atom:
                 self.db["column_types"].append(databaseTypes[self.db["name"]][i])
             else:
                 self.db["column_types"].append("integer")
-            hasOperator = False
-            for op in operators:
-                if (op in var):
-                    hasOperator = True
-                    concatinatingVars = var.split(op)
-                    for concatinatingVar in concatinatingVars:
-                        concatinatingVar = concatinatingVar.strip()
-                        if not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
-                            self.variables.append(concatinatingVar)
-            if not hasOperator and not var[0].isdigit():
-                if var not in self.c_variables and var not in self.variables:
-                    self.variables.append(var)
+
+            if type(var) == list:
+                for v in var:
+                    if not v[0].isdigit() and v not in self.variables:
+                        self.variables.append(v)
+            else:
+                hasOperator = False
+                for op in operators:
+                    if (op in var):
+                        hasOperator = True
+                        # if op == '[':
+                        #     if var[0] == '[': 
+                        #         var = var[1:]
+                        #     if var[-1] == ']':
+                        #         var = var[:-1]
+                        #     listing_vars = var.split(',')
+                        #     for listing_var in listing_vars:
+                        #         listing_var = listing_var.strip()
+                        #         if not listing_var[0].isdigit() and listing_var not in self.variables:
+                        #             self.variables.append(listing_var)
+                        #     continue
+
+                        concatinatingVars = var.split(op)
+                        for concatinatingVar in concatinatingVars:
+                            concatinatingVar = concatinatingVar.strip()
+                            if not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
+                                self.variables.append(concatinatingVar)
+                if not hasOperator and not var[0].isdigit():
+                    if var not in self.c_variables and var not in self.variables:
+                        self.variables.append(var)
         # column for condition attribute
         if self.constraints:
             self.db["column_names"].append("condition")
             self.db["column_types"].append("text[]")
         
     def __str__(self):
-        atom_str = self.db["name"]+"("+",".join(self.parameters)+")"
+        parameter_strs = []
+        for p in self.parameters:
+            if type(p) == list:
+                parameter_strs.append("[{}]".format(", ".join(p)))
+            else:
+                parameter_strs.append(p)
+        atom_str = self.db["name"]+"("+",".join(parameter_strs)+")"
         if self.constraints:
             atom_str += "[{}]".format(", ".join(self.constraints))
         return atom_str
@@ -68,12 +130,35 @@ class DT_Atom:
     def addConstants(self, conn, mapping):
         variableConstants = []
         for i, var in enumerate(self.parameters):
+            if type(var) == list:
+                mapping_constants = []
+                for v in var:
+                    mapping_constants.append(str(mapping[v]))
+                variableConstants.append("ARRAY [" + ", ".join( mapping_constants) + "]")
+                continue
             if var in self.c_variables:
                 variableConstants.append("'{}'".format(var))
                 continue
             if self.db["column_types"][i] == "integer":
                 variableConstants.append(str(mapping[var]))
             elif "[]" in self.db["column_types"][i]: # Only supports single dimensional array
+                # # For supporting array[]
+                # if "[" in var:
+                #     if var[0] == '[': 
+                #         var = var[1:]
+                #     if var[-1] == ']':
+                #         var = var[:-1]
+                #     listing_vars = var.split(',')
+                #     temp_variable_constants = []
+                #     for listing_var in listing_vars:
+                #         if var in self.c_variables:
+                #             temp_variable_constants.append("'{}'".format(listing_var))
+                #         else:
+                #             temp_variable_constants.append(str(mapping[var]))
+                #     variableConstants.append("ARRAY[{}]".format(", ".join(temp_variable_constants)))
+                #     continue
+
+                # For supporting ||
                 variableConstants.append("ARRAY [" + str(mapping[var]) + "]")
             elif self.db["column_types"][i] == "inet_faure":
                 IPaddr = int(IPv4Address('10.0.0.1')) + mapping[var]

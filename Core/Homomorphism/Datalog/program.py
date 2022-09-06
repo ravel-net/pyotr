@@ -58,6 +58,7 @@ class DT_Program:
     def contains(self, dt_program2):
         # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
         for rule in dt_program2._rules:
+
             if not self.contains_rule(rule):
                 return False
         return True
@@ -183,22 +184,22 @@ if __name__ == "__main__":
     p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
     print(p1)
     print(p2)
-    # program1 = DT_Program(p1)
-    # program2 = DT_Program(p2)
-    # print(program1.contains(program2))
-    # print(program2.contains(program1))    
+    program1 = DT_Program(p1)
+    program2 = DT_Program(p2)
+    print(program1.contains(program2))
+    print(program2.contains(program1))    
 
     # # Example 7 - Minimization
     p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
     p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
     print(p1)
     print(p2)
-    # program1 = DT_Program(p1)
-    # program2 = DT_Program(p2)
-    # print(program1.contains(program2))
-    # print(program2.contains(program1))    
-    # program1.minimize()
-    # print(program1)
+    program1 = DT_Program(p1)
+    program2 = DT_Program(p2)
+    print(program1.contains(program2))
+    print(program2.contains(program1))    
+    program1.minimize()
+    print(program1)
 
     # # Control Plane Toy Example
     p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
@@ -211,20 +212,20 @@ if __name__ == "__main__":
     # print(program1.contains(program2))
 
     # toy example of route aggregation
-    P = "R(z, d1)[d1 = 1] :- R(x, d1)[d1 = 1], R(y, d2), L(z, x), L(z, y)\nR(z, d2)[d2 = 2] :- R(x, d1), R(y, d2)[d2 = 2], L(z, x), L(z, y)"
-    Q = "R(v, d)[d = 1 ^ d = 2] :- R(u, d)[d = 1 ^ d = 2], L(v, u)" 
-    ''' 
-    # we need to provide databaseTypes, the list of column types for a database only when the default column type is not integer
-    # we need to provide domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on when using faure_log.
-    '''
-    P_program = DT_Program(P, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d1', 'd2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
-    Q_program = DT_Program(Q, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
-    res1 = P.contains(Q)
-    print("P contains Q:", res1)
-    res2 = Q.contains(P)
-    print("Q contains P:", res2)
-    print("P equivalent Q:", res1 and res2)
+    # P = "R(z, d1)[d1 = 1] :- R(x, d1)[d1 = 1], R(y, d2), L(z, x), L(z, y)\nR(z, d2)[d2 = 2] :- R(x, d1), R(y, d2)[d2 = 2], L(z, x), L(z, y)"
+    # Q = "R(v, d)[d = 1 ^ d = 2] :- R(u, d)[d = 1 ^ d = 2], L(v, u)" 
+    # ''' 
+    # # we need to provide databaseTypes, the list of column types for a database only when the default column type is not integer
+    # # we need to provide domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on when using faure_log.
+    # '''
+    # P_program = DT_Program(P, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d1', 'd2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
+    # Q_program = DT_Program(Q, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
+    # res1 = P_program.contains(Q_program)
+    # print("P contains Q:", res1)
+    # res2 = Q_program.contains(P_program)
+    # print("Q contains P:", res2)
+    # print("P equivalent Q:", res1 and res2)
 
-    print("brefore minimizing", P)
-    P.minimize()
-    print("after minimizing", P)
+    # print("brefore minimizing", P_program)
+    # P_program.minimize()
+    # print("after minimizing", P_program)

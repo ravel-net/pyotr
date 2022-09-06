@@ -139,39 +139,58 @@ class DT_Rule:
         summary = set()
         summary_nodes = []
         query_summary = self._head.parameters
+        constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
         for i, atom in enumerate(self._body):
             tables.append("{} t{}".format(atom.db["name"], i))
             for col, val in enumerate(atom.parameters):
-                if val[0].isdigit():
+                if type(val) == list:
+                    loc = "t{}.{}".format(i, atom.db["column_names"][col])
+                    constraints_for_array[loc] = val
+                elif val[0].isdigit():
                     constraints.append("t{}.{} = '{}'".format(i, atom.db["column_names"][col], val))
                 else: # variable
                     if val not in variableList:
                         variableList[val] = []
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
-        for param in self._head.parameters:
-            hasOperator = False
-            for op in self._operators:
-                concatinatingValues = []
-                if (op in param):
-                    hasOperator = True
-                    concatinatingVars = param.split(op)
-                    for concatinatingVar in concatinatingVars:
-                        concatinatingVar = concatinatingVar.strip()
-                        if not concatinatingVar[0].isdigit():
-                            concatinatingValues.append(variableList[concatinatingVar][0])
-                opString = " " + op + " "
-                summary = opString.join(concatinatingValues)
-                if summary:
-                    summary_nodes.append(summary)
-            if not hasOperator:
-                if param[0].isdigit():
-                    summary_nodes.append(param)
-                else:
-                    summary_nodes.append(variableList[param][0])
+        
+        for idx, param in enumerate(self._head.parameters):
+            if type(param) == list:
+                replace_var2attr = []
+                for p in param:
+                    if p in self._c_variables:
+                        replace_var2attr.append("'{}'".format(p))
+                    else:
+                        replace_var2attr.append(str(variableList[p][0]))
+                summary_nodes.append("ARRAY[{}] as {}".format(", ".join(replace_var2attr), self._head.db['column_names'][idx]))
+            else:
+                hasOperator = False
+                for op in self._operators:
+                    concatinatingValues = []
+                    if (op in param):
+                        hasOperator = True
+                        concatinatingVars = param.split(op)
+                        for concatinatingVar in concatinatingVars:
+                            concatinatingVar = concatinatingVar.strip()
+                            if not concatinatingVar[0].isdigit():
+                                concatinatingValues.append(variableList[concatinatingVar][0])
+                    opString = " " + op + " "
+                    summary = opString.join(concatinatingValues)
+                    if summary:
+                        summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
+                if not hasOperator:
+                    if param[0].isdigit():
+                        summary_nodes.append("{} as {}".format(param, self._head.db['column_names'][idx]))
+                    else:
+                        summary_nodes.append("{} as {}".format( variableList[param][0], self._head.db['column_names'][idx]))
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
         constraints += self.addtional_constraints2where_clause(self._constraints, variableList)
+
+        # constraints for array
+        for attr in constraints_for_array:
+            for var in constraints_for_array[attr]:
+                constraints.append("{} = ANY({})".format(variableList[var][0], attr))
 
         if len(self._c_variables) == 0:
 
@@ -207,27 +226,35 @@ class DT_Rule:
         
         constraints = []
         for col, param in enumerate(self._head.parameters):
-            hasOperator = False
-            for op in self._operators:
-                concatinatingValues = []
-                if (op in param):
-                    hasOperator = True
-                    concatinatingVars = param.split(op)
-                    for concatinatingVar in concatinatingVars:
-                        concatinatingVar = concatinatingVar.strip()
-                        if not concatinatingVar[0].isdigit():
-                            concatinatingValues.append(str(self._mapping[concatinatingVar]))
-                    if op == "||":
-                        finalString = "{" + ",".join(concatinatingValues) +"}"
-                        constraints.append("{} = '{}'".format(self._head.db["column_names"][col], finalString))
+            if type(param) == list:
+                mapping_constants = []
+                for p in param:
+                    mapping_constants.append(str(self._mapping[p]))
+                # check if two arrays are equal
+                constraints.append("ARRAY[{}] @> {}".format(", ".join(mapping_constants), self._head.db["column_names"][col]))
+                constraints.append("ARRAY[{}] <@ {}".format(", ".join(mapping_constants), self._head.db["column_names"][col]))
+            else:
+                hasOperator = False
+                for op in self._operators:
+                    concatinatingValues = []
+                    if (op in param):
+                        hasOperator = True
+                        concatinatingVars = param.split(op)
+                        for concatinatingVar in concatinatingVars:
+                            concatinatingVar = concatinatingVar.strip()
+                            if not concatinatingVar[0].isdigit():
+                                concatinatingValues.append(str(self._mapping[concatinatingVar]))
+                        if op == "||":
+                            finalString = "{" + ",".join(concatinatingValues) +"}"
+                            constraints.append("{} = '{}'".format(self._head.db["column_names"][col], finalString))
+                        else:
+                            print("Error. Unsupported OP encountered")
+                            exit()
+                if not hasOperator:
+                    if param[0].isdigit():
+                        constraints.append("{} = {}".format(self._head.db["column_names"][col], param))
                     else:
-                        print("Error. Unsupported OP encountered")
-                        exit()
-            if not hasOperator:
-                if param[0].isdigit():
-                    constraints.append("{} = {}".format(self._head.db["column_names"][col], param))
-                else:
-                    constraints.append("{} = {}".format(self._head.db["column_names"][col], str(self._mapping[param])))
+                        constraints.append("{} = {}".format(self._head.db["column_names"][col], str(self._mapping[param])))
         sql = "select * from " + self._head.db["name"]
         if (constraints):
             sql += " where " + " and ".join(constraints)
