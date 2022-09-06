@@ -124,15 +124,19 @@ class DT_Program:
         numRules = self.numRules
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
+            # print("minimizing rule:", rule)
             # numAtoms = rule.numBodyAtoms
             atomNum = 0
             while atomNum < rule.numBodyAtoms:
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
+                # print("rule with deleted atom:", rule_with_deleted_atom)
                 if self.contains_rule(rule_with_deleted_atom):
                     self.replaceRule(ruleNum, rule_with_deleted_atom) 
                     rule = rule_with_deleted_atom
+                    
                 else:
                     atomNum += 1
+                # print("minimized rule", rule)
             # for atomNum in range(numAtoms):
             #     rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
             #     if self.contains_rule(rule_with_deleted_atom):
@@ -141,10 +145,12 @@ class DT_Program:
         while ruleNum < self.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
             rule = self.getRule(ruleNum)
             newProgram = self.copyWithDeletedRule(ruleNum)
+            # print("newProgram program", newProgram)  
             if newProgram.contains_rule(rule):
                 self.deleteRule(ruleNum)
             else:
-                ruleNum += 1       
+                ruleNum += 1   
+              
         # for ruleNum in range(numRules):
         #     rule = self.getRule(ruleNum)
         #     newProgram = self.copyWithDeletedRule(ruleNum)

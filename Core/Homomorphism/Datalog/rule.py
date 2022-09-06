@@ -425,8 +425,8 @@ class DT_Rule:
 
     def addtional_constraints2where_clause(self, constraints, variableList):
         additional_conditions = []
-        pop_constraint_idx = []
-        for constraint_idx, constraint in enumerate(constraints):
+        safe_constraints = []
+        for constraint in constraints:
             # only support logical or/and exculding mixed use)
             conditions = []
             logical_opr = None
@@ -442,39 +442,35 @@ class DT_Rule:
             else:
                 conditions.append(constraint)
 
-            temp_conditions = []
-            unsafe_condition_idx = []
-            for i, cond in enumerate(conditions):
+            safe_conditions = []
+            temp_processed_conditions = []
+            for cond in conditions:
                 cond = cond.strip()
                 processed_cond = self.condition2where_caluse(cond, variableList)
                 if processed_cond is not None:
-                    temp_conditions.append(processed_cond)
-                else:
-                    unsafe_condition_idx.append(i)
+                    temp_processed_conditions.append(processed_cond)
+                    safe_conditions.append(cond)
             
             # update additional constraints
-            if len(unsafe_condition_idx) > 0:
-                for idx in unsafe_condition_idx:
-                    conditions.pop(idx)
-                
-                if len(conditions) == 0: 
-                    pop_constraint_idx.append(constraint_idx) # this subcondition should be popped
-                elif len(conditions) == 1:
-                    constraint = conditions[0]
-                else:
-                    constraint = logical_sym.join(conditions)
+            if len(safe_conditions) == 0:
+                continue
+            if len(safe_conditions) == 1:
+                constraint = safe_conditions[0]
+                safe_constraints.append(constraint)
+            else:
+                constraint = logical_sym.join(safe_conditions)
+                safe_constraints.append(constraint)
             
             if logical_opr == 'and':
-                additional_conditions.append(" and ".join(temp_conditions))
+                additional_conditions.append(" and ".join(temp_processed_conditions))
             elif logical_opr == 'or':
-                additional_conditions.append("({})".format(" or ".join(temp_conditions)))
+                additional_conditions.append("({})".format(" or ".join(temp_processed_conditions)))
             else:
-                additional_conditions += temp_conditions
+                additional_conditions += temp_processed_conditions
+        
         
         # update additional constraints
-        if len(pop_constraint_idx) > 0: # pop out the empty subcondition
-            for idx in pop_constraint_idx:
-                constraints.pop(idx)
+        self._constraints = safe_constraints
 
         return additional_conditions
 
@@ -487,6 +483,7 @@ class DT_Rule:
         left_opd = items[0]
         opr = items[1]
         right_opd = items[2]
+        
         if not left_opd[0].isdigit(): # it is a var or c-var
             if left_opd not in variableList.keys():
                 print("No '{}' in variables! Unsafe condition!".format(left_opd))
