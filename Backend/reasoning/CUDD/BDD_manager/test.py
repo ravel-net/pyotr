@@ -51,27 +51,57 @@ import databaseconfig as cfg
 #     bdd_idx = BDD_managerModule.str_to_BDD(encoded_condition)
 #     print("bdd_c_idx:", bdd_idx)
 
-domain = ['1', '2']
-variables_list = ['d2']
-bddmm.initialize(1, len(domain))
+# domain = ['1', '5', '4']
+# variables_list = ['d1', 'd2']
+# bddmm.initialize(2, len(domain))
 
-condition1 = "Or(And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))), And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))))"
-condition2 = "d2 == 1"
+# # condition1 = "Or(And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))), And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))))"
+# # condition2 = "d2 == 1"
+# condition1 = "Or(And(d1 == 1, d2 == 1), And(d1 == 1, d2 == 4))"
+# condition2 = "And(d1 == 1, d1 == 1)"
+# # print(condition)
+# encoded_condition1, variable_array1 = encodeCUDD.convertToCUDD(condition1, domain, variables_list)
+# encoded_condition2, variable_array2 = encodeCUDD.convertToCUDD(condition2, domain, variables_list)
+# print(encoded_condition1)
+# print(encoded_condition2)
+
+# bdd_idx1 = bddmm.str_to_BDD(encoded_condition1)
+# bdd_idx2 = bddmm.str_to_BDD(encoded_condition2)
+
+# print("bdd_idx1", bdd_idx1)
+# print("bdd_idx2", bdd_idx2)
+# res1 = bddmm.is_implication(bdd_idx1, bdd_idx2)
+# res2 = bddmm.is_implication(bdd_idx2, bdd_idx1)
+
+# print('res1', res1)
+# print('res2', res2)
+
+
+
+# domain = ['1', '5', '4']
+domain = []
+variables_list = ['d1', 'd2']
+bddmm.initialize(len(variables_list), 4294967295)
+
+# condition1 = "Or(And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))), And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))))"
+# condition2 = "d2 == 1"
+# condition1 = "Or(And(d1 == 10.0.0.0/24, d2 == 1.0.0.0), And(d1 == 10.0.0.0/24, d2 == 1.0.0.2))"
+# condition2 = "And(d1 == 1, d1 == 1)"
+# condition1 = "Or(And(d == 10.0.0.0/31, And(d == 10.0.0.0)), And(d == 10.0.0.0/31, And(d == 10.0.0.1)), And(d == 10.0.0.0/31, And(d == 10.0.0.1)))"
+condition1 = "And(And(d1 == 10.0.0.0/24, d2 == 10.0.1.0/24), Or(d1 == 10.0.1.0/24, d2 == 1.0.1.0))"
 # print(condition)
-encoded_condition1, variable_array1 = encodeCUDD.convertToCUDD(condition1, domain, variables_list)
-encoded_condition2, variable_array2 = encodeCUDD.convertToCUDD(condition2, domain, variables_list)
+encoded_condition1, variable_array1 = encodeCUDD.convertToCUDD(condition1, domain, variables_list, True)
+# encoded_condition2, variable_array2 = encodeCUDD.convertToCUDD(condition2, domain, variables_list)
 print(encoded_condition1)
-print(encoded_condition2)
+# print(encoded_condition2)
 
 bdd_idx1 = bddmm.str_to_BDD(encoded_condition1)
-bdd_idx2 = bddmm.str_to_BDD(encoded_condition2)
+# bdd_idx2 = bddmm.str_to_BDD(encoded_condition2)
 
 print("bdd_idx1", bdd_idx1)
-print("bdd_idx2", bdd_idx2)
-res1 = bddmm.is_implication(bdd_idx1, bdd_idx2)
-res2 = bddmm.is_implication(bdd_idx2, bdd_idx1)
+# print("bdd_idx2", bdd_idx2)
+# res1 = bddmm.is_implication(bdd_idx1, bdd_idx2)
+res1 = bddmm.evaluate(bdd_idx1)
 
 print('res1', res1)
-print('res2', res2)
-print("res", res1 and res2)
-
+# print('res2', res2)

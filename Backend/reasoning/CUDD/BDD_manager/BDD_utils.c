@@ -107,16 +107,16 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
     return bdd;
 }
 
-DdNode** initVars(int numVars, DdManager* gbm) {
+DdNode** initVars(unsigned int numVars, DdManager* gbm) {
     DdNode** variableNodes = malloc(sizeof(DdNode*)*numVars);
-    for (int i = 0; i < numVars; i++) {
+    for (unsigned int i = 0; i < numVars; i++) {
         variableNodes[i] = Cudd_bddNewVar(gbm);
         // Cudd_Ref(variableNodes[i]);
     }
     return variableNodes;
 }
 
-DdNode* convertToBDD(DdManager* gbm, char* condition, int numVars, DdNode** variableNodes) {
+DdNode* convertToBDD(DdManager* gbm, char* condition, unsigned int numVars, DdNode** variableNodes) {
     int* i = malloc(sizeof(int));
     *i = 0;
     DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
@@ -136,7 +136,7 @@ int evaluateBDD(DdNode* bdd) {
     }
 }
  
-int evaluateString(char* condition, int numVars, long* mem){
+int evaluateString(char* condition, unsigned int numVars, long* mem){
     // clock_t start, end;
     // double total_time;
     DdManager* gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
@@ -153,7 +153,7 @@ int evaluateString(char* condition, int numVars, long* mem){
     return result;
 }
 
-int numBinaryVars(int numberOfVariables, int domainCardinality) {
+int numBinaryVars(unsigned int numberOfVariables, unsigned int domainCardinality) {
     double log_base_2_domain = log(domainCardinality)/log(2); // log base 2 of the number of elements in the domain
     int binaryVarPerVar = (int) ceil(log_base_2_domain); // number of binary variables per a single variable in decimal. TODO: Need to have separate domain for every variable
     return binaryVarPerVar*numberOfVariables;
