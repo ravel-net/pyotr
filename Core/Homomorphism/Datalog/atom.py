@@ -56,7 +56,7 @@ class DT_Atom:
             if '[' in var and ']' in var: # special case, parameter_str = 'a1, xd, [a1]'
                 value_in_array = re.findall(r'\[(.*?)\]', var)
                 self.parameters.append(copy(value_in_array))
-            if '[' in var:
+            elif '[' in var:
                 in_sqr_parenth = True
                 vars_in_sqr_parenth.append(var.split('[')[1].strip())
             elif ']' in var:
@@ -69,7 +69,6 @@ class DT_Atom:
                     vars_in_sqr_parenth.append(var.strip())
                 else:
                     self.parameters.append(var.strip())
-
         self.db["name"] = split_str[0].strip()
         self.db["column_names"] = []
         self.db["column_types"] = []
@@ -89,18 +88,6 @@ class DT_Atom:
                 for op in operators:
                     if (op in var):
                         hasOperator = True
-                        # if op == '[':
-                        #     if var[0] == '[': 
-                        #         var = var[1:]
-                        #     if var[-1] == ']':
-                        #         var = var[:-1]
-                        #     listing_vars = var.split(',')
-                        #     for listing_var in listing_vars:
-                        #         listing_var = listing_var.strip()
-                        #         if not listing_var[0].isdigit() and listing_var not in self.variables:
-                        #             self.variables.append(listing_var)
-                        #     continue
-
                         concatinatingVars = var.split(op)
                         for concatinatingVar in concatinatingVars:
                             concatinatingVar = concatinatingVar.strip()
@@ -135,6 +122,9 @@ class DT_Atom:
                 for v in var:
                     mapping_constants.append(str(mapping[v]))
                 variableConstants.append("ARRAY [" + ", ".join( mapping_constants) + "]")
+                continue
+            if var[0].isdigit():
+                variableConstants.append(str(var))
                 continue
             if var in self.c_variables:
                 variableConstants.append("'{}'".format(var))

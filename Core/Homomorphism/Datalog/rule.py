@@ -74,16 +74,14 @@ class DT_Rule:
         self._datatype = datatype
         self._simplication_on = simplification_on
         db_names = []
-        atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
+        # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
+        atom_strs = self.split_atoms(body_str)
         for atom_str in atom_strs:
             atom_str = atom_str.strip()
             if "[" in atom_str:  # atom with conditions for c-variables
-                if atom_str[-1] != "]":
-                    atom_str += "]"
-                
+                pass
             elif "(" in atom_str: # atom without c-variables
-                if atom_str[-1] != ")":
-                    atom_str += ")"
+                pass
             else: # it's not an atom, instead additional conditions
                 constraints = atom_str.split(',')
                 for constraint in constraints:
@@ -157,12 +155,17 @@ class DT_Rule:
         summary = set()
         summary_nodes = []
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
+        variables_idx_in_array = {} # format {'var': list[location]}
         for i, atom in enumerate(self._body):
             tables.append("{} t{}".format(atom.db["name"], i))
             for col, val in enumerate(atom.parameters):
                 if type(val) == list:
                     loc = "t{}.{}".format(i, atom.db["column_names"][col])
                     constraints_for_array[loc] = val
+                    for idx, var in enumerate(val):
+                        if var not in variableList and var not in variables_idx_in_array:
+                            variables_idx_in_array[var] = {'location': loc}
+                            variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
                     constraints.append("t{}.{} = '{}'".format(i, atom.db["column_names"][col], val))
                 else: # variable
@@ -171,12 +174,17 @@ class DT_Rule:
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
+                print("param", param)
                 replace_var2attr = []
+
                 for p in param:
                     if p in self._c_variables:
                         replace_var2attr.append("'{}'".format(p))
                     else:
-                        replace_var2attr.append(str(variableList[p][0]))
+                        if p in variableList:
+                            replace_var2attr.append(str(variableList[p][0]))
+                        else:
+                            replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
                 summary_nodes.append("ARRAY[{}] as {}".format(", ".join(replace_var2attr), self._head.db['column_names'][idx]))
             else:
                 hasOperator = False
@@ -210,7 +218,10 @@ class DT_Rule:
         # constraints for array
         for attr in constraints_for_array:
             for var in constraints_for_array[attr]:
-                constraints.append("{} = ANY({})".format(variableList[var][0], attr))
+                if var in variableList:
+                    constraints.append("{} = ANY({})".format(variableList[var][0], attr))
+                # else:
+                #     constraints.append("{}[{}] = ANY({})".format(variables_idx_in_array[var]['location'], variables_idx_in_array[var]['idx'], attr))
 
         if len(self._c_variables) == 0:
 
@@ -218,12 +229,13 @@ class DT_Rule:
             if (constraints):
                 sql += " where " + " and ".join(constraints)
             cursor = conn.cursor()
-            # print("sql", sql)
+            print("sql", sql)
             # remove the duplicates
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = sql, attrs= ", ".join(self._head.db["column_names"]))
             # print("except_sql", except_sql)
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
+            print("insert", cursor.query)
             # print("affectedRows", affectedRows)
             conn.commit()
             changed = (affectedRows > 0)
@@ -278,7 +290,7 @@ class DT_Rule:
         sql = "select * from " + self._head.db["name"]
         if (constraints):
             sql += " where " + " and ".join(constraints)
-        # print(sql)
+        print(sql)
         cursor = conn.cursor()
         cursor.execute(sql)
         result = cursor.fetchall()
@@ -561,6 +573,77 @@ class DT_Rule:
             processed_condition = " {} {} {}".format(left_opd, opr, right_opd)
 
         return processed_condition
+
+    def split_atoms1(bodystr):
+        in_square_parenth = False
+        in_parenth = False
+        atom_strs = []
+        parenth_items = []
+        square_parenth_items = []
+        for item in bodystr.split(','):
+            if '(' in item and ')' in item and '[' in item and ']' in item: # for case of R(e)[e=1]
+                atom_strs.append(item.strip())
+            elif '(' in item and ')' in item: # for case R(e)[e=1, e!=2] or R(e)
+                if '[' in item: # R(e)[e=1, e!=2]
+                    in_square_parenth = True
+                    parenth_items.append(item)
+                else: # R(e)
+                    atom_strs.append(item.strip())
+            elif '[' in item and ']' in item:
+                if in_parenth:
+                    parenth_items.append(item.strip())
+                else:
+                    parenth_items.append(item.strip())
+                    atom_strs.append(", ".join(parenth_items))
+                    parenth_items.clear()
+            elif '(' in item:
+                in_parenth = True
+                parenth_items.append(item.strip())
+            elif '[' in item:
+                if in_parenth:
+                    parenth_items.append(item.strip())
+                else:
+                    in_square_parenth = True
+                    square_parenth_items.append(item.strip())
+            elif ']' in item:
+                if in_parenth:
+                    if ')' in item:
+                        in_parenth = False
+                        in_square_parenth = False
+                        parenth_items.append(item.strip())
+                        atom_strs.append(", ".join(parenth_items))
+                        parenth_items.clear()
+
+    def split_atoms(self, bodystr):
+        i = 0
+        in_parenth = False
+        atom_strs = []
+        begin_pos = i
+        while i < len(bodystr):
+            if bodystr[i] == '(':
+                in_parenth = True
+            elif bodystr[i] == ')':
+                in_parenth = False
+                atom_str = bodystr[begin_pos: i+1].strip(" ,")
+                atom_strs.append(atom_str)
+                begin_pos = i+1
+            elif bodystr[i] == ']':
+                if not in_parenth:
+                    relation = atom_strs.pop(-1)
+                    atom_str_with_condition = relation + bodystr[begin_pos: i+1]
+                    atom_str_with_condition.strip(" ,")
+                    atom_strs.append(atom_str_with_condition)
+                    begin_pos = i + 1
+            
+            i += 1
+        if begin_pos != len(bodystr):
+            atom_strs.append(bodystr[begin_pos:].strip(" ,"))
+        
+        return atom_strs
+            
+
+
+
 
     # # Uniform containment. self rule C rule2 (self rule contains rule2). Treat self rule as constant and apply the rule in the argument as program
     # # Returns (containment result, any changes to database)

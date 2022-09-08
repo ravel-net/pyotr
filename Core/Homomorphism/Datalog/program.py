@@ -40,10 +40,14 @@ class DT_Program:
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
     def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=True):
-        rules_str = program_str.split("\n")
         self._rules = []
-        for rule in rules_str:
-            self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on))
+
+        if isinstance(program_str, DT_Rule):
+            self._rules.append(program_str)
+        else:
+            rules_str = program_str.split("\n")
+            for rule in rules_str:
+                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on))
         
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
@@ -65,6 +69,8 @@ class DT_Program:
     def execute(self, conn):
         changed = False
         for rule in self._rules:
+            print("\n------------------------")
+            print("program rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
         return changed
@@ -126,15 +132,21 @@ class DT_Program:
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
             print("minimizing rule:", rule)
+            program_only_rule = DT_Program(rule)
             # numAtoms = rule.numBodyAtoms
             atomNum = 0
             while atomNum < rule.numBodyAtoms:
+                if rule.numBodyAtoms == 1: # if only one atom left in program, stop minimizing redundant atoms
+                    break
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
                 print("rule with deleted atom:", rule_with_deleted_atom)
-                if self.contains_rule(rule_with_deleted_atom):
+                
+                contained = program_only_rule.contains_rule(rule_with_deleted_atom)
+                # if atomNum == 2: exit()
+                if contained:
                     self.replaceRule(ruleNum, rule_with_deleted_atom) 
                     rule = rule_with_deleted_atom
-                    
+                    program_only_rule = DT_Program(rule)
                 else:
                     atomNum += 1
                 # print("minimized rule", rule)
@@ -142,12 +154,13 @@ class DT_Program:
             #     rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
             #     if self.contains_rule(rule_with_deleted_atom):
             #         self.replaceRule(ruleNum, rule_with_deleted_atom)    
+
         ruleNum = 0
         while ruleNum < self.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
+            if self.numRules == 1: # if only one rule left in program, stop minimizing
+                return
             rule = self.getRule(ruleNum)
             newProgram = self.copyWithDeletedRule(ruleNum)
-            print("newProgram program", newProgram) 
-            print("deleted rule", rule) 
             if newProgram.contains_rule(rule):
                 self.deleteRule(ruleNum)
             else:
