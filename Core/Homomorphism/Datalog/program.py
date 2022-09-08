@@ -69,8 +69,8 @@ class DT_Program:
     def execute(self, conn):
         changed = False
         for rule in self._rules:
-            print("\n------------------------")
-            print("program rule:", rule)
+            # print("\n------------------------")
+            # print("program rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
         return changed
@@ -131,7 +131,7 @@ class DT_Program:
         numRules = self.numRules
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
-            print("minimizing rule:", rule)
+            # print("minimizing rule:", rule)
             program_only_rule = DT_Program(rule)
             # numAtoms = rule.numBodyAtoms
             atomNum = 0
@@ -139,7 +139,7 @@ class DT_Program:
                 if rule.numBodyAtoms == 1: # if only one atom left in program, stop minimizing redundant atoms
                     break
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-                print("rule with deleted atom:", rule_with_deleted_atom)
+                # print("rule with deleted atom:", rule_with_deleted_atom)
                 
                 contained = program_only_rule.contains_rule(rule_with_deleted_atom)
                 # if atomNum == 2: exit()
