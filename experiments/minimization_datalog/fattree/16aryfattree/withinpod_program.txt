@@ -1,0 +1,27 @@
+# 16-ary fattree
+# Structure within a pod (total 16 pods in a 18-ary fattree)
+# 8 aggregation switches/routers
+# 8 edge switches/routers
+# each aggregation switch/router connects to 8 edge switches/routers
+# each edge switche/router connects to 8 aggregation switches/routers and 8 hosts
+
+R(a1, h16, [e2], 1) :- l(a1,e2)
+R(a2, h16, [e2], 1) :- l(a2,e2)
+R(a3, h16, [e2], 1) :- l(a3,e2)
+R(a4, h16, [e2], 1) :- l(a4,e2)
+R(a5, h16, [e2], 1) :- l(a5,e2)
+R(a6, h16, [e2], 1) :- l(a6,e2)
+R(a7, h16, [e2], 1) :- l(a7,e2)
+R(a8, h16, [e2], 1) :- l(a8,e2)
+R(e1, h16, [a1,x], 2) :- R(a1, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a2,x], 2) :- R(a2, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a3,x], 2) :- R(a3, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a4,x], 2) :- R(a4, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a5,x], 2) :- R(a5, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a6,x], 2) :- R(a6, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a7,x], 2) :- R(a7, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+R(e1, h16, [a8,x], 2) :- R(a8, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
+
+# // minimized program
+# R(a8,h16,[e2],1) :- l(a8,e2)
+# R(e1,h16,[a8, x],2) :- R(a8,h8,[x],1),l(e1,a8)
