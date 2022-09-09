@@ -1,5 +1,5 @@
 # 16-ary fattree
-# Structure within a pod (total 16 pods in a 18-ary fattree)
+# Structure within a pod (total 16 pods in a 16-ary fattree)
 # 8 aggregation switches/routers
 # 8 edge switches/routers
 # each aggregation switch/router connects to 8 edge switches/routers
@@ -23,5 +23,5 @@ R(e1, h16, [a7,x], 2) :- R(a7, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e
 R(e1, h16, [a8,x], 2) :- R(a8, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)
 
 # // minimized program
-# R(a8,h16,[e2],1) :- l(a8,e2)
-# R(e1,h16,[a8, x],2) :- R(a8,h8,[x],1),l(e1,a8)
+R(a8,h16,[e2],1) :- l(a8,e2)
+R(e1,h16,[a8, x],2) :- R(a8,h8,[x],1),l(e1,a8)
