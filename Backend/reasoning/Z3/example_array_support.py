@@ -1,18 +1,16 @@
 from z3 import *
 
-I = IntSort()
+I = IntSort() # the datatype in Set
 s = Solver()
 
 # declare an empty set for IntSort
 Nodes = EmptySet(I)
 
 # add values 1 and 2 into set
+# it's equal to below two: Nodes = SetAdd(SetAdd(Nodes, 1), 2)
 Nodes = SetAdd(Nodes, 1) 
 Nodes = SetAdd(Nodes, 2)
 print(Nodes)
-
-# it's equal to above two
-# Nodes = SetAdd(SetAdd(Nodes, 1), 2) 
 
 s.push()
 s.add(IsMember(3,Nodes)) # check is 3 is a memeber of set Nodes
