@@ -1,0 +1,19 @@
+# 8-ary fattree
+# Structure within a pod (total 8 pods in a 8-ary fattree)
+# 4 aggregation switches/routers
+# 4 edge switches/routers
+# each aggregation switch/router connects to 4 edge switches/routers
+# each edge switche/router connects to 4 aggregation switches/routers and 4 hosts
+
+R(a1, h8, [e2], 1) :- l(a1,e2)
+R(a2, h8, [e2], 1) :- l(a2,e2)
+R(a3, h8, [e2], 1) :- l(a3,e2)
+R(a4, h8, [e2], 1) :- l(a4,e2)
+R(e1, h8, [a1,x], 2) :- R(a1, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)
+R(e1, h8, [a2,x], 2) :- R(a2, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)
+R(e1, h8, [a3,x], 2) :- R(a3, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)
+R(e1, h8, [a4,x], 2) :- R(a4, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)
+
+# // minimized program
+# R(a4,h8,[e2],1) :- l(a4,e2)
+# R(e1,h8,[a4, x],2) :- R(a4,h8,[x],1),l(e1,a4)
