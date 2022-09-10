@@ -240,13 +240,13 @@ class DT_Rule:
             conn.commit()
             changed = (affectedRows > 0)
         else:
-            attrs = []
-            for i in range(len(summary_nodes)):
-                attrs.append('{} {}'.format(summary_nodes[i], self._head.db["column_names"][i]))
-            sql = " select " + ", ".join(attrs) + " from " + ", ".join(tables)
+            # attrs = []
+            # for i in range(len(summary_nodes)):
+            #     attrs.append('{} {}'.format(summary_nodes[i], self._head.db["column_names"][i]))
+            sql = " select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
             if (constraints):
                 sql += " where " + " and ".join(constraints)
-            # print("sql", sql)
+            print("sql", sql)
             return self.run_with_faure(conn, sql)
 
         return changed
