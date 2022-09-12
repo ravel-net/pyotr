@@ -237,7 +237,6 @@ class z3SMTTools:
                         
 
         domain_str = ", ".join(domain_conditions)
-        print("domain_str", domain_str)
         return domain_str
     
     def _convert_z3_variable(self, condition, datatype):
