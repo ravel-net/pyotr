@@ -289,7 +289,7 @@ class SQL_Parser:
                     continue
                 elif constraint._left_operand['function'] is not None or  constraint._right_operand['function'] is not None:
                     continue
-                elif str(constraint._left_operand["attribute"])[0].isdigit() or str(constraint._right_operand["attribute"])[0].isdigit():
+                elif str(constraint._left_operand["attribute"]).strip("'")[0].isdigit() or str(constraint._right_operand["attribute"]).strip("'")[0].isdigit():
                     continue
                 elif constraint._operator == '=':
                     left_opd = str(constraint._left_operand["attribute"])
