@@ -109,7 +109,7 @@ class SQL_Parser:
             else:
                 for key in self._selected_attributes['attributes']:
                     attributes_strs.append(str(key))
-                
+                    
                 attr_strs = []
                 for attr in self._all_attributes['condition']:
                     attr_strs.append(str(attr))
@@ -174,6 +174,8 @@ class SQL_Parser:
                 # print("contained", contained)
                 if contained:
                     conditions.append(constraint.concatenation(self.simple_attribute_mapping))
+        if len(conditions) == 0:
+            return None
         conjunction_conditions = "Array[{}]".format(", ".join(conditions))
         return conjunction_conditions
 
@@ -201,6 +203,10 @@ class SQL_Parser:
                         begin_pos = i+1
             
                 i += 1
+            
+            if begin_pos != i:
+                attribute = selected_attributes_str[begin_pos:i]
+                self._selected_attributes['attributes'].append(SelectedAttribute(attribute))
 
     def _get_all_attributes(self):
         condition_attributes = []
@@ -212,7 +218,7 @@ class SQL_Parser:
                 column_names = self._databases[workingtable.table]['names']
                 column_datatypes = self._databases[workingtable.table]['types']
             else:
-                self._databases[workingtable.table] = {}
+                self._databases[workingtable.table] = {'types':[], 'names':[]}
                 cursor = conn.cursor()
                 cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(workingtable.table))
                 for (column_name, datatype) in cursor.fetchall():

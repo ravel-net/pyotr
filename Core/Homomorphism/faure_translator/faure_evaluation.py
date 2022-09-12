@@ -17,10 +17,10 @@ conn = psycopg2.connect(
 class FaureEvaluation:
     def __init__(self, conn, SQL, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
         self._conn = conn
-        self._SQL = SQL
+        self._SQL = SQL.strip()
         self.output_table=output_table
         self._information_on = information_on
-        self._SQL_parser = SQL_Parser(SQL, databases)
+        self._SQL_parser = SQL_Parser(SQL.strip(), databases)
 
         self.data_time = 0.0
         self.update_condition_time = {}
@@ -67,19 +67,25 @@ class FaureEvaluation:
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
         
+        cursor = self._conn.cursor()
+
         '''
         Update conjunction constraints into conditional column
         '''
-        upd_sql = "update {} set condition = condition || {}".format(self.output_table, self._SQL_parser.additional_conditions_SQL_format)
-        if self._information_on:
-            print(upd_sql)
-
-        cursor = self._conn.cursor()
-        begin_upd = time.time()
-        cursor.execute(upd_sql)
-        end_upd = time.time()
-        self.update_condition_time['update_condition'] = end_upd - begin_upd
-        conn.commit()
+        additional_condition = self._SQL_parser.additional_conditions_SQL_format
+        if additional_condition is None:
+            print("No additional conditions for c-variables!")
+            self.update_condition_time['update_condition'] = 0
+        else:
+            upd_sql = "update {} set condition = condition || {}".format(self.output_table, additional_condition)
+            if self._information_on:
+                print(upd_sql)
+                
+            begin_upd = time.time()
+            cursor.execute(upd_sql)
+            end_upd = time.time()
+            self.update_condition_time['update_condition'] = end_upd - begin_upd
+            conn.commit()
 
         '''
         Check the selected columns

@@ -23,7 +23,7 @@ class z3SMTTools:
             return 
 
         for c in conditions:
-            prcd_cond = self.condition_parser(c, self._reasoning_type)
+            prcd_cond = self.condition_parser(c)
             self.solver.add(eval(prcd_cond))
 
         result = self.solver.check()
@@ -39,7 +39,7 @@ class z3SMTTools:
         if len(conditions) == 0:
             return True
         for c in conditions:
-            prcd_cond = self.condition_parser(c, self._reasoning_type)
+            prcd_cond = self.condition_parser(c)
             self.solver.push()
             self.solver.add(eval("Not({prcd_cond})".format(prcd_cond)))
             re = self.solver.check()
@@ -66,7 +66,7 @@ class z3SMTTools:
         
         processed_conditions = {}
         if len(conditions) == 1:
-            expr = self.condition_parser(conditions[0], self._reasoning_type)
+            expr = self.condition_parser(conditions[0])
 
             # check tautology
             c = "Not({})".format(expr)
@@ -84,7 +84,7 @@ class z3SMTTools:
             for idx1 in range(len(conditions) - 1):
                 expr1 = ""
                 if idx1 not in processed_conditions.keys():
-                    expr1 = self.condition_parser(conditions[idx1], self._reasoning_type)
+                    expr1 = self.condition_parser(conditions[idx1])
                     processed_conditions[idx1] = expr1
                 else:
                     expr1 = processed_conditions[idx1]
@@ -92,7 +92,7 @@ class z3SMTTools:
                 for idx2 in range(idx1+1,len(conditions)):
                     expr2 = ""
                     if idx2 not in processed_conditions.keys():
-                        expr2 = self.condition_parser(conditions[idx2], self._reasoning_type)
+                        expr2 = self.condition_parser(conditions[idx2])
                         processed_conditions[idx2] = expr2  
                     else:
                         expr2 = processed_conditions[idx2]
@@ -225,7 +225,7 @@ class z3SMTTools:
             for var in self._domains:
                 var_conditions = []
                 for val in self._domains[var]:
-                    var_conditions.append("z3.{sort}({var}) == z3.Val{sort}({val})".format(sort=self._reasoning_type, var=var, val=val))
+                    var_conditions.append("z3.{sort}('{var}') == z3.{sort}Val({val})".format(sort=self._reasoning_type, var=var, val=val))
                 domain_conditions.append("Or({})".format(", ".join(var_conditions)))
         else:
             for var in self._domains:
@@ -237,6 +237,7 @@ class z3SMTTools:
                         
 
         domain_str = ", ".join(domain_conditions)
+        print("domain_str", domain_str)
         return domain_str
     
     def _convert_z3_variable(self, condition, datatype):
