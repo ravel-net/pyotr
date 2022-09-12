@@ -443,6 +443,19 @@ int4_faure_eq(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(arg1->integer == arg2->integer);
 }
 
+PG_FUNCTION_INFO_V1(int4_faure_eq_int);
+Datum
+int4_faure_eq_int(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int		arg2 = PG_GETARG_INT32(1);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer == arg2 );
+}
+
 PG_FUNCTION_INFO_V1(int4_faure_ne);
 Datum
 int4_faure_ne(PG_FUNCTION_ARGS)

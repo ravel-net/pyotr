@@ -231,6 +231,8 @@ CREATE FUNCTION int4_faure_le(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_eq(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION int4_faure_eq_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 CREATE FUNCTION int4_faure_ge(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_gt(int4_faure, int4_faure) RETURNS bool
@@ -250,9 +252,17 @@ CREATE OPERATOR <= (
    -- commutator = >= , negator = > ,
    restrict = scalarlesel, join = scalarlejoinsel
 );
+
 CREATE OPERATOR = (
    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_eq,
    commutator = = ,
+   -- negator = <> ,
+   restrict = eqsel, join = eqjoinsel
+);
+
+CREATE OPERATOR = (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_eq_int,
+   -- commutator = = ,
    -- negator = <> ,
    restrict = eqsel, join = eqjoinsel
 );
