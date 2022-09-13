@@ -21,7 +21,7 @@ class DT_Atom:
         Add constants in place of variables referenced in this atom on database pointed by psycopg2 connection "conn". Conversion to sql and execution of sql occurs here
     """
     
-    def __init__(self, atom_str, databaseTypes={}, operators=[], c_variables=[]):
+    def __init__(self, atom_str, databaseTypes={}, operators=[], c_variables=[], c_tables=[]):
         relation = None
         condition = None
         if ')[' in atom_str: # contains conditions for atom, e.g., R(a1, xd, p)[a1 = 1]
@@ -37,6 +37,7 @@ class DT_Atom:
         self.db = {}
         self.variables = []
         self.c_variables = c_variables
+        self._isCTable = False
 
         self.constraints = [] # conditions for c-variables
         if condition is not None: # conditions for c-variables
@@ -70,6 +71,8 @@ class DT_Atom:
                 else:
                     self.parameters.append(var.strip())
         self.db["name"] = split_str[0].strip()
+        if self.db["name"] in c_tables:
+            self._isCTable = True
         self.db["column_names"] = []
         self.db["column_types"] = []
         for i, var in enumerate(self.parameters):
@@ -97,7 +100,7 @@ class DT_Atom:
                     if var not in self.c_variables and var not in self.variables:
                         self.variables.append(var)
         # column for condition attribute
-        if self.constraints:
+        if self._isCTable:
             self.db["column_names"].append("condition")
             self.db["column_types"].append("text[]")
         
@@ -116,6 +119,7 @@ class DT_Atom:
 
     def addConstants(self, conn, mapping):
         variableConstants = []
+        print("Adding constants", self)
         for i, var in enumerate(self.parameters):
             if type(var) == list:
                 mapping_constants = []
@@ -156,8 +160,10 @@ class DT_Atom:
             elif self.db["column_types"][i] == "int4_faure":
                 variableConstants.append("'{}'".format(mapping[var]))
 
-        if self.c_variables:
+        # if self.c_variables:
+        if self._isCTable:
             variableConstants.append("'{" + ", ".join(['"{}"'.format(c) for c in self.constraints]) + "}'") 
+
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
         # print(sql)

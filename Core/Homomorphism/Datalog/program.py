@@ -39,15 +39,15 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=True):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=True, c_tables=[]):
         self._rules = []
-
+        # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         if isinstance(program_str, DT_Rule):
             self._rules.append(program_str)
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on))
+                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables))
         
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
@@ -103,6 +103,8 @@ class DT_Program:
     def contains_rule(self, rule2):
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         conn.set_session()
+        print("Program: ", self)
+        print("Rule: ", rule2)
         changed = True
         self.initiateDB(conn)
         rule2.addConstants(conn)
@@ -127,6 +129,7 @@ class DT_Program:
         return newProgram
 
     # minimize. Does minimization in place. Make sure to make a copy if you want the original program
+    #TODO IMPORTANT: Program only rule should be entire program. Method: Delete contained rule and then add a rule without atom
     def minimize(self):
         numRules = self.numRules
         for ruleNum in range(numRules):
@@ -194,46 +197,54 @@ class DT_Program:
     
 if __name__ == "__main__":
     # Example 6 - Containment
-    p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
-    p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
-    print(p1)
-    print(p2)
-    program1 = DT_Program(p1)
-    program2 = DT_Program(p2)
-    print(program1.contains(program2))
-    print(program2.contains(program1))    
+    # p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
+    # p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
+    # print(p1)
+    # print(p2)
+    # program1 = DT_Program(p1)
+    # program2 = DT_Program(p2)
+    # print(program1.contains(program2))
+    # print(program2.contains(program1))    
 
     # # Example 7 - Minimization
-    p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
-    p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
-    print(p1)
-    print(p2)
-    program1 = DT_Program(p1)
-    program2 = DT_Program(p2)
-    print(program1.contains(program2))
-    print(program2.contains(program1))    
-    program1.minimize()
-    print(program1)
+    # p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
+    # p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
+    # print(p1)
+    # print(p2)
+    # program1 = DT_Program(p1)
+    # program2 = DT_Program(p2)
+    # print(program1.contains(program2))
+    # print(program2.contains(program1))    
+    # program1.minimize()
+    # print(program1)
 
     # # Control Plane Toy Example
-    p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
-    p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
-    print(p1)
-    print(p2)
+    # p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
+    # p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
+    # print(p1)
+    # print(p2)
     # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
     # program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
     # print(program2.contains(program1))
     # print(program1.contains(program2))
 
     # toy example of route aggregation
-    # P = "R(z, d1)[d1 = 1] :- R(x, d1)[d1 = 1], R(y, d2), L(z, x), L(z, y)\nR(z, d2)[d2 = 2] :- R(x, d1), R(y, d2)[d2 = 2], L(z, x), L(z, y)"
-    # Q = "R(v, d)[d = 1 ^ d = 2] :- R(u, d)[d = 1 ^ d = 2], L(v, u)" 
+    # P = "R(z, d1, [z])[d1 = 1] :- R(x, d1, [z])[d1 = 1], R(y, d2, [z]), L(z, x), L(z, y)\nR(z, d2, [z])[d2 = 2] :- R(x, d1, [z]), R(y, d2, [z])[d2 = 2], L(z, x), L(z, y)"
+    # Q = "R(v, d, [u])[d = 1 ^ d = 2] :- R(u, d, [u])[d = 1 ^ d = 2], L(v, u)"     
+
+    # # P = "R(z, d1)[d1 = 1] :- R(x, d1)[d1 = 1], R(y, d2), L(z, x), L(z, y)\nR(z, d2)[d2 = 2] :- R(x, d1), R(y, d2)[d2 = 2], L(z, x), L(z, y)"
+    # # Q = "R(v, d)[d = 1 ^ d = 2] :- R(u, d)[d = 1 ^ d = 2], L(v, u)" 
+    # # P_program = DT_Program(P, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d1', 'd2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R"])
+    # # Q_program = DT_Program(Q, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R"])
+
+
     # ''' 
     # # we need to provide databaseTypes, the list of column types for a database only when the default column type is not integer
     # # we need to provide domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on when using faure_log.
     # '''
-    # P_program = DT_Program(P, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d1', 'd2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
-    # Q_program = DT_Program(Q, {"R":["int4_faure", "int4_faure"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
+    # P_program = DT_Program(P, {"R":["int4_faure", "int4_faure", "Integer[]"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d1', 'd2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R"])
+    # Q_program = DT_Program(Q, {"R":["int4_faure", "int4_faure", "Integer[]"], "L":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['d'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R"])
+    # print(P_program)
     # res1 = P_program.contains(Q_program)
     # print("P contains Q:", res1)
     # res2 = Q_program.contains(P_program)
@@ -243,3 +254,17 @@ if __name__ == "__main__":
     # print("brefore minimizing", P_program)
     # P_program.minimize()
     # print("after minimizing", P_program)
+
+    # Array Example:
+    p1 = "R(a3, h3, [h3], 1)[h3 = 1] :- l(a3,h3)[h3 = 1]\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h1, a1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h2, a1)"    
+    # p1 = "R(a3, h3, [h3], 1) :- l(a3,h3)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h1, a1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h2, a1)"
+    program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+    # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
+
+    # # # # p2 = "R(a3, h3, [h3], 1)[h3 = 1] :- l(a3,h3)[h3 = 1]"
+    # # # # program2 = DT_Program(p2, {"R":["integer", "integer", "integer[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
+
+    print(program1)
+    print(program1.minimize())
+    print("After Minimization")
+    # print(program1)

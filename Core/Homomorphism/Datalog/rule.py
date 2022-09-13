@@ -17,6 +17,7 @@ import re
 from copy import deepcopy
 from psycopg2.extras import execute_values
 from Core.Homomorphism.Datalog.atom import DT_Atom
+from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.translator_pyotr as translator_z3
 import Core.Homomorphism.translator_pyotr_BDD as translator_bdd
 import BDD_managerModule as bddmm
@@ -57,12 +58,12 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
 
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True):
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
         head_str = rule_str.split(":-")[0].strip()
         body_str = rule_str.split(":-")[1].strip()
         self._variables = [] 
         self._c_variables = c_variables 
-        self._head = DT_Atom(head_str, databaseTypes, operators, c_variables)
+        self._head = DT_Atom(head_str, databaseTypes, operators, c_variables, c_tables)
         self._body = []
         self._DBs = []
         self._mapping = {}
@@ -88,12 +89,8 @@ class DT_Rule:
                     self._constraints.append(constraint.strip())
                 continue
 
-            currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables)
+            currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
             if currAtom.db["name"] not in db_names:
-                # if exists c-variables, make sure use c-table to store instance
-                if self._c_variables and 'condition' not in currAtom.db["column_names"]: 
-                    currAtom.db["column_names"].append("condition")
-                    currAtom.db["column_types"].append("text[]")
                 self._DBs.append(currAtom.db)
                 db_names.append(currAtom.db["name"])
             atomVars = currAtom.variables
@@ -156,6 +153,10 @@ class DT_Rule:
         summary_nodes = []
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
         variables_idx_in_array = {} # format {'var': list[location]}
+        print("Running atom:")
+        for i, atom in enumerate(self._body):
+            print(atom)
+        print("Head atom:", self._head)
         for i, atom in enumerate(self._body):
             tables.append("{} t{}".format(atom.db["name"], i))
             for col, val in enumerate(atom.parameters):
@@ -202,7 +203,7 @@ class DT_Rule:
                     if summary:
                         summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
                 if not hasOperator:
-                    if param[0].isdigit():
+                    if param[0].isdigit(): # constant parameter
                         summary_nodes.append("{} as {}".format(param, self._head.db['column_names'][idx]))
                     else:
                         # print("variableList", variableList)
@@ -246,7 +247,7 @@ class DT_Rule:
             sql = " select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
             if (constraints):
                 sql += " where " + " and ".join(constraints)
-            print("sql", sql)
+            # print("sql", sql)
             return self.run_with_faure(conn, sql)
 
         return changed
@@ -299,6 +300,10 @@ class DT_Rule:
         # print("contained", contained)
         return contained
     
+    # 1. Selects all tuples in table
+    # 2. Finds out the target head tuple (by mapping the variables to assigned constants)
+    # 3. Loops over all tuples to see if target tuple is found
+    # 4. Checks if the condition of the head implies the condition in the found tuple 
     def is_head_contained_faure(self, conn):
         cursor = conn.cursor()
         contains = False
@@ -312,11 +317,20 @@ class DT_Rule:
         # add constants to header data portion
         header_data_portion = []
         for p in self._head.parameters:
-            if p in self._c_variables:
-                header_data_portion.append(p)
+            if type(p) == list:
+                newP = []
+                for elem in p:
+                    if elem in self._c_variables or elem.isdigit():
+                        newP.append(elem)
+                    else:
+                        newP.append(str(self._mapping[elem]))
+                header_data_portion.append(newP)
             else:
-                header_data_portion.append(str(self._mapping[p]))
-        
+                if p in self._c_variables or type(p) == int or p.isdigit():
+                    header_data_portion.append(p)
+                else:
+                    header_data_portion.append(str(self._mapping[p]))
+
         # set header condition
         header_condition = None
         if self._head.constraints:
@@ -339,6 +353,7 @@ class DT_Rule:
                         str_tup_cond = tup_cond[0]
                     else:
                         str_tup_cond = "And({})".format(", ".join(tup_cond))
+
 
                     if check_tautology.check_equivalence_for_two_string_conditions(header_condition, str_tup_cond, self._reasoning_type):
                         contains = True
@@ -401,6 +416,7 @@ class DT_Rule:
                         exit()
                 else:
                     inserting_tuples.append(res_tup)
+
         if len(inserting_tuples) == 0:
             changes = False
         else:
@@ -411,20 +427,25 @@ class DT_Rule:
         return changes
     
     def run_with_faure(self, conn, program_sql):
-        
         header_table = self._head.db["name"]
         changed = False
         '''
         generate new facts
         '''
+        print(program_sql)
         if self._reasoning_engine == 'z3':
-            tree = translator_z3.generate_tree(program_sql)
-            translator_z3.data(tree)
-            translator_z3.upd_condition(tree, self._datatype)
+            # tree = translator_z3.generate_tree(program_sql)
+            # translator_z3.data(tree)
+            # translator_z3.upd_condition(tree, self._datatype)
 
-            if self._simplication_on == 'On':
-                translator_z3.normalization(self._reasoning_type)
-            conn.commit()
+            # if self._simplication_on == 'On':
+            #     translator_z3.normalization(self._reasoning_type)
+            # conn.commit()
+            faure_domains = {}
+            for cvar in self._c_variables:
+                faure_domains[cvar] = self._domains
+            print(program_sql)
+            FaureEvaluation(conn, program_sql, domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
             '''
             compare generating IDB and existing DB if there are new IDB generated
             if yes, the DB changes, continue run the program on DB
