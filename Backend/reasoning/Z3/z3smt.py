@@ -29,7 +29,7 @@ class z3SMTTools:
         result = self.solver.check()
 
         if result == z3.unsat:
-            self._olver.pop()
+            self.solver.pop()
             return True
         else:
             self.solver.pop()

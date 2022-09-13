@@ -68,6 +68,8 @@ class SQL_Parser:
 
                 where_index = sql_lowercase.find('where')
                 where_clause_str = self._original_sql[where_index+5:]
+
+                self._process_where_clause(where_clause_str)
             else:
                 self._process_working_tables_str(from_clause_include_where_str)
 
@@ -77,7 +79,7 @@ class SQL_Parser:
             selected_attributes_str = re.findall(selected_attributes_pattern, sql_lowercase)[0].strip()
             self._process_select_clause(selected_attributes_str)
             
-            self._process_where_clause(where_clause_str)
+            
         else:
             print("We only support selection now! Sorry!")
             exit()
