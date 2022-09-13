@@ -177,16 +177,21 @@ class DT_Rule:
             if type(param) == list:
                 # print("param", param)
                 replace_var2attr = []
-
+                c_var = False
                 for p in param:
                     if p in self._c_variables:
-                        replace_var2attr.append("'{}'".format(p))
+                        c_var = True
+                        replace_var2attr.append('"{}"'.format(p))
                     else:
                         if p in variableList:
                             replace_var2attr.append(str(variableList[p][0]))
                         else:
                             replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
-                summary_nodes.append("ARRAY[{}] as {}".format(", ".join(replace_var2attr), self._head.db['column_names'][idx]))
+
+                summary = "ARRAY[" + ", ".join(replace_var2attr) + "]"
+                if c_var:
+                    summary = "'{" + ", ".join(replace_var2attr) + "}'"
+                summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
             else:
                 hasOperator = False
                 for op in self._operators:
@@ -444,7 +449,6 @@ class DT_Rule:
             faure_domains = {}
             for cvar in self._c_variables:
                 faure_domains[cvar] = self._domains
-            print(program_sql)
             FaureEvaluation(conn, program_sql, domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
             '''
             compare generating IDB and existing DB if there are new IDB generated

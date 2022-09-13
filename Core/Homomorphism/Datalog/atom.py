@@ -119,7 +119,6 @@ class DT_Atom:
 
     def addConstants(self, conn, mapping):
         variableConstants = []
-        print("Adding constants", self)
         for i, var in enumerate(self.parameters):
             if type(var) == list:
                 mapping_constants = []
@@ -156,7 +155,7 @@ class DT_Atom:
                 #     continue
 
                 # For supporting ||
-                variableConstants.append("ARRAY [" + str(mapping[var]) + "]")
+                variableConstants.append("'{" + str(mapping[var]) + "}'")
             elif self.db["column_types"][i] == "inet_faure":
                 IPaddr = int(IPv4Address('10.0.0.1')) + mapping[var]
                 variableConstants.append("'{}'".format(str(IPv4Address(IPaddr))))

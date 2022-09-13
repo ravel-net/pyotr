@@ -70,7 +70,7 @@ class DT_Program:
         changed = False
         for rule in self._rules:
             # print("\n------------------------")
-            # print("program rule:", rule)
+            print("program rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
         return changed
@@ -103,7 +103,7 @@ class DT_Program:
     def contains_rule(self, rule2):
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         conn.set_session()
-        print("Program: ", self)
+        # print("Program: ", self)
         print("Rule: ", rule2)
         changed = True
         self.initiateDB(conn)
@@ -134,8 +134,7 @@ class DT_Program:
         numRules = self.numRules
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
-            # print("minimizing rule:", rule)
-            program_only_rule = DT_Program(rule)
+            # program_only_rule = DT_Program(rule)
             # numAtoms = rule.numBodyAtoms
             atomNum = 0
             while atomNum < rule.numBodyAtoms:
@@ -144,12 +143,12 @@ class DT_Program:
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
                 # print("rule with deleted atom:", rule_with_deleted_atom)
                 
-                contained = program_only_rule.contains_rule(rule_with_deleted_atom)
+                contained = self.contains_rule(rule_with_deleted_atom)
                 # if atomNum == 2: exit()
                 if contained:
                     self.replaceRule(ruleNum, rule_with_deleted_atom) 
                     rule = rule_with_deleted_atom
-                    program_only_rule = DT_Program(rule)
+                    # program_only_rule = DT_Program(rule)
                 else:
                     atomNum += 1
                 # print("minimized rule", rule)
@@ -208,13 +207,12 @@ if __name__ == "__main__":
 
     # # Example 7 - Minimization
     # p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
-    # p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
-    # print(p1)
-    # print(p2)
+    # # p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
     # program1 = DT_Program(p1)
-    # program2 = DT_Program(p2)
-    # print(program1.contains(program2))
-    # print(program2.contains(program1))    
+    # # program2 = DT_Program(p2)
+    # # print(program1.contains(program2))
+    # # print(program2.contains(program1))    
+    # print(program1)
     # program1.minimize()
     # print(program1)
 
@@ -264,7 +262,7 @@ if __name__ == "__main__":
     # # # # p2 = "R(a3, h3, [h3], 1)[h3 = 1] :- l(a3,h3)[h3 = 1]"
     # # # # program2 = DT_Program(p2, {"R":["integer", "integer", "integer[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
 
-    print(program1)
+    # print(program1)
     print(program1.minimize())
     print("After Minimization")
-    # print(program1)
+    print(program1)
