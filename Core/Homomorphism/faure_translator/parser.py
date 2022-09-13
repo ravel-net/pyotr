@@ -190,14 +190,14 @@ class SQL_Parser:
         else:
             i = 0
             begin_pos = i
-            in_square_parenth = False # for array[a1, ...]
+            in_square_parenth = 0 # for array[a1, ...]
             while i < len(selected_attributes_str):
                 if selected_attributes_str[i] == '[':
-                    in_square_parenth = True
+                    in_square_parenth += 1
                 elif selected_attributes_str[i] == ']':
-                    in_square_parenth = False
+                    in_square_parenth -= 1
                 elif selected_attributes_str[i] == ',':
-                    if not in_square_parenth: 
+                    if in_square_parenth == 0: 
                         attribute = selected_attributes_str[begin_pos:i]
                         self._selected_attributes['attributes'].append(SelectedAttribute(attribute))
                         begin_pos = i+1
