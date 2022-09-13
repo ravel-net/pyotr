@@ -124,8 +124,11 @@ class DT_Atom:
             if type(var) == list:
                 mapping_constants = []
                 for v in var:
-                    mapping_constants.append(str(mapping[v]))
-                variableConstants.append("ARRAY [" + ", ".join( mapping_constants) + "]")
+                    if self.db["column_types"][i] == "int4_faure[]":
+                        mapping_constants.append('"' + str(mapping[v]) + '"')
+                    else:
+                        mapping_constants.append(str(mapping[v]))
+                variableConstants.append("'{" + ", ".join( mapping_constants) + "}'")
                 continue
             if var[0].isdigit():
                 variableConstants.append(str(var))
