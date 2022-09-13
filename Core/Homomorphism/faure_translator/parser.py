@@ -562,20 +562,22 @@ class Constraint:
         
         
 if __name__ == '__main__':
-    sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = '0' and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
-    p = SQL_Parser(sql, {
-        'pod':{
-            'types':['integer', 'int4_faure', 'text[]'], 
-            'names':['c0', 'c1', 'condition']
-        }, 
-        'R':{
-            'types':['integer', 'integer', 'integer', 'integer[]', 'integer', 'text[]'], 
-            'names':['c0', 'c1', 'c2', 'c3', 'c4', 'condition']
-        }, 
-        'l':{
-            'types':['integer', 'integer', 'text[]'], 
-            'names':['c0', 'c1', 'condition']
-        }})
+    # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = '0' and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
+    sql = "select t1.c0 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 from R t0, l t1, l t2, l t3 where t0.c3 = '1' and t0.c0 = t1.c1 and t1.c0 = t2.c0 and t2.c0 = t3.c0"
+    # p = SQL_Parser(sql, {
+    #     'pod':{
+    #         'types':['integer', 'int4_faure', 'text[]'], 
+    #         'names':['c0', 'c1', 'condition']
+    #     }, 
+    #     'R':{
+    #         'types':['integer', 'integer', 'integer', 'integer[]', 'integer', 'text[]'], 
+    #         'names':['c0', 'c1', 'c2', 'c3', 'c4', 'condition']
+    #     }, 
+    #     'l':{
+    #         'types':['integer', 'integer', 'text[]'], 
+    #         'names':['c0', 'c1', 'condition']
+    #     }})
+    p = SQL_Parser(sql)
     print(p.execution_sql)
     # print(p.additional_conditions_SQL_format)
 
