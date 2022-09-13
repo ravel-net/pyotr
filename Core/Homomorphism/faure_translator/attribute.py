@@ -18,6 +18,8 @@ class SelectedAttribute:
                 'operands': [NormalAttribute, ArrayAttribute]
         # 4 - arithmatic operation attribute(1*3+c3-c4)
                 'function': ArithmaticAttribute
+        # 5 - array element arribute(t1.c0[0])
+                'array_elem': ArrayElementAttribute
 
         # default normal attribute
         '''
@@ -50,6 +52,8 @@ class SelectedAttribute:
             return str(self._attribute['operator']).join(self._attribute['operands'])
         elif self._attribute['type'] == 4:
             return str(self._attribute['function'])
+        elif self._attribute['type'] == 5:
+            return str(self._attribute['array_elem'])
 
     @property
     def AttributeName(self):
@@ -61,7 +65,7 @@ class SelectedAttribute:
             return self.AttributePart
 
     def concatenation(self, simple_attr_mapping):
-        if self._attribute['type'] == 2:
+        if self._attribute['type'] == 2: # assume ArrayAttribute need to be concatenation when converting to SQL
             return self._attribute['array'].concatenation(simple_attr_mapping)
 
     def _process_attribute_part(self, attribute_part):
@@ -87,6 +91,10 @@ class SelectedAttribute:
             self._attribute['type'] = 2
             self._attribute['array'] = ArrayAttribute(attribute_part)
             return
+        
+        if '[' in attribute_part and ']' in attribute_part and 'array' not in attribute_part.lower():
+            self._attribute['type'] = 5
+            self._attribute['array_elem'] = ArrayElementAttribute(attribute_part)
 
         # for nomal attribute
         self._attribute['type'] = 1
@@ -177,8 +185,10 @@ class ArrayAttribute:
     def __init__(self, array_str):
         self.items = []
 
-        patern = re.compile(r'array\[(.*?)\]', re.I)
+        patern = re.compile(r'array\[(.*)\]', re.I)
         items_str = re.findall(patern, array_str)[0].strip()
+        print("array_str", array_str)
+        print("items_str", items_str)
         
         for attr in items_str.split(","):
             attr = attr.strip()
@@ -200,3 +210,29 @@ class ArrayAttribute:
                 name = simple_attr_mapping[name].AttributeName
             item_strs.append(name)
         return "'[' || {} || ']'".format(', '.join(item_strs))
+
+class ArrayElementAttribute(NormalAttribute):
+    # Assume 1-D Array
+    def __init__(self, array_element_str):
+
+        patern = re.compile(r'(.*?)\[(.*)\]', re.I)
+        (array_name_str, idx) = re.findall(patern, array_element_str)[0]
+        print("array_name_str", array_name_str)
+        print("idx", idx)
+        self.index = idx
+
+        super().__init__(array_name_str)
+
+    def __str__(self):
+        return "{}[{}]".format(super.__str__(), self.index)
+
+    # def concatenation(self, simple_attr_mapping):
+    #     item_strs = []
+    #     for item in self.items:
+    #         # print("\nitem-------------", item._has_alias)
+    #         # print("item", item.AttributeName)
+    #         name = item.AttributeName
+    #         if name in simple_attr_mapping:
+    #             name = simple_attr_mapping[name].AttributeName
+    #         item_strs.append(name)
+    #     return "'[' || {} || ']'".format(', '.join(item_strs))
