@@ -217,14 +217,12 @@ class ArrayElementAttribute(NormalAttribute):
 
         patern = re.compile(r'(.*?)\[(.*)\]', re.I)
         (array_name_str, idx) = re.findall(patern, array_element_str)[0]
-        print("array_name_str", array_name_str)
-        print("idx", idx)
         self.index = idx
 
         super().__init__(array_name_str)
 
     def __str__(self):
-        return "{}[{}]".format(super.__str__(), self.index)
+        return "{}[{}]".format(super().__str__(), self.index)
 
     # def concatenation(self, simple_attr_mapping):
     #     item_strs = []
