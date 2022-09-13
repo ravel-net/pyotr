@@ -34,8 +34,13 @@ def merge_tuples(tablename, out_tablename, domain, reasoning_type):
         row = cursor.fetchone()
         conditions = row[idx_cond]
 
-        t = row[0:idx_cond] + row[idx_cond+1:]
-
+        t = list(row[0:idx_cond] + row[idx_cond+1:])
+        i = 0
+        for elem in t:
+            if isinstance(elem, list):
+                t[i] = "{" + str(elem)[1:-1] + "}"
+            i += 1
+        t = tuple(t)
         # remove duplicate condition in tuple
         conditions_no_duplicates = []
         for c in conditions:
@@ -75,7 +80,6 @@ def merge_tuples(tablename, out_tablename, domain, reasoning_type):
         
     cursor.execute("drop table if exists {out_tablename}".format(out_tablename=out_tablename))
     cursor.execute("create table {out_tablename} as select * from {tablename} where 1 = 2".format(out_tablename=out_tablename, tablename=tablename))
-
     sql = "insert into {out_tablename} values %s".format(out_tablename=out_tablename)
     execute_values(cursor, sql, new_tuples)
     conn.commit()
