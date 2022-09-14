@@ -70,6 +70,7 @@ class DT_Atom:
                     vars_in_sqr_parenth.append(var.strip())
                 else:
                     self.parameters.append(var.strip())
+
         self.db["name"] = split_str[0].strip()
         if self.db["name"] in c_tables:
             self._isCTable = True
@@ -84,7 +85,7 @@ class DT_Atom:
 
             if type(var) == list:
                 for v in var:
-                    if not v[0].isdigit() and v not in self.variables:
+                    if not v[0].isdigit() and v not in self.variables and v not in c_variables:
                         self.variables.append(v)
             else:
                 hasOperator = False
@@ -99,6 +100,25 @@ class DT_Atom:
                 if not hasOperator and not var[0].isdigit():
                     if var not in self.c_variables and var not in self.variables:
                         self.variables.append(var)
+
+        # # cleaning up parameters so that integers are represented as integers and variables/c-vars as text
+        # cleaned_params = []
+        # for param in self.parameters:
+        #     if type(param) == list:
+        #         newSubParam = []
+        #         for subparam in param:
+        #             if subparam.isdigit():
+        #                 newSubParam.append(int(subparam))
+        #             else:
+        #                 newSubParam.append(subparam)
+        #         cleaned_params.append(newSubParam)
+        #     else:
+        #         if param.isdigit():
+        #             cleaned_params.append(int(param))
+        #         else:
+        #             cleaned_params.append(param)
+        # self.parameters = cleaned_params
+
         # column for condition attribute
         if self._isCTable:
             self.db["column_names"].append("condition")

@@ -7,6 +7,7 @@
 # Rule to sql
 # Populate with constants in database (return the expected head). Give connection
 # Expected head to sql
+from operator import add
 import sys
 from os.path import dirname, abspath
 from unicodedata import name
@@ -43,12 +44,18 @@ class DT_Rule:
     _DBs : dictionary{"name", "column_names", "column_types"}[]
         list of databases referenced in the rule along with the column names and column types. The default column type is integer and the default column names is c1, c2, ..., cn
     _variables : string[]
-        list of variables in rule
+        list of variables in rule (not including c-variables)
+    _c_variables : string[]
+        list of c-variables in rule
+    _domains: int[]
+        domain of c-variables
     _mapping : dictionary{variable : integer}
-        mapping of variables to integers (used in containment). The only important part here is to map distinct variables to distinct constants
+        mapping of variables to integers (used in containment). The only important part here is to map distinct variables to distinct constants. TODO: Should this mapping take into account the domain of c-variables?
     _operators : string[]
         operators supported in queries. Currently, only array concatination operator "||" is supported
-
+    
+    Faure related attributes: 
+    _reasoning_engine, _reasoning_type, _datatype, _simplication_on
 
     Methods
     -------
@@ -67,7 +74,6 @@ class DT_Rule:
         self._body = []
         self._DBs = []
         self._mapping = {}
-        self._constraints = [] # additional constraints
         self._operators = operators
         self._domains = domains
         self._reasoning_engine = reasoning_engine
@@ -83,12 +89,6 @@ class DT_Rule:
                 pass
             elif "(" in atom_str: # atom without c-variables
                 pass
-            else: # it's not an atom, instead additional conditions
-                constraints = atom_str.split(',')
-                for constraint in constraints:
-                    self._constraints.append(constraint.strip())
-                continue
-
             currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
             if currAtom.db["name"] not in db_names:
                 self._DBs.append(currAtom.db)
@@ -113,8 +113,9 @@ class DT_Rule:
         for i, var in enumerate(self._variables):
             self._mapping[var] = i
 
+
         # in case of unsafe rule
-        headVars = self._head.variables
+        headVars = self._head.variables        
         for var in headVars:
             if var not in self._variables:
                 self._variables.append(var)
@@ -153,10 +154,6 @@ class DT_Rule:
         summary_nodes = []
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
         variables_idx_in_array = {} # format {'var': list[location]}
-        print("Running atom:")
-        for i, atom in enumerate(self._body):
-            print(atom)
-        print("Head atom:", self._head)
         for i, atom in enumerate(self._body):
             tables.append("{} t{}".format(atom.db["name"], i))
             for col, val in enumerate(atom.parameters):
@@ -177,20 +174,13 @@ class DT_Rule:
             if type(param) == list:
                 # print("param", param)
                 replace_var2attr = []
-                c_var = False
                 for p in param:
-                    if p in self._c_variables:
-                        c_var = True
-                        replace_var2attr.append('"{}"'.format(p))
+                    if p in variableList:
+                        replace_var2attr.append(str(variableList[p][0]))
                     else:
-                        if p in variableList:
-                            replace_var2attr.append(str(variableList[p][0]))
-                        else:
-                            replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
+                        replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
 
                 summary = "ARRAY[" + ", ".join(replace_var2attr) + "]"
-                if c_var:
-                    summary = "'{" + ", ".join(replace_var2attr) + "}'"
                 summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
             else:
                 hasOperator = False
@@ -219,7 +209,13 @@ class DT_Rule:
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
-        additional_constraints = self.addtional_constraints2where_clause(self._constraints, variableList)
+        # additional_constraints = self.addtional_constraints2where_clause(self._constraints, variableList)
+        # Additional constraints are faure constraints. Assuming that head atom constains all constraints
+        constraints_faure = []
+        for atom in self._body:
+            for constraint in atom.constraints:
+                constraints_faure.append(constraint)
+        additional_constraints = self.addtional_constraints2where_clause(constraints_faure, variableList)
         constraints += additional_constraints
         # constraints for array
         for attr in constraints_for_array:
@@ -252,7 +248,6 @@ class DT_Rule:
             sql = " select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
             if (constraints):
                 sql += " where " + " and ".join(constraints)
-            # print("sql", sql)
             return self.run_with_faure(conn, sql)
 
         return changed
@@ -305,6 +300,33 @@ class DT_Rule:
         # print("contained", contained)
         return contained
     
+    # Check if two variables/constants/c_variables are the same
+    def _equal_faure(self, elem1, elem2):
+        elem1 = elem1.strip()
+        elem2 = elem2.strip()
+        if elem1 in self._c_variables or elem2 in self._c_variables:
+            return True
+        else:
+            return (str(elem1) == str(elem2))
+
+    # Check if two lists have the same data portion
+    def _sameDataPortion(self, list1, list2):
+        for i, elem in enumerate(list1):
+            elem2 = list2[i]
+            if type(elem) == list: # Assuming that the format of column type is the same
+                if ("}" in elem2):
+                    elem2 = elem2.strip('}{')
+                    elem2 = elem2.split(',')
+                if len(elem) != len(elem2):
+                    return False
+                for j,p in enumerate(elem):
+                    p2 = elem2[j]
+                    if not self._equal_faure(p, p2):
+                        return False
+            elif not self._equal_faure(str(elem), str(elem2)):
+                return False
+        return True
+
     # 1. Selects all tuples in table
     # 2. Finds out the target head tuple (by mapping the variables to assigned constants)
     # 3. Loops over all tuples to see if target tuple is found
@@ -321,18 +343,32 @@ class DT_Rule:
 
         # add constants to header data portion
         header_data_portion = []
-        for p in self._head.parameters:
+        for i, p  in enumerate(self._head.parameters):
+            col_type = self._head.db["column_types"][i]
+            print(col_type)
             if type(p) == list:
                 newP = []
                 for elem in p:
-                    if elem in self._c_variables or elem.isdigit():
+                    if elem in self._c_variables:
                         newP.append(elem)
+                    elif elem.isdigit() and "integer" in col_type:
+                        newP.append(int(elem))
+                    elif elem.isdigit() and "integer" not in col_type:
+                        newP.append(str(elem))
+                    elif "integer" in col_type:
+                        newP.append(self._mapping[elem])                    
                     else:
                         newP.append(str(self._mapping[elem]))
                 header_data_portion.append(newP)
             else:
-                if p in self._c_variables or type(p) == int or p.isdigit():
+                if p in self._c_variables or type(p) == int:
                     header_data_portion.append(p)
+                elif p.isdigit() and "integer" in col_type:
+                    header_data_portion.append(int(p))
+                elif p.isdigit() and "integer" not in col_type:
+                    header_data_portion.append(str(p))
+                elif "integer" in col_type:
+                    header_data_portion.append(self._mapping[p])
                 else:
                     header_data_portion.append(str(self._mapping[p]))
 
@@ -345,10 +381,9 @@ class DT_Rule:
                 header_condition = self._head.constraints[0]
             else:
                 header_condition = "And({})".format(", ".join(self._head.constraints))
-    
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
-            if str(header_data_portion) == str(list(tup[:-1])):
+            if self._sameDataPortion(header_data_portion, list(tup[:-1])):
                 if self._reasoning_engine == 'z3':
                     # convert list of conditions to a string of condition
                     str_tup_cond = None
@@ -514,6 +549,7 @@ class DT_Rule:
         safe_constraints = []
         for constraint in constraints:
             # only support logical or/and exculding mixed use)
+            constraint = constraint.replace("==", "=") #TODO: Hacky method to convert back to sql format
             conditions = []
             logical_opr = None
             logical_sym = None
@@ -553,10 +589,6 @@ class DT_Rule:
                 additional_conditions.append("({})".format(" or ".join(temp_processed_conditions)))
             else:
                 additional_conditions += temp_processed_conditions
-        
-        
-        # update additional constraints
-        self._constraints = safe_constraints
 
         return additional_conditions
 
@@ -665,9 +697,9 @@ class DT_Rule:
         string = str(self._head) + " :- "
         for atom in self._body:
             string += str(atom) + ","
-        if self._constraints:
-            string += "{}".format(", ".join(self._constraints))
-            return string
+        # if self._constraints:
+        #     string += "{}".format(", ".join(self._constraints))
+        #     return string
         return string[:-1]
 
 if __name__ == "__main__":

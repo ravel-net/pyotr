@@ -70,7 +70,7 @@ class DT_Program:
         changed = False
         for rule in self._rules:
             # print("\n------------------------")
-            print("program rule:", rule)
+            print("executing rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
         return changed
@@ -103,8 +103,6 @@ class DT_Program:
     def contains_rule(self, rule2):
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         conn.set_session()
-        # print("Program: ", self)
-        print("Rule: ", rule2)
         changed = True
         self.initiateDB(conn)
         rule2.addConstants(conn)
@@ -132,30 +130,35 @@ class DT_Program:
     #TODO IMPORTANT: Program only rule should be entire program. Method: Delete contained rule and then add a rule without atom
     def minimize(self):
         numRules = self.numRules
-        for ruleNum in range(numRules):
-            rule = self.getRule(ruleNum)
-            # program_only_rule = DT_Program(rule)
-            # numAtoms = rule.numBodyAtoms
-            atomNum = 0
-            while atomNum < rule.numBodyAtoms:
-                if rule.numBodyAtoms == 1: # if only one atom left in program, stop minimizing redundant atoms
-                    break
-                rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-                # print("rule with deleted atom:", rule_with_deleted_atom)
+
+        
+        # for ruleNum in range(numRules):
+        #     rule = self.getRule(ruleNum)
+        #     # program_only_rule = DT_Program(rule)
+        #     # numAtoms = rule.numBodyAtoms
+        #     atomNum = 0
+        #     while atomNum < rule.numBodyAtoms:
+        #         if rule.numBodyAtoms == 1: # if only one atom left in program, stop minimizing redundant atoms
+        #             break
+        #         rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
+        #         # print("rule with deleted atom:", rule_with_deleted_atom)
                 
-                contained = self.contains_rule(rule_with_deleted_atom)
-                # if atomNum == 2: exit()
-                if contained:
-                    self.replaceRule(ruleNum, rule_with_deleted_atom) 
-                    rule = rule_with_deleted_atom
-                    # program_only_rule = DT_Program(rule)
-                else:
-                    atomNum += 1
-                # print("minimized rule", rule)
-            # for atomNum in range(numAtoms):
-            #     rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-            #     if self.contains_rule(rule_with_deleted_atom):
-            #         self.replaceRule(ruleNum, rule_with_deleted_atom)    
+        #         print(rule)
+        #         print(rule_with_deleted_atom)
+
+        #         contained = self.contains_rule(rule_with_deleted_atom)
+        #         # if atomNum == 2: exit()
+        #         if contained:
+        #             self.replaceRule(ruleNum, rule_with_deleted_atom) 
+        #             rule = rule_with_deleted_atom
+        #             # program_only_rule = DT_Program(rule)
+        #         else:
+        #             atomNum += 1
+        #         # print("minimized rule", rule)
+        #     # for atomNum in range(numAtoms):
+        #     #     rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
+        #     #     if self.contains_rule(rule_with_deleted_atom):
+        #     #         self.replaceRule(ruleNum, rule_with_deleted_atom)    
 
         ruleNum = 0
         while ruleNum < self.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
@@ -253,9 +256,9 @@ if __name__ == "__main__":
     # P_program.minimize()
     # print("after minimizing", P_program)
 
-    # Array Example:
-    p1 = "R(a3, h3, [h3], 1)[h3 = 1] :- l(a3,h3)[h3 = 1]\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h1, a1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h2, a1)"    
-    # p1 = "R(a3, h3, [h3], 1) :- l(a3,h3)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(e1, a2), l(e1, a1), l(e1, a3)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h1, a1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(h2, a1)"
+    # Array Example:  
+    p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # p1 = "R(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
     program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
     # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
 
