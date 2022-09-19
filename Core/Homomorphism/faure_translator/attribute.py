@@ -43,6 +43,20 @@ class SelectedAttribute:
             return self.AttributePart
     
     @property
+    def table(self): # only works for type 1
+        if self._attribute['type'] == 1: 
+            return self._attribute['normal'].table
+        else:
+            return ""
+    
+    @property
+    def attribute(self): # only works for type 1
+        if self._attribute['type'] == 1:
+            return self._attribute['normal'].attribute
+        else:
+            return ""
+    
+    @property
     def AttributePart(self):
         if self._attribute['type'] == 1:
             return str(self._attribute['normal'])
@@ -179,16 +193,13 @@ class ArithmaticAttribute:
             string += self._operator_after_operands[j]
         string += self._operands[-1]
         return string
-    
-
+   
 class ArrayAttribute:
     def __init__(self, array_str):
         self.items = []
 
         patern = re.compile(r'array\[(.*)\]', re.I)
         items_str = re.findall(patern, array_str)[0].strip()
-        print("array_str", array_str)
-        print("items_str", items_str)
         
         for attr in items_str.split(","):
             attr = attr.strip()

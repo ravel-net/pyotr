@@ -34,9 +34,9 @@ class SQL_Parser:
     _ARITHMATIC_OPERATORS = ['+', '-', '/', '*']
     _FAURE_DATATYPE = ['int4_faure', 'inet_faure']
     
-    def __init__(self, sql, databases={}):
+    def __init__(self, sql, reasoning_engine='z3', databases={}):
         self._original_sql = sql
-        
+        self._reasoning_engine=reasoning_engine
         self._databases = {}
         for table in databases:
             table_lower = table.lower()
@@ -44,6 +44,7 @@ class SQL_Parser:
             for i in range(len(databases[table]['names'])):
                 self._databases[table_lower]['types'].append(databases[table]['types'][i].lower()) 
                 self._databases[table_lower]['names'].append(databases[table]['names'][i].lower()) 
+
         self.type = None # 1: select, 2: insert, 3: delete
         self._selected_attributes = {'is_star': False, 'attributes': []}
         self._working_tables = []
@@ -101,10 +102,14 @@ class SQL_Parser:
             if self._selected_attributes['is_star']:
                 for key in self._all_attributes:
                     if key == 'condition':
-                        attr_strs = []
-                        for attr in self._all_attributes[key]:
-                            attr_strs.append(str(attr))
-                        attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                        if self._reasoning_engine == 'z3':
+                            attr_strs = []
+                            for attr in self._all_attributes[key]:
+                                attr_strs.append(str(attr))
+                            attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                        elif self._reasoning_engine.lower() == 'bdd':
+                            for attr in self._all_attributes[key]:
+                                attributes_strs.append(str(attr))
                     else:
                         for attr in self._all_attributes[key]:
                             attributes_strs.append(str(attr))
@@ -112,17 +117,21 @@ class SQL_Parser:
                 for key in self._selected_attributes['attributes']:
                     attributes_strs.append(str(key))
                     
-                attr_strs = []
-                for attr in self._all_attributes['condition']:
-                    attr_strs.append(str(attr))
+                # attr_strs = []
+                # for attr in self._all_attributes['condition']:
+                #     attr_strs.append(str(attr))
                 # attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
 
                 for key in self._all_attributes:
                     if key == 'condition':
-                        attr_strs = []
-                        for attr in self._all_attributes[key]:
-                            attr_strs.append(str(attr))
-                        attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                        if self._reasoning_engine == 'z3':
+                            attr_strs = []
+                            for attr in self._all_attributes[key]:
+                                attr_strs.append(str(attr))
+                            attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                        elif self._reasoning_engine.lower() == 'bdd':
+                            for attr in self._all_attributes[key]:
+                                attributes_strs.append(str(attr))
                     else:
                         for attr in self._all_attributes[key]:
                             attributes_strs.append(str(attr))
@@ -181,6 +190,13 @@ class SQL_Parser:
         conjunction_conditions = "Array[{}]".format(", ".join(conditions))
         return conjunction_conditions
 
+    @property
+    def old_conditions_attributes_BDD(self):
+        old_conditions_attributes = []
+        for attr in self._all_attributes['condition']:
+            old_conditions_attributes.append(attr.AttributeName)
+        return old_conditions_attributes
+
     def _process_working_tables_str(self, working_tables_str):
         for workingtable in working_tables_str.split(','):
             workingtable = workingtable.strip()
@@ -224,8 +240,8 @@ class SQL_Parser:
                 cursor = conn.cursor()
                 cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(workingtable.table))
                 for (column_name, datatype) in cursor.fetchall():
-                    self._databases[workingtable.table]['types'].append(datatype)
-                    self._databases[workingtable.table]['names'].append(column_name)
+                    self._databases[workingtable.table]['types'].append(datatype.lower())
+                    self._databases[workingtable.table]['names'].append(column_name.lower())
 
                 conn.commit()
                 column_names = self._databases[workingtable.table]['names']
@@ -241,7 +257,10 @@ class SQL_Parser:
                     else:
                         attribute_str = "{tab}.{attr} as {tab}_{attr}".format(tab=workingtable.table, attr=attr_name)
                 if attr_name == 'condition':
-                    condition_attributes.append(attribute_str.split(" as ")[0].strip())
+                    if self._reasoning_engine == 'z3':
+                        condition_attributes.append(SelectedAttribute(attribute_str.split(" as ")[0].strip()))
+                    elif self._reasoning_engine == 'bdd':
+                        condition_attributes.append(SelectedAttribute(attribute_str))
                 else:
                     if workingtable.table not in self._all_attributes:
                         self._all_attributes[workingtable.table] = []
@@ -416,7 +435,11 @@ class WorkingTable:
 
         if self.has_alias:
             self.alias = parts[1].strip()
-
+    
+    @property
+    def TableName(self):
+        return self.table
+    
     def __str__(self) -> str:
         if self.has_alias:
             return "{} {}".format(self.table, self.alias)
@@ -566,20 +589,20 @@ class Constraint:
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = '0' and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
     sql = "select t1.c0 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 from R t0, l t1, l t2, l t3 where t0.c3 = '1' and t0.c0 = t1.c1 and t1.c0 = t2.c0 and t2.c0 = t3.c0"
-    # p = SQL_Parser(sql, {
-    #     'pod':{
-    #         'types':['integer', 'int4_faure', 'text[]'], 
-    #         'names':['c0', 'c1', 'condition']
-    #     }, 
-    #     'R':{
-    #         'types':['integer', 'integer', 'integer', 'integer[]', 'integer', 'text[]'], 
-    #         'names':['c0', 'c1', 'c2', 'c3', 'c4', 'condition']
-    #     }, 
-    #     'l':{
-    #         'types':['integer', 'integer', 'text[]'], 
-    #         'names':['c0', 'c1', 'condition']
-    #     }})
-    p = SQL_Parser(sql)
+    p = SQL_Parser(sql, reasoning_engine='bdd', databases={
+        'pod':{
+            'types':['integer', 'int4_faure', 'text[]'], 
+            'names':['c0', 'c1', 'condition']
+        }, 
+        'R':{
+            'types':['integer', 'integer', 'integer', 'integer[]', 'text[]'], 
+            'names':['c0', 'c1', 'c2', 'c3', 'condition']
+        }, 
+        'l':{
+            'types':['integer', 'integer', 'text[]'], 
+            'names':['c0', 'c1', 'condition']
+        }})
+    # p = SQL_Parser(sql)
     print(p.execution_sql)
-    # print(p.additional_conditions_SQL_format)
+    print(p.additional_conditions_SQL_format)
 
