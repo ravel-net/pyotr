@@ -14,11 +14,11 @@ from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2 
 from psycopg2.extras import execute_values
-conn = psycopg2.connect(
-    host=cfg.postgres["host"], 
-    database=cfg.postgres["db"], 
-    user=cfg.postgres["user"], 
-    password=cfg.postgres["password"])
+# conn = psycopg2.connect(
+#     host=cfg.postgres["host"], 
+#     database=cfg.postgres["db"], 
+#     user=cfg.postgres["user"], 
+#     password=cfg.postgres["password"])
 
 class FaureEvaluation:
     def __init__(self, conn, SQL, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
@@ -42,10 +42,10 @@ class FaureEvaluation:
         self.update_condition_time = {}
         self.simplication_time = {}
         self.column_datatype_mapping = {}
-        self._get_column_datatype_mapping()
+        
 
         self._empty_condition_idx = None
-        
+        # print(self._reasoning_engine)
         if self._reasoning_engine.lower() == 'z3':
 
             self._data()
@@ -53,7 +53,7 @@ class FaureEvaluation:
 
             self._z3Smt = None
             if simplication_on:
-                
+                self._get_column_datatype_mapping()
                 self._z3Smt = z3SMTTools(list(domains.keys()), domains, reasoning_sort)
                 self._simplification_z3()
 
@@ -68,10 +68,12 @@ class FaureEvaluation:
             for workingtable in self._SQL_parser._working_tables:
                 self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
             self._data()
+
+            self._get_column_datatype_mapping()
             self._upd_condition_BDD(domain_list, variables)
 
         else:
-            print("Illegal reasoning engine", self._reasoning_engine)
+            print("Unsupported reasoning engine", self._reasoning_engine)
             exit()
 
     def _data(self):
@@ -93,7 +95,7 @@ class FaureEvaluation:
 
         if self._information_on:
             print("\ndata executing time: ", self.data_time)
-        conn.commit()
+        self._conn.commit()
 
     def _upd_condition_z3(self):
         if self._information_on:
@@ -117,7 +119,7 @@ class FaureEvaluation:
             cursor.execute(upd_sql)
             end_upd = time.time()
             self.update_condition_time['update_condition'] = end_upd - begin_upd
-            conn.commit()
+            self._conn.commit()
 
         '''
         Check the selected columns
@@ -127,13 +129,15 @@ class FaureEvaluation:
         sqls = []
         for key_simple_attr in self._SQL_parser.equal_attributes_from_where_clause:
             key_name = self._SQL_parser.simple_attribute_mapping[key_simple_attr].AttributeName
-            is_faure_datatype_key = self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr].lower() in self._SQL_parser._FAURE_DATATYPE
 
+            # if the datatype of attribute is Faure datatype(self-set) or USER-DEFINED(learn from database), update it. Same as the following 'is_faure_datatype_attr'
+            is_faure_datatype_key = self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr].lower() in self._SQL_parser._FAURE_DATATYPE or self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr] == 'USER-DEFINED'
+            # print("is_faure_datatype_key", key_simple_attr, self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr], is_faure_datatype_key)
             for attr in self._SQL_parser.equal_attributes_from_where_clause[key_simple_attr]:
                 attr_name = self._SQL_parser.simple_attribute_mapping[attr].AttributeName
-
-                is_faure_datatype_attr = self._SQL_parser.simple_attr2datatype_mapping[attr].lower() in self._SQL_parser._FAURE_DATATYPE
-
+                
+                is_faure_datatype_attr = self._SQL_parser.simple_attr2datatype_mapping[attr].lower() in self._SQL_parser._FAURE_DATATYPE or self._SQL_parser.simple_attr2datatype_mapping[attr] == 'USER-DEFINED'
+                # print("is_faure_datatype_attr", attr, self._SQL_parser.simple_attr2datatype_mapping[attr], is_faure_datatype_attr)
                 if is_faure_datatype_key or is_faure_datatype_attr:
                     sql = "update {} set {} = {} where not is_var({})".format(self.output_table,  attr_name, key_name, key_name)
                     sqls.append(sql)
@@ -145,22 +149,27 @@ class FaureEvaluation:
             cursor.execute(sql)
         end_instantiated = time.time()
         self.update_condition_time['instantiation'] = end_instantiated-begin_instantiated
+        self._conn.commit()
 
         if self._SQL_parser.type == 1: # selection
             drop_columns = self._SQL_parser.drop_columns
 
-            drop_sql = "ALTER TABLE {} drop column ".format(self.output_table) + ", drop column ".join(drop_columns)
-            if self._information_on:
-                print(drop_sql)
-            
-            begin_drop = time.time()
-            cursor.execute(drop_sql)
-            end_drop = time.time()
-            self.update_condition_time['drop'] = end_drop-begin_drop
+            if len(drop_columns) == 0:
+                self.update_condition_time['drop'] = 0
+            else:
+                drop_sql = "ALTER TABLE {} drop column ".format(self.output_table) + ", drop column ".join(drop_columns)
+                if self._information_on:
+                    print(drop_sql)
+                
+                begin_drop = time.time()
+                cursor.execute(drop_sql)
+                end_drop = time.time()
+                self.update_condition_time['drop'] = end_drop-begin_drop
 
-            conn.commit()
+            self._conn.commit()
 
         else:
+            self._conn.commit()
             print("Coming soon!")
             exit()
             
@@ -178,6 +187,7 @@ class FaureEvaluation:
         '''
         if self._information_on:
             print("delete contradiction")
+        
         contrd_begin = time.time()
         cursor.execute("select id, condition from {}".format(self.output_table))
         contrad_count = cursor.rowcount
@@ -193,9 +203,9 @@ class FaureEvaluation:
         if len(del_tuple) == 0:
             pass
         elif len(del_tuple) == 1:
-            cursor.execute("delete from output where id = {}".format(del_tuple[0]))
+            cursor.execute("delete from {} where id = {}".format(self.output_table, del_tuple[0]))
         else:
-            cursor.execute("delete from output where id in {}".format(tuple(del_tuple)))
+            cursor.execute("delete from {} where id in {}".format(self.output_table, tuple(del_tuple)))
 
         contrd_end = time.time()
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
@@ -206,7 +216,7 @@ class FaureEvaluation:
         '''
         # print("remove redundant")
         redun_begin = time.time()
-        cursor.execute("select id, condition from output")
+        cursor.execute("select id, condition from {}".format(self.output_table))
         redun_count = cursor.rowcount
         # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
         upd_cur = self._conn.cursor()
@@ -217,9 +227,9 @@ class FaureEvaluation:
             if has_redun:
                 if result != '{}':
                     result = ['"{}"'.format(r) for r in result]
-                    upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
+                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(self.output_table, "{" + ", ".join(result) + "}", row[0]))
                 else:
-                    upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
+                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(self.output_table, row[0]))
         redun_end = time.time()
         self.simplication_time["redundancy"] = redun_end - redun_begin
         self._conn.commit()
@@ -290,15 +300,15 @@ class FaureEvaluation:
                 '''
                 sql = "alter table if exists {} add column condition integer".format(self.output_table)
                 cursor.execute(sql)
-                conn.commit()
+                self._conn.commit()
 
                 for key in new_reference_mapping.keys():
                     sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
                     cursor.execute(sql)
-                conn.commit()
+                self._conn.commit()
 
             self.update_condition_time['update_condition'] = end_upd - begin_upd
-            conn.commit()
+            self._conn.commit()
         else:
             print("No additional conditions for c-variables!")
             self.update_condition_time['update_condition'] = 0
@@ -342,7 +352,7 @@ class FaureEvaluation:
             end_drop = time.time()
             self.update_condition_time['drop'] = end_drop-begin_drop
 
-            conn.commit()
+            self._conn.commit()
 
         else:
             print("Coming soon!")
@@ -415,7 +425,7 @@ class FaureEvaluation:
         sql = "insert into {tablename} values %s".format(tablename=tablename)
         execute_values(cursor, sql, new_tuples)
         # cursor.executemany(new_tuples)
-        conn.commit()
+        self._conn.commit()
 
 
 if __name__ == '__main__':
@@ -433,8 +443,18 @@ if __name__ == '__main__':
     #         'types':['integer', 'integer', 'text[]'], 
     #         'names':['c0', 'c1', 'condition']
     #     }}
+    conn = psycopg2.connect(
+        host=cfg.postgres["host"], 
+        database=cfg.postgres["db"], 
+        user=cfg.postgres["user"], 
+        password=cfg.postgres["password"])
 
-    sql = "select 1, t2.n2 from fwd t1, fwd t2 where t1.n1 = '1' and t1.n2 = t2.n1"
-    FaureEvaluation(conn, sql, databases={}, domains={"x":['1', '2'], "y":['1', '2'], "z":['1', '2']}, reasoning_engine='bdd', simplication_on=True, information_on=True)
+    domains = {
+        'd1':['1', '2'],
+        'd2':['1', '2'],
+        'd':['1', '2']
+    }
+    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '1'"
+    FaureEvaluation(conn, sql, databases={}, domains=domains, reasoning_engine='bdd', simplication_on=True, information_on=True)
 
     

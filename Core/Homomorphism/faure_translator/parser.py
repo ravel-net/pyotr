@@ -413,8 +413,27 @@ class SQL_Parser:
         right_simple_attr = right_attribute.AttributePart
         # if left_simple_attr in self.simple_attr2datatype_mapping:  print("left", self.simple_attr2datatype_mapping[left_simple_attr].lower())
         # if right_simple_attr in self.simple_attr2datatype_mapping:  print("right", self.simple_attr2datatype_mapping[right_simple_attr].lower())
-        if (left_simple_attr in self.simple_attr2datatype_mapping and self.simple_attr2datatype_mapping[left_simple_attr].lower() in self._FAURE_DATATYPE) \
-            or (right_simple_attr in self.simple_attr2datatype_mapping and self.simple_attr2datatype_mapping[right_simple_attr].lower() in self._FAURE_DATATYPE) :
+
+        # print("if left_attr is faure_type", left_simple_attr in self.simple_attr2datatype_mapping and \
+        #         (self.simple_attr2datatype_mapping[left_simple_attr].lower() in self._FAURE_DATATYPE or \
+        #         self.simple_attr2datatype_mapping[left_simple_attr] == 'USER-DEFINED'))
+        # if left_simple_attr in self.simple_attr2datatype_mapping:
+        #     print(self.simple_attr2datatype_mapping[left_simple_attr])
+
+        # print("if right_attr is faure_type", right_simple_attr in self.simple_attr2datatype_mapping and 
+        #         (self.simple_attr2datatype_mapping[right_simple_attr].lower() in self._FAURE_DATATYPE or 
+        #         self.simple_attr2datatype_mapping[right_simple_attr].lower() == 'user-defined'))
+
+        # if right_simple_attr in self.simple_attr2datatype_mapping:
+        #     print(self.simple_attr2datatype_mapping[right_simple_attr])
+        # True only the datatype of attribute is Faure datatype(learn from user input) or USER-DEFINED(learn from database), update it.
+        if (left_simple_attr in self.simple_attr2datatype_mapping and \
+                (self.simple_attr2datatype_mapping[left_simple_attr].lower() in self._FAURE_DATATYPE or \
+                self.simple_attr2datatype_mapping[left_simple_attr].lower() == 'user-defined')) \
+            or \
+            (right_simple_attr in self.simple_attr2datatype_mapping and 
+                (self.simple_attr2datatype_mapping[right_simple_attr].lower() in self._FAURE_DATATYPE or 
+                self.simple_attr2datatype_mapping[right_simple_attr].lower() == 'user-defined')) :
             return True
         else:
             return False
@@ -507,11 +526,15 @@ class Constraint:
         if self.negation:
             if is_array:
                 return "{} || ' \\not_in ' || {}".format(left_opd, right_opd)
+            elif self._operator == '=':
+                return "'not' || {} || ' == ' || {}".format(left_opd, right_opd)
             else:
                 return "'not' || {} || ' {} ' || {}".format(left_opd, self._operator, right_opd)
         else:
             if is_array:
                 return "{} || ' \\in ' || {}".format(left_opd, right_opd)
+            elif self._operator == '=':
+                return "{} || ' == ' || {}".format(left_opd, right_opd)
             else:
                 return "{} || ' {} ' || {}".format(left_opd, self._operator, right_opd)
 
