@@ -65,13 +65,47 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
 
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
-        head_str = rule_str.split(":-")[0].strip()
-        body_str = rule_str.split(":-")[1].strip()
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[]):
+        if headAtom and bodyAtoms:
+            self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
+        else:
+            head_str = rule_str.split(":-")[0].strip()
+            body_str = rule_str.split(":-")[1].strip()
+            head = DT_Atom(head_str, databaseTypes, operators, c_variables, c_tables)
+            body = []
+            # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
+            atom_strs = self.split_atoms(body_str)
+            for atom_str in atom_strs:
+                atom_str = atom_str.strip()
+                if "[" in atom_str:  # atom with conditions for c-variables
+                    pass
+                elif "(" in atom_str: # atom without c-variables
+                    pass
+                currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
+                body.append(currAtom)
+            self.generateRule(head, body, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
+       
+    def safe(self):
+        headVars = self._head.variables
+        if len(headVars) != len(self._variables):   
+            return False
+        for var in headVars:
+            if var not in self._variables:
+                return False        
+
+        headCVars = self._head.c_variables        
+        if len(headCVars) != len(self._c_variables):   
+            return False
+        for cvar in headCVars:
+            if cvar not in self._c_variables:
+                return False
+        return True
+
+    def generateRule(self, head, body, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
         self._variables = [] 
-        self._c_variables = c_variables 
-        self._head = DT_Atom(head_str, databaseTypes, operators, c_variables, c_tables)
-        self._body = []
+        self._c_variables = [] 
+        self._head = head
+        self._body = body
         self._DBs = []
         self._mapping = {}
         self._operators = operators
@@ -80,16 +114,11 @@ class DT_Rule:
         self._reasoning_type = reasoning_type
         self._datatype = datatype
         self._simplication_on = simplification_on
+        self._databaseTypes = databaseTypes
+        self._c_tables = c_tables
         db_names = []
         # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
-        atom_strs = self.split_atoms(body_str)
-        for atom_str in atom_strs:
-            atom_str = atom_str.strip()
-            if "[" in atom_str:  # atom with conditions for c-variables
-                pass
-            elif "(" in atom_str: # atom without c-variables
-                pass
-            currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
+        for currAtom in self._body:
             if currAtom.db["name"] not in db_names:
                 self._DBs.append(currAtom.db)
                 db_names.append(currAtom.db["name"])
@@ -102,30 +131,33 @@ class DT_Rule:
             for var in atomCVars:
                 if var not in self._c_variables:
                     self._c_variables.append(var)
-                    
-            self._body.append(currAtom)
-        
+                            
         # corner case, relation of atom in head does not appear in the body, e.g.,  R(n1, n2): link(n1, n2)
         if self._head.db['name'] not in db_names:
             self._DBs.append(self._head.db)
             db_names.append(self._head.db["name"])
 
-        for i, var in enumerate(self._variables):
+        for i, var in enumerate(self._variables+self._c_variables):
             self._mapping[var] = i
 
 
         # in case of unsafe rule
-        headVars = self._head.variables        
-        for var in headVars:
-            if var not in self._variables:
-                self._variables.append(var)
-                self._mapping[var] = len(self._mapping.keys())
+        # if not self.safe():
+        #     print("\n------------------------")
+        #     print("Unsafe rule: {}!".format(self)) 
+        #     print("------------------------\n")
+
+        # headVars = self._head.variables        
+        # for var in headVars:
+        #     if var not in self._variables:
+        #         self._variables.append(var)
+        #         self._mapping[var] = len(self._mapping.keys())
                 
-                print("\n------------------------")
-                print("Unsafe rule: {}!".format(self)) 
-                print("variable '{var}' does not appear in body! Initiate '{var}' to constants {con} when executing".format(var=var, con=self._mapping[var]))
-                print("------------------------\n")
-    
+        #         print("\n------------------------")
+        #         print("Unsafe rule: {}!".format(self)) 
+        #         print("variable '{var}' does not appear in body! Initiate '{var}' to constants {con} when executing".format(var=var, con=self._mapping[var]))
+        #         print("------------------------\n")
+
     @property
     def numBodyAtoms(self):
         return len(self._body)
@@ -138,8 +170,17 @@ class DT_Rule:
         del self._body[atomNum]
 
     def copyWithDeletedAtom(self, atomNum):
-        newRule = deepcopy(self)
-        newRule.deleteAtom(atomNum)
+        newRule_head = self._head
+        newRule_body = []
+        i = 0
+        for atom in self._body:
+            i += 1
+            if i == atomNum+1:
+                continue
+            else:
+                newRule_body.append(atom)
+
+        newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, headAtom=newRule_head, bodyAtoms = newRule_body)
         return newRule
 
     def addConstants(self, conn):
@@ -209,6 +250,7 @@ class DT_Rule:
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
+
         # additional_constraints = self.addtional_constraints2where_clause(self._constraints, variableList)
         # Additional constraints are faure constraints. Assuming that head atom constains all constraints
         constraints_faure = []
@@ -217,6 +259,7 @@ class DT_Rule:
                 constraints_faure.append(constraint)
         additional_constraints = self.addtional_constraints2where_clause(constraints_faure, variableList)
         constraints += additional_constraints
+
         # constraints for array
         for attr in constraints_for_array:
             for var in constraints_for_array[attr]:
@@ -253,7 +296,6 @@ class DT_Rule:
         return changed
 
     def isHeadContained(self, conn):
-
         if len(self._c_variables) != 0:
             return self.is_head_contained_faure(conn)
         
@@ -345,7 +387,6 @@ class DT_Rule:
         header_data_portion = []
         for i, p  in enumerate(self._head.parameters):
             col_type = self._head.db["column_types"][i]
-            print(col_type)
             if type(p) == list:
                 newP = []
                 for elem in p:
@@ -381,6 +422,10 @@ class DT_Rule:
                 header_condition = self._head.constraints[0]
             else:
                 header_condition = "And({})".format(", ".join(self._head.constraints))
+        # print(resulting_tuples)
+        # print(header_data_portion)
+        # print(self._head)
+        # exit()
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
             if self._sameDataPortion(header_data_portion, list(tup[:-1])):
@@ -409,70 +454,121 @@ class DT_Rule:
 
         return contains
 
-    def exists_new_tuple(self, conn):
+    # def exists_new_tuple(self, conn):
+    #     cursor = conn.cursor()
+    #     header_table = self._head.db["name"]
+
+    #     cursor.execute("select {} from output".format(", ".join(self._head.db["column_names"])))
+    #     output_results = cursor.fetchall()
+
+    #     cursor.execute("select {} from {}".format(", ".join(self._head.db["column_names"]), header_table))
+    #     existing_tuples = cursor.fetchall()
+    #     conn.commit()
+
+    #     inserting_tuples = []
+    #     for res_tup in output_results:
+    #         for existing_tup in existing_tuples:
+    #             res_cond = res_tup[-1]
+    #             existing_cond = existing_tup[-1]
+    #             if str(res_tup[:-1]) == str(existing_tup[:-1]):
+    #                 if self._reasoning_engine == 'z3':
+    #                     condition1 = None
+    #                     if len(existing_cond) == 0:
+    #                         condition1 = ""
+    #                     elif len(existing_cond) == 1:
+    #                         condition1 = existing_cond[0]
+    #                     else:
+    #                         condition1 = "And({})".format(", ".join(existing_cond))
+
+    #                     condition2 = None
+    #                     if len(res_cond) == 0:
+    #                         condition2 = ""
+    #                     elif len(res_cond) == 1:
+    #                         condition2 = res_cond[0]
+    #                     else:
+    #                         condition2 = "And({})".format(", ".join(res_cond))
+    #                     if check_tautology.check_is_implication(condition1, condition2, self._reasoning_type):
+    #                         continue
+    #                     else: 
+    #                         inserting_tuples.append(res_tup)
+    #                 elif self._reasoning_engine == 'bdd':
+    #                     if bddmm.is_implication(existing_cond, res_cond):
+    #                         continue
+    #                     else:
+    #                         inserting_tuples.append(res_tup)
+    #                 else:
+    #                     print("We do not support {} engine!".format(self._reasoning_engine))
+    #                     exit()
+    #             else:
+    #                 inserting_tuples.append(res_tup)
+    #     if len(inserting_tuples) == 0:
+    #         changes = False
+    #     else:
+    #         changes = True
+    #         insert_sql = "insert into {} values %s".format(header_table)
+    #         execute_values(cursor, insert_sql, inserting_tuples)
+    #     conn.commit()
+    #     return changes  
+
+    # Adds the result of the table "output" to head. Only adds distinct variables
+    def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
+        changed = False
         header_table = self._head.db["name"]
 
-        cursor.execute("select {} from output".format(", ".join(self._head.db["column_names"])))
-        output_results = cursor.fetchall()
+        # if self._reasoning_engine == "z3":
+        #     translator_z3.normalization(self._reasoning_type, header_table)
+        # elif self._reasoning_engine == "bdd": # TODO: Add table name to BDD
+        #     translator_bdd.normalization(self._reasoning_type, header_table)
 
-        cursor.execute("select {} from {}".format(", ".join(self._head.db["column_names"]), header_table))
-        existing_tuples = cursor.fetchall()
+        # '''
+        # Merge tuples
+        # '''
+        # merge_tuples_z3.merge_tuples(header_table, # tablename of header
+        #                             "{}_out".format(header_table), # output tablename
+        #                             [], # domain
+        #                             self._reasoning_type) # reasoning type of engine
+        # cursor = conn.cursor()
+        # cursor.execute("drop table if exists {}".format(header_table))
+        # cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
+
+        # counting non-redundant rows in header after simplification
+        cursor.execute("select distinct count(*) from {}".format(header_table))
+        print("select distinct count(*) from {}".format(header_table))
+        headerCountAfterSimp = int(cursor.fetchall()[0][0])
+        print(headerCountAfterSimp)
+
+        # Adding result of output to header
+        cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self._head.db["column_names"]), fromTable))
+
+        conn.commit()
+        # delete redundants
+        merge_tuples_z3.merge_tuples(header_table, # tablename of header
+                                    "{}_out".format(header_table), # output tablename
+                                    [], # domain
+                                    self._reasoning_type) # reasoning type of engine
+        cursor = conn.cursor()
+        cursor.execute("drop table if exists {}".format(header_table))
+        cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
+
+        # counting non-redundant rows in header after inserting output tables
+        cursor.execute("select distinct count(*) from {}".format(header_table))
+        headerCountAfterInsert = int(cursor.fetchall()[0][0])
+        conn.commit()
+        
+        if headerCountAfterInsert > headerCountAfterSimp:
+            changed = True
         conn.commit()
 
-        inserting_tuples = []
-        for res_tup in output_results:
-            for existing_tup in existing_tuples:
-                res_cond = res_tup[-1]
-                existing_cond = existing_tup[-1]
-                if str(res_tup[:-1]) == str(existing_tup[:-1]):
-                    if self._reasoning_engine == 'z3':
-                        condition1 = None
-                        if len(existing_cond) == 0:
-                            condition1 = ""
-                        elif len(existing_cond) == 1:
-                            condition1 = existing_cond[0]
-                        else:
-                            condition1 = "And({})".format(", ".join(existing_cond))
-
-                        condition2 = None
-                        if len(res_cond) == 0:
-                            condition2 = ""
-                        elif len(res_cond) == 1:
-                            condition2 = res_cond[0]
-                        else:
-                            condition2 = "And({})".format(", ".join(res_cond))
-                        if check_tautology.check_is_implication(condition1, condition2, self._reasoning_type):
-                            continue
-                        else: 
-                            inserting_tuples.append(res_tup)
-                    elif self._reasoning_engine == 'bdd':
-                        if bddmm.is_implication(existing_cond, res_cond):
-                            continue
-                        else:
-                            inserting_tuples.append(res_tup)
-                    else:
-                        print("We do not support {} engine!".format(self._reasoning_engine))
-                        exit()
-                else:
-                    inserting_tuples.append(res_tup)
-
-        if len(inserting_tuples) == 0:
-            changes = False
-        else:
-            changes = True
-            insert_sql = "insert into {} values %s".format(header_table)
-            execute_values(cursor, insert_sql, inserting_tuples)
-        conn.commit()
-        return changes
+        return changed
     
     def run_with_faure(self, conn, program_sql):
         header_table = self._head.db["name"]
         changed = False
+        print(program_sql)
         '''
         generate new facts
         '''
-        print(program_sql)
         if self._reasoning_engine == 'z3':
             # tree = translator_z3.generate_tree(program_sql)
             # translator_z3.data(tree)
@@ -484,25 +580,17 @@ class DT_Rule:
             faure_domains = {}
             for cvar in self._c_variables:
                 faure_domains[cvar] = self._domains
+            #TODO: Explicitly give output table name instead of relying on defaults
             FaureEvaluation(conn, program_sql, domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
+
             '''
             compare generating IDB and existing DB if there are new IDB generated
             if yes, the DB changes, continue run the program on DB
             if no, the DB does not change, stop running 
             '''
-            changed = self.exists_new_tuple(conn)
+            changed = self.insertTuplesToHead(conn)
+            # changed = self.exists_new_tuple(conn)
 
-            '''
-            Merge tuples
-            '''
-            merge_tuples_z3.merge_tuples(header_table, # tablename of header
-                                    "{}_out".format(header_table), # output tablename
-                                    [], # domain
-                                    self._reasoning_type) # reasoning type of engine
-            cursor = conn.cursor()
-            cursor.execute("drop table if exists {}".format(header_table))
-            cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
-            conn.commit()
         elif self._reasoning_engine == 'bdd':
             if self._reasoning_type == 'BitVec':
                 print("BDD engine does not support BitVec now! ")
@@ -540,7 +628,7 @@ class DT_Rule:
         else:
             print("We do not support {} engine!".format(self._reasoning_engine))
             exit()
-        
+
         return changed
 
     def addtional_constraints2where_clause(self, constraints, variableList):

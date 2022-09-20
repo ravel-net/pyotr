@@ -6,6 +6,7 @@ import psycopg2
 from copy import deepcopy
 from Core.Homomorphism.Datalog.rule import DT_Rule
 import databaseconfig as cfg
+import time
 
 class DT_Program:
     """
@@ -125,40 +126,32 @@ class DT_Program:
         newProgram = deepcopy(self)
         newProgram.deleteRule(ruleNum)
         return newProgram
+        
 
     # minimize. Does minimization in place. Make sure to make a copy if you want the original program
     #TODO IMPORTANT: Program only rule should be entire program. Method: Delete contained rule and then add a rule without atom
     def minimize(self):
         numRules = self.numRules
-
         
         for ruleNum in range(numRules):
             rule = self.getRule(ruleNum)
-            # program_only_rule = DT_Program(rule)
-            # numAtoms = rule.numBodyAtoms
             atomNum = 0
             while atomNum < rule.numBodyAtoms:
                 if rule.numBodyAtoms == 1: # if only one atom left in program, stop minimizing redundant atoms
                     break
+
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-                # print("rule with deleted atom:", rule_with_deleted_atom)
                 
-                print(rule)
-                print(rule_with_deleted_atom)
+                if not rule_with_deleted_atom.safe():
+                    atomNum += 1 
+                    continue
 
                 contained = self.contains_rule(rule_with_deleted_atom)
-                # if atomNum == 2: exit()
                 if contained:
                     self.replaceRule(ruleNum, rule_with_deleted_atom) 
                     rule = rule_with_deleted_atom
-                    # program_only_rule = DT_Program(rule)
                 else:
-                    atomNum += 1
-                # print("minimized rule", rule)
-            # for atomNum in range(numAtoms):
-            #     rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-            #     if self.contains_rule(rule_with_deleted_atom):
-            #         self.replaceRule(ruleNum, rule_with_deleted_atom)    
+                    atomNum += 1   
 
         ruleNum = 0
         while ruleNum < self.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
@@ -257,15 +250,49 @@ if __name__ == "__main__":
     # print("after minimizing", P_program)
 
     # Array Example:  
-    p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1)[h3 = 10] :- l(a2,h3)[h3 = 10], l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    # p1 = "R(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1)[h3 = 10] :- l(a2,h3)[h3 = 10], l(a2, h4)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+
+    p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a3, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a3, e1)"    
+
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)"
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1)[h3 = 20] :- l(a2,h3)[h3 = 20], l(a2, e1)"
+
+    # p1 = "R(a3, h3, [h3], 1) :- l(a3,h3), l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4)"
+    start = time.time()
+    # p1 = "R(a3, h3, [h3], 1) :- l(a3,h3), l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
     program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
     # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
 
-    # # # # p2 = "R(a3, h3, [h3], 1)[h3 = 1] :- l(a3,h3)[h3 = 1]"
-    # # # # program2 = DT_Program(p2, {"R":["integer", "integer", "integer[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['1', '2'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True)
-
-    # print(program1)
+    print(program1)
     print(program1.minimize())
     print("After Minimization")
+    end = time.time()
+    print (end-start)
     print(program1)
+
+
+    # Fattree 16:
+    # num_exp = 5
+    # time_16 = []
+    # for i in range(num_exp):
+    #     fattree16 = "R(a1, h16, [e2], 1) :- l(a1,e2)\nR(a2, h16, [e2], 1) :- l(a2,e2)\nR(a3, h16, [e2], 1) :- l(a3,e2)\nR(a4, h16, [e2], 1) :- l(a4,e2)\nR(a5, h16, [e2], 1) :- l(a5,e2)\nR(a6, h16, [e2], 1) :- l(a6,e2)\nR(a7, h16, [e2], 1) :- l(a7,e2)\nR(a8, h16, [e2], 1) :- l(a8,e2)\nR(e1, h16, [a1,x], 2) :- R(a1, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a2,x], 2) :- R(a2, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a3,x], 2) :- R(a3, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a4,x], 2) :- R(a4, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a5,x], 2) :- R(a5, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a6,x], 2) :- R(a6, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a7,x], 2) :- R(a7, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)\nR(e1, h16, [a8,x], 2) :- R(a8, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4), l(e1, a5), l(e1, a6), l(e1, a7), l(e1, a8)"
+    #     fattree16_program = DT_Program(fattree16, {"R":["integer", "integer","integer[]", "integer"]})
+    #     start = time.time()
+    #     fattree16_program.minimize()
+    #     end = time.time()
+    #     print(fattree16_program)
+    #     time_16.append(end-start)
+
+    # # Fattree 8:
+    # time_8 = []
+    # for i in range(num_exp):
+    #     fattree8 = "R(a1, h8, [e2], 1) :- l(a1,e2)\nR(a2, h8, [e2], 1) :- l(a2,e2)\nR(a3, h8, [e2], 1) :- l(a3,e2)\nR(a4, h8, [e2], 1) :- l(a4,e2)\nR(e1, h8, [a1,x], 2) :- R(a1, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a2,x], 2) :- R(a2, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a3,x], 2) :- R(a3, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a4,x], 2) :- R(a4, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)"
+    #     fattree8_program = DT_Program(fattree8, {"R":["integer", "integer","integer[]", "integer"]})
+    #     start = time.time()
+    #     fattree8_program.minimize()
+    #     print(fattree8_program)
+    #     end = time.time()
+    #     time_8.append(end-start)
+    # print("16 fattree:", time_16)
+    # print("8 fattree:", time_8)
