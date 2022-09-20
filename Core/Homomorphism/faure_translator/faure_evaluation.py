@@ -29,6 +29,7 @@ class FaureEvaluation:
         self._information_on = information_on
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
+        self._is_IP = reasoning_sort.lower() == 'bitvec' # is IP address
         self._SQL_parser = SQL_Parser(SQL.strip(), reasoning_engine, databases)
 
         self.data_time = 0.0
@@ -51,12 +52,14 @@ class FaureEvaluation:
                 self._simplification_z3()
 
         elif self._reasoning_engine.lower() == 'bdd':
-            
             # assume all variables have the same domain
             variables = list(domains.keys())
             domain_list =  domains[variables[0]]
 
-            bddmm.initialize(len(variables), len(domain_list))
+            if self._reasoning_sort.lower() == 'bitvec':
+                bddmm.initialize(len(variables), 2**32-1) # the domain of IP address is 2^32
+            else:
+                bddmm.initialize(len(variables), len(domain_list))
 
             for workingtable in self._SQL_parser.working_tables:
                 print(workingtable.TableName), 
@@ -294,7 +297,7 @@ class FaureEvaluation:
                 get BDD reference number for conjunction condition
                 '''
                 conjunction_str = "And({})".format(", ".join(conjunctin_conditions))
-                encoded_conjunction_str, variables_arr = encodeCUDD.convertToCUDD(conjunction_str, domains, variables)
+                encoded_conjunction_str, variables_arr = encodeCUDD.convertToCUDD(conjunction_str, domains, variables, self._is_IP)
                 conjunction_ref = bddmm.str_to_BDD(encoded_conjunction_str)
 
                 # Logical AND original BDD and conjunction BDD
@@ -396,7 +399,7 @@ class FaureEvaluation:
                 if self._empty_condition_idx is None:
                     condition = ""
                     begin_process = time.time()
-                    encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables)
+                    encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables, self._is_IP)
                     end_process_encode = time.time()
                     empty_condition_idx = bddmm.str_to_BDD(encoded_c)
                     end_process_strToBDD = time.time()
@@ -410,7 +413,7 @@ class FaureEvaluation:
 
                 # Call BDD module 
                 begin_process = time.time()
-                encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables)
+                encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables, self._is_IP)
                 end_process_encode = time.time()
                 bdd_idx = bddmm.str_to_BDD(encoded_c)
                 end_process_strToBDD = time.time()
@@ -439,7 +442,7 @@ class FaureEvaluation:
                 if self._reasoning_sort.lower() == 'int':
                     datatype = 'int4_faure'
                 elif self._reasoning_sort.lower() == 'bitvec':
-                    datatype == 'inet_faure'
+                    datatype = 'inet_faure'
                 else:
                     print("Unsupported reasoning sort:", self._reasoning_sort)
                     exit()
@@ -447,7 +450,6 @@ class FaureEvaluation:
                 self._SQL_parser.databases[tablename]['types'][idx] = datatype # update it
 
             columns.append("{} {}".format(name, datatype))
-
         sql = "create table {} ({})".format(tablename, ", ".join(columns))
         cursor.execute(sql)
 
@@ -489,15 +491,20 @@ if __name__ == '__main__':
         'd':['10.0.0.1', '10.0.0.2']
     }
     sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
-    FaureEvaluation(conn, sql, databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='BitVec', simplication_on=True, information_on=True)
+    FaureEvaluation(conn, sql, databases={}, domains=domains, reasoning_engine='bdd', reasoning_sort='BitVec', simplication_on=True, information_on=True)
 
 
-    # bddmm.initialize(1, 2)
+    # bddmm.initialize(1, 2**32-1)
     # bdd1_str = ""
-    # bdd2_str = "b == 1"
+    # bdd2_str = "b == 10.0.0.1"
+    # bdd3_str = "b == 1"
 
-    # encoded_bdd1, _ = encodeCUDD.convertToCUDD(bdd1_str, ['1', '2'], ['b'])
-    # encoded_bdd2, _ = encodeCUDD.convertToCUDD(bdd2_str, ['1', '2'], ['b'])
+    # encoded_bdd1, _ = encodeCUDD.convertToCUDD(bdd1_str, ['10.0.0.1', '10.0.0.2'], ['b'], True)
+    # encoded_bdd2, _ = encodeCUDD.convertToCUDD(bdd2_str, ['10.0.0.1', '10.0.0.2'], ['b'], True)
+    # encoded_bdd3, _ = encodeCUDD.convertToCUDD(bdd3_str, ['1', '2'], ['b'], False)
+    # print("encoded_bdd1", encoded_bdd1)
+    # print("encoded_bdd2", encoded_bdd2)
+    # print("encoded_bdd2", encoded_bdd3)
 
     # bdd1 = bddmm.str_to_BDD(encoded_bdd1)
     # print("bdd1", bdd1)

@@ -404,12 +404,10 @@ class SQL_Parser:
         else:
             for table in self._all_attributes:
                 if table == 'condition': 
-                    # continue
-                    if self._reasoning_engine.lower() == 'z3':
-                        continue
-                    elif self._reasoning_engine.lower() == 'bdd':
+                    if self._reasoning_engine.lower() == 'bdd':
                         for attr in self._all_attributes['condition']:
                             drop_columns.append(attr.AttributeName)
+                    continue
                 for attr in self._all_attributes[table]:
                     drop_columns.append(attr.AttributeName)
 
