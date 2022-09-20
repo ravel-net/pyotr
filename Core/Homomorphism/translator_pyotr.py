@@ -698,7 +698,7 @@ def upd_condition(tree, datatype):
     # logging.warning("condition execution time: %s" % str(count_time))
     return count_time
             
-def normalization(datatype):
+def normalization(datatype, outputTable="output"):
     if OPEN_OUTPUT:
         print("\n************************Step 3: Normalization****************************")
     cursor = conn.cursor()
@@ -717,10 +717,10 @@ def normalization(datatype):
     # cursor.execute(sql)
     # print("\nz3 execution time:", time.time()-begin)
     # print("red, tau", time.time()-begin)
-    cursor.execute("select * from output limit 1")
+    cursor.execute("select * from {} limit 1".format(outputTable))
     cols = [row[0] for row in cursor.description]
     if 'id' not in cols:
-        cursor.execute("ALTER TABLE output ADD COLUMN id SERIAL PRIMARY KEY;")
+        cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(outputTable))
     else:
         cols.remove('id')
     # '''
@@ -760,9 +760,9 @@ def normalization(datatype):
     if len(del_tuple) == 0:
         pass
     elif len(del_tuple) == 1:
-        cursor.execute("delete from output where id = {}".format(del_tuple[0]))
+        cursor.execute("delete from {} where id = {}".format(outputTable, del_tuple[0]))
     else:
-        cursor.execute("delete from output where id in {}".format(tuple(del_tuple)))
+        cursor.execute("delete from {} where id in {}".format(outputTable, tuple(del_tuple)))
     contr_end = time.time()
     # logging.warning("delete contradiction execution time: %s" % str(contr_end-contrd_begin))
 
@@ -777,7 +777,7 @@ def normalization(datatype):
     '''
     # print("remove redundant")
     redun_begin = time.time()
-    cursor.execute("select id, condition from output")
+    cursor.execute("select id, condition from {}".format(outputTable))
     redun_count = cursor.rowcount
     # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
     upd_cur = conn.cursor()
@@ -789,9 +789,9 @@ def normalization(datatype):
         if has_redun:
             if result != '{}':
                 result = ['"{}"'.format(r) for r in result]
-                upd_cur.execute("UPDATE output SET condition = '{}' WHERE id = {}".format("{" + ", ".join(result) + "}", row[0]))
+                upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(outputTable, "{" + ", ".join(result) + "}", row[0]))
             else:
-                upd_cur.execute("UPDATE output SET condition = '{{}}' WHERE id = {}".format(row[0]))
+                upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(outputTable, row[0]))
     redun_end = time.time()
     
     if OPEN_OUTPUT:
