@@ -37,17 +37,17 @@ class SQL_Parser:
     def __init__(self, sql, reasoning_engine='z3', databases={}):
         self._original_sql = sql
         self._reasoning_engine=reasoning_engine
-        self._databases = {}
+        self.databases = {}
         for table in databases:
             table_lower = table.lower()
-            self._databases[table_lower] = {'types': [], 'names': []}
+            self.databases[table_lower] = {'types': [], 'names': []}
             for i in range(len(databases[table]['names'])):
-                self._databases[table_lower]['types'].append(databases[table]['types'][i].lower()) 
-                self._databases[table_lower]['names'].append(databases[table]['names'][i].lower()) 
+                self.databases[table_lower]['types'].append(databases[table]['types'][i].lower()) 
+                self.databases[table_lower]['names'].append(databases[table]['names'][i].lower()) 
 
         self.type = None # 1: select, 2: insert, 3: delete
         self._selected_attributes = {'is_star': False, 'attributes': []}
-        self._working_tables = []
+        self.working_tables = []
         self._constraints_in_where_clause = []
         sql_lowercase = sql.strip(';').lower()
         self._all_attributes = {} # {'tablename':list[attributes], 'condition': list[attributes]}
@@ -64,7 +64,7 @@ class SQL_Parser:
             if 'where' in from_clause_include_where_str:
                 parts = from_clause_include_where_str.split('where')
                 working_tables_str = parts[0].strip()
-                self._process_working_tables_str(working_tables_str)
+                self._processworking_tables_str(working_tables_str)
                 
 
                 where_index = sql_lowercase.find('where')
@@ -72,7 +72,7 @@ class SQL_Parser:
 
                 self._process_where_clause(where_clause_str)
             else:
-                self._process_working_tables_str(from_clause_include_where_str)
+                self._processworking_tables_str(from_clause_include_where_str)
 
             self._get_all_attributes()
             # print("self._all_attributes", self._all_attributes)
@@ -137,7 +137,7 @@ class SQL_Parser:
                             attributes_strs.append(str(attr))
 
             table_strs = []
-            for table in self._working_tables:
+            for table in self.working_tables:
                 table_strs.append(str(table))
 
             where_strs = []
@@ -197,10 +197,10 @@ class SQL_Parser:
             old_conditions_attributes.append(attr.AttributeName)
         return old_conditions_attributes
 
-    def _process_working_tables_str(self, working_tables_str):
+    def _processworking_tables_str(self, working_tables_str):
         for workingtable in working_tables_str.split(','):
             workingtable = workingtable.strip()
-            self._working_tables.append(WorkingTable(workingtable))
+            self.working_tables.append(WorkingTable(workingtable))
 
     def _process_select_clause(self, selected_attributes_str):
         if selected_attributes_str == '*':
@@ -229,30 +229,30 @@ class SQL_Parser:
     def _get_all_attributes(self):
         condition_attributes = []
 
-        for workingtable in self._working_tables:
+        for workingtable in self.working_tables:
             column_names = []
             column_datatypes = []
-            if workingtable.table in self._databases:
-                column_names = self._databases[workingtable.table]['names']
-                column_datatypes = self._databases[workingtable.table]['types']
+            if workingtable.table in self.databases:
+                column_names = self.databases[workingtable.table]['names']
+                column_datatypes = self.databases[workingtable.table]['types']
             else:
-                self._databases[workingtable.table] = {'types':[], 'names':[]}
+                self.databases[workingtable.table] = {'types':[], 'names':[]}
                 cursor = conn.cursor()
                 cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(workingtable.table))
                 for (column_name, datatype) in cursor.fetchall():
-                    self._databases[workingtable.table]['types'].append(datatype.lower())
-                    self._databases[workingtable.table]['names'].append(column_name.lower())
+                    self.databases[workingtable.table]['types'].append(datatype.lower())
+                    self.databases[workingtable.table]['names'].append(column_name.lower())
 
                 conn.commit()
-                column_names = self._databases[workingtable.table]['names']
-                column_datatypes = self._databases[workingtable.table]['types']
+                column_names = self.databases[workingtable.table]['names']
+                column_datatypes = self.databases[workingtable.table]['types']
             
             for idx, attr_name in enumerate(column_names):
                 attribute_str = None
                 if workingtable.has_alias:
                     attribute_str = "{tab_alias}.{attr} as {tab_alias}_{attr}".format(tab_alias=workingtable.alias, attr=attr_name)
                 else:
-                    if len(self._working_tables) == 1:
+                    if len(self.working_tables) == 1:
                         attribute_str = "{attr}".format(attr=attr_name)
                     else:
                         attribute_str = "{tab}.{attr} as {tab}_{attr}".format(tab=workingtable.table, attr=attr_name)
@@ -365,8 +365,8 @@ class SQL_Parser:
                 for idx, attribute in enumerate(self._all_attributes[table]):
                     print(str(attribute))
                     print(idx)
-                    self.simple_attr2column_name_mapping[attribute.AttributePart] = self._databases[table]['names'][idx]
-                    self.simple_attr2datatype_mapping[attribute.AttributePart] = self._databases[table]['types'][idx]
+                    self.simple_attr2column_name_mapping[attribute.AttributePart] = self.databases[table]['names'][idx]
+                    self.simple_attr2datatype_mapping[attribute.AttributePart] = self.databases[table]['types'][idx]
         
     def _get_simple_attribute_mapping(self):
         simple_attr_mapping = {}
@@ -394,12 +394,22 @@ class SQL_Parser:
                 for col in self.equal_attributes_from_where_clause[attr]:
 
                     drop_columns.append(self.simple_attribute_mapping[col].AttributeName)
-        
+
+            if self._reasoning_engine.lower() == 'bdd':
+                # drop old condition attributes
+                for attr in self._all_attributes['condition']:
+                    drop_columns.append(attr.AttributeName)
+
 
         else:
             for table in self._all_attributes:
                 if table == 'condition': 
-                    continue
+                    # continue
+                    if self._reasoning_engine.lower() == 'z3':
+                        continue
+                    elif self._reasoning_engine.lower() == 'bdd':
+                        for attr in self._all_attributes['condition']:
+                            drop_columns.append(attr.AttributeName)
                 for attr in self._all_attributes[table]:
                     drop_columns.append(attr.AttributeName)
 
@@ -467,7 +477,6 @@ class WorkingTable:
 
 class Constraint:
     def __init__(self, constraint) -> None:
-        # print("constraint", constraint)
         self.operators = ['!=', '<=', '>=', '=', '<', '>']
         self.negation = False
         
@@ -583,7 +592,6 @@ class Constraint:
                 left_opd = items[0].strip()
                 right_opd = items[1].strip()
                 break
-        
         attribute_pattern = re.compile(r'\((.*?)\)')
         left_match = self._if_contains_function(left_opd)
         if left_match is not None:

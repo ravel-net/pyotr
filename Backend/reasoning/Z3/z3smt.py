@@ -231,17 +231,25 @@ class z3SMTTools:
             for var in self._domains:
                 var_conditions = []
                 for val in self._domains[var]:
+                    condition = self._convert_z3_variable_bit("{} == {}".format(var, val), self._reasoning_type, 32)
+                    var_conditions.append(condition)
 
-                    net = IPv4Network(val)
-                    # if net[0] != net[-1]: # subnet
-                        
+                domain_conditions.append("Or({})".format(", ".join(var_conditions)))
+                # var_z3 = "z3.{sort}('{var}', {bits})".format(sort=self._reasoning_type, var=var, bits=32)
+                # lower_bound = self._convertIPToBits('0.0.0.0', 32)
+                # lower_bound_z3 = "z3.{sort}Val('{lower_bound}', {bits})".format(sort=self._reasoning_type, lower_bound=lower_bound, bits=32)
+
+                # upper_bound = self._convertIPToBits('255.255.255.255', 32)
+                # upper_bound_z3 = "z3.{sort}Val('{upper_bound}', {bits})".format(sort=self._reasoning_type, upper_bound=upper_bound, bits=32)
+                
+                # domain_conditions.append("And({var_z3} >= {lower_bound_z3}, {var_z3} <= {upper_bound_z3})".format(var_z3=var_z3, lower_bound_z3=lower_bound_z3, upper_bound_z3=upper_bound_z3))
 
         domain_str = ", ".join(domain_conditions)
         return domain_str
     
     def _convert_z3_variable(self, condition, datatype):
         if datatype == "BitVec":
-            return self.convert_z3_variable_bit(condition, datatype, 32)
+            return self._convert_z3_variable_bit(condition, datatype, 32)
 
         # TODO: BitVec datatype of value in array
         if "\\not_in" in condition or "\\in" in condition:
