@@ -244,7 +244,7 @@ class FaureEvaluation:
         cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table))
         for column_name, data_type in cursor.fetchall():
             self.column_datatype_mapping[column_name] = data_type
-        conn.commit()
+        self._conn.commit()
     
     def _upd_condition_BDD(self, domains, variables):
         if self._information_on:
