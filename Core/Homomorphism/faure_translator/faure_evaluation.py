@@ -25,17 +25,10 @@ class FaureEvaluation:
         self._conn = conn
         self._SQL = SQL.strip()
 
-        self._databases = {}
-        for table in databases:
-            table_lower = table.lower()
-            self._databases[table_lower] = {'types': [], 'names': []}
-            for i in range(len(databases[table]['names'])):
-                self._databases[table_lower]['types'].append(databases[table]['types'][i].lower()) 
-                self._databases[table_lower]['names'].append(databases[table]['names'][i].lower()) 
-
         self.output_table=output_table
         self._information_on = information_on
         self._reasoning_engine = reasoning_engine
+        self._reasoning_sort = reasoning_sort
         self._SQL_parser = SQL_Parser(SQL.strip(), reasoning_engine, databases)
 
         self.data_time = 0.0
@@ -54,7 +47,7 @@ class FaureEvaluation:
             self._z3Smt = None
             if simplication_on:
                 self._get_column_datatype_mapping()
-                self._z3Smt = z3SMTTools(list(domains.keys()), domains, reasoning_sort)
+                self._z3Smt = z3SMTTools(list(domains.keys()), domains, self._reasoning_sort)
                 self._simplification_z3()
 
         elif self._reasoning_engine.lower() == 'bdd':
@@ -65,7 +58,9 @@ class FaureEvaluation:
 
             bddmm.initialize(len(variables), len(domain_list))
 
-            for workingtable in self._SQL_parser._working_tables:
+            for workingtable in self._SQL_parser.working_tables:
+                print(workingtable.TableName), 
+                print(self._SQL_parser.databases)
                 self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
             self._data()
 
@@ -243,13 +238,22 @@ class FaureEvaluation:
         cursor = self._conn.cursor()
         cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table))
         for column_name, data_type in cursor.fetchall():
-            self.column_datatype_mapping[column_name] = data_type
-        conn.commit()
+            if data_type.lower() == 'user-defined':
+                if self._reasoning_sort.lower() == 'int':
+                    self.column_datatype_mapping[column_name] = 'int4_faure'
+                elif self._reasoning_sort.lower() == 'bitvec':
+                    self.column_datatype_mapping[column_name] = 'inet_faure'
+                else:
+                    print("Unsupported reasoning sort:", self._reasoning_sort)
+                    exit()
+            else:
+                self.column_datatype_mapping[column_name] = data_type
+        self._conn.commit()
     
     def _upd_condition_BDD(self, domains, variables):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
-        cursor = conn.cursor()
+        cursor = self._conn.cursor()
 
         if 'id' not in self.column_datatype_mapping:
             cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(self.output_table))
@@ -273,14 +277,17 @@ class FaureEvaluation:
             new_reference_mapping = {}
             for i in range(count_num):
                 (old_conditions, conjunctin_conditions, id) = cursor.fetchone()
-
+                # print(old_conditions, conjunctin_conditions, id)
                 '''
                 Logical AND all original conditions for all tables
                 '''
+                # print("result", bddmm.operate_BDDs(0, 1, "&"))
                 old_bdd = old_conditions[0]
                 for cond_idx in range(1, len(old_conditions)):
                     bdd1 = old_conditions[cond_idx]
-                    old_bdd = bddmm.operate_BDDs(bdd1, old_bdd, "&")
+                    # print("old_bdd", old_bdd, "bdd1", bdd1)
+                    old_bdd = bddmm.operate_BDDs(int(bdd1), int(old_bdd), "&")
+                    # print('old', old_bdd)
 
                 '''
                 get BDD reference number for conjunction condition
@@ -294,18 +301,20 @@ class FaureEvaluation:
 
                 new_reference_mapping[id] = new_ref
 
-                '''
-                add integer type of condition column
-                update bdd reference number on condition column
-                '''
-                sql = "alter table if exists {} add column condition integer".format(self.output_table)
-                cursor.execute(sql)
-                self._conn.commit()
+            '''
+            add condition column of integer type
+            update bdd reference number on condition column
+            '''
+            sql = "alter table if exists {} add column condition integer".format(self.output_table)
+            cursor.execute(sql)
+            self._conn.commit()
 
-                for key in new_reference_mapping.keys():
-                    sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
-                    cursor.execute(sql)
-                self._conn.commit()
+            begin_upd = time.time()
+            for key in new_reference_mapping.keys():
+                sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
+                cursor.execute(sql)
+            end_upd = time.time()
+            self._conn.commit()
 
             self.update_condition_time['update_condition'] = end_upd - begin_upd
             self._conn.commit()
@@ -365,7 +374,7 @@ class FaureEvaluation:
         """
         cursor = self._conn.cursor()
 
-        sql = "select {} from {}".format(", ".join(self._databases[tablename]['names']), tablename)
+        sql = "select {} from {}".format(", ".join(self._SQL_parser.databases[tablename]['names']), tablename)
         cursor.execute(sql)
 
         count_num = cursor.rowcount
@@ -379,16 +388,17 @@ class FaureEvaluation:
         for i in tqdm(range(count_num)):
             row = cursor.fetchone()
             list_row = list(row)
-
+            if type(list_row[cond_idx]) == int: # if the condition is int datatype, return
+                return
             if len(list_row[cond_idx]) == 0:
                 # list_row[cond_idx] = None
                 if self._empty_condition_idx is None:
                     condition = ""
-                    begin_process = time()
+                    begin_process = time.time()
                     encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables)
-                    end_process_encode = time()
+                    end_process_encode = time.time()
                     empty_condition_idx = bddmm.str_to_BDD(encoded_c)
-                    end_process_strToBDD = time()
+                    end_process_strToBDD = time.time()
                     if self._information_on:
                         print("Time to encode condition {}: {} s".format(empty_condition_idx, end_process_encode-begin_process))
                         print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-end_process_encode))
@@ -398,11 +408,11 @@ class FaureEvaluation:
                 condition = ", ".join(list_row[cond_idx])
 
                 # Call BDD module 
-                begin_process = time()
+                begin_process = time.time()
                 encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables)
-                end_process_encode = time()
+                end_process_encode = time.time()
                 bdd_idx = bddmm.str_to_BDD(encoded_c)
-                end_process_strToBDD = time()
+                end_process_strToBDD = time.time()
                 if self._information_on:
                     print("Time to encode condition {}: {} s".format(bdd_idx, end_process_encode-begin_process))
                     print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-end_process_encode))
@@ -417,8 +427,26 @@ class FaureEvaluation:
         self.column_datatype_mapping['condition'] = 'integer'
 
         columns = []
-        for idx, name in enumerate(self._databases[tablename]['names']):
-            columns.append("{} {}".format(name, self._databases[tablename]['types'][idx]))
+        for idx, name in enumerate(self._SQL_parser.databases[tablename]['names']):
+            datatype = self._SQL_parser.databases[tablename]['types'][idx]
+
+            if name == 'condition':
+                datatype = 'integer'
+                self._SQL_parser.databases[tablename]['types'][idx] = datatype # update it
+
+            elif datatype.lower() == 'user-defined':
+                if self._reasoning_sort.lower() == 'int':
+                    datatype = 'int4_faure'
+                elif self._reasoning_sort.lower() == 'bitvec':
+                    datatype == 'inet_faure'
+                else:
+                    print("Unsupported reasoning sort:", self._reasoning_sort)
+                    exit()
+
+                self._SQL_parser.databases[tablename]['types'][idx] = datatype # update it
+
+            columns.append("{} {}".format(name, datatype))
+
         sql = "create table {} ({})".format(tablename, ", ".join(columns))
         cursor.execute(sql)
 
@@ -449,12 +477,37 @@ if __name__ == '__main__':
         user=cfg.postgres["user"], 
         password=cfg.postgres["password"])
 
+    # domains = {
+    #     'd1':['1', '2'],
+    #     'd2':['1', '2'],
+    #     'd':['1', '2']
+    # }
     domains = {
-        'd1':['1', '2'],
-        'd2':['1', '2'],
-        'd':['1', '2']
+        'd1':['10.0.0.1', '10.0.0.2'],
+        'd2':['10.0.0.1', '10.0.0.2'],
+        'd':['10.0.0.1', '10.0.0.2']
     }
-    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '1'"
-    FaureEvaluation(conn, sql, databases={}, domains=domains, reasoning_engine='bdd', simplication_on=True, information_on=True)
+    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
+    FaureEvaluation(conn, sql, databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='BitVec', simplication_on=True, information_on=True)
+
+
+    # bddmm.initialize(1, 2)
+    # bdd1_str = ""
+    # bdd2_str = "b == 1"
+
+    # encoded_bdd1, _ = encodeCUDD.convertToCUDD(bdd1_str, ['1', '2'], ['b'])
+    # encoded_bdd2, _ = encodeCUDD.convertToCUDD(bdd2_str, ['1', '2'], ['b'])
+
+    # bdd1 = bddmm.str_to_BDD(encoded_bdd1)
+    # print("bdd1", bdd1)
+    # bdd2 = bddmm.str_to_BDD(encoded_bdd2)
+    # print("bdd2", bdd2)
+
+    # bdd3 = bddmm.operate_BDDs(bdd1, bdd1, "&")
+    # print("bdd3", bdd3)
+
+    # bdd4 = bddmm.operate_BDDs(bdd2, bdd1, "&")
+    # print("bdd4", bdd4)
+
 
     

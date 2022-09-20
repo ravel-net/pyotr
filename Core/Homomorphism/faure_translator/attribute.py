@@ -151,7 +151,11 @@ class SelectedAttribute:
 
 class NormalAttribute:
     def __init__(self, normal_attribute_str):
-        self._specify_table = '.' in normal_attribute_str
+        self._specify_table = None
+        if (normal_attribute_str.startswith("'") and normal_attribute_str.endswith("'")) or (normal_attribute_str.startswith('"') and normal_attribute_str.endswith('"')):
+            self._specify_table = False
+        else:
+            self._specify_table = '.' in normal_attribute_str
         self.table = None
         self.attribute = None # can be constant and variable
 
@@ -161,7 +165,7 @@ class NormalAttribute:
             self.attribute = parts[1].strip()
         else:
             self.attribute = normal_attribute_str
-
+        
     def __str__(self):
         if self._specify_table:
             return "{}.{}".format(self.table, self.attribute)
