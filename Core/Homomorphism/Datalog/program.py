@@ -49,7 +49,6 @@ class DT_Program:
             rules_str = program_str.split("\n")
             for rule in rules_str:
                 self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables))
-        
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
     
@@ -191,7 +190,7 @@ class DT_Program:
     #     return date.replace("/", "-") 
     
 if __name__ == "__main__":
-    # Example 6 - Containment
+    ################################## Example 6 - Containment ##################################
     # p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
     # p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
     # print(p1)
@@ -201,7 +200,7 @@ if __name__ == "__main__":
     # print(program1.contains(program2))
     # print(program2.contains(program1))    
 
-    # # Example 7 - Minimization
+    ################################# Example 7 - Minimization################################
     # p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
     # # p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
     # program1 = DT_Program(p1)
@@ -212,7 +211,7 @@ if __name__ == "__main__":
     # program1.minimize()
     # print(program1)
 
-    # # Control Plane Toy Example
+    ################################# Control Plane Toy Example #################################
     # p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
     # p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
     # print(p1)
@@ -222,7 +221,8 @@ if __name__ == "__main__":
     # print(program2.contains(program1))
     # print(program1.contains(program2))
 
-    # toy example of route aggregation
+
+    ################################ toy example of route aggregation#########################
     # P = "R(z, d1, [z])[d1 = 1] :- R(x, d1, [z])[d1 = 1], R(y, d2, [z]), L(z, x), L(z, y)\nR(z, d2, [z])[d2 = 2] :- R(x, d1, [z]), R(y, d2, [z])[d2 = 2], L(z, x), L(z, y)"
     # Q = "R(v, d, [u])[d = 1 ^ d = 2] :- R(u, d, [u])[d = 1 ^ d = 2], L(v, u)"     
 
@@ -249,30 +249,27 @@ if __name__ == "__main__":
     # P_program.minimize()
     # print("after minimizing", P_program)
 
-    # Array Example:  
-    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1)[h3 = 10] :- l(a2,h3)[h3 = 10], l(a2, h4)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    ########################################## ACL Example:  ######################################
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
 
-    p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a3, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a3, e1)"    
+    # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a3, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a3, e1)"    
 
-    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)"
-    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1)[h3 = 20] :- l(a2,h3)[h3 = 20], l(a2, e1)"
+    # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)"
 
-    # p1 = "R(a3, h3, [h3], 1) :- l(a3,h3), l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4)"
-    start = time.time()
-    # p1 = "R(a3, h3, [h3], 1) :- l(a3,h3), l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3) :- R(e1, h3, [x, y], 2), l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 3) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
-    # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
+    # program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+    # # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
 
-    print(program1)
-    print(program1.minimize())
-    print("After Minimization")
-    end = time.time()
-    print (end-start)
-    print(program1)
+    # start = time.time()
+    # print(program1)
+    # program1.minimize()
+    # print(program1)
+    # print("After Minimization")
+    # end = time.time()
+    # print(program1)
+    # print (end-start)
 
 
-    # Fattree 16:
+    ####################################### Fattree 16: ######################################
     # num_exp = 5
     # time_16 = []
     # for i in range(num_exp):
@@ -284,7 +281,8 @@ if __name__ == "__main__":
     #     print(fattree16_program)
     #     time_16.append(end-start)
 
-    # # Fattree 8:
+
+    ######################################## Fattree 8: ######################################
     # time_8 = []
     # for i in range(num_exp):
     #     fattree8 = "R(a1, h8, [e2], 1) :- l(a1,e2)\nR(a2, h8, [e2], 1) :- l(a2,e2)\nR(a3, h8, [e2], 1) :- l(a3,e2)\nR(a4, h8, [e2], 1) :- l(a4,e2)\nR(e1, h8, [a1,x], 2) :- R(a1, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a2,x], 2) :- R(a2, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a3,x], 2) :- R(a3, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a4,x], 2) :- R(a4, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)"
@@ -296,3 +294,21 @@ if __name__ == "__main__":
     #     time_8.append(end-start)
     # print("16 fattree:", time_16)
     # print("8 fattree:", time_8)
+
+    ######################################## Loops Example ######################################
+    p1 = "R(x1, d, [d]) :- l(d,x1), l(h,x1), (x1 \\not_in [d])\nR(x2, d, [d]) :- l(d,x2), l(h,x2), (x2 \\not_in [d])\nR(h, d, [x1, y]) :- R(x1, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x1,y])\nR(h, d, [x2, y]) :- R(x2, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x2,y])"
+
+    # program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['x1','x2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+
+    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"], "l":["integer", "integer"]})
+
+    start = time.time()
+    print(program1)
+    program1.minimize()
+    print("Before Minimization")
+    print("R(x1, d, [d]) :- l(d,x1), l(h,x1), (x1 \\not_in [d])\nR(x2, d, [d]) :- l(d,x2), l(h,x2), (x2 \\not_in [d])\nR(h, d, [x1, y]) :- R(x1, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x1,y])\nR(h, d, [x2, y]) :- R(x2, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x2,y])")
+    print()
+    print("After Minimization")
+    print(program1)
+    end = time.time()
+    print (end-start)
