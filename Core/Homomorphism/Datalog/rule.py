@@ -65,7 +65,9 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
 
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[]):
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[], additional_constraints=[]):
+
+        self._additional_constraints = deepcopy(additional_constraints)
         if headAtom and bodyAtoms:
             self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
         else:
@@ -77,14 +79,17 @@ class DT_Rule:
             atom_strs = self.split_atoms(body_str)
             for atom_str in atom_strs:
                 atom_str = atom_str.strip()
-                if "[" in atom_str:  # atom with conditions for c-variables
-                    pass
-                elif "(" in atom_str: # atom without c-variables
-                    pass
+                # if "[" in atom_str:  # atom with conditions for c-variables
+                #     pass
+                # elif "(" in atom_str: # atom without c-variables
+                #     pass
+                if atom_str[0] == '(': # additional constraint
+                    self._additional_constraints.append(atom_str[1:-1])
+                    continue
                 currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
                 body.append(currAtom)
             self.generateRule(head, body, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
-       
+
     def safe(self):
         headVars = self._head.variables
         if len(headVars) != len(self._variables):   
@@ -180,7 +185,7 @@ class DT_Rule:
             else:
                 newRule_body.append(atom)
 
-        newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, headAtom=newRule_head, bodyAtoms = newRule_body)
+        newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints)
         return newRule
 
     def addConstants(self, conn):
@@ -251,14 +256,21 @@ class DT_Rule:
             for i in range(len(variableList[var])-1):
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
 
-        # additional_constraints = self.addtional_constraints2where_clause(self._constraints, variableList)
+        # adding variables in arrays in variableList
+        varListWithArray = deepcopy(variableList)
+        for var in variables_idx_in_array:
+            varListWithArray[var] = [variables_idx_in_array[var]["location"]+'['+str(variables_idx_in_array[var]["idx"]) + ']']
+        if (self._additional_constraints):
+            additional_constraints = self.addtional_constraints2where_clause(self._additional_constraints, varListWithArray)
+        constraints += additional_constraints
+
         # Additional constraints are faure constraints. Assuming that head atom constains all constraints
         constraints_faure = []
         for atom in self._body:
             for constraint in atom.constraints:
                 constraints_faure.append(constraint)
-        additional_constraints = self.addtional_constraints2where_clause(constraints_faure, variableList)
-        constraints += additional_constraints
+        faure_constraints = self.addtional_constraints2where_clause(constraints_faure, variableList)
+        constraints += faure_constraints
 
         # constraints for array
         for attr in constraints_for_array:
@@ -274,7 +286,7 @@ class DT_Rule:
             if (constraints):
                 sql += " where " + " and ".join(constraints)
             cursor = conn.cursor()
-            # print("sql", sql)
+            print("sql", sql)
             # remove the duplicates
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = sql, attrs= ", ".join(self._head.db["column_names"]))
             # print("except_sql", except_sql)
@@ -534,9 +546,7 @@ class DT_Rule:
 
         # counting non-redundant rows in header after simplification
         cursor.execute("select distinct count(*) from {}".format(header_table))
-        print("select distinct count(*) from {}".format(header_table))
         headerCountAfterSimp = int(cursor.fetchall()[0][0])
-        print(headerCountAfterSimp)
 
         # Adding result of output to header
         cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self._head.db["column_names"]), fromTable))
@@ -689,30 +699,40 @@ class DT_Rule:
         left_opd = items[0]
         opr = items[1]
         right_opd = items[2]
-        
+        elementsRight = []
+
+        # Note: We do not support arrays as the left hand opd
         if not left_opd[0].isdigit(): # it is a var or c-var
             if left_opd not in variableList.keys():
                 print("No '{}' in variables! Unsafe condition!".format(left_opd))
                 return None
             left_opd = variableList[left_opd][0]
-        if not right_opd[0].isdigit(): # it is a var or c-var
+
+        if right_opd[0] == '[': # an array
+            elements = right_opd[1:-1].split(",")
+            for elem in elements:
+                if not elem[0].isdigit():
+                    elementsRight.append(variableList[elem][0])
+                else:
+                    elementsRight.append(elem)
+        elif not right_opd[0].isdigit(): # it is a var or c-var
             if right_opd not in variableList.keys():
                 print("No '{}' in variables! Unsafe condition!".format(right_opd))
                 return None
             right_opd = variableList[right_opd][0]
 
+        
+        if 'in' in opr and not elementsRight:
+            print("Wrong condition. Operator '{}' requires an array at the right side! Exiting".format(opr))
+            exit()
+
         processed_condition = None
         if '\\not_in' in opr:
-            if right_opd[0].isalpha():
-                processed_condition = "Not {} = Any({})".format(left_opd, right_opd)
-            else:
-                processed_condition = "{} not in {}".format(left_opd, right_opd)
+            processed_condition = "Not {} = Any(ARRAY[{}])".format(left_opd, ",".join(elementsRight))
+
 
         elif '\\in' in opr:
-            if right_opd[0].isalpha():
-                processed_condition = "{} = Any({})".format(left_opd, right_opd)
-            else:
-                processed_condition = "{} in {}".format(left_opd, right_opd)
+            processed_condition = "{} = Any(ARRAY[{}])".format(left_opd, ",".join(elementsRight))
         # elif opr == '=':
         #     processed_condition = " {} == {}".format(left_opd, right_opd)
         else:
@@ -785,9 +805,9 @@ class DT_Rule:
         string = str(self._head) + " :- "
         for atom in self._body:
             string += str(atom) + ","
-        # if self._constraints:
-        #     string += "{}".format(", ".join(self._constraints))
-        #     return string
+        if self._additional_constraints:
+            string += " ({})".format(", ".join(self._additional_constraints))
+            return string
         return string[:-1]
 
 if __name__ == "__main__":
