@@ -262,7 +262,7 @@ class DT_Rule:
             varListWithArray[var] = [variables_idx_in_array[var]["location"]+'['+str(variables_idx_in_array[var]["idx"]) + ']']
         if (self._additional_constraints):
             additional_constraints = self.addtional_constraints2where_clause(self._additional_constraints, varListWithArray)
-        constraints += additional_constraints
+            constraints += additional_constraints
 
         # Additional constraints are faure constraints. Assuming that head atom constains all constraints
         constraints_faure = []
