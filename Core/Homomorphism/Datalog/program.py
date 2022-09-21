@@ -212,15 +212,19 @@ if __name__ == "__main__":
     # print(program1)
 
     ################################# Control Plane Toy Example #################################
-    # p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
+    # p1 = "R(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(h,x1), l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(h,x2), l(x2, xd)"
+    p1 = "R(h,xd,h || xp) :- l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(x2, xd)"
     # p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
-    # print(p1)
-    # print(p2)
-    # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
+    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
+    print()
+    print(program1)
+    print()
     # program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
     # print(program2.contains(program1))
     # print(program1.contains(program2))
-
+    program1.minimize()
+    print("After Minimize")
+    print(program1)
 
     ################################ toy example of route aggregation#########################
     # P = "R(z, d1, [z])[d1 = 1] :- R(x, d1, [z])[d1 = 1], R(y, d2, [z]), L(z, x), L(z, y)\nR(z, d2, [z])[d2 = 2] :- R(x, d1, [z]), R(y, d2, [z])[d2 = 2], L(z, x), L(z, y)"
@@ -296,19 +300,19 @@ if __name__ == "__main__":
     # print("8 fattree:", time_8)
 
     ######################################## Loops Example ######################################
-    p1 = "R(x1, d, [d]) :- l(d,x1), l(h,x1), (x1 \\not_in [d])\nR(x2, d, [d]) :- l(d,x2), l(h,x2), (x2 \\not_in [d])\nR(h, d, [x1, y]) :- R(x1, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x1,y])\nR(h, d, [x2, y]) :- R(x2, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x2,y])"
+    # p1 = "R(x1, d, [d]) :- l(d,x1), l(h,x1), (x1 \\not_in [d])\nR(x2, d, [d]) :- l(d,x2), l(h,x2), (x2 \\not_in [d])\nR(h, d, [x1, y]) :- R(x1, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x1,y])\nR(h, d, [x2, y]) :- R(x2, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x2,y])"
 
-    # program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['x1','x2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+    # # program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['x1','x2'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
 
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"], "l":["integer", "integer"]})
+    # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"], "l":["integer", "integer"]})
 
-    start = time.time()
-    print(program1)
-    program1.minimize()
-    print("Before Minimization")
-    print("R(x1, d, [d]) :- l(d,x1), l(h,x1), (x1 \\not_in [d])\nR(x2, d, [d]) :- l(d,x2), l(h,x2), (x2 \\not_in [d])\nR(h, d, [x1, y]) :- R(x1, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x1,y])\nR(h, d, [x2, y]) :- R(x2, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x2,y])")
-    print()
-    print("After Minimization")
-    print(program1)
-    end = time.time()
-    print (end-start)
+    # start = time.time()
+    # print(program1)
+    # program1.minimize()
+    # print("Before Minimization")
+    # print("R(x1, d, [d]) :- l(d,x1), l(h,x1), (x1 \\not_in [d])\nR(x2, d, [d]) :- l(d,x2), l(h,x2), (x2 \\not_in [d])\nR(h, d, [x1, y]) :- R(x1, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x1,y])\nR(h, d, [x2, y]) :- R(x2, d, [y]), l(h, x1), l(h, x2), (h \\not_in [x2,y])")
+    # print()
+    # print("After Minimization")
+    # print(program1)
+    # end = time.time()
+    # print (end-start)
