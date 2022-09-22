@@ -147,10 +147,11 @@ class DT_Rule:
 
 
         # in case of unsafe rule
-        # if not self.safe():
-        #     print("\n------------------------")
-        #     print("Unsafe rule: {}!".format(self)) 
-        #     print("------------------------\n")
+        if not self.safe():
+            print("\n------------------------")
+            print("Unsafe rule: {}! Exiting".format(self)) 
+            print("------------------------\n")
+            exit()
 
         # headVars = self._head.variables        
         # for var in headVars:
