@@ -212,19 +212,19 @@ if __name__ == "__main__":
     # print(program1)
 
     ################################# Control Plane Toy Example #################################
-    # p1 = "R(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(h,x1), l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(h,x2), l(x2, xd)"
-    p1 = "R(h,xd,h || xp) :- l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(x2, xd)"
-    # p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
-    print()
-    print(program1)
-    print()
-    # program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
-    # print(program2.contains(program1))
-    # print(program1.contains(program2))
-    program1.minimize()
-    print("After Minimize")
-    print(program1)
+    # # p1 = "R(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(h,x1), l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(h,x2), l(x2, xd)"
+    # p1 = "R(h,xd,h || xp) :- l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(x2, xd)"
+    # # p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
+    # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
+    # print()
+    # print(program1)
+    # print()
+    # # program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
+    # # print(program2.contains(program1))
+    # # print(program1.contains(program2))
+    # program1.minimize()
+    # print("After Minimize")
+    # print(program1)
 
     ################################ toy example of route aggregation#########################
     # P = "R(z, d1, [z])[d1 = 1] :- R(x, d1, [z])[d1 = 1], R(y, d2, [z]), L(z, x), L(z, y)\nR(z, d2, [z])[d2 = 2] :- R(x, d1, [z]), R(y, d2, [z])[d2 = 2], L(z, x), L(z, y)"
@@ -254,7 +254,9 @@ if __name__ == "__main__":
     # print("after minimizing", P_program)
 
     ########################################## ACL Example:  ######################################
-    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+
+    # p1 = "R(a3,h3,[h3],1)[h3 = 10] :- l(a3,h3)[h3 = 10]\nR(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a2,x],2) :- R(a2,h3,[x],1),l(a2,e1)\nR(e1,h3,[a3,x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1,x,y],3)[h3 = 10] :- R(e1,h3,[x,y],2)[h3 = 10],l(a1,e1)\nR(h1,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h1)\nR(h2,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h2)"
 
     # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a3, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a3, e1)"    
 
@@ -287,6 +289,7 @@ if __name__ == "__main__":
 
 
     ######################################## Fattree 8: ######################################
+    # num_exp = 1
     # time_8 = []
     # for i in range(num_exp):
     #     fattree8 = "R(a1, h8, [e2], 1) :- l(a1,e2)\nR(a2, h8, [e2], 1) :- l(a2,e2)\nR(a3, h8, [e2], 1) :- l(a3,e2)\nR(a4, h8, [e2], 1) :- l(a4,e2)\nR(e1, h8, [a1,x], 2) :- R(a1, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a2,x], 2) :- R(a2, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a3,x], 2) :- R(a3, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)\nR(e1, h8, [a4,x], 2) :- R(a4, h8, [x], 1), l(e1, a1), l(e1, a2), l(e1, a3), l(e1, a4)"
@@ -316,3 +319,12 @@ if __name__ == "__main__":
     # print(program1)
     # end = time.time()
     # print (end-start)
+
+    ###################################### 3-hop minimization example ##############################
+    p1 = "R(a3,h3,[h3],1) :- l(a3,h3)\nR(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a2,x],2) :- R(a2,h3,[x],1),l(a2,e1)\nR(e1,h3,[a3,x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1,x,y],3) :- R(e1,h3,[x,y],2),l(a1,e1)\nR(h1,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h1)\nR(h2,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h2)"
+
+    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
+
+    print(program1)
+    program1.minimize()
+    print(program1)
