@@ -92,18 +92,9 @@ class DT_Rule:
 
     def safe(self):
         headVars = self._head.variables
-        if len(headVars) != len(self._variables):   
-            return False
         for var in headVars:
             if var not in self._variables:
                 return False        
-
-        headCVars = self._head.c_variables        
-        if len(headCVars) != len(self._c_variables):   
-            return False
-        for cvar in headCVars:
-            if cvar not in self._c_variables:
-                return False
         return True
 
     def generateRule(self, head, body, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
@@ -147,10 +138,10 @@ class DT_Rule:
 
 
         # in case of unsafe rule
-        if not self.safe():
-            print("\n------------------------")
-            print("Unsafe rule: {}!".format(self)) 
-            print("------------------------\n")
+        # if not self.safe():
+        #     print("\n------------------------")
+        #     print("Unsafe rule: {}!".format(self)) 
+        #     print("------------------------\n")
 
         # headVars = self._head.variables        
         # for var in headVars:
@@ -212,13 +203,13 @@ class DT_Rule:
                             variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
                     constraints.append("t{}.{} = '{}'".format(i, atom.db["column_names"][col], val))
-                else: # variable
+                elif val in self._variables: # variable
                     if val not in variableList:
                         variableList[val] = []
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
-                # print("param", param)
+                print("param", param)
                 replace_var2attr = []
                 for p in param:
                     if p in variableList:
@@ -286,7 +277,7 @@ class DT_Rule:
             if (constraints):
                 sql += " where " + " and ".join(constraints)
             cursor = conn.cursor()
-            print("sql", sql)
+            # print("sql", sql)
             # remove the duplicates
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = sql, attrs= ", ".join(self._head.db["column_names"]))
             # print("except_sql", except_sql)
@@ -575,7 +566,6 @@ class DT_Rule:
     def run_with_faure(self, conn, program_sql):
         header_table = self._head.db["name"]
         changed = False
-        print(program_sql)
         '''
         generate new facts
         '''
