@@ -184,8 +184,8 @@ class DT_Atom:
 
         # if self.c_variables:
         if self._isCTable:
-            # variableConstants.append("'{" + ", ".join(['"{}"'.format(c) for c in self.constraints]) + "}'") 
-            variableConstants.append("'{}'") 
+            variableConstants.append("'{" + ", ".join(['"{}"'.format(c) for c in self.constraints]) + "}'") 
+            # variableConstants.append("'{}'") 
 
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
