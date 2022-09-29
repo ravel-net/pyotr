@@ -6,6 +6,21 @@ import re
 
 class z3SMTTools:
     def __init__(self, variables, domains={}, reasoning_type='Int') -> None:
+        """
+        Parameters:
+        -----------
+        _variables: list
+            the list of variables
+        
+        _domains: dict
+            {var:[]}, set domain for each variable
+
+        _reasoning_type: string
+            Currently only support "Int" and "BitVec"
+        
+        solver: z3.Solver()
+            The instance of z3.Solver()
+        """
         self._variables = variables
         self._domains = domains # {variable: []}
         self._reasoning_type = reasoning_type
@@ -14,7 +29,6 @@ class z3SMTTools:
         domain_str = self._get_domain_str()
         if len((domain_str)) != 0:
             self.solver.add(eval(domain_str))
-
 
     def iscontradiction(self, conditions):
         self.solver.push()
@@ -217,6 +231,31 @@ class z3SMTTools:
             #     if num < len(op1)-1:
             #         prcd_cond += ","
         return prcd_cond
+    
+    def check_equivalence_for_two_string_conditions(self, condition1, condition2):
+        # print("condition1", condition1)
+        # print("condition2", condition2)
+
+        prcd_condition1 = self.condition_parser(condition1)
+        prcd_condition2 = self.condition_parser(condition2)
+        
+        C1 = eval(prcd_condition1)
+        C2 = eval(prcd_condition2)
+
+        # result = prove(C1 == C2)
+        self.solver.push()
+        # s.add(eval("Or(z3.BitVec('d',32) >= z3.BitVecVal('167772160',32),z3.BitVec('d',32) <= z3.BitVecVal('167772161',32))"))
+        self.solver.add(Not(C1 == C2))
+        result = self.solver.check()
+        if result == z3.unsat:
+            print("proved")
+            self.solver.pop()
+            return True
+        else:
+            print("unproved")
+            print(self.solver.model())
+            self.solver.pop()
+            return False
     
     def _get_domain_str(self):
         domain_conditions = []

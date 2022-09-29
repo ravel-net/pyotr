@@ -11,6 +11,8 @@ from operator import add
 import sys
 from os.path import dirname, abspath
 from unicodedata import name
+
+from Backend.reasoning.Z3.z3smt import z3SMTTools
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 
@@ -203,7 +205,7 @@ class DT_Rule:
                             variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
                     constraints.append("t{}.{} = '{}'".format(i, atom.db["column_names"][col], val))
-                elif val in self._variables: # variable
+                elif val in self._variables or val in self._c_variables: # variable or c_variable
                     if val not in variableList:
                         variableList[val] = []
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
@@ -442,8 +444,11 @@ class DT_Rule:
                     else:
                         str_tup_cond = "And({})".format(", ".join(tup_cond))
 
-
-                    if check_tautology.check_equivalence_for_two_string_conditions(header_condition, str_tup_cond, self._reasoning_type):
+                    faure_domains = {}
+                    for cvar in self._c_variables:
+                        faure_domains[cvar] = self._domains
+                    z3tools = z3SMTTools(variables=self._c_variables,domains=faure_domains, reasoning_type=self._reasoning_type)
+                    if z3tools.check_equivalence_for_two_string_conditions(header_condition, str_tup_cond):
                         contains = True
                         return contains
 
