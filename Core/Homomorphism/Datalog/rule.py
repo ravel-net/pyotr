@@ -69,7 +69,7 @@ class DT_Rule:
 
     def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[], additional_constraints=[]):
 
-        self._additional_constraints = deepcopy(additional_constraints)
+        self._additional_constraints = deepcopy(additional_constraints) 
         if headAtom and bodyAtoms:
             self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
         else:
@@ -138,23 +138,13 @@ class DT_Rule:
         for i, var in enumerate(self._variables+self._c_variables):
             self._mapping[var] = i
 
-
         # in case of unsafe rule
-        # if not self.safe():
-        #     print("\n------------------------")
-        #     print("Unsafe rule: {}!".format(self)) 
-        #     print("------------------------\n")
-
-        # headVars = self._head.variables        
-        # for var in headVars:
-        #     if var not in self._variables:
-        #         self._variables.append(var)
-        #         self._mapping[var] = len(self._mapping.keys())
-                
-        #         print("\n------------------------")
-        #         print("Unsafe rule: {}!".format(self)) 
-        #         print("variable '{var}' does not appear in body! Initiate '{var}' to constants {con} when executing".format(var=var, con=self._mapping[var]))
-        #         print("------------------------\n")
+        if self.safe():
+            self.sql = self.convertRuleToSQL()
+        else:
+            print("\n------------------------")
+            print("Unsafe rule: {}!".format(self)) 
+            print("------------------------\n")
 
     @property
     def numBodyAtoms(self):
@@ -185,7 +175,7 @@ class DT_Rule:
         for atom in self._body:
             atom.addConstants(conn, self._mapping)
 
-    def execute(self, conn):
+    def convertRuleToSQL(self):
         tables = []
         constraints = []
         variableList = {}
@@ -250,6 +240,7 @@ class DT_Rule:
                 constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
 
         # adding variables in arrays in variableList
+        # TODO: Possibly inefficient
         varListWithArray = deepcopy(variableList)
         for var in variables_idx_in_array:
             varListWithArray[var] = [variables_idx_in_array[var]["location"]+'['+str(variables_idx_in_array[var]["idx"]) + ']']
@@ -273,31 +264,21 @@ class DT_Rule:
                 # else:
                 #     constraints.append("{}[{}] = ANY({})".format(variables_idx_in_array[var]['location'], variables_idx_in_array[var]['idx'], attr))
 
-        if len(self._c_variables) == 0:
+        sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
+        if (constraints):
+            sql += " where " + " and ".join(constraints)
+        return sql
 
-            sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
-            if (constraints):
-                sql += " where " + " and ".join(constraints)
+    def execute(self, conn):
+        if len(self._c_variables) == 0:
             cursor = conn.cursor()
-            # print("sql", sql)
-            # remove the duplicates
-            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = sql, attrs= ", ".join(self._head.db["column_names"]))
-            # print("except_sql", except_sql)
+            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self._head.db["column_names"]))
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
-            # print("insert", cursor.query)
-            # print("affectedRows", affectedRows)
             conn.commit()
             changed = (affectedRows > 0)
         else:
-            # attrs = []
-            # for i in range(len(summary_nodes)):
-            #     attrs.append('{} {}'.format(summary_nodes[i], self._head.db["column_names"][i]))
-            sql = " select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
-            if (constraints):
-                sql += " where " + " and ".join(constraints)
-            return self.run_with_faure(conn, sql)
-
+            return self.run_with_faure(conn, self.sql)
         return changed
 
     def isHeadContained(self, conn):
