@@ -21,23 +21,24 @@ from psycopg2.extras import execute_values
 #     password=cfg.postgres["password"])
 
 class FaureEvaluation:
-    def __init__(self, conn, SQL, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
+    def __init__(self, conn, SQL, additional_conditions=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
         self._conn = conn
-        self._SQL = SQL.strip()
+        self._SQL = SQL.strip().rstrip(";")
 
         self.output_table=output_table
         self._information_on = information_on
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
         self._is_IP = reasoning_sort.lower() == 'bitvec' # is IP address
-        self._SQL_parser = SQL_Parser(SQL.strip(), reasoning_engine, databases)
+        self._SQL_parser = SQL_Parser(self._SQL, reasoning_engine, databases)
 
         self.data_time = 0.0
         self.update_condition_time = {}
         self.simplication_time = {}
         self.column_datatype_mapping = {}
         
-
+        self._additional_conditions = additional_conditions
+        
         self._empty_condition_idx = None
         # print(self._reasoning_engine)
         if self._reasoning_engine.lower() == 'z3':
@@ -104,12 +105,15 @@ class FaureEvaluation:
         '''
         Update conjunction constraints into conditional column
         '''
-        additional_condition = self._SQL_parser.additional_conditions_SQL_format
-        if additional_condition is None:
+        conjunction_condition = self._SQL_parser.additional_conditions_SQL_format
+        if conjunction_condition is None:
             print("No additional conditions for c-variables!")
             self.update_condition_time['update_condition'] = 0
         else:
-            upd_sql = "update {} set condition = condition || {}".format(self.output_table, additional_condition)
+            upd_sql = "update {} set condition = condition || {}".format(self.output_table, conjunction_condition)
+            if self._additional_conditions is not None: # append additional conditions to output table
+                upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_conditions)
+            
             if self._information_on:
                 print(upd_sql)
                 
@@ -266,11 +270,13 @@ class FaureEvaluation:
         '''
         conjunction conditions
         '''
-        additional_condition = self._SQL_parser.additional_conditions_SQL_format
-        if additional_condition is not None:
-            old_constraints = self._SQL_parser.old_conditions_attributes_BDD
+        conjunction_condition = self._SQL_parser.additional_conditions_SQL_format
+        old_constraints = self._SQL_parser.old_conditions_attributes_BDD
+
+        new_reference_mapping = {}
+        if conjunction_condition is not None:
             
-            select_sql = "select ARRAY[{}] as old_conditions, {} as conjunction_condition, id from {}".format(", ".join(old_constraints), additional_condition, self.output_table) 
+            select_sql = "select ARRAY[{}] as old_conditions, {} as conjunction_condition, id from {}".format(", ".join(old_constraints), conjunction_condition, self.output_table) 
             if self._information_on:
                 print(select_sql)
                 
@@ -278,7 +284,7 @@ class FaureEvaluation:
             cursor.execute(select_sql)
             end_upd = time.time()
             count_num = cursor.rowcount
-            new_reference_mapping = {}
+            
             for i in range(count_num):
                 (old_conditions, conjunctin_conditions, id) = cursor.fetchone()
                 # print(old_conditions, conjunctin_conditions, id)
@@ -302,30 +308,66 @@ class FaureEvaluation:
 
                 # Logical AND original BDD and conjunction BDD
                 new_ref = bddmm.operate_BDDs(old_bdd, conjunction_ref, "&")
+                new_reference_mapping[id] = new_ref
+        else:
+            if self._information_on:
+                print("No conjunction conditions for c-variables!")
+            self.update_condition_time['update_condition'] = 0
+            
+            select_sql = "select ARRAY[{}] as old_conditions, id from {}".format(", ".join(old_constraints), self.output_table) 
+            if self._information_on:
+                print(select_sql)
+                
+            begin_upd = time.time()
+            cursor.execute(select_sql)
+            end_upd = time.time()
+            count_num = cursor.rowcount
+            
+            for i in range(count_num):
+                (old_conditions, id) = cursor.fetchone()
+                # print(old_conditions, conjunctin_conditions, id)
+                '''
+                Logical AND all original conditions for all tables
+                '''
+                # print("result", bddmm.operate_BDDs(0, 1, "&"))
+                old_bdd = old_conditions[0]
+                for cond_idx in range(1, len(old_conditions)):
+                    bdd1 = old_conditions[cond_idx]
+                    # print("old_bdd", old_bdd, "bdd1", bdd1)
+                    old_bdd = bddmm.operate_BDDs(int(bdd1), int(old_bdd), "&")
+                    # print('old', old_bdd)
 
+                new_reference_mapping[id] = old_bdd
+        
+        '''
+        append additional conditions to output table
+        '''
+        if self._additional_conditions is not None:
+            encoded_additional_conditions, _ = encodeCUDD.convertToCUDD(self._additional_conditions, domains, variables, self._is_IP)
+            additional_ref = bddmm.str_to_BDD(encoded_additional_conditions)
+            for id in new_reference_mapping.keys():
+                cond_ref = new_reference_mapping[id]
+                new_ref = bddmm.operate_BDDs(cond_ref, additional_ref, '&')
+                # update condition reference for each tuple after appending additional conditions
                 new_reference_mapping[id] = new_ref
 
-            '''
-            add condition column of integer type
-            update bdd reference number on condition column
-            '''
-            sql = "alter table if exists {} add column condition integer".format(self.output_table)
+        '''
+        add condition column of integer type
+        update bdd reference number on condition column
+        '''
+        sql = "alter table if exists {} add column condition integer".format(self.output_table)
+        cursor.execute(sql)
+        self._conn.commit()
+
+        begin_upd = time.time()
+        for key in new_reference_mapping.keys():
+            sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
             cursor.execute(sql)
-            self._conn.commit()
+        end_upd = time.time()
+        self._conn.commit()
 
-            begin_upd = time.time()
-            for key in new_reference_mapping.keys():
-                sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
-                cursor.execute(sql)
-            end_upd = time.time()
-            self._conn.commit()
-
-            self.update_condition_time['update_condition'] = end_upd - begin_upd
-            self._conn.commit()
-        else:
-            print("No additional conditions for c-variables!")
-            self.update_condition_time['update_condition'] = 0
-
+        self.update_condition_time['update_condition'] = end_upd - begin_upd
+        self._conn.commit()
         '''
         Check the selected columns
         if select *, drop duplicated columns,
@@ -370,7 +412,6 @@ class FaureEvaluation:
         else:
             print("Coming soon!")
             exit()
-
 
     def _process_condition_on_ctable(self, tablename, variables, domains):
         """
@@ -458,6 +499,19 @@ class FaureEvaluation:
         # cursor.executemany(new_tuples)
         self._conn.commit()
 
+    # def _append_additional_conditions(self):
+    #     if self._additional_conditions is not None:
+    #         if self._reasoning_engine.lower() == 'z3':
+    #             upd_sql = "update {} set condition = array_append(condition, '{}')".format(self.output_table, self._additional_conditions)
+
+    #             cursor = self._conn.cursor()
+    #             cursor.execute(upd_sql)
+
+    #             self._conn.commit()
+    #         elif self._reasoning_engine.lower() == 'bdd':
+                
+
+
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
@@ -480,18 +534,19 @@ if __name__ == '__main__':
         user=cfg.postgres["user"], 
         password=cfg.postgres["password"])
 
-    # domains = {
-    #     'd1':['1', '2'],
-    #     'd2':['1', '2'],
-    #     'd':['1', '2']
-    # }
     domains = {
-        'd1':['10.0.0.1', '10.0.0.2'],
-        'd2':['10.0.0.1', '10.0.0.2'],
-        'd':['10.0.0.1', '10.0.0.2']
+        'd1':['1', '2'],
+        'd2':['1', '2'],
+        'd':['1', '2']
     }
-    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
-    FaureEvaluation(conn, sql, databases={}, domains=domains, reasoning_engine='bdd', reasoning_sort='BitVec', simplication_on=True, information_on=True)
+    # domains = {
+    #     'd1':['10.0.0.1', '10.0.0.2'],
+    #     'd2':['10.0.0.1', '10.0.0.2'],
+    #     'd':['10.0.0.1', '10.0.0.2']
+    # }
+    # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
+    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '1';"
+    FaureEvaluation(conn, sql, additional_conditions="d != 2", databases={}, domains=domains, reasoning_engine='bdd', reasoning_sort='Int', simplication_on=False, information_on=True)
 
 
     # bddmm.initialize(1, 2**32-1)
