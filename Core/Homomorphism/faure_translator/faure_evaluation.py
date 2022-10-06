@@ -21,7 +21,67 @@ from psycopg2.extras import execute_values
 #     password=cfg.postgres["password"])
 
 class FaureEvaluation:
-    def __init__(self, conn, SQL, additional_conditions=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
+    """
+    Faure Evaluation
+    Currently support Z3 and BDD engine.
+
+    Functions:
+    ----------
+    _data()
+        step 1(data) for both Z3 and BDD
+    
+    _upd_condition_z3()
+        step 2(update) for Z3
+    
+    _upd_condition_BDD(domains, variables)
+        step 2(update) for BDD. Currently BDD works for c-variables with the same domain. # TODO: support different domains for different c-variables
+    
+    _simplication_z3()
+        step 3(simplication) for Z3.
+
+    _get_column_datatype_mapping()
+        get the mapping between column and datatype. It only works after step 1. 
+        
+    _process_condition_on_ctable(tablename, variables, domains)
+        convert a c-table with text condition to a c-table with BDD reference
+    """
+    def __init__(self, conn, SQL, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
+        """
+        Parameters:
+        ------------
+        conn: psycopg2.connect()
+            An instance of Postgres connection
+        
+        SQL: string
+            SQL for faure evaluation
+        
+        additional_condition: string
+            None by default. If not None, it is an additional condition that would be appended to condition column of the output table before doing simplication.
+
+        output_table: string
+            "output" by default. Customize output table.
+
+        databases: dict
+            The information(i.e., tablename and its attributes datatype) of correspinding tables. Default is an empty dict. The format is {'tablename': ['datatype1', 'datatype2', ...], ...}.
+
+        domains: dict
+            The domain of c-variables. Default an empty dict. The format is {'var1': ['val1', 'val2', ...], ...}
+            If reasoning engine is BDD, it could not be empty. 
+            If the reasonsing sort is 'BitVec', the values of domain for each c-variables can be empty. E.g., {'x':[], 'y':[]}. The default domain for IP is 2^32.
+        
+        reasoning_engine: 'z3' or 'bdd'
+            We currently support Z3 and BDD as the reasoning engine. 
+        
+        reasoning_sort: 'Int' or 'BitVec'
+            We currently support reasoning sort 'Int' and 'BitVec' for z3 engine. 
+            BDD engine supports integer and IP data (we use 'Int' and 'BitVec' as flags to specify the reasoning type for BDD, i.e., 'Int' for integer data, 'BitVec' for IP data).
+        
+        simplication_on: Boolean
+            Only works for z3 engine. When simplication_on is True, we would simplify the conditions in the output table.
+        
+        information_on: Boolean
+            It is a siwtch for printing progress information such as the steps, running sqls.
+        """
         self._conn = conn
         self._SQL = SQL.strip().rstrip(";")
 
@@ -29,31 +89,38 @@ class FaureEvaluation:
         self._information_on = information_on
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
-        self._is_IP = reasoning_sort.lower() == 'bitvec' # is IP address
-        self._SQL_parser = SQL_Parser(self._SQL, reasoning_engine, databases)
+        self._is_IP = reasoning_sort.lower() == 'bitvec' # if it is IP address
+        self._SQL_parser = SQL_Parser(self._SQL, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
 
-        self.data_time = 0.0
-        self.update_condition_time = {}
-        self.simplication_time = {}
-        self.column_datatype_mapping = {}
+        self.data_time = 0.0 # record time for step 1: data
+        self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
+        self.simplication_time = {} # record time for step 3, format: {'contradiction': 0, 'redundancy': 0}
+        self.column_datatype_mapping = {} # mapping between column and datatype for output table
         
-        self._additional_conditions = additional_conditions
+        self._additional_condition = additional_condition
         
-        self._empty_condition_idx = None
+        self._empty_condition_idx = None # the reference of the empty condition with BDD
+
+        # step 1: data
+        self._data()
         # print(self._reasoning_engine)
         if self._reasoning_engine.lower() == 'z3':
-
-            self._data()
+            # Step 2: update
             self._upd_condition_z3()
 
-            self._z3Smt = None
+            self._z3Smt = None # An instance of Z3SMTtool
             if simplication_on:
                 self._get_column_datatype_mapping()
                 self._z3Smt = z3SMTTools(list(domains.keys()), domains, self._reasoning_sort)
+                # Step 3: simplication
                 self._simplification_z3()
 
         elif self._reasoning_engine.lower() == 'bdd':
             # assume all variables have the same domain
+            if len(domains.keys()) == 0:
+                print("Domain is empty!")
+                exit()
+
             variables = list(domains.keys())
             domain_list =  domains[variables[0]]
 
@@ -66,9 +133,10 @@ class FaureEvaluation:
                 print(workingtable.TableName), 
                 print(self._SQL_parser.databases)
                 self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
-            self._data()
 
             self._get_column_datatype_mapping()
+
+            # Step 2: update
             self._upd_condition_BDD(domain_list, variables)
 
         else:
@@ -111,8 +179,8 @@ class FaureEvaluation:
             self.update_condition_time['update_condition'] = 0
         else:
             upd_sql = "update {} set condition = condition || {}".format(self.output_table, conjunction_condition)
-            if self._additional_conditions is not None: # append additional conditions to output table
-                upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_conditions)
+            if self._additional_condition is not None: # append additional conditions to output table
+                upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_condition)
             
             if self._information_on:
                 print(upd_sql)
@@ -242,6 +310,10 @@ class FaureEvaluation:
                     print ("Solver Max Memory: %s : %s" % (k, v))
 
     def _get_column_datatype_mapping(self):
+        """
+        Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
+        the array datatype returns 'ARRAY' from datatype. We cannot make the accurate datatype for ARRAY. #TODO: specify the accurate datatype for array
+        """
         cursor = self._conn.cursor()
         cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table))
         for column_name, data_type in cursor.fetchall():
@@ -342,8 +414,8 @@ class FaureEvaluation:
         '''
         append additional conditions to output table
         '''
-        if self._additional_conditions is not None:
-            encoded_additional_conditions, _ = encodeCUDD.convertToCUDD(self._additional_conditions, domains, variables, self._is_IP)
+        if self._additional_condition is not None:
+            encoded_additional_conditions, _ = encodeCUDD.convertToCUDD(self._additional_condition, domains, variables, self._is_IP)
             additional_ref = bddmm.str_to_BDD(encoded_additional_conditions)
             for id in new_reference_mapping.keys():
                 cond_ref = new_reference_mapping[id]
@@ -415,7 +487,18 @@ class FaureEvaluation:
 
     def _process_condition_on_ctable(self, tablename, variables, domains):
         """
-        convert condition to BDD version
+        convert text condition to BDD reference in a c-table
+
+        Parameters:
+        -----------
+        tablename: string
+            the tablename of c-table
+        
+        variables: list
+            A list of c-variables
+        
+        domains: list
+            A list of values for c-variables. All c-varaibles have the same domain. 
         """
         cursor = self._conn.cursor()
 
@@ -499,20 +582,6 @@ class FaureEvaluation:
         # cursor.executemany(new_tuples)
         self._conn.commit()
 
-    # def _append_additional_conditions(self):
-    #     if self._additional_conditions is not None:
-    #         if self._reasoning_engine.lower() == 'z3':
-    #             upd_sql = "update {} set condition = array_append(condition, '{}')".format(self.output_table, self._additional_conditions)
-
-    #             cursor = self._conn.cursor()
-    #             cursor.execute(upd_sql)
-
-    #             self._conn.commit()
-    #         elif self._reasoning_engine.lower() == 'bdd':
-                
-
-
-
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
     # databases = {
@@ -546,7 +615,7 @@ if __name__ == '__main__':
     # }
     # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
     sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '1';"
-    FaureEvaluation(conn, sql, additional_conditions="d != 2", databases={}, domains=domains, reasoning_engine='bdd', reasoning_sort='Int', simplication_on=False, information_on=True)
+    FaureEvaluation(conn, sql, additional_condition="d != 2", databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='Int', simplication_on=False, information_on=True)
 
 
     # bddmm.initialize(1, 2**32-1)

@@ -5,17 +5,56 @@ from ipaddress import IPv4Network
 import re
 
 class z3SMTTools:
+    """
+    Z3 SMT Tools. Collect all necessary function for Z3.
+    It has set domain for variables at __init__
+
+    Functions:
+    ----------
+    iscontradiction(conditions)
+        Determine if 'conditions' is contradictory
+    
+    istauto(conditions)
+        Determine if 'conditions' is a tautology. 
+    
+    has_redundancy(conditions)
+        Determine if 'conditions' has redundancy and return a simplized "redundancy"
+    
+    condition_parser(condition):
+        Parse text condition to condition with z3 datatype. E.g., And(x == 1, y == 1) to And(z3.Int('x') == z3.IntVal(1), z3.Int('y') == z3.IntVal(1))
+    
+    check_equivalence_for_two_string_conditions(condition1, condition2)
+        Check if two conditions are equivalent
+    
+    _get_domain_str()
+        get the domain condition with z3 datatype
+    
+    _convert_z3_variable(condition, datatype)
+        A tool for converting text atom condition to atom condition with z3 datatype. E.g., x == 1 to z3.Int('x') == z3.IntVal(1)
+    
+    _convert_array_condition2z3_variable(condition)
+        A tool for converting text array conditin to array condition with z3 datatype. E.g., 1 \in [1, 2] to IsMember(2,SetAdd(SetAdd(EmptySet(IntSort()), 1), 2))
+
+    _convertIPToBits(IP, bits)
+        A tool for converting IP to bit value.
+    
+    _getRange(var, op, IP, sep)
+        A tool to get the range of bit values for an aggregate IP address
+    
+    _convert_z3_variable_bit(condition, datatype, bits)
+        A tool to get IP data with z3 BitVec
+    """
     def __init__(self, variables, domains={}, reasoning_type='Int') -> None:
         """
         Parameters:
         -----------
-        _variables: list
+        variables: list
             the list of variables
         
-        _domains: dict
+        domains: dict
             {var:[]}, set domain for each variable
 
-        _reasoning_type: string
+        reasoning_type: string
             Currently only support "Int" and "BitVec"
         
         solver: z3.Solver()
@@ -31,6 +70,16 @@ class z3SMTTools:
             self.solver.add(eval(domain_str))
 
     def iscontradiction(self, conditions):
+        """
+        Parameters:
+        -----------
+        conditions: list
+            A list of conditions
+
+        Returns:
+        --------
+        True or False
+        """
         self.solver.push()
 
         if len(conditions) == 0:
@@ -50,6 +99,16 @@ class z3SMTTools:
             return False
     
     def istauto(self, conditions):
+        """
+        Parameters:
+        -----------
+        conditions: list
+            A list of conditions
+
+        Returns:
+        --------
+        True or False
+        """
         if len(conditions) == 0:
             return True
         for c in conditions:
@@ -66,6 +125,20 @@ class z3SMTTools:
         return True
     
     def has_redundancy(self, conditions):
+        """
+        Parameters:
+        -----------
+        conditions: list
+            A list of conditions
+
+        Returns:
+        --------
+        has_redundant: Boolean
+            If it has redundant condition
+        
+        result: list
+            simplified 'conditions'
+        """
         has_redundant = False
         is_tauto = True
         result = conditions[:]
@@ -175,6 +248,15 @@ class z3SMTTools:
             return has_redundant, result
 
     def condition_parser(self, condition):
+        """
+        Parameters:
+        -----------
+        condition: string
+
+        Returns:
+        --------
+        encoded 'condition' which adds z3 datatype
+        """
         if condition is None or len(condition) == 0:
             return "True"
         cond_str = condition
@@ -328,7 +410,7 @@ class z3SMTTools:
                 array_condition = "SetAdd({}, {}('{}'))".format(array_condition, self._reasoning_type, item)
             else:
                 array_condition = "SetAdd({}, {}Val('{}'))".format(array_condition, self._reasoning_type, item)
-        if operator == '\\not_in':
+        if operator == '\\in':
             return "isMember({}, {})".format(op1, array_condition)
         else:
             return "Not(isMember({}, {}))".format(op1, array_condition)
