@@ -578,67 +578,13 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        if self._reasoning_engine == 'z3':
-            # tree = translator_z3.generate_tree(program_sql)
-            # translator_z3.data(tree)
-            # translator_z3.upd_condition(tree, self._datatype)
+        faure_domains = {}
+        for cvar in self._c_variables:
+            faure_domains[cvar] = self._domains
 
-            # if self._simplication_on == 'On':
-            #     translator_z3.normalization(self._reasoning_type)
-            # conn.commit()
-            faure_domains = {}
-            for cvar in self._c_variables:
-                faure_domains[cvar] = self._domains
-            #TODO: Explicitly give output table name instead of relying on defaults
-            #TODO: Can we have this function work for BDD too? 
-            FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
+        FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), output_table="output", domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
 
-            '''
-            compare generating IDB and existing DB if there are new IDB generated
-            if yes, the DB changes, continue run the program on DB
-            if no, the DB does not change, stop running 
-            '''
-            changed = self.insertTuplesToHead(conn)
-            # changed = self.exists_new_tuple(conn)
-
-        elif self._reasoning_engine == 'bdd':
-            if self._reasoning_type == 'BitVec':
-                print("BDD engine does not support BitVec now! ")
-                exit()
-
-            bddmm.initialize(len(self._c_variables), len(self._domains))
-            translator_bdd.set_domain(self._domains)
-            translator_bdd.set_variables(self._c_variables)
-
-            cursor = conn.cursor()
-            for db in self._DBs:
-                bdd_tablename = translator_bdd.process_condition_on_ctable(db)
-                sql = "drop table if exists {db}".format(db=db)
-                cursor.execute(sql)
-
-                sql = "create table {db} as select * from {bdd_tablename} with NO DATA".format(db=db, bdd_tablename=bdd_tablename)
-                cursor.execute(sql)
-            conn.commit()
-            
-            tree = translator_bdd.generate_tree(program_sql)
-            translator_bdd.data(tree)
-            translator_bdd.upd_condition(tree, self._datatype)
-
-            changed = self.exists_new_tuple(conn, self._reasoning_engine, self._reasoning_type)
-
-            '''
-            Merge tuples
-            '''
-            merge_tuples_bdd.merge_tuples(header_table, # tablename of header
-                                    "{}_out".format(header_table)) # output tablename
-            cursor = conn.cursor()                        
-            cursor.execute("drop table if exists {}".format(header_table))
-            cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
-            conn.commit()
-        else:
-            print("We do not support {} engine!".format(self._reasoning_engine))
-            exit()
-
+        changed = self.insertTuplesToHead(conn)
         return changed
 
     def addtional_constraints2where_clause(self, constraints, variableList):
