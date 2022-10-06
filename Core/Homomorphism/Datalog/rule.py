@@ -135,6 +135,7 @@ class DT_Rule:
             self._DBs.append(self._head.db)
             db_names.append(self._head.db["name"])
 
+        # TODO: Make sure that the mapping does not overlap with any other constant in the body
         for i, var in enumerate(self._variables+self._c_variables):
             self._mapping[var] = i
 
@@ -253,16 +254,16 @@ class DT_Rule:
         varListWithArray = deepcopy(variableList)
         for var in variables_idx_in_array:
             varListWithArray[var] = [variables_idx_in_array[var]["location"]+'['+str(variables_idx_in_array[var]["idx"]) + ']']
-        if (self._additional_constraints):
-            additional_constraints = self.addtional_constraints2where_clause(self._additional_constraints, varListWithArray)
-            constraints += additional_constraints
+        # if (self._additional_constraints):
+        #     additional_constraints = self.addtional_constraints2where_clause(self._additional_constraints, varListWithArray)
+        #     constraints += additional_constraints
 
-        # Additional constraints are faure constraints. Assuming that head atom constains all constraints
+        # Additional constraints are faure constraints.
         constraints_faure = []
         for atom in self._body:
             for constraint in atom.constraints:
                 constraints_faure.append(constraint)
-        faure_constraints = self.addtional_constraints2where_clause(constraints_faure, variableList)
+        faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray)
         constraints += faure_constraints
 
         # constraints for array
@@ -423,16 +424,30 @@ class DT_Rule:
         # exit()
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
-            if self._sameDataPortion(header_data_portion, list(tup[:-1])):
+            data_portion = list(tup[:-1])
+            if self._sameDataPortion(header_data_portion, data_portion): #TODO: Need to add conditions for c-variable equivalence
+                
+                # Adding extra c-conditions
+                extra_conditions = []
+                for i, dat in enumerate(header_data_portion):
+                    if type(dat) == list:
+                        data_portion_list = data_portion[i][1:-1].split(",") # Removes curly parts 
+                        for j, listdat in enumerate(dat):
+                            extra_conditions.append("{} == {}".format(listdat, data_portion_list[j]))
+                    else:        
+                        extra_conditions.append("{} == {}".format(dat, data_portion[i]))
+
                 if self._reasoning_engine == 'z3':
                     # convert list of conditions to a string of condition
                     str_tup_cond = None
                     if len(tup_cond) == 0:
-                        str_tup_cond = ""
-                    elif len(tup_cond) == 1:
-                        str_tup_cond = tup_cond[0]
+                        str_tup_cond = "AND(" + ", ".join(extra_conditions)+")"
+                    # elif len(tup_cond) == 1:
+                    #     str_tup_cond = tup_cond[0]
                     else:
-                        str_tup_cond = "And({})".format(", ".join(tup_cond))
+                        str_tup_cond = "And({})".format(", ".join(tup_cond+extra_conditions))
+
+                    print("New Condition: ",str_tup_cond)
 
                     faure_domains = {}
                     for cvar in self._c_variables:
@@ -576,7 +591,7 @@ class DT_Rule:
                 faure_domains[cvar] = self._domains
             #TODO: Explicitly give output table name instead of relying on defaults
             #TODO: Can we have this function work for BDD too? 
-            FaureEvaluation(conn, program_sql, domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
+            FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
 
             '''
             compare generating IDB and existing DB if there are new IDB generated
@@ -626,7 +641,6 @@ class DT_Rule:
 
         return changed
 
-    # TODO: Why is there separate logic for additional constraints and normal constraints? It should work with the same logic, right?
     def addtional_constraints2where_clause(self, constraints, variableList):
         # print("constraints", constraints)
         additional_conditions = []
