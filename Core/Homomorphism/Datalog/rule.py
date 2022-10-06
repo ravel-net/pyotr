@@ -441,7 +441,7 @@ class DT_Rule:
                     # convert list of conditions to a string of condition
                     str_tup_cond = None
                     if len(tup_cond) == 0:
-                        str_tup_cond = "AND(" + ", ".join(extra_conditions)+")"
+                        str_tup_cond = "And(" + ", ".join(extra_conditions)+")"
                     # elif len(tup_cond) == 1:
                     #     str_tup_cond = tup_cond[0]
                     else:
