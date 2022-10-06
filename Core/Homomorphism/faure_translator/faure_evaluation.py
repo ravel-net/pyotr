@@ -62,7 +62,9 @@ class FaureEvaluation:
             "output" by default. Customize output table.
 
         databases: dict
-            The information(i.e., tablename and its attributes datatype) of correspinding tables. Default is an empty dict. The format is {'tablename': ['datatype1', 'datatype2', ...], ...}.
+            The information(i.e., tablename and its attributes datatype) of correspinding tables. Default is an empty dict. 
+            The format is {'tablename': {'types': ['datatype1', 'datatype2', ...], 'names': ['attr1', 'attr2', ...]}, ...}.
+            include condition and its type
 
         domains: dict
             The domain of c-variables. Default an empty dict. The format is {'var1': ['val1', 'val2', ...], ...}
