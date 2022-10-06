@@ -8,7 +8,7 @@ This folder provides the implementation of faure evaluation. The main file is `f
 - `sql`: SQL
 - `additional_condition`: string. An string additional condition that would be appended to output table
 - `output_table`: string. The tablename for output
-- `databases`: dict. Default is {}. The format is {'tablename': {'types': ['datatype1', 'datatype2', ...], 'names': ['attr1', 'attr2', ...]}, ...}. **If datatype does not be set, FaureEvaluation will learn from database. Only works when the corresponding tables exist in the database.**
+- `databases`: dict. Default is {}. The format is {'tablename': {'types': ['datatype1', 'datatype2', ...], 'names': ['attr1', 'attr2', ...]}, ...}. **If `databases` does not be set, FaureEvaluation will learn tables information from database. Only works when the corresponding tables exist in the database.**
 - `domains`: dict. Default is {}. The format is {'var1': ['val1', 'val2', ...], ...}. **Domain cannot be empty when using BDD engine!**
 - `reasoning_engine`: `z3` or `bdd`. Default `z3`. Lettercase insensitive.
 - `reasoning_sort`: `Int` or `BitVec`. Default `Int`. We use `Int` as a flag to use integer data and `BitVec` as a flag to use IP data for BDD.
