@@ -146,6 +146,16 @@ class DT_Rule:
             print("Unsafe rule: {}!".format(self)) 
             print("------------------------\n")
 
+        self.selectColumns = self.calculateSelect() 
+
+    # Includes the select part of query including datatype
+    # e.g. 
+    def calculateSelect(self):
+        selectColumns = []
+        for i, col in enumerate(self._head.db["column_names"]):
+            selectColumns.append("CAST({} as {})".format(col, self._head.db["column_types"][i]))
+        return selectColumns
+
     @property
     def numBodyAtoms(self):
         return len(self._body)
@@ -178,7 +188,7 @@ class DT_Rule:
     def convertRuleToSQL(self):
         tables = []
         constraints = []
-        variableList = {}
+        variableList = {} # stores variable to table.column mapping. etc: {'x': ['t0.c0'], 'w': ['t0.c1', 't1.c0'], 'z': ['t0.c2', 't1.c1', 't2.c0'], 'y': ['t2.c1']}
         summary = set()
         summary_nodes = []
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
@@ -195,20 +205,20 @@ class DT_Rule:
                             variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
                     constraints.append("t{}.{} = '{}'".format(i, atom.db["column_names"][col], val))
-                elif val in self._variables or val in self._c_variables: # variable or c_variable
+                else: # variable or c_variable
                     if val not in variableList:
                         variableList[val] = []
                     variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
-                print("param", param)
                 replace_var2attr = []
                 for p in param:
                     if p in variableList:
                         replace_var2attr.append(str(variableList[p][0]))
-                    else:
+                    elif p in variables_idx_in_array:
                         replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
-
+                    else: # could be a constant or a c-variable that is not found in the body
+                        replace_var2attr.append("'{}'".format(str(p)))
                 summary = "ARRAY[" + ", ".join(replace_var2attr) + "]"
                 summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
             else:
@@ -230,9 +240,8 @@ class DT_Rule:
                     if param[0].isdigit(): # constant parameter
                         summary_nodes.append("{} as {}".format(param, self._head.db['column_names'][idx]))
                     else:
-                        # print("variableList", variableList)
                         if param not in variableList.keys():
-                            summary_nodes.append("{} as {}".format(self._mapping[param], self._head.db['column_names'][idx]))
+                            summary_nodes.append("'{}' as {}".format(param, self._head.db['column_names'][idx]))
                         else:
                             summary_nodes.append("{} as {}".format(variableList[param][0], self._head.db['column_names'][idx]))
         for var in variableList:
@@ -272,7 +281,7 @@ class DT_Rule:
     def execute(self, conn):
         if len(self._c_variables) == 0:
             cursor = conn.cursor()
-            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self._head.db["column_names"]))
+            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self.selectColumns))
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
             conn.commit()
@@ -365,7 +374,7 @@ class DT_Rule:
         '''
         check whether Q_summary is in resulting table
         '''
-        cursor.execute("select {} from {}".format(", ".join(self._head.db["column_names"]), self._head.db["name"]))
+        cursor.execute("select {} from {}".format(", ".join(self.selectColumns), self._head.db["name"]))
         resulting_tuples = cursor.fetchall()
         conn.commit()
 
@@ -440,7 +449,6 @@ class DT_Rule:
                 else:
                     print("We do not support {} engine!".format(self._reasoning_engine))
                     exit()
-
         return contains
 
     # def exists_new_tuple(self, conn):
@@ -526,7 +534,7 @@ class DT_Rule:
         headerCountAfterSimp = int(cursor.fetchall()[0][0])
 
         # Adding result of output to header
-        cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self._head.db["column_names"]), fromTable))
+        cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable))
 
         conn.commit()
         # delete redundants
@@ -567,6 +575,7 @@ class DT_Rule:
             for cvar in self._c_variables:
                 faure_domains[cvar] = self._domains
             #TODO: Explicitly give output table name instead of relying on defaults
+            #TODO: Can we have this function work for BDD too? 
             FaureEvaluation(conn, program_sql, domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
 
             '''
@@ -617,6 +626,7 @@ class DT_Rule:
 
         return changed
 
+    # TODO: Why is there separate logic for additional constraints and normal constraints? It should work with the same logic, right?
     def addtional_constraints2where_clause(self, constraints, variableList):
         # print("constraints", constraints)
         additional_conditions = []
