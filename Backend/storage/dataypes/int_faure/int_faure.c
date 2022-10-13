@@ -456,6 +456,71 @@ int4_faure_eq_int(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(arg1->integer == arg2 );
 }
 
+PG_FUNCTION_INFO_V1(int4_faure_lt_int);
+Datum
+int4_faure_lt_int(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int		arg2 = PG_GETARG_INT32(1);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer < arg2 );
+}
+
+PG_FUNCTION_INFO_V1(int4_faure_le_int);
+Datum
+int4_faure_le_int(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int		arg2 = PG_GETARG_INT32(1);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer <= arg2 );
+}
+
+PG_FUNCTION_INFO_V1(int4_faure_gt_int);
+Datum
+int4_faure_gt_int(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int		arg2 = PG_GETARG_INT32(1);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer > arg2 );
+}
+
+PG_FUNCTION_INFO_V1(int4_faure_ge_int);
+Datum
+int4_faure_ge_int(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int		arg2 = PG_GETARG_INT32(1);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer >= arg2 );
+}
+
+PG_FUNCTION_INFO_V1(int4_faure_ne_int);
+Datum
+int4_faure_ne_int(PG_FUNCTION_ARGS)
+{
+	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
+	int		arg2 = PG_GETARG_INT32(1);
+
+	if (is_cvar(arg1))
+		PG_RETURN_BOOL(true);
+		
+	PG_RETURN_BOOL(arg1->integer != arg2 );
+}
+
 PG_FUNCTION_INFO_V1(int4_faure_ne);
 Datum
 int4_faure_ne(PG_FUNCTION_ARGS)

@@ -231,8 +231,6 @@ CREATE FUNCTION int4_faure_le(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_eq(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
-CREATE FUNCTION int4_faure_eq_int(int4_faure, Integer) RETURNS bool
-   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 CREATE FUNCTION int4_faure_ge(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
 CREATE FUNCTION int4_faure_gt(int4_faure, int4_faure) RETURNS bool
@@ -241,6 +239,19 @@ CREATE FUNCTION int4_faure_ne(int4_faure, int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 CREATE FUNCTION is_var(int4_faure) RETURNS bool
    AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION int4_faure_eq_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION int4_faure_ne_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION int4_faure_lt_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION int4_faure_le_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION int4_faure_gt_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+CREATE FUNCTION int4_faure_ge_int(int4_faure, Integer) RETURNS bool
+   AS '_OBJWD_/int_faure' LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE OPERATOR < (
    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_lt,
@@ -260,12 +271,6 @@ CREATE OPERATOR = (
    restrict = eqsel, join = eqjoinsel
 );
 
-CREATE OPERATOR = (
-   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_eq_int,
-   -- commutator = = ,
-   -- negator = <> ,
-   restrict = eqsel, join = eqjoinsel
-);
 
 CREATE OPERATOR >= (
    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_ge,
@@ -279,8 +284,57 @@ CREATE OPERATOR <> (
    restrict = neqsel, join = neqjoinsel
 );
 
+CREATE OPERATOR != (
+   leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_ne,
+   -- commutator = <= , negator = < ,
+   restrict = neqsel, join = neqjoinsel
+);
+
 CREATE OPERATOR > (
    leftarg = int4_faure, rightarg = int4_faure, procedure = int4_faure_gt,
+   -- commutator = < , negator = <= ,
+   restrict = scalargtsel, join = scalargtjoinsel
+);
+
+CREATE OPERATOR < (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_lt_int,
+   -- commutator = > , negator = >= ,
+   restrict = scalarltsel, join = scalarltjoinsel
+);
+CREATE OPERATOR <= (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_le_int,
+   -- commutator = >= , negator = > ,
+   restrict = scalarlesel, join = scalarlejoinsel
+);
+
+CREATE OPERATOR = (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_eq_int,
+   commutator = = ,
+   -- negator = <> ,
+   restrict = eqsel, join = eqjoinsel
+);
+
+
+CREATE OPERATOR >= (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_ge_int,
+   -- commutator = <= , negator = < ,
+   restrict = scalargesel, join = scalargejoinsel
+);
+
+CREATE OPERATOR <> (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_ne_int,
+   -- commutator = <= , negator = < ,
+   restrict = neqsel, join = neqjoinsel
+);
+
+CREATE OPERATOR != (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_ne_int,
+   -- commutator = <= , negator = < ,
+   restrict = neqsel, join = neqjoinsel
+);
+
+CREATE OPERATOR > (
+   leftarg = int4_faure, rightarg = Integer, procedure = int4_faure_gt_int,
    -- commutator = < , negator = <= ,
    restrict = scalargtsel, join = scalargtjoinsel
 );

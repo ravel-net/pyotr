@@ -193,7 +193,7 @@ class DT_Rule:
         summary = set()
         summary_nodes = []
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
-        variables_idx_in_array = {} # format {'var': list[location]}
+        variables_idx_in_array = {} # format {'var': list[location], e.g., {'a1':['t1.n3','t4.n1']}}
         for i, atom in enumerate(self._body):
             tables.append("{} t{}".format(atom.db["name"], i))
             for col, val in enumerate(atom.parameters):
@@ -205,7 +205,7 @@ class DT_Rule:
                             variables_idx_in_array[var] = {'location': loc}
                             variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
-                    constraints.append("t{}.{} = '{}'".format(i, atom.db["column_names"][col], val))
+                    constraints.append("t{}.{} = {}".format(i, atom.db["column_names"][col], val))
                 else: # variable or c_variable
                     if val not in variableList:
                         variableList[val] = []
@@ -218,8 +218,11 @@ class DT_Rule:
                         replace_var2attr.append(str(variableList[p][0]))
                     elif p in variables_idx_in_array:
                         replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
-                    else: # could be a constant or a c-variable that is not found in the body
+                    elif p[0].isdigit: # could be a constant that is not found in the body
+                        replace_var2attr.append("{}".format(str(p)))
+                    else: # could be a c-variable that is not found in the body
                         replace_var2attr.append("'{}'".format(str(p)))
+
                 summary = "ARRAY[" + ", ".join(replace_var2attr) + "]"
                 summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
             else:

@@ -61,6 +61,19 @@ if __name__ == "__main__":
         exit()
     else:
         print("Test 4 passed")
+
+
+    ########################################## c-variable as header test  ######################################
+    p1 = "R(x,y) :- L(x,q,z), Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
+
+    program1 = program.DT_Program(p1, {"R":["integer", "int4_faure"], "L":["integer", "integer", "int4_faure"], "Q":["int4_faure"]}, domains=['1', '2'], c_variables=['z','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "L", "Q"])
+
+    program1.minimize()
+    if (str(program1) != "R(x,y) :- L(x,q,z),Q(z)"):
+        print("Test 5 failed")
+        exit()
+    else:
+        print("Test 5 passed")
     # =============================== Route Agg
 #     p2 = "R(v,d)[d > 10] :- R(u,d)[d > 10], l(v,u)"
 # # 
