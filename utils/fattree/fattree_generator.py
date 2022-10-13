@@ -1,273 +1,341 @@
-from ipaddress import IPv4Address
+from copy import copy
 
-class Fattree():
+class Fattree:
+    """
+    k-ary fat tree topology
 
-    def __init__(self, k, IP_switch=False):
+    Parameters:
+    -----------
+    k: integer(even, >= 4)
+        The number of ports 
+    
+    Functions:
+    ----------
+    generate_base_program(dst_host): string
+        Generate datalog program. 
+        Input destination host. 'dst_host' begin with 'h', follows the number. 
+        Return datalog program that the rules connected by '\n'.
+    """
+    def __init__(self, k=4) -> None:
         self._k = k
-        self._num_core_switches = int(( self._k / 2 )**2)
-        self._num_pods = int(self._k)
-        self._num_aggregation_switches_per_pod = int(self._k / 2)
-        self._num_egde_switches_per_pod = int(self._k / 2)
-        self._num_hosts = int((self._k)**3 / 4)
-        self._core_switches = {}
+        self._num_core = int((k/2))**2 
+        self._num_pods = k
+        self._num_connected_core_per_aggr = int(k/2)
+        self._num_connected_aggr_per_core = int(k/2)
+        self._num_connected_aggr_per_edge = int(k/2)
+        self._num_connected_edge_per_aggr = int(k/2)
+        self._num_connected_hosts_per_edge = int(k/2)
+        self._num_edge_per_pod = int(k/2)
+        self._num_aggr_per_pod = int(k/2)
+        self._num_total_hosts = self._num_connected_hosts_per_edge*self._num_edge_per_pod*self._num_pods
+        self._num_total_hosts_per_pod = self._num_connected_hosts_per_edge*self._num_edge_per_pod
+
+        self._core_level = 3
+        self._aggregation_level = 2
+        self._edge_level = 1
+        self._host_level = 0
+
+        self._cores = []
+        self._generate_cores()
+        self._connectivity = {}
+        self._aggregrations = []
+        self._edges = []
         self._pods = {}
-        self._aggregation_switches = {}
-        self._edge_switches = {}
-        self._hosts = {}
-        self._core_aggregation_links = []
-        self._aggregation_edge_links = []
-        self._edge_host_links = []
-        self._IP_switch=IP_switch
-        self._node_index = 0
+        self._core_aggr_mapping = {}
+        self._aggr_core_mapping = {}
+        self._aggr_edge_mapping = {}
+        self._edge_aggr_mapping = {}
+        self._edge_host_mapping = {}
+        self._host_edge_mapping = {}
+        self._generate_pods()
+        
+        self._hosts = []
+        self._generate_hosts()
 
-        self.generate_core_switches()
-        self.generate_pods_switches()
-        self.generate_hosts()
-        self.add_core_aggregation_links()
-        self.add_aggregation_edge_links()
-        self.add_edge_host_links()
-
-        self._links = self._core_aggregation_links + self._aggregation_edge_links + self._edge_host_links
+        self._rules = []
     
+    def _generate_cores(self):
+        for idx in range(1, self._num_core+1):
+            self._cores.append("c"+str(idx))
+    
+    def _generate_pods(self):
+        for idx in range(1, self._num_pods+1):
+            pod = "pod"+str(idx)
 
-    def generate_core_switches(self):
-        if self._IP_switch:
-            idx = 0
-            for j in range(1, int(self._k/2) + 1):
-                for i in range(1, int(self._k/2) + 1):
-                    addr = IPv4Address("10.{}.{}.{}".format(self._k, j, i))
-                    core_node = {
-                        'name': 'c' + str(idx),
-                        'addr': addr,
-                        'type': 'core'
-                    }
-                    idx += 1
-                    self._core_switches[self._node_index] = core_node
-                    self._node_index += 1
+            self._pods[pod] = {"aggr":[], "edge":[]}
+
+            for aggr_idx in range((idx-1)*(self._num_aggr_per_pod)+1, (idx-1)*(self._num_aggr_per_pod)+self._num_aggr_per_pod+1):
+                aggr = "a"+str(aggr_idx)
+                self._aggregrations.append(aggr)
+                self._pods[pod]["aggr"].append(aggr)
+
+                for c_idx in range((aggr_idx-1)*self._num_connected_core_per_aggr+1, (aggr_idx-1)*self._num_connected_core_per_aggr+self._num_connected_core_per_aggr+1):
+                    c_idx = c_idx % self._num_core
+                    if c_idx == 0:
+                        c_idx += 4
+                    core = "c"+str(c_idx)
+                    
+                    self._store(aggr, core, self._connectivity)
+                    # if aggr in self._connectivity.keys():
+                    #     self._connectivity[aggr].append(core)
+                    # else:
+                    #     self._connectivity[aggr] = [core]
+                    self._store(aggr, core, self._aggr_core_mapping)
+
+                    self._store(core, aggr, self._connectivity)
+                    # if core in self._connectivity.keys():
+                    #     self._connectivity[core].append(aggr)
+                    # else:
+                    #     self._connectivity[core] = [aggr]
+                    self._store(core, aggr, self._core_aggr_mapping)
+
+            for edge_idx in range((idx-1)*(self._num_edge_per_pod)+1, (idx-1)*(self._num_edge_per_pod)+self._num_edge_per_pod+1):
+                edge = "e"+str(edge_idx)
+                self._edges.append(edge)
+                self._pods[pod]["edge"].append(edge)
+
+                for aggr in self._pods[pod]["aggr"]:
+                    self._store(edge, aggr, self._connectivity)
+                    # if edge in self._connectivity.keys():
+                    #     self._connectivity[edge].append(aggr)
+                    # else:
+                    #     self._connectivity[edge] = [aggr]
+                    self._store(edge, aggr, self._edge_aggr_mapping)
+
+                    self._store(aggr, edge, self._connectivity)
+                    # if aggr in self._connectivity.keys():
+                    #     self._connectivity[aggr].append(edge)
+                    # else:
+                    #     self._connectivity[aggr] = [edge]
+                    self._store(aggr, edge, self._aggr_edge_mapping)
+
+    def _generate_hosts(self):
+        for edge_idx, edge in enumerate(self._edges):
+            edge_idx = int(edge[1:])
+
+            for idx in range(self._num_connected_hosts_per_edge*(edge_idx-1)+1, self._num_connected_hosts_per_edge*(edge_idx-1)+self._num_connected_hosts_per_edge+1):
+                host = "h"+str(idx)
+                self._hosts.append(host)
+                self._store(host, edge, self._connectivity)
+                # if host in self._connectivity.keys():
+                #     self._connectivity[host].append(edge)
+                # else:
+                #     self._connectivity[host] = [edge]
+                self._store(host, edge, self._host_edge_mapping)
+
+                self._store(edge, host, self._connectivity)
+                # if edge in self._connectivity.keys():
+                #     self._connectivity[edge].append(host)
+                # else:
+                #     self._connectivity[edge] = [host]
+                self._store(edge, host, self._edge_host_mapping)
+
+    def _store(self, key, item, mapping):
+        if key in mapping.keys():
+            mapping[key].append(item)
         else:
-            for idx in range(0, self._num_core_switches):
-                core_node = {
-                    'name': 'c' + str(idx),
-                    'addr': self._node_index,
-                    'type': 'core'
-                }
-                self._core_switches[self._node_index] = core_node
-                self._node_index += 1
-        return
-    
-    def generate_pods_switches(self):
-        if self._IP_switch:
-            for pod in range(0, self._num_pods):
-                edge_switches_per_pod = {}
-                aggregation_switches_per_pod = {}
-                for switch in range(0, self._num_egde_switches_per_pod):
-                    addr = IPv4Address("10.{}.{}.1".format(pod, switch))
-                    egde_node = {
-                        'name': 'e' + str(switch + pod*self._num_egde_switches_per_pod),
-                        'addr': addr,
-                        'type': 'edge', 
-                        'pod_num': pod
-                    }
-                    edge_switches_per_pod[self._node_index] = egde_node
-                    self._edge_switches[self._node_index] = egde_node
-                    self._node_index += 1
-                for switch in range(0, self._num_aggregation_switches_per_pod):
-                    addr = IPv4Address("10.{}.{}.1".format(pod, switch+self._num_egde_switches_per_pod))
-                    aggregation_node = {
-                        'name': 'a' + str(switch + pod*self._num_aggregation_switches_per_pod),
-                        'addr': addr,
-                        'type': 'aggregation', 
-                        'pod_num': pod
-                    }
-                    aggregation_switches_per_pod[self._node_index] = aggregation_node
-                    self._aggregation_switches[self._node_index] = aggregation_node
-                    self._node_index += 1
-                self._pods[pod] = {
-                    'aggregation': aggregation_switches_per_pod,
-                    'edge': edge_switches_per_pod
-                }
-        else:
-            edge_switches_per_pod = {}
-            aggregation_switches_per_pod = {}
-            for pod in range(0, self._num_pods):
-                for switch in range(0, self._num_egde_switches_per_pod):
-                    egde_node = {
-                        'name': 'e' + str(switch + pod*self._num_egde_switches_per_pod),
-                        'addr': self._node_index,
-                        'type': 'edge',
-                        'pod_num': pod
-                    }
-                    edge_switches_per_pod[self._node_index] = egde_node
-                    self._edge_switches[self._node_index] = egde_node
-                    self._node_index += 1
-                for switch in range(0, self._num_aggregation_switches_per_pod):
-                    aggregation_node = {
-                        'name': 'a' + str(switch + pod*self._num_aggregation_switches_per_pod),
-                        'addr': self._node_index,
-                        'type': 'aggregation',
-                        'pod_num': pod
-                    }
-                    aggregation_switches_per_pod[self._node_index] = aggregation_node
-                    self._aggregation_switches[self._node_index] = aggregation_node
-                    self._node_index += 1
-                self._pods[pod] = {
-                    'aggregation': aggregation_switches_per_pod,
-                    'edge': edge_switches_per_pod
-                }
-        return
+            mapping[key] = [item]
 
-    def generate_hosts(self):
-        host_num = 0
-        if self._IP_switch:
-            for edge_switch_idx in self._edge_switches.keys():
-                edge_switch = self._edge_switches[edge_switch_idx]
+    def __str__(self) -> str:
+        lines = []
+        
+        total_host_idx = 0
+        base_window = self._num_total_hosts // self._num_core
+        for pod_idx, pod in enumerate(self._pods):
+            # is_first_core = True
+            # core_idx = pod_idx // self._num_core
+            # core = self._cores[core_idx]
+            # core_line += core + "\t"
+            # lines.append("########")
 
-                for i in range(1, int(self._k/2)+1):
-                    new_addr = int(edge_switch['addr']) + i
-                    host = {
-                        'name': 'h' + str(host_num),
-                        'addr': IPv4Address(new_addr),
-                        'type': 'host',
-                        'pod_num': edge_switch['pod_num']
-                    }
-                    host_num += 1
-                    self._hosts[self._node_index] = host
-                    self._node_index += 1
-        else:
-            for edge_switch_idx in self._edge_switches.keys():
-                edge_switch = self._edge_switches[edge_switch_idx]
+            is_first_aggr = True
+            for aggr_idx, aggr in enumerate(self._pods[pod]["aggr"]):
+                edge = self._pods[pod]["edge"][aggr_idx]
+                for host in self._edge_host_mapping[edge]:
+                    line = ""
 
-                for i in range(1, int(self._k/2)+1):
-                    host = {
-                        'name': 'h' + str(host_num),
-                        'addr': self._node_index,
-                        'type': 'host',
-                        'pod_num': edge_switch['pod_num']
-                    }
-                    host_num += 1
-                    self._hosts[self._node_index] = host
-                    self._node_index += 1
-        return
-    
-    def add_core_aggregation_links(self):
-        is_first_half = True
-        first_half = list(self._core_switches.keys())[:int(self._k/2)]
-        second_half = list(self._core_switches.keys())[int(self._k/2):]
-        for aggregation_idx in self._aggregation_switches.keys():
-            if is_first_half:
-                for core_idx in first_half:
-                    self._core_aggregation_links.append((core_idx, aggregation_idx))
-                    # self._core_aggregation_links.append((aggregation_idx, core_idx))
-            else:
-                for core_idx in second_half:
-                    self._core_aggregation_links.append((core_idx, aggregation_idx))
-                    # self._core_aggregation_links.append((aggregation_idx, core_idx))
-            is_first_half = not is_first_half
-    
-    def add_aggregation_edge_links(self):
-        for aggregation_idx in self._aggregation_switches.keys():
-            aggregation_pod_num = self._aggregation_switches[aggregation_idx]['pod_num']
-            for edge_idx in self._edge_switches.keys():
-                edge_pod_num = self._edge_switches[edge_idx]['pod_num']
-                if aggregation_pod_num != edge_pod_num:
-                    continue
+                    core_idx = total_host_idx // base_window
+                    core = self._cores[core_idx]
+                    if total_host_idx % base_window == 0:
+                        line +="#######\t"
+                    elif total_host_idx % base_window == 1:
+                        line = core + "\t"
+                    else:
+                        line += "\t"
+                    
+                    total_host_idx += 1
 
-                self._aggregation_edge_links.append((aggregation_idx, edge_idx))
-                # self._aggregation_edge_links.append((edge_idx, aggregation_idx))
-    
-    def add_edge_host_links(self):
-        for edge_idx in self._edge_switches.keys():
-            edge_pod_num = self._edge_switches[edge_idx]['pod_num']
-            edge_addr = int(self._edge_switches[edge_idx]['addr'])
-            for host_idx in self._hosts.keys():
-                host_pod_num = self._hosts[host_idx]['pod_num']
+                    # if is_first_core:
+                    #     line += core_line
+                    #     is_first_core = False
+                    # else:
+                    #     line +="#######\t"
+                    
+                    if is_first_aggr:
+                        # print(aggr, edge, end="\t")
+                        line += aggr + "\t" + edge + "\t"
+                        is_first_aggr = False
+                    else:
+                        line +="\t\t"
+                    line += host + "\t*"
 
-                if edge_pod_num != host_pod_num:
-                    continue
+                    lines.append(line)
                 
-                host_addr = int(self._hosts[host_idx]['addr'])
+                lines.append("\t--------------------\t*")
+                is_first_aggr = True
+            lines.append("\t*************************")
+            
+        return "\n".join(lines)
 
-                if host_addr-edge_addr <= int(self._k/2) and host_addr-edge_addr >= 1:
-                    self._edge_host_links.append((edge_idx, host_idx))
-                    # self._edge_host_links.append((host_idx, edge_idx))
-                else:
-                    continue
+    def generate_base_program(self, dst_host):
+        nodes_exist_rule = {}
+        # nodes_connection = {}
+        edge_connected_dst_host = self._host_edge_mapping[dst_host][0]
 
+        # rule for edge to dst_host
+        rule = "R({edge}, {dst}, [{edge}], 1) :- l({edge}, {dst})".format(
+                                        edge=edge_connected_dst_host, 
+                                        dst=dst_host)
+        self._rules.append(rule)
+        if edge_connected_dst_host not in nodes_exist_rule:
+            nodes_exist_rule[edge_connected_dst_host] = [[edge_connected_dst_host, dst_host, ['x'], 1]]
+        
+        # self._store(edge_connected_dst_host, dst_host, nodes_connection)
+        
+        # rules for aggregations to edge
+        for aggr in self._edge_aggr_mapping[edge_connected_dst_host]:
+            predicates_edge = nodes_exist_rule[edge_connected_dst_host]
+            for predicate in predicates_edge:
+                link = "l({aggr}, {edge})".format(aggr=aggr, edge=edge_connected_dst_host)
+                header_path = copy(predicate[2])
+                header_path.insert(0, aggr)
+                pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
+                rule = "R({aggr}, {dst}, [{path}], 2) :- {predicate}, {link}".format(
+                                            aggr=aggr, 
+                                            dst=dst_host, 
+                                            path=", ".join(header_path),
+                                            predicate=pred,
+                                            link=link)
+                self._rules.append(rule)
 
-    def __str__(self):
-        # print("================ k={} ==================\n".format(self._k))
-        # print("----------- Core Switches --------------\n")
-        core_str = "".join([
-                'id:{} | core name:{} | address:{} | type:{} \n'.format(
-                    idx,
-                    self._core_switches[idx]['name'], 
-                    self._core_switches[idx]['addr'], 
-                    self._core_switches[idx]['type']
-                    ) for idx in self._core_switches.keys()
-            ])
-        aggregation_str = "".join([
-            'id:{} | aggregation name:{} | address:{} | type:{} | pod_num:{} \n'.format(
-                    idx,
-                    self._aggregation_switches[idx]['name'], 
-                    self._aggregation_switches[idx]['addr'], 
-                    self._aggregation_switches[idx]['type'],
-                    self._aggregation_switches[idx]['pod_num']
-                    ) for idx in self._aggregation_switches.keys()
-        ])
-        edge_str = "".join([
-            'id:{} | edge name:{} | address:{} | type:{} | pod_num:{} \n'.format(
-                    idx,
-                    self._edge_switches[idx]['name'], 
-                    self._edge_switches[idx]['addr'], 
-                    self._edge_switches[idx]['type'],
-                    self._edge_switches[idx]['pod_num']
-                    ) for idx in self._edge_switches.keys()
-        ])
-        host_str = "".join([
-            'id:{} | host name:{} | address:{} | type:{} | pod_num:{} \n'.format(
-                    idx,
-                    self._hosts[idx]['name'], 
-                    self._hosts[idx]['addr'], 
-                    self._hosts[idx]['type'],
-                    self._hosts[idx]['pod_num']
-                    ) for idx in self._hosts.keys()
-        ])
-        core_aggregation_links_str = "".join([
-            '{} <--> {} \n'.format(
-                self._core_switches[link[0]]['name'],
-                self._aggregation_switches[link[1]]['name'],
-            ) for link in self._core_aggregation_links
-        ])
-        aggregation_edge_links_str = "".join([
-            '{} <--> {} \n'.format(
-                self._aggregation_switches[link[0]]['name'],
-                self._edge_switches[link[1]]['name'],
-            ) for link in self._aggregation_edge_links
-        ])
-        edge_host_links_str = "".join([
-            '{} <--> {} \n'.format(
-                self._edge_switches[link[0]]['name'],
-                self._hosts[link[1]]['name'],
-             ) for link in self._edge_host_links
-        ])
+                if aggr not in nodes_exist_rule:
+                    nodes_exist_rule[aggr] = []
+                nodes_exist_rule[aggr].append([aggr, dst_host, ['y', 'x'], 2])
 
-        str = "================ k={} ==================\n".format(self._k) + \
-            "----------- Core Switches --------------\n" + \
-            core_str + \
-            "-------- Aggregation Switches ----------\n" + \
-            aggregation_str + \
-            "------------- Edge Switches ------------\n" + \
-            edge_str + \
-            "----------------- Hosts ----------------\n" + \
-            host_str + \
-            "------- Core Aggregation links ---------\n" + \
-            core_aggregation_links_str + \
-            "------- Aggregation Edge links ---------\n" + \
-            aggregation_edge_links_str + \
-            "----------- Edge Host links ------------\n" + \
-            edge_host_links_str
-        return str
+                # self._store(aggr, edge_connected_dst_host, nodes_connection)
+
+            # rules for core to aggr
+            for core in self._aggr_core_mapping[aggr]:
+                for predicate in nodes_exist_rule[aggr]:
+                    header_path = copy(predicate[2])
+                    header_path.insert(0, core)
+                    link = "l({core}, {aggr})".format(core=core, aggr=aggr)
+                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
+                    rule = "R({core}, {dst}, [{path}], 3) :- {predicate}, {link}".format(
+                                            core=core, 
+                                            dst=dst_host, 
+                                            path=", ".join(header_path), 
+                                            predicate=pred, 
+                                            link=link)
+                    
+                    self._rules.append(rule)
+
+                    if core not in nodes_exist_rule:
+                        nodes_exist_rule[core] = []
+                    nodes_exist_rule[core].append([core, dst_host, ['z', 'y', 'x'], 3])
+        
+        # rules for remaining aggregations
+        for aggr in self._aggr_core_mapping:
+            if aggr in nodes_exist_rule:
+                continue
+
+            links = []
+            for core in self._aggr_core_mapping[aggr]:
+                link = "l({aggr}, {core})".format(aggr=aggr, core=core)
+                links.append(link)
+
+            for core in self._aggr_core_mapping[aggr]:
+                for predicate in nodes_exist_rule[core]:
+                    header_path = copy(predicate[2])
+                    header_path.insert(0, aggr)
+                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
+                    rule = "R({aggr}, {dst}, [{path}], {hops}) :- {predicate}, {links}".format(
+                                            aggr=aggr, 
+                                            dst=dst_host, 
+                                            path=", ".join(header_path), 
+                                            hops=predicate[-1]+1,
+                                            predicate=pred, 
+                                            links=", ".join(links))
+                    self._rules.append(rule)
+
+            if aggr not in nodes_exist_rule:
+                nodes_exist_rule[aggr] = []
+            nodes_exist_rule[aggr].append([aggr, dst_host, ['u', 'z', 'y', 'x'], 4])
+
+        # rules for remaining edges
+        for edge in self._edge_aggr_mapping:
+            if edge in nodes_exist_rule:
+                continue
+            hops = None
+            for aggr in self._edge_aggr_mapping[edge]:
+                for predicate in nodes_exist_rule[aggr]:
+                    header_path = copy(predicate[2])
+                    header_path.insert(0, edge)
+                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
+                    hops = predicate[-1]+1
+                    link = "l({edge}, {aggr})".format(edge=edge, aggr=aggr)
+                    rule = "R({edge}, {dst}, [{path}], {hops}) :- {predicate}, {link}".format(
+                                                edge=edge, 
+                                                dst=dst_host, 
+                                                path=", ".join(header_path), 
+                                                hops=hops,
+                                                predicate=pred,
+                                                link=link)
+                    
+                    self._rules.append(rule)
+            
+            if edge not in nodes_exist_rule:
+                nodes_exist_rule[edge] = []
+            path = ['v', 'u', 'z', 'y', 'x']
+            nodes_exist_rule[edge].append([edge, dst_host, path[0-hops:], hops])
+        
+        # rules for remaining hosts
+        for host in self._host_edge_mapping:
+            if host in nodes_exist_rule:
+                continue
+            if host == dst_host:
+                continue
+            hops = None
+            for edge in self._host_edge_mapping[host]:
+                for predicate in nodes_exist_rule[edge]:
+                    header_path = copy(predicate[2])
+                    header_path.insert(0, host)
+                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
+                    link = "l({host}, {edge})".format(host=host, edge=edge)
+                    hops = predicate[-1]+1
+                    rule = "R({host}, {dst}, [{path}], {hops}) :- {predicate}, {link}".format(
+                                                host=host, 
+                                                dst=dst_host, 
+                                                path=", ".join(header_path), 
+                                                hops=hops,
+                                                predicate=pred,
+                                                link=link)
+
+                    self._rules.append(rule)
+
+            if host not in nodes_exist_rule:
+                nodes_exist_rule[host] = []
+            path = ['v', 'u', 'z', 'y', 'x']
+            nodes_exist_rule[host].append([host, dst_host, path[0-hops:], hops])
+    
+        print("\n".join(self._rules))
+
+        return "\n".join(self._rules)
 
 if __name__ == '__main__':
-    fattree = Fattree(k=2, IP_switch=True)
-    print(fattree)
+    f = Fattree(4)
+    print(f)
+    f.generate_base_program("h16")
+
+
+        
