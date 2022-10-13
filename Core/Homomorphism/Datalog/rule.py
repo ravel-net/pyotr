@@ -266,9 +266,10 @@ class DT_Rule:
         for atom in self._body:
             for constraint in atom.constraints:
                 constraints_faure.append(constraint)
-        faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray)
-        constraints += faure_constraints
 
+        if len(constraints_faure) > 0:
+            faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray)
+            constraints.append(faure_constraints)
         # constraints for array
         for attr in constraints_for_array:
             for var in constraints_for_array[attr]:
@@ -469,62 +470,6 @@ class DT_Rule:
                     exit()
         return contains
 
-    # def exists_new_tuple(self, conn):
-    #     cursor = conn.cursor()
-    #     header_table = self._head.db["name"]
-
-    #     cursor.execute("select {} from output".format(", ".join(self._head.db["column_names"])))
-    #     output_results = cursor.fetchall()
-
-    #     cursor.execute("select {} from {}".format(", ".join(self._head.db["column_names"]), header_table))
-    #     existing_tuples = cursor.fetchall()
-    #     conn.commit()
-
-    #     inserting_tuples = []
-    #     for res_tup in output_results:
-    #         for existing_tup in existing_tuples:
-    #             res_cond = res_tup[-1]
-    #             existing_cond = existing_tup[-1]
-    #             if str(res_tup[:-1]) == str(existing_tup[:-1]):
-    #                 if self._reasoning_engine == 'z3':
-    #                     condition1 = None
-    #                     if len(existing_cond) == 0:
-    #                         condition1 = ""
-    #                     elif len(existing_cond) == 1:
-    #                         condition1 = existing_cond[0]
-    #                     else:
-    #                         condition1 = "And({})".format(", ".join(existing_cond))
-
-    #                     condition2 = None
-    #                     if len(res_cond) == 0:
-    #                         condition2 = ""
-    #                     elif len(res_cond) == 1:
-    #                         condition2 = res_cond[0]
-    #                     else:
-    #                         condition2 = "And({})".format(", ".join(res_cond))
-    #                     if check_tautology.check_is_implication(condition1, condition2, self._reasoning_type):
-    #                         continue
-    #                     else: 
-    #                         inserting_tuples.append(res_tup)
-    #                 elif self._reasoning_engine == 'bdd':
-    #                     if bddmm.is_implication(existing_cond, res_cond):
-    #                         continue
-    #                     else:
-    #                         inserting_tuples.append(res_tup)
-    #                 else:
-    #                     print("We do not support {} engine!".format(self._reasoning_engine))
-    #                     exit()
-    #             else:
-    #                 inserting_tuples.append(res_tup)
-    #     if len(inserting_tuples) == 0:
-    #         changes = False
-    #     else:
-    #         changes = True
-    #         insert_sql = "insert into {} values %s".format(header_table)
-    #         execute_values(cursor, insert_sql, inserting_tuples)
-    #     conn.commit()
-    #     return changes  
-
     # Adds the result of the table "output" to head. Only adds distinct variables
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
@@ -591,103 +536,12 @@ class DT_Rule:
         return changed
 
     def addtional_constraints2where_clause(self, constraints, variableList):
-        # print("constraints", constraints)
-        additional_conditions = []
-        safe_constraints = []
-        for constraint in constraints:
-            # only support logical or/and exculding mixed use)
-            constraint = constraint.replace("==", "=") #TODO: Hacky method to convert back to sql format
-            conditions = []
-            logical_opr = None
-            logical_sym = None
-            if '&' in constraint:
-                conditions = constraint.split('&')
-                logical_opr = 'and'
-                logical_sym = '&'
-            elif '^' in constraint:
-                conditions = constraint.split('^')
-                logical_opr = 'or'
-                logical_sym = '^'
-            else:
-                conditions.append(constraint)
-
-            safe_conditions = []
-            temp_processed_conditions = []
-            for cond in conditions:
-                cond = cond.strip()
-                processed_cond = self.condition2where_caluse(cond, variableList)
-                if processed_cond is not None:
-                    temp_processed_conditions.append(processed_cond)
-                    safe_conditions.append(cond)
-            
-            # update additional constraints
-            if len(safe_conditions) == 0:
-                continue
-            if len(safe_conditions) == 1:
-                constraint = safe_conditions[0]
-                safe_constraints.append(constraint)
-            else:
-                constraint = logical_sym.join(safe_conditions)
-                safe_constraints.append(constraint)
-            
-            if logical_opr == 'and':
-                additional_conditions.append(" and ".join(temp_processed_conditions))
-            elif logical_opr == 'or':
-                additional_conditions.append("({})".format(" or ".join(temp_processed_conditions)))
-            else:
-                additional_conditions += temp_processed_conditions
-
-        return additional_conditions
-
-    def condition2where_caluse(self, condition, variableList):
-        # assume there are spaces between operands and operator
-        items = condition.split()
-        if len(items) != 3:
-            print("Wrong condition format! The format of condition is {left_opd}{whitespace}{operator}{whitespace}{right_opd}!")
-            exit()
-        left_opd = items[0]
-        opr = items[1]
-        right_opd = items[2]
-        elementsRight = []
-
-        # Note: We do not support arrays as the left hand opd
-        if not left_opd[0].isdigit(): # it is a var or c-var
-            if left_opd not in variableList.keys():
-                print("No '{}' in variables! Unsafe condition!".format(left_opd))
-                return None
-            left_opd = variableList[left_opd][0]
-
-        if right_opd[0] == '[': # an array
-            elements = right_opd[1:-1].split(",")
-            for elem in elements:
-                if not elem[0].isdigit():
-                    elementsRight.append(variableList[elem][0])
-                else:
-                    elementsRight.append(elem)
-        elif not right_opd[0].isdigit(): # it is a var or c-var
-            if right_opd not in variableList.keys():
-                print("No '{}' in variables! Unsafe condition!".format(right_opd))
-                return None
-            right_opd = variableList[right_opd][0]
-
-        
-        if 'in' in opr and not elementsRight:
-            print("Wrong condition. Operator '{}' requires an array at the right side! Exiting".format(opr))
-            exit()
-
-        processed_condition = None
-        if '\\not_in' in opr:
-            processed_condition = "Not {} = Any(ARRAY[{}])".format(left_opd, ",".join(elementsRight))
-
-
-        elif '\\in' in opr:
-            processed_condition = "{} = Any(ARRAY[{}])".format(left_opd, ",".join(elementsRight))
-        # elif opr == '=':
-        #     processed_condition = " {} == {}".format(left_opd, right_opd)
-        else:
-            processed_condition = "{} {} {}".format(left_opd, opr, right_opd)
-
-        return processed_condition
+        newConstraint = constraints[0] # note that this function should only be called when there are positive number of constraints
+        if len(constraints) > 1:
+            newConstraint = " and ".join(constraints)
+        for var in variableList:
+            newConstraint = newConstraint.replace(var, variableList[var][0])
+        return newConstraint.replace("==","=")
 
     def split_atoms(self, bodystr):
         i = 0

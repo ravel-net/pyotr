@@ -222,6 +222,9 @@ class DT_Atom:
         if processed_cond is None:
             print("Illegal condition: {}!".format(condition))
             exit()
+
+        processed_cond = processed_cond.replace("{","(")
+        processed_cond = processed_cond.replace("}",")")
         return processed_cond
         
 
