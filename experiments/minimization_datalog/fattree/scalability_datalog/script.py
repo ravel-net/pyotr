@@ -32,6 +32,6 @@ if __name__ == '__main__':
     f.write("k avg_time\n")
     for k in ks:
         f = open("./scal_results.txt", "a")
-        avg_time = test_scalability(r, k)
+        avg_time = test_scalability(r, k, 'h1')
         f.write("{} {:.4f}\n".format(k, avg_time))
         f.close()
