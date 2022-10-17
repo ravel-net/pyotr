@@ -180,7 +180,7 @@ class FaureEvaluation:
             print("No additional conditions for c-variables!")
             self.update_condition_time['update_condition'] = 0
         else:
-            upd_sql = "update {} set condition = condition || {}".format(self.output_table, conjunction_condition)
+            upd_sql = "update {} set condition = condition || Array[{}]".format(self.output_table, conjunction_condition)
             if self._additional_condition is not None: # append additional conditions to output table
                 upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_condition)
             
@@ -616,7 +616,7 @@ if __name__ == '__main__':
     #     'd':['10.0.0.1', '10.0.0.2']
     # }
     # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
-    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '1';"
+    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and (t1.a2 = '1' or t1.a2 = '2');"
     FaureEvaluation(conn, sql, additional_condition="d != 2", databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='Int', simplication_on=False, information_on=True)
 
 

@@ -48,14 +48,18 @@ class SQL_Parser:
         self.type = None # 1: select, 2: insert, 3: delete
         self._selected_attributes = {'is_star': False, 'attributes': []}
         self.working_tables = []
-        self._constraints_in_where_clause = []
+
+        # self._constraints_in_where_clause = []
+        self._position_subclause_mapping_dict = {} # for complex where clause
+        # self._where_clause_with_subclause_pos = None # e.g., <0> or <3> and b = 1
+
         sql_lowercase = sql.strip(';').lower()
         self._all_attributes = {} # {'tablename':list[attributes], 'condition': list[attributes]}
 
         self.simple_attr2column_name_mapping = {}
         self.simple_attr2datatype_mapping = {}
 
-        if sql.startswith('select'):
+        if sql.lower().startswith('select'):
             self.type = 1
 
             from_pattern_may_include_where = re.compile(r'from(.*)', re.S)
@@ -86,7 +90,7 @@ class SQL_Parser:
             exit()
         
         self.equal_attributes_from_where_clause = {} # equal attributes according to the constraints in the where clause, e.g., t1 = t2 and t2 = t3, then t1, t2 and t3 are equal attributes, {'t1':[t2, t3]}
-        self._get_equal_variables_in_constraints() # get values of above parameter
+        # self._get_equal_variables_in_constraints() # get values of above parameter
 
         self.simple_attribute_mapping = {} # t0.c1(AttributePart) maps to SelectedAttribute("t0.c1")
         self._get_simple_attribute_mapping()
@@ -98,6 +102,7 @@ class SQL_Parser:
     @property
     def execution_sql(self):
         if self.type == 1:
+            print("type", self.type)
             attributes_strs = []
             if self._selected_attributes['is_star']:
                 for key in self._all_attributes:
@@ -140,21 +145,29 @@ class SQL_Parser:
             for table in self.working_tables:
                 table_strs.append(str(table))
 
-            where_strs = []
-            for value in self._constraints_in_where_clause:
-                if type(value) == list:
-                    temp_str = []
-                    for val in value:
-                        temp_str.append(str(val))
-                    where_strs.append("({})".format(' or '.join(temp_str)))
-                else:
-                    where_strs.append(str(value))
-            # print("where_strs", where_strs)
             sql = ""
-            if len(where_strs) != 0:
-                sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), " and ".join(where_strs))
-            else:
+            if len(self._position_subclause_mapping_dict) == 0:
                 sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
+            else:
+                root_clause = self._position_subclause_mapping_dict['root']
+                where_str = self._convert_subclause_to_SQL(root_clause)
+                if where_str.startswith('(') and where_str.endswith(')'):
+                    where_str = where_str[1:-1]
+                sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
+            # for value in self._constraints_in_where_clause:
+            #     if type(value) == list:
+            #         temp_str = []
+            #         for val in value:
+            #             temp_str.append(str(val))
+            #         where_strs.append("({})".format(' or '.join(temp_str)))
+            #     else:
+            #         where_strs.append(str(value))
+            # print("where_strs", where_strs)
+            
+            # if len(where_strs) != 0:
+            #     sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), " and ".join(where_strs))
+            # else:
+            #     sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
             return sql
         else:
             return None
@@ -165,30 +178,35 @@ class SQL_Parser:
     
     @property
     def additional_conditions_SQL_format(self):
-        # TODO: update conjunction condition for condition column
-        # require SQL format, e.g., ARRAY[t1.c0, "Or(" || t1.c2 ", " || t1.c3 || ")", ... ]
-        conditions = []
-        for constraint in self._constraints_in_where_clause:
-            if type(constraint) == list: # a list of conditions connnected by logical OR
-                temp_conditions = []
-                for cond in constraint:
-                    # print(cond)
-                    # print(cond.concatenation)
+        # # TODO: update conjunction condition for condition column
+        # # require SQL format, e.g., ARRAY[t1.c0, "Or(" || t1.c2 ", " || t1.c3 || ")", ... ]
+        # conditions = []
+        # for constraint in self._constraints_in_where_clause:
+        #     if type(constraint) == list: # a list of conditions connnected by logical OR
+        #         temp_conditions = []
+        #         for cond in constraint:
+        #             # print(cond)
+        #             # print(cond.concatenation)
                     
-                    temp_conditions.append(cond.concatenation(self.simple_attribute_mapping, self.simple_attr2datatype_mapping))
-                conditions.append("'Or(' || {} || ')'".format(", ".join(temp_conditions)))
-            else:
-                # print(type(constraint))
-                # print(constraint.concatenation)
-                # print(str(constraint))
-                contained = self._if_operands_contains_faure_datatype(constraint)
-                # print("contained", contained)
-                if contained:
-                    conditions.append(constraint.concatenation(self.simple_attribute_mapping))
-        if len(conditions) == 0:
+        #             temp_conditions.append(cond.concatenation(self.simple_attribute_mapping, self.simple_attr2datatype_mapping))
+        #         conditions.append("'Or(' || {} || ')'".format(", ".join(temp_conditions)))
+        #     else:
+        #         # print(type(constraint))
+        #         # print(constraint.concatenation)
+        #         # print(str(constraint))
+        #         contained = self._if_operands_contains_faure_datatype(constraint)
+        #         # print("contained", contained)
+        #         if contained:
+        #             conditions.append(constraint.concatenation(self.simple_attribute_mapping))
+        # if len(conditions) == 0:
+        #     return None
+        # conjunction_conditions = "Array[{}]".format(", ".join(conditions))
+        # return conjunction_conditions
+        if len(self._position_subclause_mapping_dict) == 0:
             return None
-        conjunction_conditions = "Array[{}]".format(", ".join(conditions))
-        return conjunction_conditions
+        else:
+            root_clause = self._position_subclause_mapping_dict['root']
+            return self._convert_subclause_to_Z3format(root_clause)
 
     @property
     def old_conditions_attributes_BDD(self):
@@ -276,28 +294,127 @@ class SQL_Parser:
         Assume single parenthesis
         a = 1 and a != 2 and (c = 1 or c = 2 ) and d = any(p) and not d = any(p)
         """
+        self._split_subclause_in_where_clause(where_caluse_str)
+        
+        # for constraint in constraints:
+        #     if constraint.startswith('(') and constraint.endswith(')'):
+        #         temp_conditions = []
+        #         conditions = constraint.split("or")
+        #         for condition in conditions:
+        #             temp_conditions.append(Constraint(condition))
+        #         self._constraints_in_where_clause.append(deepcopy(temp_conditions))
+        #     else:
+        #         self._constraints_in_where_clause.append(Constraint(constraint))
 
-        constraints = self._split_constraints_in_where_clause(where_caluse_str)
-        for constraint in constraints:
-            if constraint.startswith('(') and constraint.endswith(')'):
-                temp_conditions = []
-                conditions = constraint.split("or")
-                for condition in conditions:
-                    temp_conditions.append(Constraint(condition))
-                self._constraints_in_where_clause.append(deepcopy(temp_conditions))
-            else:
-                self._constraints_in_where_clause.append(Constraint(constraint))
+        for pos in self._position_subclause_mapping_dict.keys():
+            disjunction_condition_list = self._process_subclause(self._position_subclause_mapping_dict[pos])
+            self._position_subclause_mapping_dict[pos] = disjunction_condition_list
+        
+        # print("self._position_subclause_mapping_dict", self._position_subclause_mapping_dict)
+
+    def _process_subclause(self, subclause):
+        disjunction_conditions = re.split('or', subclause, flags=re.IGNORECASE)
+        # print(or_conditions)
+
+        disjunction_condition_list = []
+        for cond in disjunction_conditions:
+            atoms = re.split('and', cond, flags=re.IGNORECASE )
+            conjunction_condition_list = []
+            for atom in atoms:
+                atom = atom.strip()
+                if atom.startswith('<') and atom.endswith('>'):
+                    conjunction_condition_list.append(int(atom.lstrip('<').rstrip('>'))) # pos_idx
+                else:
+                    conjunction_condition_list.append(Constraint(atom)) # atom constraint
+            disjunction_condition_list.append(conjunction_condition_list)
+        
+        # print("disjunction_condition_list", disjunction_condition_list)
+        return disjunction_condition_list
     
-    def _split_constraints_in_where_clause(self, where_clause_str):
-        pattern = re.compile(r'(.*?)[ ]{0,1}and|or', re.I)
-        dirty_constraints = re.split(pattern, where_clause_str)
-        clean_constraints = []
-        for d_con in dirty_constraints:
-            if len(d_con.strip()) == 0:
-                continue
+    def _split_subclause_in_where_clause(self, where_clause_str):
+        position_subclause_mapping_dict = {}
+        id_num = 0
+        stack = []
+        new_clause = None
+        i = 0
+        skip_closed_parenth_num = 0
+        while i < len(where_clause_str):
+            # print(where_clause_str[i])
+            if where_clause_str[i] == '(':
+                if i > 0 and where_clause_str[i-1].isalpha():
+                    skip_closed_parenth_num += 1
+                else:
+                    stack.append(i)
+
+                # print("left_parenth_position", left_parenth_position)
+            elif where_clause_str[i] == ')':
+                if skip_closed_parenth_num != 0:
+                    skip_closed_parenth_num -= 1
+                else:
+                    left_parenth_position = stack.pop()
+                    block = where_clause_str[left_parenth_position + 1 : i]
+                    pos = '<{}>'.format(id_num)
+                    new_clause = where_clause_str[:left_parenth_position] + pos + where_clause_str[i+1:]
+                    where_clause_str = new_clause
+                    # update i to the first position after <id_num>
+                    i = left_parenth_position + len(pos) - 1
+
+                    position_subclause_mapping_dict[id_num] = block
+                    id_num += 1
+                    continue
+            i += 1
+        
+        position_subclause_mapping_dict['root'] = where_clause_str
+        # print("position_subclause_mapping_dict", position_subclause_mapping_dict)
+        # print("where_clause_str", where_clause_str)
+        # return position_subclause_mapping_dict
+        self._position_subclause_mapping_dict = position_subclause_mapping_dict
+        # self._where_clause_with_subclause_pos = where_clause_str
+
+    def _convert_subclause_to_SQL(self, clause):
+        # root_clause = self._position_subclause_mapping_dict['root']
+
+        disjunction_strs = []
+        for conjunction_list in clause:
+            conjunction_strs = []
+            for atom in conjunction_list:
+                if isinstance(atom, Constraint):
+                    conjunction_strs.append(str(atom))
+                else:
+                    sub_clause = self._position_subclause_mapping_dict[atom]
+                    conjunction_strs.append(self._convert_subclause_to_SQL(sub_clause))
+            if len(conjunction_strs) == 1:
+                disjunction_strs.append(conjunction_strs[0])
             else:
-                clean_constraints.append(d_con.strip())
-        return clean_constraints
+                disjunction_strs.append('({})'.format(' and '.join(conjunction_strs)))
+        
+        if len(disjunction_strs) == 1:
+            return disjunction_strs[0]
+        else:
+            return "({})".format(' or '.join(disjunction_strs))
+            # return ' or '.join(disjunction_strs)
+    
+    def _convert_subclause_to_Z3format(self, clause):
+        # root_clause = self._position_subclause_mapping_dict['root']
+
+        disjunction_strs = []
+        for conjunction_list in clause:
+            conjunction_strs = []
+            for atom in conjunction_list:
+                if isinstance(atom, Constraint):
+                    conjunction_strs.append(atom.concatenation(self.simple_attribute_mapping))
+                else:
+                    sub_clause = self._position_subclause_mapping_dict[atom]
+                    conjunction_strs.append(self._convert_subclause_to_Z3format(sub_clause))
+            if len(conjunction_strs) == 1:
+                disjunction_strs.append(conjunction_strs[0])
+            else:
+                disjunction_strs.append("'And(' || {} || ')'".format(" || ', ' || ".join(conjunction_strs)))
+        
+        if len(disjunction_strs) == 1:
+            return disjunction_strs[0]
+        else:
+            return "'Or(' || {} || ')'".format(" || ', ' || ".join(disjunction_strs))
 
     def _get_equal_variables_in_constraints(self):
 
@@ -475,6 +592,7 @@ class WorkingTable:
 
 class Constraint:
     def __init__(self, constraint) -> None:
+        print("constraint", constraint)
         self.operators = ['!=', '<=', '>=', '=', '<', '>']
         self.negation = False
         
@@ -487,7 +605,7 @@ class Constraint:
         self._left_operand = {'function':None, 'attribute':None}
         self._operator = None
         self._right_operand = {'function':None, 'attribute':None}
-        # print("self._constraint_str", self._constraint_str)
+        print("self._constraint_str", self._constraint_str)
         self._split_constraint()
     
     def concatenation(self, simple_attr_mapping):
@@ -617,20 +735,24 @@ class Constraint:
         
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = '0' and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
-    sql = "select t1.c0 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 from R t0, l t1, l t2, l t3 where t0.c3 = '1' and t0.c0 = t1.c1 and t1.c0 = t2.c0 and t2.c0 = t3.c0"
-    p = SQL_Parser(sql, reasoning_engine='bdd', databases={
+    # sql = "select t1.c0 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 from R t0, l t1, l t2, l t3 where t0.c3 = '1' and t0.c0 = t1.c1 and t1.c0 = t2.c0 and t2.c0 = t3.c0"
+    sql = "SELECT t1.c1 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 FROM R t0, l t1 WHERE \
+    t0.c3 = any(array[t0.c2]) or ((t0.c3 = '1' and t0.c0 = t1.c0) or (t0.c3 = '1' and t0.c0 != t1.c0) or t1.c0 = '1')"
+    p = SQL_Parser(sql, reasoning_engine='z3', databases={
         'pod':{
             'types':['integer', 'int4_faure', 'text[]'], 
             'names':['c0', 'c1', 'condition']
         }, 
         'R':{
-            'types':['integer', 'integer', 'integer', 'integer[]', 'text[]'], 
+            'types':['integer', 'integer','integer[]', 'integer', 'text[]'], 
             'names':['c0', 'c1', 'c2', 'c3', 'condition']
         }, 
         'l':{
             'types':['integer', 'integer', 'text[]'], 
             'names':['c0', 'c1', 'condition']
         }})
+
+    
     # p = SQL_Parser(sql)
     print(p.execution_sql)
     print(p.additional_conditions_SQL_format)
