@@ -194,35 +194,41 @@ class FaureEvaluation:
             self._conn.commit()
 
         '''
+        instantiate some c-variables when its constraint is an equation.
+        For example, a constraint in where clause is c2 = c3
+        if there is a value of c2 is a c-variable x and c3 is a constant 1, 
+        then we can instantiate this c-variable to 1.
+        '''
+        # sqls = []
+        # for key_simple_attr in self._SQL_parser.equal_attributes_from_where_clause:
+        #     key_name = self._SQL_parser.simple_attribute_mapping[key_simple_attr].AttributeName
+
+        #     # if the datatype of attribute is Faure datatype(self-set) or USER-DEFINED(learn from database), update it. Same as the following 'is_faure_datatype_attr'
+        #     is_faure_datatype_key = self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr].lower() in self._SQL_parser._FAURE_DATATYPE or self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr] == 'USER-DEFINED'
+        #     # print("is_faure_datatype_key", key_simple_attr, self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr], is_faure_datatype_key)
+        #     for attr in self._SQL_parser.equal_attributes_from_where_clause[key_simple_attr]:
+        #         attr_name = self._SQL_parser.simple_attribute_mapping[attr].AttributeName
+                
+        #         is_faure_datatype_attr = self._SQL_parser.simple_attr2datatype_mapping[attr].lower() in self._SQL_parser._FAURE_DATATYPE or self._SQL_parser.simple_attr2datatype_mapping[attr] == 'USER-DEFINED'
+        #         # print("is_faure_datatype_attr", attr, self._SQL_parser.simple_attr2datatype_mapping[attr], is_faure_datatype_attr)
+        #         if is_faure_datatype_key or is_faure_datatype_attr:
+        #             sql = "update {} set {} = {} where not is_var({})".format(self.output_table,  attr_name, key_name, key_name)
+        #             sqls.append(sql)
+            
+        # begin_instantiated = time.time()
+        # for sql in sqls:
+        #     if self._information_on:
+        #         print(sql)
+        #     cursor.execute(sql)
+        # end_instantiated = time.time()
+        # self.update_condition_time['instantiation'] = end_instantiated-begin_instantiated
+        # self._conn.commit()
+
+        '''
         Check the selected columns
         if select *, drop duplicated columns,
         else only keep selected columns
         '''
-        sqls = []
-        for key_simple_attr in self._SQL_parser.equal_attributes_from_where_clause:
-            key_name = self._SQL_parser.simple_attribute_mapping[key_simple_attr].AttributeName
-
-            # if the datatype of attribute is Faure datatype(self-set) or USER-DEFINED(learn from database), update it. Same as the following 'is_faure_datatype_attr'
-            is_faure_datatype_key = self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr].lower() in self._SQL_parser._FAURE_DATATYPE or self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr] == 'USER-DEFINED'
-            # print("is_faure_datatype_key", key_simple_attr, self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr], is_faure_datatype_key)
-            for attr in self._SQL_parser.equal_attributes_from_where_clause[key_simple_attr]:
-                attr_name = self._SQL_parser.simple_attribute_mapping[attr].AttributeName
-                
-                is_faure_datatype_attr = self._SQL_parser.simple_attr2datatype_mapping[attr].lower() in self._SQL_parser._FAURE_DATATYPE or self._SQL_parser.simple_attr2datatype_mapping[attr] == 'USER-DEFINED'
-                # print("is_faure_datatype_attr", attr, self._SQL_parser.simple_attr2datatype_mapping[attr], is_faure_datatype_attr)
-                if is_faure_datatype_key or is_faure_datatype_attr:
-                    sql = "update {} set {} = {} where not is_var({})".format(self.output_table,  attr_name, key_name, key_name)
-                    sqls.append(sql)
-            
-        begin_instantiated = time.time()
-        for sql in sqls:
-            if self._information_on:
-                print(sql)
-            cursor.execute(sql)
-        end_instantiated = time.time()
-        self.update_condition_time['instantiation'] = end_instantiated-begin_instantiated
-        self._conn.commit()
-
         if self._SQL_parser.type == 1: # selection
             drop_columns = self._SQL_parser.drop_columns
 

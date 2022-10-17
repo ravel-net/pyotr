@@ -89,9 +89,6 @@ class SQL_Parser:
             print("We only support selection now! Sorry!")
             exit()
         
-        self.equal_attributes_from_where_clause = {} # equal attributes according to the constraints in the where clause, e.g., t1 = t2 and t2 = t3, then t1, t2 and t3 are equal attributes, {'t1':[t2, t3]}
-        # self._get_equal_variables_in_constraints() # get values of above parameter
-
         self.simple_attribute_mapping = {} # t0.c1(AttributePart) maps to SelectedAttribute("t0.c1")
         self._get_simple_attribute_mapping()
         
@@ -102,7 +99,6 @@ class SQL_Parser:
     @property
     def execution_sql(self):
         if self.type == 1:
-            print("type", self.type)
             attributes_strs = []
             if self._selected_attributes['is_star']:
                 for key in self._all_attributes:
@@ -154,20 +150,6 @@ class SQL_Parser:
                 if where_str.startswith('(') and where_str.endswith(')'):
                     where_str = where_str[1:-1]
                 sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
-            # for value in self._constraints_in_where_clause:
-            #     if type(value) == list:
-            #         temp_str = []
-            #         for val in value:
-            #             temp_str.append(str(val))
-            #         where_strs.append("({})".format(' or '.join(temp_str)))
-            #     else:
-            #         where_strs.append(str(value))
-            # print("where_strs", where_strs)
-            
-            # if len(where_strs) != 0:
-            #     sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), " and ".join(where_strs))
-            # else:
-            #     sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
             return sql
         else:
             return None
@@ -178,30 +160,6 @@ class SQL_Parser:
     
     @property
     def additional_conditions_SQL_format(self):
-        # # TODO: update conjunction condition for condition column
-        # # require SQL format, e.g., ARRAY[t1.c0, "Or(" || t1.c2 ", " || t1.c3 || ")", ... ]
-        # conditions = []
-        # for constraint in self._constraints_in_where_clause:
-        #     if type(constraint) == list: # a list of conditions connnected by logical OR
-        #         temp_conditions = []
-        #         for cond in constraint:
-        #             # print(cond)
-        #             # print(cond.concatenation)
-                    
-        #             temp_conditions.append(cond.concatenation(self.simple_attribute_mapping, self.simple_attr2datatype_mapping))
-        #         conditions.append("'Or(' || {} || ')'".format(", ".join(temp_conditions)))
-        #     else:
-        #         # print(type(constraint))
-        #         # print(constraint.concatenation)
-        #         # print(str(constraint))
-        #         contained = self._if_operands_contains_faure_datatype(constraint)
-        #         # print("contained", contained)
-        #         if contained:
-        #             conditions.append(constraint.concatenation(self.simple_attribute_mapping))
-        # if len(conditions) == 0:
-        #     return None
-        # conjunction_conditions = "Array[{}]".format(", ".join(conditions))
-        # return conjunction_conditions
         if len(self._position_subclause_mapping_dict) == 0:
             return None
         else:
@@ -295,23 +253,11 @@ class SQL_Parser:
         a = 1 and a != 2 and (c = 1 or c = 2 ) and d = any(p) and not d = any(p)
         """
         self._split_subclause_in_where_clause(where_caluse_str)
-        
-        # for constraint in constraints:
-        #     if constraint.startswith('(') and constraint.endswith(')'):
-        #         temp_conditions = []
-        #         conditions = constraint.split("or")
-        #         for condition in conditions:
-        #             temp_conditions.append(Constraint(condition))
-        #         self._constraints_in_where_clause.append(deepcopy(temp_conditions))
-        #     else:
-        #         self._constraints_in_where_clause.append(Constraint(constraint))
 
         for pos in self._position_subclause_mapping_dict.keys():
             disjunction_condition_list = self._process_subclause(self._position_subclause_mapping_dict[pos])
             self._position_subclause_mapping_dict[pos] = disjunction_condition_list
         
-        # print("self._position_subclause_mapping_dict", self._position_subclause_mapping_dict)
-
     def _process_subclause(self, subclause):
         disjunction_conditions = re.split('or', subclause, flags=re.IGNORECASE)
         # print(or_conditions)
@@ -416,62 +362,6 @@ class SQL_Parser:
         else:
             return "'Or(' || {} || ')'".format(" || ', ' || ".join(disjunction_strs))
 
-    def _get_equal_variables_in_constraints(self):
-
-        temp_dict = {}
-        for constraint in self._constraints_in_where_clause:
-            if type(constraint) == list:
-                continue
-            else:
-                if constraint.negation:
-                    continue
-                elif constraint._left_operand['function'] is not None or  constraint._right_operand['function'] is not None:
-                    continue
-                elif str(constraint._left_operand["attribute"]).strip("'")[0].isdigit() or str(constraint._right_operand["attribute"]).strip("'")[0].isdigit():
-                    continue
-                elif constraint._operator == '=':
-                    left_opd = str(constraint._left_operand["attribute"])
-                    right_opd = str(constraint._right_operand["attribute"])
-
-                    if left_opd not in temp_dict and right_opd not in temp_dict:
-                        temp_dict[left_opd] = [right_opd]
-                        temp_dict[right_opd] = left_opd
-                    elif left_opd in temp_dict and right_opd not in temp_dict:
-                        if type(temp_dict[left_opd]) == list:
-                            temp_dict[left_opd].append(right_opd)
-                            temp_dict[right_opd] = left_opd
-                        else:
-                            idx = temp_dict[left_opd]
-                            temp_dict[idx].append(right_opd)
-                            temp_dict[right_opd] = idx
-                    elif left_opd not in temp_dict and right_opd in temp_dict:
-                        if type(temp_dict[right_opd]) == list:
-                            temp_dict[right_opd].append(left_opd)
-                            temp_dict[left_opd] = right_opd
-                        else:
-                            idx = temp_dict[right_opd]
-                            temp_dict[idx].append(left_opd)
-                            temp_dict[left_opd] = idx
-                    else:
-                        if type(temp_dict[left_opd]) == list and type(temp_dict[right_opd]) == list :
-                            temp_dict[left_opd] += temp_dict[right_opd]
-                            temp_dict[left_opd].append(right_opd)
-                            temp_dict[right_opd] = left_opd
-                        elif type(temp_dict[left_opd]) == list and type(temp_dict[right_opd]) != list:
-                            idx = temp_dict[right_opd]
-                            temp_dict[idx] += temp_dict[left_opd]
-                            temp_dict[idx].append(left_opd)
-                            temp_dict[left_opd] = idx
-                        elif type(temp_dict[left_opd]) != list and type(temp_dict[right_opd]) == list:
-                            idx = temp_dict[left_opd]
-                            temp_dict[idx] += temp_dict[right_opd]
-                            temp_dict[idx].append(right_opd)
-                            temp_dict[right_opd] = idx
-        
-        for simp_attr in temp_dict:
-            if type(temp_dict[simp_attr]) == list:
-                self.equal_attributes_from_where_clause[simp_attr] = temp_dict[simp_attr]
-    
     def _get_simple_attr2datatype_mapping(self):
         print(self.simple_attribute_mapping.keys())
         for table in self._all_attributes:
@@ -592,7 +482,6 @@ class WorkingTable:
 
 class Constraint:
     def __init__(self, constraint) -> None:
-        print("constraint", constraint)
         self.operators = ['!=', '<=', '>=', '=', '<', '>']
         self.negation = False
         
@@ -605,7 +494,6 @@ class Constraint:
         self._left_operand = {'function':None, 'attribute':None}
         self._operator = None
         self._right_operand = {'function':None, 'attribute':None}
-        print("self._constraint_str", self._constraint_str)
         self._split_constraint()
     
     def concatenation(self, simple_attr_mapping):
@@ -727,12 +615,7 @@ class Constraint:
         else:
             self._right_operand['attribute'] = SelectedAttribute(right_opd)
 
-        
-        
-        
 
-        
-        
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = '0' and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
     # sql = "select t1.c0 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 from R t0, l t1, l t2, l t3 where t0.c3 = '1' and t0.c0 = t1.c1 and t1.c0 = t2.c0 and t2.c0 = t3.c0"
