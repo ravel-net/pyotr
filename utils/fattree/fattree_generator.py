@@ -52,7 +52,9 @@ class Fattree:
         self._hosts = []
         self._generate_hosts()
 
-        self._rules = []
+        self.rules = []
+
+        self.total_atoms = 0
     
     def _generate_cores(self):
         for idx in range(1, self._num_core+1):
@@ -72,7 +74,7 @@ class Fattree:
                 for c_idx in range((aggr_idx-1)*self._num_connected_core_per_aggr+1, (aggr_idx-1)*self._num_connected_core_per_aggr+self._num_connected_core_per_aggr+1):
                     c_idx = c_idx % self._num_core
                     if c_idx == 0:
-                        c_idx += 4
+                        c_idx += self._num_core
                     core = "c"+str(c_idx)
                     
                     self._store(aggr, core, self._connectivity)
@@ -187,155 +189,226 @@ class Fattree:
             
         return "\n".join(lines)
 
-    def generate_base_program(self, dst_host):
-        nodes_exist_rule = {}
-        # nodes_connection = {}
-        edge_connected_dst_host = self._host_edge_mapping[dst_host][0]
+    def _is_host(self, node):
+        if node.startswith('h'):
+            return True
+        return False
 
-        # rule for edge to dst_host
-        rule = "R({edge}, {dst}, [{edge}], 1) :- l({edge}, {dst})".format(
-                                        edge=edge_connected_dst_host, 
-                                        dst=dst_host)
-        self._rules.append(rule)
-        if edge_connected_dst_host not in nodes_exist_rule:
-            nodes_exist_rule[edge_connected_dst_host] = [[edge_connected_dst_host, dst_host, ['x'], 1]]
+    def _attach_links_for_each_node(self):
+        links_info = {}
+        for node in self._connectivity.keys():
+            links_info[node] = []
+            for neighbor in self._connectivity[node]:
+                link = "l({}, {})".format(node, neighbor)
+                links_info[node].append(link)
         
-        # self._store(edge_connected_dst_host, dst_host, nodes_connection)
+        return links_info
+
+    def _propagate_routes_from_dst(self, dst):
+        PREDEFINED_PATH = ['x', 'y', 'z', 'u', 'v', 'w']
+        known_info = {}
+        visited_nodes = []
+        queueing_nodes = [dst]
+        neighbors = [] 
+        next_hops = [] # next_hops[i] is the next hop of neighbors[i]
+        for node in self._connectivity[dst]:
+            neighbors.append(node)
+            next_hops.append(dst)
         
-        # rules for aggregations to edge
-        for aggr in self._edge_aggr_mapping[edge_connected_dst_host]:
-            predicates_edge = nodes_exist_rule[edge_connected_dst_host]
-            for predicate in predicates_edge:
-                link = "l({aggr}, {edge})".format(aggr=aggr, edge=edge_connected_dst_host)
-                header_path = copy(predicate[2])
-                header_path.insert(0, aggr)
-                pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
-                rule = "R({aggr}, {dst}, [{path}], 2) :- {predicate}, {link}".format(
-                                            aggr=aggr, 
-                                            dst=dst_host, 
-                                            path=", ".join(header_path),
-                                            predicate=pred,
-                                            link=link)
-                self._rules.append(rule)
+        visited_links = {}
 
-                if aggr not in nodes_exist_rule:
-                    nodes_exist_rule[aggr] = []
-                nodes_exist_rule[aggr].append([aggr, dst_host, ['y', 'x'], 2])
-
-                # self._store(aggr, edge_connected_dst_host, nodes_connection)
-
-            # rules for core to aggr
-            for core in self._aggr_core_mapping[aggr]:
-                for predicate in nodes_exist_rule[aggr]:
-                    header_path = copy(predicate[2])
-                    header_path.insert(0, core)
-                    link = "l({core}, {aggr})".format(core=core, aggr=aggr)
-                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
-                    rule = "R({core}, {dst}, [{path}], 3) :- {predicate}, {link}".format(
-                                            core=core, 
-                                            dst=dst_host, 
-                                            path=", ".join(header_path), 
-                                            predicate=pred, 
-                                            link=link)
-                    
-                    self._rules.append(rule)
-
-                    if core not in nodes_exist_rule:
-                        nodes_exist_rule[core] = []
-                    nodes_exist_rule[core].append([core, dst_host, ['z', 'y', 'x'], 3])
-        
-        # rules for remaining aggregations
-        for aggr in self._aggr_core_mapping:
-            if aggr in nodes_exist_rule:
+        while len(queueing_nodes) > 0:
+            print("\n===================================")
+            print("queueing_nodes", queueing_nodes)
+            print("visited_nodes", visited_nodes)
+            next_hop = queueing_nodes.pop(0)
+            if next_hop in visited_nodes:
                 continue
+            print("neighbors", self._connectivity[next_hop])
+            # neighbors = [] 
+            for neighbor in self._connectivity[next_hop]:
+                
+                # neighbor = neighbors.pop(0)
+                if neighbor in visited_nodes:
+                    continue
+                else:
+                    if not self._is_host(neighbor):
+                        queueing_nodes.append(neighbor)
+                    else:
+                        visited_nodes.append(neighbor)
+                print("neighbor", neighbor, "next_hop", next_hop)
+                reachabilities = []
+                if next_hop == dst:
+                    reachability = [neighbor, dst, [neighbor], 1]
+                    # str_reachability = str(neighbor) + str(next_hop) + "[{}]".format(neighbor) + str(1)
+                    reachabilities.append(reachability)
+                else:
+                    different_hops = []
+                    for next_hop_reachability in known_info[next_hop]:
+                        next_hop_hops = next_hop_reachability[-1]
+                        if next_hop_hops in different_hops:
+                            continue
+                        else:
+                            different_hops.append(next_hop_hops)
+                        # print("neighbor", neighbor, "next_hop", next_hop, "next_hop_hops", next_hop_hops)
+                        reachability = [neighbor, dst, [neighbor] + PREDEFINED_PATH[:next_hop_hops], next_hop_hops+1]
+                        # str_reachability = str(neighbor) + str(next_hop) + "[{}]".format(", ".join([neighbor] + PREDEFINED_PATH[:next_hop_hops])) + str(next_hop_hops+1)
+                        reachabilities.append(reachability)
+                    # print("------------------------------------")
+                if neighbor in known_info.keys():
+                    known_info[neighbor] += reachabilities
+                else:
+                    known_info[neighbor] = reachabilities
 
-            links = []
-            for core in self._aggr_core_mapping[aggr]:
-                link = "l({aggr}, {core})".format(aggr=aggr, core=core)
-                links.append(link)
+                if neighbor in visited_links.keys():
+                    visited_links[neighbor].append(next_hop)
+                else:
+                    visited_links[neighbor] = [next_hop]
 
-            for core in self._aggr_core_mapping[aggr]:
-                for predicate in nodes_exist_rule[core]:
-                    header_path = copy(predicate[2])
-                    header_path.insert(0, aggr)
-                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
-                    rule = "R({aggr}, {dst}, [{path}], {hops}) :- {predicate}, {links}".format(
-                                            aggr=aggr, 
-                                            dst=dst_host, 
-                                            path=", ".join(header_path), 
-                                            hops=predicate[-1]+1,
-                                            predicate=pred, 
-                                            links=", ".join(links))
-                    self._rules.append(rule)
+            visited_nodes.append(next_hop)
 
-            if aggr not in nodes_exist_rule:
-                nodes_exist_rule[aggr] = []
-            nodes_exist_rule[aggr].append([aggr, dst_host, ['u', 'z', 'y', 'x'], 4])
-
-        # rules for remaining edges
-        for edge in self._edge_aggr_mapping:
-            if edge in nodes_exist_rule:
-                continue
-            hops = None
-            for aggr in self._edge_aggr_mapping[edge]:
-                for predicate in nodes_exist_rule[aggr]:
-                    header_path = copy(predicate[2])
-                    header_path.insert(0, edge)
-                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
-                    hops = predicate[-1]+1
-                    link = "l({edge}, {aggr})".format(edge=edge, aggr=aggr)
-                    rule = "R({edge}, {dst}, [{path}], {hops}) :- {predicate}, {link}".format(
-                                                edge=edge, 
-                                                dst=dst_host, 
-                                                path=", ".join(header_path), 
-                                                hops=hops,
-                                                predicate=pred,
-                                                link=link)
-                    
-                    self._rules.append(rule)
+            # print("visited_links", visited_links)
             
-            if edge not in nodes_exist_rule:
-                nodes_exist_rule[edge] = []
-            path = ['v', 'u', 'z', 'y', 'x']
-            nodes_exist_rule[edge].append([edge, dst_host, path[0-hops:], hops])
         
-        # rules for remaining hosts
-        for host in self._host_edge_mapping:
-            if host in nodes_exist_rule:
-                continue
-            if host == dst_host:
-                continue
-            hops = None
-            for edge in self._host_edge_mapping[host]:
-                for predicate in nodes_exist_rule[edge]:
-                    header_path = copy(predicate[2])
-                    header_path.insert(0, host)
-                    pred = "R({}, {}, [{}], {})".format(predicate[0], predicate[1], ", ".join(predicate[2]), predicate[3])
-                    link = "l({host}, {edge})".format(host=host, edge=edge)
-                    hops = predicate[-1]+1
-                    rule = "R({host}, {dst}, [{path}], {hops}) :- {predicate}, {link}".format(
-                                                host=host, 
-                                                dst=dst_host, 
-                                                path=", ".join(header_path), 
-                                                hops=hops,
-                                                predicate=pred,
-                                                link=link)
+        # print("known_info", known_info)
+        return known_info#, visited_links
 
-                    self._rules.append(rule)
+    def _generate_rules_with_path(self, dst):
+        
+        known_info = self._propagate_routes_from_dst(dst)
+        print("known_info", known_info)
+        for host in self._hosts:
+            if host == dst:
+                continue
+            self._generate_rules_with_path_for_node(host, dst, known_info)
+        
+        for edge in self._edges:
+            self._generate_rules_with_path_for_node(edge, dst, known_info)
 
-            if host not in nodes_exist_rule:
-                nodes_exist_rule[host] = []
-            path = ['v', 'u', 'z', 'y', 'x']
-            nodes_exist_rule[host].append([host, dst_host, path[0-hops:], hops])
+        for aggr in self._aggregrations:
+            self._generate_rules_with_path_for_node(aggr, dst, known_info)
+
+        for core in self._cores:
+            self._generate_rules_with_path_for_node(core, dst, known_info)
+
+        print("\n".join(self.rules))
+                    
+    def _generate_rules_with_path_for_node(self, node, dst, known_info):
+        PREDEFINED_PATH = ['x', 'y', 'z', 'u', 'v', 'w']
+        links_info = self._attach_links_for_each_node()
+        has_host = False
+        for neighbor in self._connectivity[node]:
+            # print("neighbor", neighbor)
+            if self._is_host(neighbor):
+                if dst in self._connectivity[node]:
+                    if has_host:
+                        continue
+                    
+                    has_host = True
+                    rule = "R({node}, {dst}, [{node}], {hops}) :- {links}".format(
+                        node = node,
+                        dst = dst,
+                        path = ", ".join(path),
+                        hops = 1, 
+                        links = ", ".join(links_info[node])
+                    )
+                    # print("rule", rule)
+                    self.rules.append(rule)
+                    self.total_atoms += len(links_info[node])
+                else:
+                    continue # host does not route traffic
+            else:
+                different_hops = []
+                for neighbor_reachability in known_info[neighbor]:
+                    dst = neighbor_reachability[1]
+                    hops = neighbor_reachability[-1]
+                    path = PREDEFINED_PATH[:hops]
+                    if hops in different_hops:
+                        continue
+                    else:
+                        different_hops.append(hops)
+                    rule = "R({node}, {dst}, [{node}, {path}], {hops_plus}) :- R({neighbor}, {dst}, [{path}], {hops}), {links}".format(
+                        node = node,
+                        dst = dst,
+                        path = ", ".join(path),
+                        hops_plus=hops + 1,
+                        neighbor=neighbor,
+                        hops = hops, 
+                        links = ", ".join(links_info[node])
+                    )
+                    # print("rule", rule)
+                    self.rules.append(rule)
+                    self.total_atoms += len(links_info[node]) + 1
+
+    def generate_base_rules(self, dst):
     
-        print("\n".join(self._rules))
-
-        return "\n".join(self._rules)
+        links_info = self._attach_links_for_each_node()
+        for node in self._connectivity.keys():
+            if node == dst:
+                continue
+            has_host = False
+            for neighbor in self._connectivity[node]:
+                # print("neighbor", neighbor)
+                if self._is_host(neighbor):
+                    if dst in self._connectivity[node]:
+                        if has_host:
+                            continue
+                        
+                        has_host = True
+                        rule = "R({node}, {dst}) :- {links}".format(
+                            node = node,
+                            dst = dst,
+                            links = ", ".join(links_info[node])
+                        )
+                        # print("rule", rule)
+                        self.rules.append(rule)
+                        self.total_atoms += len(links_info[node])
+                    else:
+                        continue # host does not route traffic
+                else:
+                    rule = "R({node}, {dst}) :- R({neighbor}, {dst}), {links}".format(
+                            node = node,
+                            dst = dst,
+                            neighbor=neighbor,
+                            links = ", ".join(links_info[node])
+                        )
+                    # print("rule", rule)
+                    self.rules.append(rule)
+                    self.total_atoms += len(links_info[node]) + 1
+        
+        # print("\n".join(self.rules))
+        return "\n".join(self.rules)
 
 if __name__ == '__main__':
-    f = Fattree(4)
+    f = Fattree(16)
     print(f)
-    f.generate_base_program("h16")
+    # f.generate_base_program("h16")
+    # f._propagate_routes_from_dst('h16')
+    print(f._cores)
+    print(f._aggregrations)
+    print(f._edges)
+    print(f._hosts)
+    # print(f._connectivity)
+    f.generate_base_rules('h1')
+    print("total nodes:", len(f._cores)+len(f._aggregrations)+len(f._edges)+len(f._hosts))
+    print("total number of rules:", len(f.rules))
+    print("total_number of atoms:", f.total_atoms)
+    
+    ############################# toy example, Program for reachability########################################
+    # connectivity = {
+    #     'h1':['e1'],
+    #     'e1':['h1', 'a1', 'a2'],
+    #     'a1':['e1', 'e2', 'c1'],
+    #     'c1':['a1', 'a2'],
+    #     'a2':['c1', 'e1', 'e2'],
+    #     'e2':['a1', 'a2', 'h2'],
+    #     'h2':['e2']
+    # }
+    # f = Fattree(2)
+    # f._connectivity = connectivity
+    # f._generate_base_rules('h2')
+
+    
 
 
         
