@@ -41,9 +41,8 @@ class DT_Atom:
 
         self.constraints = [] # conditions for c-variables
         if condition is not None: # conditions for c-variables
-            for c in condition.split(","):
-                processed_c = self.datalog_condition2z3_condition(c)
-                self.constraints.append(processed_c)
+            processed_c = self.datalog_condition2z3_condition(condition)
+            self.constraints.append(processed_c)
 
         self.parameters =  []
         parameter_str = split_str[1].strip() # parameter_str = 'a1, xd, p'
