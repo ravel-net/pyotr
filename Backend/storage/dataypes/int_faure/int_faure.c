@@ -391,6 +391,14 @@ int4_faure_bool(PG_FUNCTION_ARGS)
 		PG_RETURN_BOOL(true);
 }
 
+PG_FUNCTION_INFO_V1(int4_faure_int);
+/* Cast int4_faure -> int */
+Datum
+int4_faure_int(PG_FUNCTION_ARGS)
+{
+	return PG_GETARG_INT32_INT_FAURE(0);
+}
+
 PG_FUNCTION_INFO_V1(bool_int4_faure);
 /* Cast bool -> int4_faure */
 Datum
@@ -401,7 +409,19 @@ bool_int4_faure(PG_FUNCTION_ARGS)
 		result->integer = 0;
 	PG_RETURN_POINTER(result);
 }
- 
+
+
+PG_FUNCTION_INFO_V1(int_int4_faure);
+/* Cast int -> int4_faure */
+Datum
+int_int4_faure(PG_FUNCTION_ARGS)
+{
+	int		int_arg = PG_GETARG_INT32(0);
+	int4_faure* result = int4_faure_new(1, "0");
+	result->integer = int_arg;
+	PG_RETURN_POINTER(result);
+}
+
 // /*
 //  *		============================
 //  *		COMPARISON OPERATOR ROUTINES

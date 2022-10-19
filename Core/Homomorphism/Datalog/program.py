@@ -69,7 +69,7 @@ class DT_Program:
     def execute(self, conn):
         changed = False
         for rule in self._rules:
-            # print("\n------------------------")
+            print("\n------------------------")
             print("executing rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
@@ -140,10 +140,10 @@ class DT_Program:
                     break
 
                 rule_with_deleted_atom = rule.copyWithDeletedAtom(atomNum)
-                
                 if not rule_with_deleted_atom.safe():
                     atomNum += 1 
                     continue
+                print("Checking ", rule_with_deleted_atom)
 
                 contained = self.contains_rule(rule_with_deleted_atom)
                 if contained:
@@ -190,27 +190,7 @@ class DT_Program:
     #     return date.replace("/", "-") 
     
 if __name__ == "__main__":
-    ################################## Example 6 - Containment ##################################
-    # p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
-    # p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
-    # print(p1)
-    # print(p2)
-    # program1 = DT_Program(p1)
-    # program2 = DT_Program(p2)
-    # print(program1.contains(program2))
-    # print(program2.contains(program1))    
-
-    ################################# Example 7 - Minimization################################
-    # p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
-    # # p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
-    # program1 = DT_Program(p1)
-    # # program2 = DT_Program(p2)
-    # # print(program1.contains(program2))
-    # # print(program2.contains(program1))    
-    # print(program1)
-    # program1.minimize()
-    # print(program1)
-
+    print("hello")
     ################################# Control Plane Toy Example #################################
     # # p1 = "R(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), l(h,x2), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(h,x1), l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(h,x2), l(x2, xd)"
     # p1 = "R(h,xd,h || xp) :- l(h,x2), R(x2,xd,xp)\nR(h,xd,h || xp) :- l(h,x1), R(x1,xd,xp), (h \\not_in [xp])\nR(x1,xd,[xd]) :- l(x1,xd), (x1 \\not_in [xd])\nR(x2,xd,[xd]) :- l(x2, xd)"
@@ -254,13 +234,13 @@ if __name__ == "__main__":
     # print("after minimizing", P_program)
 
     ########################################## ACL Example:  ######################################
-    # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
 
     # p1 = "R(a3,h3,[h3],1)[h3 = 10] :- l(a3,h3)[h3 = 10]\nR(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a2,x],2) :- R(a2,h3,[x],1),l(a2,e1)\nR(e1,h3,[a3,x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1,x,y],3)[h3 = 10] :- R(e1,h3,[x,y],2)[h3 = 10],l(a1,e1)\nR(h1,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h1)\nR(h2,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h2)"
 
-    # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a3, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a3, e1)"    
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a3, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a3, e1)"    
 
-    # # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, e1)"
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1)[h3 = 20]:- l(a2,h3)[h3 = 20], l(a2, e1)"
 
     # program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains=['10', '20'], c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
     # # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
@@ -321,10 +301,10 @@ if __name__ == "__main__":
     # print (end-start)
 
     ###################################### 3-hop minimization example ##############################
-    p1 = "R(a3,h3,[h3],1) :- l(a3,h3)\nR(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a2,x],2) :- R(a2,h3,[x],1),l(a2,e1)\nR(e1,h3,[a3,x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1,x,y],3) :- R(e1,h3,[x,y],2),l(a1,e1)\nR(h1,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h1)\nR(h2,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h2)"
+    # p1 = "R(a3,h3,[h3],1) :- l(a3,h3)\nR(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a2,x],2) :- R(a2,h3,[x],1),l(a2,e1)\nR(e1,h3,[a3,x],2) :- R(a3,h3,[x],1),l(a3,e1),l(a2,e1)\nR(a1,h3,[e1,x,y],3) :- R(e1,h3,[x,y],2),l(a1,e1)\nR(h1,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h1)\nR(h2,h3,[a1,x,y,z],4) :- R(a1,h3,[x,y,z],3),l(a1,h2)\nR(h4,h3,[a2,x],2) :- R(a2,h3,[x],1),l(a2,h4)"
 
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
+    # program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]})
 
-    print(program1)
-    program1.minimize()
-    print(program1)
+    # print(program1)
+    # program1.minimize()
+    # print(program1)

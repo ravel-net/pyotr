@@ -28,6 +28,7 @@ import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_z3
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_BDD as merge_tuples_bdd
 import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
+from utils.parsing_utils import z3ToSQL
 
 class DT_Rule:
     """
@@ -49,8 +50,8 @@ class DT_Rule:
         list of variables in rule (not including c-variables)
     _c_variables : string[]
         list of c-variables in rule
-    _domains: int[]
-        domain of c-variables
+    _domains: {}
+        domain of c-variables, with c-variable as key and the domain as a list. e.g. {'x':[1,2], 'y':[40,5]}
     _mapping : dictionary{variable : integer}
         mapping of variables to integers (used in containment). The only important part here is to map distinct variables to distinct constants. TODO: Should this mapping take into account the domain of c-variables?
     _operators : string[]
@@ -67,7 +68,7 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
 
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[], additional_constraints=[]):
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[], additional_constraints=[]):
 
         self._additional_constraints = deepcopy(additional_constraints) 
         if headAtom and bodyAtoms:
@@ -99,7 +100,7 @@ class DT_Rule:
                 return False        
         return True
 
-    def generateRule(self, head, body, databaseTypes={}, operators=[], domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
+    def generateRule(self, head, body, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
         self._variables = [] 
         self._c_variables = [] 
         self._head = head
@@ -148,6 +149,9 @@ class DT_Rule:
             print("------------------------\n")
 
         self.selectColumns = self.calculateSelect() 
+
+        if len(c_tables) > 0:
+            self.z3tools = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
 
     # Includes the select part of query including datatype
     # e.g. 
@@ -430,7 +434,6 @@ class DT_Rule:
             tup_cond = tup[-1] # assume condition locates the last position
             data_portion = list(tup[:-1])
             if self._sameDataPortion(header_data_portion, data_portion): #TODO: Need to add conditions for c-variable equivalence
-                
                 # Adding extra c-conditions
                 extra_conditions = []
                 for i, dat in enumerate(header_data_portion):
@@ -451,13 +454,7 @@ class DT_Rule:
                     else:
                         str_tup_cond = "And({})".format(", ".join(tup_cond+extra_conditions))
 
-                    print("New Condition: ",str_tup_cond)
-
-                    faure_domains = {}
-                    for cvar in self._c_variables:
-                        faure_domains[cvar] = self._domains
-                    z3tools = z3SMTTools(variables=self._c_variables,domains=faure_domains, reasoning_type=self._reasoning_type)
-                    if z3tools.check_equivalence_for_two_string_conditions(header_condition, str_tup_cond):
+                    if self.z3tools.check_equivalence_for_two_string_conditions(header_condition, str_tup_cond):
                         contains = True
                         return contains
 
@@ -469,6 +466,20 @@ class DT_Rule:
                     print("We do not support {} engine!".format(self._reasoning_engine))
                     exit()
         return contains
+
+    # The argument conditions1 and conditions2 are list of conditions. The length of the lists should be equal, otherwise this function should not be called
+    # Function computes if all conditions in the same index are equivalent
+    def conditionsEquivalent(self, conditions1, conditions2):
+        for i in range(len(conditions1)):
+            condition1 = ""
+            condition2 = ""
+            if len(conditions1[i]) > 0 and len(conditions1[i][0]) > 0:
+                condition1 = conditions1[i][0][0]
+            if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
+                condition2 = conditions2[i][0][0]
+            if not self.z3tools.check_equivalence_for_two_string_conditions(condition1, condition2):
+                return False
+        return True
 
     # Adds the result of the table "output" to head. Only adds distinct variables
     def insertTuplesToHead(self, conn, fromTable="output"):
@@ -495,6 +506,8 @@ class DT_Rule:
         # counting non-redundant rows in header after simplification
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterSimp = int(cursor.fetchall()[0][0])
+        cursor.execute("select condition from {}".format(header_table))
+        conditionsPre = cursor.fetchall()
 
         # Adding result of output to header
         cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable))
@@ -514,8 +527,15 @@ class DT_Rule:
         headerCountAfterInsert = int(cursor.fetchall()[0][0])
         conn.commit()
         
+        cursor.execute("select condition from {}".format(header_table))
+        conditionsPost = cursor.fetchall()
+
         if headerCountAfterInsert > headerCountAfterSimp:
             changed = True
+        elif not self.conditionsEquivalent(conditionsPre, conditionsPost):
+            changed = True
+
+        # if not changed, check for equivalence of all conditions. If they are trivially same (e.g. string equivalence, move on. Also, simplify conditions along the way to make checking easier)
         conn.commit()
 
         return changed
@@ -526,21 +546,21 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        faure_domains = {}
-        for cvar in self._c_variables:
-            faure_domains[cvar] = self._domains
-
-        FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), output_table="output", domains=faure_domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
+        FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
 
         changed = self.insertTuplesToHead(conn)
         return changed
 
     def addtional_constraints2where_clause(self, constraints, variableList):
-        newConstraint = constraints[0] # note that this function should only be called when there are positive number of constraints
-        if len(constraints) > 1:
-            newConstraint = " and ".join(constraints)
-        for var in variableList:
-            newConstraint = newConstraint.replace(var, variableList[var][0])
+        newConstraints = []
+        singleLocVarList = {}
+        for var in variableList: # Variable list contains location for every occurrence of the variable. Need to fix
+            singleLocVarList[var] = variableList[var][0]
+        for constraint in constraints:
+            newConstraints.append(z3ToSQL(condition = constraint, replacements = singleLocVarList))
+        newConstraint = newConstraints[0] # note that this function should only be called when there are positive number of constraints
+        if len(newConstraints) > 1:
+            newConstraint = " and ".join(newConstraints)
         return newConstraint.replace("==","=")
 
     def split_atoms(self, bodystr):

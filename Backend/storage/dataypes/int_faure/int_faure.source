@@ -12,6 +12,7 @@
 --
 ---------------------------------------------------------------------------
 DROP TYPE int4_faure CASCADE;
+CREATE TYPE int4_faure;
 
 -----------------------------
 -- Creating a new type:
@@ -50,12 +51,23 @@ CREATE FUNCTION int4_faureout(int4_faure)
 CREATE FUNCTION bool_int4_faure(bool)
    RETURNS int4_faure
    AS '_OBJWD_/int_faure'
-   LANGUAGE C IMMUTABLE STRICT;
+   LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int_int4_faure(Integer)
+   RETURNS int4_faure
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
 
 CREATE FUNCTION int4_faure_bool(int4_faure)
    RETURNS bool
    AS '_OBJWD_/int_faure'
-   LANGUAGE C IMMUTABLE STRICT;
+   LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
+CREATE FUNCTION int4_faure_int(int4_faure)
+   RETURNS int
+   AS '_OBJWD_/int_faure'
+   LANGUAGE C IMMUTABLE STRICT PARALLEL SAFE;
+
 
 -- the binary input function 'inet_faure_recv' takes a StringInfo buffer
 -- and turns its contents into the internal representation.
@@ -87,6 +99,11 @@ CREATE TYPE int4_faure (
    -- alignment = double
 );
 
+
+CREATE CAST (bool AS int4_faure) WITH FUNCTION bool_int4_faure(bool) AS IMPLICIT;
+CREATE CAST (Integer AS int4_faure) WITH FUNCTION int_int4_faure(Integer) AS IMPLICIT;
+CREATE CAST (int4_faure AS bool)  WITH FUNCTION int4_faure_bool(int4_faure) AS IMPLICIT;
+CREATE CAST (int4_faure AS Integer)  WITH FUNCTION int4_faure_int(int4_faure) AS IMPLICIT;
 
 -----------------------------
 -- Using the new type:
