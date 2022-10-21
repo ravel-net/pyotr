@@ -338,6 +338,32 @@ class z3SMTTools:
             print(self.solver.model())
             self.solver.pop()
             return False
+
+    def is_implication(self, condition1, condition2):
+        """
+        Check if condition1 implies condition2
+        """
+        prcd_condition1 = self.condition_parser(condition1)
+        prcd_condition2 = self.condition_parser(condition2)
+
+        P = eval(prcd_condition1)
+        Q = eval(prcd_condition2)
+
+        self.solver.push()
+
+        self.solver.add(Not(Or(Not(P), Q)))
+        result = self.solver.check()
+
+        if result == z3.unsat:
+            print("implies")
+            self.solver.pop()
+            return True
+        else:
+            print("Does not imply")
+            print(self.solver.model())
+            self.solver.pop()
+            return False
+
     
     def _get_domain_str(self):
         domain_conditions = []
@@ -466,4 +492,11 @@ class z3SMTTools:
         conditionFinal += ')'
         return conditionFinal
 
+if __name__ == '__main__':
+    condition1 = "Or(x == 1, x == 2)"
+    condition2 = "x == 1"
+
+    z3tool = z3SMTTools(variables=['x'], domains={})
+    z3tool.is_implication(condition1, condition2)
+    z3tool.is_implication(condition2, condition1)
 
