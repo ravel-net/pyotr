@@ -454,7 +454,8 @@ class DT_Rule:
                     else:
                         str_tup_cond = "And({})".format(", ".join(tup_cond+extra_conditions))
 
-                    if self.z3tools.check_equivalence_for_two_string_conditions(header_condition, str_tup_cond):
+                    # Does the condition in the tuple imply the condition in the header?
+                    if self.z3tools.is_implication(str_tup_cond, header_condition):
                         contains = True
                         return contains
 
