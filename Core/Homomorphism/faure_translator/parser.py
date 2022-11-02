@@ -10,11 +10,7 @@ sys.path.append(root)
 from Core.Homomorphism.faure_translator.attribute import SelectedAttribute
 import databaseconfig as cfg
 import psycopg2 
-conn = psycopg2.connect(
-    host=cfg.postgres["host"], 
-    database=cfg.postgres["db"], 
-    user=cfg.postgres["user"], 
-    password=cfg.postgres["password"])
+
 
 class SQL_Parser:
     """
@@ -34,9 +30,11 @@ class SQL_Parser:
     _ARITHMATIC_OPERATORS = ['+', '-', '/', '*']
     _FAURE_DATATYPE = ['int4_faure', 'inet_faure']
     
-    def __init__(self, sql, reasoning_engine='z3', databases={}):
+    def __init__(self, conn, sql, is_sep=False, reasoning_engine='z3', databases={}):
+        self._conn = conn
         self._original_sql = sql
         self._reasoning_engine=reasoning_engine
+        self._is_sep = is_sep
         self.databases = {}
         for table in databases:
             table_lower = table.lower()
@@ -154,6 +152,58 @@ class SQL_Parser:
         else:
             return None
 
+    
+    @property
+    def combined_sql(self):
+        if self.type == 1:
+            attributes_strs = []
+            if self._selected_attributes['is_star']:
+                for key in self._all_attributes:
+                    if key == 'condition':
+                        if self._reasoning_engine == 'z3':
+                            attr_strs = []
+                            for attr in self._all_attributes[key]:
+                                attr_strs.append(str(attr))
+                            attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                        elif self._reasoning_engine.lower() == 'bdd':
+                            # for attr in self._all_attributes[key]:
+                            #     attributes_strs.append(str(attr))
+                            print("Developing...")
+                            exit()
+                    else:
+                        for attr in self._all_attributes[key]:
+                            attributes_strs.append(str(attr))
+            else:
+                for key in self._selected_attributes['attributes']:
+                    attributes_strs.append(str(key))
+                    
+                attr_strs = []
+                for attr in self._all_attributes['condition']:
+                    attr_strs.append(str(attr))
+
+                if self._reasoning_engine == 'z3':
+                    attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                elif self._reasoning_engine.lower() == 'bdd':
+                    print("Developing...")
+                    exit()
+
+            table_strs = []
+            for table in self.working_tables:
+                table_strs.append(str(table))
+
+            sql = ""
+            if len(self._position_subclause_mapping_dict) == 0:
+                sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
+            else:
+                root_clause = self._position_subclause_mapping_dict['root']
+                where_str = self._convert_subclause_to_SQL(root_clause)
+                if where_str.startswith('(') and where_str.endswith(')'):
+                    where_str = where_str[1:-1]
+                sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
+            return sql
+        else:
+            return None
+
     @property
     def sql(self):
         return self._original_sql
@@ -164,7 +214,13 @@ class SQL_Parser:
             return None
         else:
             root_clause = self._position_subclause_mapping_dict['root']
-            return self._convert_subclause_to_Z3format(root_clause)
+            # print("self._position_subclause_mapping_dict", self._position_subclause_mapping_dict)
+            # print('root_clause', root_clause)
+            # print(self._is_sep)
+            if self._is_sep: # is separate step 1 and step 2
+                return self._convert_subclause_to_Z3format(root_clause, None)
+            else:
+                return self._convert_subclause_to_Z3format(root_clause, self.simple_attribute_mapping)
 
     @property
     def old_conditions_attributes_BDD(self):
@@ -213,13 +269,13 @@ class SQL_Parser:
                 column_datatypes = self.databases[workingtable.table]['types']
             else:
                 self.databases[workingtable.table] = {'types':[], 'names':[]}
-                cursor = conn.cursor()
+                cursor = self._conn.cursor()
                 cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(workingtable.table))
                 for (column_name, datatype) in cursor.fetchall():
                     self.databases[workingtable.table]['types'].append(datatype.lower())
                     self.databases[workingtable.table]['names'].append(column_name.lower())
 
-                conn.commit()
+                self._conn.commit()
                 column_names = self.databases[workingtable.table]['names']
                 column_datatypes = self.databases[workingtable.table]['types']
             
@@ -340,18 +396,18 @@ class SQL_Parser:
             return "({})".format(' or '.join(disjunction_strs))
             # return ' or '.join(disjunction_strs)
     
-    def _convert_subclause_to_Z3format(self, clause):
+    def _convert_subclause_to_Z3format(self, clause, attribute_mapping):
         # root_clause = self._position_subclause_mapping_dict['root']
-
         disjunction_strs = []
         for conjunction_list in clause:
             conjunction_strs = []
             for atom in conjunction_list:
                 if isinstance(atom, Constraint):
-                    conjunction_strs.append(atom.concatenation(self.simple_attribute_mapping))
+                    print(atom.concatenation(attribute_mapping))
+                    conjunction_strs.append(atom.concatenation(attribute_mapping))
                 else:
                     sub_clause = self._position_subclause_mapping_dict[atom]
-                    conjunction_strs.append(self._convert_subclause_to_Z3format(sub_clause))
+                    conjunction_strs.append(self._convert_subclause_to_Z3format(sub_clause, attribute_mapping))
             if len(conjunction_strs) == 1:
                 disjunction_strs.append(conjunction_strs[0])
             else:
@@ -375,7 +431,7 @@ class SQL_Parser:
                     self.simple_attr2column_name_mapping[attribute.AttributePart] = self.databases[table]['names'][idx]
                     self.simple_attr2datatype_mapping[attribute.AttributePart] = self.databases[table]['types'][idx]
         
-    def _get_simple_attribute_mapping(self):
+    def _get_simple_attribute_mapping(self): # the attribute name maps to its name after data content
         simple_attr_mapping = {}
         if not self._selected_attributes['is_star']:
             for attribute in self._selected_attributes['attributes']:
@@ -391,6 +447,8 @@ class SQL_Parser:
                     simple_attr_mapping[attribute.AttributePart] = attribute
 
         self.simple_attribute_mapping = simple_attr_mapping
+
+
 
     def _get_drop_columns(self):
         
@@ -498,32 +556,34 @@ class Constraint:
     
     def concatenation(self, simple_attr_mapping):
         is_array = False
-
-        left_simple_attr = self._left_operand['attribute'].AttributePart
-        right_simple_attr = self._right_operand['attribute'].AttributePart
-
         left_opd = ""
+        right_opd = ""
         left_attribute = ""
-        
-        if left_simple_attr in simple_attr_mapping:
-            left_attribute = simple_attr_mapping[left_simple_attr].AttributeName
-        else:
+        right_attribute = ""
+        if simple_attr_mapping is None:
             left_attribute = str(self._left_operand['attribute'])
+            right_attribute = str(self._right_operand['attribute'])
+        else:
+            left_simple_attr = self._left_operand['attribute'].AttributePart
+            right_simple_attr = self._right_operand['attribute'].AttributePart
+            
+            if left_simple_attr in simple_attr_mapping:
+                left_attribute = simple_attr_mapping[left_simple_attr].AttributeName
+            else:
+                left_attribute = str(self._left_operand['attribute'])
+            
+            if right_simple_attr in simple_attr_mapping:
+                right_attribute = simple_attr_mapping[right_simple_attr].AttributeName
+            else:
+                right_attribute = right_simple_attr
+
         # print("self._left_operand", self._left_operand)
         if self._left_operand['function'] is None:
             # print(self._left_operand['attribute'])
             left_opd = left_attribute
             # print("left_opd", left_opd)
         else:
-            
             left_opd = "'{}('|| {} || ')'".format(self._left_operand['function'], left_attribute)
-
-        right_opd = ""
-        right_attribute = ""
-        if right_simple_attr in simple_attr_mapping:
-            right_attribute = simple_attr_mapping[right_simple_attr].AttributeName
-        else:
-            right_attribute = right_simple_attr
 
         if self._right_operand['function'] is None:
             right_opd = right_attribute
@@ -617,26 +677,32 @@ class Constraint:
 
 
 if __name__ == '__main__':
+    conn = psycopg2.connect(
+        host=cfg.postgres["host"], 
+        database=cfg.postgres["db"], 
+        user=cfg.postgres["user"], 
+        password=cfg.postgres["password"])
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = '0' and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
     # sql = "select t1.c0 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 from R t0, l t1, l t2, l t3 where t0.c3 = '1' and t0.c0 = t1.c1 and t1.c0 = t2.c0 and t2.c0 = t3.c0"
-    sql = "SELECT t1.c1 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 FROM R t0, l t1 WHERE \
-    t0.c3 = any(array[t0.c2]) or ((t0.c3 = '1' and t0.c0 = t1.c0) or (t0.c3 = '1' and t0.c0 != t1.c0) or t1.c0 = '1')"
-    p = SQL_Parser(sql, reasoning_engine='z3', databases={
-        'pod':{
-            'types':['integer', 'int4_faure', 'text[]'], 
-            'names':['c0', 'c1', 'condition']
-        }, 
-        'R':{
-            'types':['integer', 'integer','integer[]', 'integer', 'text[]'], 
-            'names':['c0', 'c1', 'c2', 'c3', 'condition']
-        }, 
-        'l':{
-            'types':['integer', 'integer', 'text[]'], 
-            'names':['c0', 'c1', 'condition']
-        }})
+    # sql = "SELECT t1.c1 as c0, t0.c1 as c1, ARRAY[t0.c0, t0.c2[1]] as c2, 2 as c3 FROM R t0, l t1 WHERE \
+    # t0.c3 = any(array[t0.c2]) or ((t0.c3 = '1' and t0.c0 = t1.c0) or (t0.c3 = '1' and t0.c0 != t1.c0) or t1.c0 = '1')"
+    # p = SQL_Parser(sql, reasoning_engine='z3', databases={
+    #     'pod':{
+    #         'types':['integer', 'int4_faure', 'text[]'], 
+    #         'names':['c0', 'c1', 'condition']
+    #     }, 
+    #     'R':{
+    #         'types':['integer', 'integer','integer[]', 'integer', 'text[]'], 
+    #         'names':['c0', 'c1', 'c2', 'c3', 'condition']
+    #     }, 
+    #     'l':{
+    #         'types':['integer', 'integer', 'text[]'], 
+    #         'names':['c0', 'c1', 'condition']
+    #     }})
 
-    
-    # p = SQL_Parser(sql)
+    sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
+    p = SQL_Parser(conn, sql, is_sep=True)
     print(p.execution_sql)
+    print(p.combined_sql)
     print(p.additional_conditions_SQL_format)
 

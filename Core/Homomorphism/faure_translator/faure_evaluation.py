@@ -92,7 +92,7 @@ class FaureEvaluation:
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
         self._is_IP = reasoning_sort.lower() == 'bitvec' # if it is IP address
-        self._SQL_parser = SQL_Parser(self._SQL, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+        self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
 
         self.data_time = 0.0 # record time for step 1: data
         self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
@@ -102,13 +102,16 @@ class FaureEvaluation:
         self._additional_condition = additional_condition
         
         self._empty_condition_idx = None # the reference of the empty condition with BDD
-
-        # step 1: data
-        self._data()
+        
         # print(self._reasoning_engine)
         if self._reasoning_engine.lower() == 'z3':
-            # Step 2: update
-            self._upd_condition_z3()
+            # integration of step 1 and step 2
+            self._integration()
+            # # step 1: data
+            # self._data()
+
+            # # Step 2: update
+            # self._upd_condition_z3()
 
             self._z3Smt = None # An instance of Z3SMTtool
             if simplication_on:
@@ -118,6 +121,9 @@ class FaureEvaluation:
                 self._simplification_z3()
 
         elif self._reasoning_engine.lower() == 'bdd':
+            # step 1: data
+            self._data()
+
             # assume all variables have the same domain
             if len(domains.keys()) == 0:
                 print("Domain is empty!")
@@ -219,7 +225,28 @@ class FaureEvaluation:
             self._conn.commit()
             print("Coming soon!")
             exit()
-            
+
+    def _integration(self):
+        if self._information_on:
+            print("\n************************Step 1: data with complete condition****************************")
+        
+        cursor = self._conn.cursor()
+        cursor.execute("drop table if exists {}".format(self.output_table))
+        data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.combined_sql)
+
+        if self._information_on:
+            print(data_sql)
+        
+        begin_data = time.time()
+        cursor.execute(data_sql)
+        end_data = time.time()
+
+        self.data_time = end_data - begin_data
+
+        if self._information_on:
+            print("\ncombined executing time: ", self.data_time)
+        self._conn.commit()
+
     def _simplification_z3(self):
         if self._information_on:
             print("\n************************Step 3: Normalization****************************")
@@ -574,25 +601,34 @@ if __name__ == '__main__':
     #         'types':['integer', 'integer', 'text[]'], 
     #         'names':['c0', 'c1', 'condition']
     #     }}
+    # conn = psycopg2.connect(
+    #     host=cfg.postgres["host"], 
+    #     database=cfg.postgres["db"], 
+    #     user=cfg.postgres["user"], 
+    #     password=cfg.postgres["password"])
+
+    # domains = {
+    #     'd1':['1', '2'],
+    #     'd2':['1', '2'],
+    #     'd':['1', '2']
+    # }
+    # # domains = {
+    # #     'd1':['10.0.0.1', '10.0.0.2'],
+    # #     'd2':['10.0.0.1', '10.0.0.2'],
+    # #     'd':['10.0.0.1', '10.0.0.2']
+    # # }
+    # # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
+    # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and (t1.a2 = '1' or t1.a2 = '2');"
+    # FaureEvaluation(conn, sql, additional_condition="d != 2", databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='Int', simplication_on=False, information_on=True)
+
     conn = psycopg2.connect(
         host=cfg.postgres["host"], 
         database=cfg.postgres["db"], 
         user=cfg.postgres["user"], 
         password=cfg.postgres["password"])
 
-    domains = {
-        'd1':['1', '2'],
-        'd2':['1', '2'],
-        'd':['1', '2']
-    }
-    # domains = {
-    #     'd1':['10.0.0.1', '10.0.0.2'],
-    #     'd2':['10.0.0.1', '10.0.0.2'],
-    #     'd':['10.0.0.1', '10.0.0.2']
-    # }
-    # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
-    sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and (t1.a2 = '1' or t1.a2 = '2');"
-    FaureEvaluation(conn, sql, additional_condition="d != 2", databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='Int', simplication_on=False, information_on=True)
+    sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
+    FaureEvaluation(conn, sql, databases={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=True)
 
 
     # bddmm.initialize(1, 2**32-1)
