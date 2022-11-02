@@ -141,24 +141,31 @@ class z3SMTTools:
         """
         has_redundant = False
         is_tauto = True
-        result = conditions[:]
+
+        result = []
+        simplified_conditions = []
+        for c in conditions:
+            expr_c = self.condition_parser(c)
+            simplified_c = z3.simplify(eval(expr_c))
+            result.append(str(simplified_c))
+            simplified_conditions.append(simplified_c)
         
         drop_idx = {}
         dp_arr = []
-        for i in range(len(conditions)):
+        for i in range(len(simplified_conditions)):
             drop_idx[i] = []
         
-        if len(conditions) == 0:
+        if len(simplified_conditions) == 0:
             return has_redundant, result
         
-        processed_conditions = {}
-        if len(conditions) == 1:
-            expr = self.condition_parser(conditions[0])
+        # processed_conditions = {}
+        if len(simplified_conditions) == 1:
+            expr = simplified_conditions[0]
+            # simplified_expr = z3.simplify(eval(expr)) # simplify condition
 
             # check tautology
-            c = "Not({})".format(expr)
             self.solver.push()
-            self.solver.add(eval(c))
+            self.solver.add(Not(expr))
             if self.solver.check() == z3.sat:
                 is_tauto = False
             self.solver.pop()
@@ -166,25 +173,25 @@ class z3SMTTools:
             if is_tauto:
                 return is_tauto, '{}'
             else:
-                return has_redundant, result
+                return has_redundant, expr
         else:        
-            for idx1 in range(len(conditions) - 1):
-                expr1 = ""
-                if idx1 not in processed_conditions.keys():
-                    expr1 = self.condition_parser(conditions[idx1])
-                    processed_conditions[idx1] = expr1
-                else:
-                    expr1 = processed_conditions[idx1]
+            for idx1 in range(len(simplified_conditions) - 1):
+                expr1 = simplified_conditions[idx1]
+                # if idx1 not in processed_conditions.keys():
+                #     expr1 = self.condition_parser(conditions[idx1])
+                #     processed_conditions[idx1] = expr1
+                # else:
+                #     expr1 = processed_conditions[idx1]
 
                 for idx2 in range(idx1+1,len(conditions)):
-                    expr2 = ""
-                    if idx2 not in processed_conditions.keys():
-                        expr2 = self.condition_parser(conditions[idx2])
-                        processed_conditions[idx2] = expr2  
-                    else:
-                        expr2 = processed_conditions[idx2]
+                    expr2 = simplified_conditions[idx2]
+                    # if idx2 not in processed_conditions.keys():
+                    #     expr2 = self.condition_parser(conditions[idx2])
+                    #     processed_conditions[idx2] = expr2  
+                    # else:
+                    #     expr2 = processed_conditions[idx2]
                     
-                    G = Implies(eval(expr1), eval(expr2))
+                    G = Implies(expr1, expr2)
                     self.solver.push()
                     self.solver.add(Not(G))
                     re = str(self.solver.check())
@@ -194,7 +201,7 @@ class z3SMTTools:
                         if not has_redundant:
                             has_redundant = True
 
-                    G = Implies(eval(expr2), eval(expr1))
+                    G = Implies(expr2, expr1)
                     self.solver.push()
                     self.solver.add(Not(G))
                     re = str(self.solver.check())
@@ -229,7 +236,7 @@ class z3SMTTools:
             for i in range(0, len(result), 1):
                 if i not in dp_arr:
                     final_result.append(result[i])
-                    subset_prcd_conditions.append(processed_conditions[i])
+                    subset_prcd_conditions.append(simplified_conditions[i])
 
             c = "Not(And({}))".format(", ".join(subset_prcd_conditions))
 
