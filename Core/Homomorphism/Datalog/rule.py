@@ -115,6 +115,7 @@ class DT_Rule:
         self._simplication_on = simplification_on
         self._databaseTypes = databaseTypes
         self._c_tables = c_tables
+        self._reverseMapping = {}
         db_names = []
         # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
         for currAtom in self._body:
@@ -138,7 +139,8 @@ class DT_Rule:
 
         # TODO: Make sure that the mapping does not overlap with any other constant in the body
         for i, var in enumerate(self._variables+self._c_variables):
-            self._mapping[var] = i
+            self._mapping[var] = 100+i
+            self._reverseMapping[100+i] = var
 
         # in case of unsafe rule
         if self.safe():
@@ -191,6 +193,35 @@ class DT_Rule:
             atom.addConstants(conn, self._mapping)
 
     def convertRuleToSQL(self):
+        summary_nodes, tables, constraints = self.convertRuleToSQLPartitioned()
+        sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
+        if (constraints):
+            sql += " where " + " and ".join(constraints)
+        return sql
+
+    # initiates database of rule
+    def initiateDB(self, conn):
+        databases = []
+        db_names = []
+        for db in self.getDBs:
+            if db["name"] not in db_names:
+                db_names.append(db["name"])
+                databases.append(db)
+
+        for db in databases:
+            cursor = conn.cursor()
+            cursor.execute("DROP TABLE IF EXISTS {};".format(db["name"]))
+            table_creation_query = "CREATE TABLE {}(".format(db["name"])
+            num_cols = len(db["column_names"]) # assuming that last column is always condition
+            for col in range(num_cols): 
+                table_creation_query += '{} {},'.format(db["column_names"][col], db["column_types"][col])
+            table_creation_query = table_creation_query[:-1]
+            table_creation_query += ");"
+            # print(table_creation_query)
+            cursor.execute(table_creation_query)
+        conn.commit()
+
+    def convertRuleToSQLPartitioned(self):
         tables = []
         constraints = []
         variableList = {} # stores variable to table.column mapping. etc: {'x': ['t0.c0'], 'w': ['t0.c1', 't1.c0'], 'z': ['t0.c2', 't1.c1', 't2.c0'], 'y': ['t2.c1']}
@@ -281,11 +312,7 @@ class DT_Rule:
                     constraints.append("{} = ANY({})".format(variableList[var][0], attr))
                 # else:
                 #     constraints.append("{}[{}] = ANY({})".format(variables_idx_in_array[var]['location'], variables_idx_in_array[var]['idx'], attr))
-
-        sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
-        if (constraints):
-            sql += " where " + " and ".join(constraints)
-        return sql
+        return summary_nodes, tables, constraints
 
     def execute(self, conn):
         if len(self._c_variables) == 0:
@@ -455,7 +482,7 @@ class DT_Rule:
                         str_tup_cond = "And({})".format(", ".join(tup_cond+extra_conditions))
 
                     # Does the condition in the tuple imply the condition in the header?
-                    if self.z3tools.is_implication(str_tup_cond, header_condition):
+                    if not self.z3tools.iscontradiction([str_tup_cond]) and self.z3tools.is_implication(str_tup_cond, header_condition):
                         contains = True
                         return contains
 
