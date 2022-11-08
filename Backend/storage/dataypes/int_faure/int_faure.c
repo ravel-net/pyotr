@@ -586,10 +586,11 @@ int4_faure_hash(PG_FUNCTION_ARGS)
 	int4_faure		*arg1 = PG_GETARG_INT32_FAURE(0);
 	Datum		result;
 
-	if (is_cvar(arg1))
-		result = hash_any((unsigned char *) C_VAR(arg1), strlen(C_VAR(arg1)));
-	else 
-		result = hash_uint32(DatumGetInt32IntFaure(arg1));
+	// if (is_cvar(arg1))
+	// 	result = hash_any((unsigned char *) C_VAR(arg1), strlen(C_VAR(arg1)));
+	// else 
+	// 	result = hash_uint32(DatumGetInt32IntFaure(arg1));
+	result = 0;
 
 	PG_RETURN_DATUM(result);
 }
