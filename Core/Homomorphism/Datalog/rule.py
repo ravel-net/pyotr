@@ -473,16 +473,15 @@ class DT_Rule:
 
                 if self._reasoning_engine == 'z3':
                     # convert list of conditions to a string of condition
-                    str_tup_cond = None
+                    extra_conditions = "And({})".format(", ".join(extra_conditions))
+                    str_tup_cond = "And({})".format(", ".join(tup_cond))
                     if len(tup_cond) == 0:
-                        str_tup_cond = "And(" + ", ".join(extra_conditions)+")"
-                    # elif len(tup_cond) == 1:
-                    #     str_tup_cond = tup_cond[0]
-                    else:
-                        str_tup_cond = "And({})".format(", ".join(tup_cond+extra_conditions))
+                        str_tup_cond = ""
+                    elif len(tup_cond) == 1:
+                        str_tup_cond = tup_cond[0]
 
                     # Does the condition in the tuple imply the condition in the header?
-                    if not self.z3tools.iscontradiction([str_tup_cond]) and self.z3tools.is_implication(str_tup_cond, header_condition):
+                    if not self.z3tools.iscontradiction([str_tup_cond]) and self.z3tools.is_implication(str_tup_cond, extra_conditions) and self.z3tools.check_equivalence_for_two_string_conditions(str_tup_cond, header_condition):
                         contains = True
                         return contains
 
@@ -617,40 +616,6 @@ class DT_Rule:
             atom_strs.append(bodystr[begin_pos:].strip(" ,"))
         
         return atom_strs
-            
-
-
-
-
-    # # Uniform containment. self rule C rule2 (self rule contains rule2). Treat self rule as constant and apply the rule in the argument as program
-    # # Returns (containment result, any changes to database)
-    # def contains(self, rule2):
-    #     # get variables
-    #     # get mappings
-    #     # loop over atoms
-    #         # add items to database (in atoms)
-    #     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
-    #     conn.set_session()
-    #     for atom in self._body:
-    #         atom.addConstantDB(conn, self._mapping)
-    #     headConstants = self._head.constants(self._mapping)
-    #     sql = rule2.sql() # select 
-    #     # Map rule2 body to sql
-    #     cur = conn.cursor()
-    #     cur.execute(sql)
-    #     results = cur.fetchall()
-    #     conn.commit()
-    #     if len(results) == 0:
-    #         conn.close()
-    #         return False, False
-    #     elif (headConstants in results):
-    #         conn.close()
-    #         return True, True
-    #     else:
-    #         addToDatabase(conn, results)
-    #     conn.close()
-    #     print("Max iterations reached")
-    #     return False, True
 
     def __str__(self):
         string = str(self._head) + " :- "
