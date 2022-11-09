@@ -113,3 +113,28 @@ if __name__ == "__main__":
     else:
         end = time.time()
         print("Test 7.2 passed in {} seconds".format(end-start))
+
+    # ======================================== C-variable Implication Behaviour ========================================
+    p1 = "l(3,4) :- l(1,3), k(2,1,3), l(1,5)"
+    p2 = "l(3,4) :- l(y,c), k(d,y,e), l(f,g)"
+
+    
+    program1 = program.DT_Program(p1, {"l":["int4_faure", "int4_faure"], "k":["int4_faure", "int4_faure", "int4_faure"]}, domains={}, c_variables=['a','b','c','d','e','f','g','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["l","k"])
+    program2 = program.DT_Program(p2, {"l":["int4_faure", "int4_faure"], "k":["int4_faure", "int4_faure", "int4_faure"], "m":["int4_faure", "int4_faure"]}, domains={}, c_variables=['a','b','c','d','e','f','g','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["l","k","m"])
+
+    start = time.time()
+    if (not program2.contains(program1)):
+        print("Text 8.1 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 8.1 passed in {} seconds".format(end-start))
+
+    start = time.time()
+    if (program1.contains(program2)):
+        print("Text 8.2 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 8.2 passed in {} seconds".format(end-start))
+
