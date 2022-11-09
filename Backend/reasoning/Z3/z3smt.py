@@ -235,13 +235,14 @@ class z3SMTTools:
             subset_prcd_conditions = []
             for i in range(0, len(result), 1):
                 if i not in dp_arr:
-                    final_result.append(result[i])
+                    final_result.append(str(result[i]))
                     subset_prcd_conditions.append(simplified_conditions[i])
 
-            c = "Not(And({}))".format(", ".join(subset_prcd_conditions))
+            # c = "Not(And({}))".format(", ".join(subset_prcd_conditions))
+            c = Not(And([cond for cond in subset_prcd_conditions]))
 
             self.solver.push()
-            self.solver.add(eval(c))
+            self.solver.add(c)
             if self.solver.check() == z3.sat:
                 is_tauto = False
             self.solver.pop()
