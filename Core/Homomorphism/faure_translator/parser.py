@@ -182,7 +182,10 @@ class SQL_Parser:
                     attr_strs.append(str(attr))
 
                 if self._reasoning_engine == 'z3':
-                    attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                    if self.additional_conditions_SQL_format:
+                        attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                    else:
+                        attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
                 elif self._reasoning_engine.lower() == 'bdd':
                     print("Developing...")
                     exit()

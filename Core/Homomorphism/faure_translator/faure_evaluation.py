@@ -186,7 +186,10 @@ class FaureEvaluation:
             print("No additional conditions for c-variables!")
             self.update_condition_time['update_condition'] = 0
         else:
-            upd_sql = "update {} set condition = condition || Array[{}]".format(self.output_table, conjunction_condition)
+            upd_sql = "update {} set condition = condition".format(self.output_table)
+            if (conjunction_condition):
+                upd_sql = "update {} set condition = condition || Array[{}]".format(self.output_table, conjunction_condition)
+
             if self._additional_condition is not None: # append additional conditions to output table
                 upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_condition)
             
