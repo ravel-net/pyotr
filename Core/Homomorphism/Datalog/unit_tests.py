@@ -28,6 +28,7 @@ if __name__ == "__main__":
     program1 = program.DT_Program(p1)
     start = time.time()
     program1.minimize()
+    print(program1)
     if (str(program1) != "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"):
         print("Test 2 failed")
         exit()
@@ -40,7 +41,8 @@ if __name__ == "__main__":
     program1 = program.DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
     start = time.time()
     program1.minimize()
-    if (str(program1) != "R(a2,h3,[h3],1) :- l(a2,h3),l(a2,h4),l(a2,e1)\nR(e1,h3,[a3, x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1, x, y],3)[h3 == 10] :- R(e1,h3,[x, y],2)[h3 == 10],l(a1,e1)\nR(h2,h3,[a1, x, y, z],4) :- R(a1,h3,[x, y, z],3),l(a1,h2)"):
+    print(program1)
+    if (str(program1) != "R(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a3, x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1, x, y],3)[h3 == 10] :- R(e1,h3,[x, y],2)[h3 == 10],l(a1,e1)\nR(h2,h3,[a1, x, y, z],4) :- R(a1,h3,[x, y, z],3),l(a1,h2)"):
         print("Test 3 failed")
         exit()
     else:
@@ -53,6 +55,7 @@ if __name__ == "__main__":
     program1 = program.DT_Program(p1, {"R":["int4_faure", "int4_faure"], "l":["int4_faure", "int4_faure"]}, domains={'x':['1', '2'],'y':['1', '2'],'z':['1', '2']}, c_variables=['x','y','z'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
     start = time.time()
     program1.minimize()
+    print(program1)
     if (str(program1) != "R(x,y) :- l(x,y)\nR(x,z) :- R(x,y),l(y,z)"):
         print("Test 4 failed")
         exit()
@@ -66,6 +69,7 @@ if __name__ == "__main__":
     program1 = program.DT_Program(p1, {"R":["integer", "int4_faure"], "L":["integer", "integer", "int4_faure"], "Q":["int4_faure"]}, domains={'z':['1', '2'], 'y':['1', '2']}, c_variables=['z','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "L", "Q"])
     start = time.time()
     program1.minimize()
+    print(program1)
     if (str(program1) != "R(x,y) :- L(x,q,z),Q(z)"):
         print("Test 5 failed")
         exit()
@@ -90,7 +94,7 @@ if __name__ == "__main__":
     # ======================================== Route Aggregation ========================================
     p1 = "R(1,x)[x == 10] :- l(1,2), l(1,3), l(1,4), R(2,x)[x == 10]\nR(1,x)[x == 20] :- l(1,2), l(1,3), l(1,4), R(3,x)[x == 20]\nR(1,x)[x == 30] :- l(1,2), l(1,3), l(1,4), R(4,x)[x == 30]"
 
-    p2 = "R(1,x)[Or{x == 10, x == 20, x == 30}]  :- l(1,2), l(1,3), l(1,4), R(y,x)[Or{And{y == 2, x == 10}, And{y == 3, x == 20}, And{y == 4 , x == 30}}]"
+    p2 = "R(1,x)[Or{And{y == 2, x == 10}, And{y == 3, x == 20}, And{y == 4 , x == 30}}]  :- l(1,2), l(1,3), l(1,4), R(y,x)[Or{And{y == 2, x == 10}, And{y == 3, x == 20}, And{y == 4 , x == 30}}]"
 
     program1 = program.DT_Program(p1, {"R":["int4_faure", "int4_faure"], "l":["integer", "integer"]}, domains={'x':[10,20,30],'y':[2,3,4]}, c_variables=['x','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
     program2 = program.DT_Program(p2, {"R":["int4_faure", "int4_faure"], "l":["integer", "integer"]}, domains={'x':[10,20,30],'y':[2,3,4]}, c_variables=['x','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
