@@ -109,21 +109,25 @@ class z3SMTTools:
         --------
         True or False
         """
+        and_condition = None
         if len(conditions) == 0:
             return True
-        for c in conditions:
-            prcd_cond = self.condition_parser(c)
-            self.solver.push()
-            self.solver.add(eval("Not({prcd_cond})".format(prcd_cond)))
-            re = self.solver.check()
-            self.solver.pop()
+        elif len(conditions) == 1:
+            and_condition = conditions[0]
+        else:
+            and_condition = "And({})".format(", ".join(conditions))
+        
+        prcd_cond = self.condition_parser(and_condition)
+        self.solver.push()
+        self.solver.add(eval("Not({})".format(prcd_cond)))
+        re = self.solver.check()
+        self.solver.pop()
 
-            if str(re) == 'sat':
-                pass
-            else:
-                return False
-        return True
-    
+        if str(re) == 'unsat':
+            return True
+        else:
+            return False
+        
     def has_redundancy(self, conditions):
         """
         Parameters:
@@ -144,8 +148,13 @@ class z3SMTTools:
 
         result = []
         simplified_conditions = []
+        # print("redundant conditions", conditions)
         for c in conditions:
+            # print("c", c)
             expr_c = self.condition_parser(c)
+            if expr_c == 'True':
+                expr_c = "z3.Bool('True')"
+            # print("expr_c", expr_c)
             simplified_c = z3.simplify(eval(expr_c))
             result.append(str(simplified_c))
             simplified_conditions.append(simplified_c)
@@ -264,9 +273,11 @@ class z3SMTTools:
         Returns:
         --------
         encoded 'condition' which adds z3 datatype
+
+        #TODO: convert True to z3.Bool('True')
         """
-        if condition is None or len(condition) == 0:
-            return "True"
+        if condition is None or len(condition) == 0 or condition == 'True' or condition == True:
+            return "True"  
         cond_str = condition
         prcd_cond = ""
         if 'And' in cond_str or 'Or' in cond_str:
@@ -372,7 +383,29 @@ class z3SMTTools:
             self.solver.pop()
             return False
 
-    
+    def simplify_condition(self, condition):
+        """
+        Simplify a single condition
+
+        Parameters:
+        -----------
+        condition: string
+            string condition
+        
+        Returns:
+        --------
+        simplified_condition: string
+        """
+        prcd_condition = self.condition_parser(condition)
+        simplified_condition = str(z3.simplify(eval(prcd_condition)))
+
+        if simplified_condition == 'True':
+            return ""
+        else:
+            simplified_condition
+        
+        return simplified_condition
+
     def _get_domain_str(self):
         domain_conditions = []
         if self._reasoning_type == 'Int':

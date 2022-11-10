@@ -530,12 +530,11 @@ class DT_Rule:
         # cursor.execute("drop table if exists {}".format(header_table))
         # cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
 
-        # counting non-redundant rows in header after simplification
+        # counting non-redundant rows in header after simplification``
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterSimp = int(cursor.fetchall()[0][0])
         cursor.execute("select condition from {}".format(header_table))
         conditionsPre = cursor.fetchall()
-
         # Adding result of output to header
         cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable))
 
@@ -543,17 +542,17 @@ class DT_Rule:
         # delete redundants
         merge_tuples_z3.merge_tuples(header_table, # tablename of header
                                     "{}_out".format(header_table), # output tablename
-                                    [], # domain
-                                    self._reasoning_type) # reasoning type of engine
+                                    self.z3tools, # reasoning type of engine
+                                    simplification_on=self._simplication_on,
+                                    information_on=False
+                                    ) 
         cursor = conn.cursor()
         cursor.execute("drop table if exists {}".format(header_table))
         cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
-
         # counting non-redundant rows in header after inserting output tables
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterInsert = int(cursor.fetchall()[0][0])
         conn.commit()
-        
         cursor.execute("select condition from {}".format(header_table))
         conditionsPost = cursor.fetchall()
 
