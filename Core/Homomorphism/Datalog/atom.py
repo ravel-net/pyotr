@@ -135,6 +135,8 @@ class DT_Atom:
             atom_str += "[{}]".format(", ".join(self.constraints))
         return atom_str
 
+    def replaceCondition(self, condition):
+        self.constraints = condition
 
     def addConstants(self, conn, mapping):
         variableConstants = []
