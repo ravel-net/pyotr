@@ -414,7 +414,9 @@ class z3SMTTools:
                 var_conditions = []
                 for val in self._domains[var]:
                     var_conditions.append("z3.{sort}('{var}') == z3.{sort}Val({val})".format(sort=self._reasoning_type, var=var, val=val))
-                domain_conditions.append("Or({})".format(", ".join(var_conditions)))
+                
+                if len(var_conditions) != 0:
+                    domain_conditions.append("Or({})".format(", ".join(var_conditions)))
         else:
             for var in self._domains:
                 var_conditions = []
