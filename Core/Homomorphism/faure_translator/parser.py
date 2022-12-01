@@ -406,7 +406,7 @@ class SQL_Parser:
             conjunction_strs = []
             for atom in conjunction_list:
                 if isinstance(atom, Constraint):
-                    print(atom.concatenation(attribute_mapping))
+                    # print(atom.concatenation(attribute_mapping))
                     conjunction_strs.append(atom.concatenation(attribute_mapping))
                 else:
                     sub_clause = self._position_subclause_mapping_dict[atom]
@@ -422,15 +422,15 @@ class SQL_Parser:
             return "'Or(' || {} || ')'".format(" || ', ' || ".join(disjunction_strs))
 
     def _get_simple_attr2datatype_mapping(self):
-        print(self.simple_attribute_mapping.keys())
+        # print(self.simple_attribute_mapping.keys())
         for table in self._all_attributes:
             if table == 'condition':
                 pass
             else:
-                print(table)
+                # print(table)
                 for idx, attribute in enumerate(self._all_attributes[table]):
-                    print(str(attribute))
-                    print(idx)
+                    # print(str(attribute))
+                    # print(idx)
                     self.simple_attr2column_name_mapping[attribute.AttributePart] = self.databases[table]['names'][idx]
                     self.simple_attr2datatype_mapping[attribute.AttributePart] = self.databases[table]['types'][idx]
         

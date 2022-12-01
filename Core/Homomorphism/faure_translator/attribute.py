@@ -70,7 +70,7 @@ class SelectedAttribute:
             return str(self._attribute['array_elem'])
 
     @property
-    def AttributeName(self):
+    def AttributeName(self): # if having alias, return alias
         # get attibute
         
         if self._has_alias:

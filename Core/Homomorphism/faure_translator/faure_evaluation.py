@@ -89,67 +89,77 @@ class FaureEvaluation:
 
         self.output_table=output_table
         self._information_on = information_on
+        self._simplification_on = simplication_on
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
+        self._additional_condition = additional_condition
         self._is_IP = reasoning_sort.lower() == 'bitvec' # if it is IP address
-        self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+        self._domains = domains
+        self._databases = databases
 
         self.data_time = 0.0 # record time for step 1: data
         self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
         self.simplication_time = {} # record time for step 3, format: {'contradiction': 0, 'redundancy': 0}
-        self.column_datatype_mapping = {} # mapping between column and datatype for output table
-        
-        self._additional_condition = additional_condition
-        
-        self._empty_condition_idx = None # the reference of the empty condition with BDD
-        
-        # print(self._reasoning_engine)
-        if self._reasoning_engine.lower() == 'z3':
-            # integration of step 1 and step 2
-            self._integration()
-            # # step 1: data
-            # self._data()
 
-            # # Step 2: update
-            # self._upd_condition_z3()
+        # self.column_datatype_mapping = self._get_column_datatype_mapping() # mapping between column and datatype for output table
+        self._z3Smt = z3SMTTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
 
-            self._z3Smt = None # An instance of Z3SMTtool
+        # self._SQL_parser = SQL_Parser(conn, self._SQL, True, self._reasoning_engine, self._databases) # A parser to parse SQL, return SQL_Parser instance
+        if self._SQL.lower().startswith('with'):
+            cursor = conn.cursor()
+            cursor.execute(self._SQL)
+            conn.commit()
+
             if simplication_on:
-                self._get_column_datatype_mapping()
-                self._z3Smt = z3SMTTools(list(domains.keys()), domains, self._reasoning_sort)
-                # Step 3: simplication
-                self._simplification_z3()
-
-        elif self._reasoning_engine.lower() == 'bdd':
-            # step 1: data
-            self._data()
-
-            # assume all variables have the same domain
-            if len(domains.keys()) == 0:
-                print("Domain is empty!")
-                exit()
-
-            variables = list(domains.keys())
-            domain_list =  domains[variables[0]]
-
-            if self._reasoning_sort.lower() == 'bitvec':
-                bddmm.initialize(len(variables), 2**32-1) # the domain of IP address is 2^32
-            else:
-                bddmm.initialize(len(variables), len(domain_list))
-
-            for workingtable in self._SQL_parser.working_tables:
-                print(workingtable.TableName), 
-                print(self._SQL_parser.databases)
-                self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
-
-            self._get_column_datatype_mapping()
-
-            # Step 2: update
-            self._upd_condition_BDD(domain_list, variables)
-
+                self._z3Smt.simplification(self.output_table)
         else:
-            print("Unsupported reasoning engine", self._reasoning_engine)
-            exit()
+            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+            self._additional_condition = additional_condition
+            self._empty_condition_idx = None # the reference of the empty condition with BDD
+            
+            # print(self._reasoning_engine)
+            if self._reasoning_engine.lower() == 'z3':
+                # integration of step 1 and step 2
+                self._integration()
+                # # step 1: data
+                # self._data()
+
+                # # Step 2: update
+                # self._upd_condition_z3()
+                if simplication_on:
+                    # Step 3: simplication
+                    self._z3Smt.simplification(self.output_table, self._conn)
+
+            elif self._reasoning_engine.lower() == 'bdd':
+                # step 1: data
+                self._data()
+
+                # assume all variables have the same domain
+                if len(domains.keys()) == 0:
+                    print("Domain is empty!")
+                    exit()
+
+                variables = list(domains.keys())
+                domain_list =  domains[variables[0]]
+
+                if self._reasoning_sort.lower() == 'bitvec':
+                    bddmm.initialize(len(variables), 2**32-1) # the domain of IP address is 2^32
+                else:
+                    bddmm.initialize(len(variables), len(domain_list))
+
+                for workingtable in self._SQL_parser.working_tables:
+                    # print(workingtable.TableName), 
+                    # print(self._SQL_parser.databases)
+                    self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
+
+                self._get_column_datatype_mapping()
+
+                # Step 2: update
+                self._upd_condition_BDD(domain_list, variables)
+
+            else:
+                print("Unsupported reasoning engine", self._reasoning_engine)
+                exit()
 
     def _data(self):
         if self._information_on:
@@ -250,13 +260,23 @@ class FaureEvaluation:
             print("\ncombined executing time: ", self.data_time)
         self._conn.commit()
 
-    def _simplification_z3(self):
+    def simplification_z3(self, target_table=None):
         if self._information_on:
             print("\n************************Step 3: Normalization****************************")
+
         cursor = self._conn.cursor()
 
-        if 'id' not in self.column_datatype_mapping:
-            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(self.output_table))
+        column_datatype_mapping = {}
+        # the target simplied table is the output table 
+        if target_table is None:
+            target_table=self.output_table
+            column_datatype_mapping = self.column_datatype_mapping
+        else:
+            column_datatype_mapping = self._get_column_datatype_mapping(target_table)
+            
+        if 'id' not in column_datatype_mapping:
+            column_datatype_mapping['id'] = 'integer' # add id column
+            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(target_table))
         self._conn.commit()
 
         '''
@@ -266,7 +286,7 @@ class FaureEvaluation:
             print("delete contradiction")
         
         contrd_begin = time.time()
-        cursor.execute("select id, condition from {}".format(self.output_table))
+        cursor.execute("select id, condition from {}".format(target_table))
         contrad_count = cursor.rowcount
         # logging.info("size of input(delete contradiction): %s" % str(count))
         del_tuple = []
@@ -276,13 +296,13 @@ class FaureEvaluation:
 
             if is_contrad:
                 del_tuple.append(row[0])
-            
+        
         if len(del_tuple) == 0:
             pass
         elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(self.output_table, del_tuple[0]))
+            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
         else:
-            cursor.execute("delete from {} where id in {}".format(self.output_table, tuple(del_tuple)))
+            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
 
         contrd_end = time.time()
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
@@ -293,20 +313,21 @@ class FaureEvaluation:
         '''
         # print("remove redundant")
         redun_begin = time.time()
-        cursor.execute("select id, condition from {}".format(self.output_table))
+        cursor.execute("select id, condition from {}".format(target_table))
         redun_count = cursor.rowcount
         # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
         upd_cur = self._conn.cursor()
 
         for i in tqdm(range(redun_count)):
             row = cursor.fetchone()
+
             has_redun, result = self._z3Smt.has_redundancy(row[1])
             if has_redun:
                 if result != '{}':
                     result = ['"{}"'.format(r) for r in result]
-                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(self.output_table, "{" + ", ".join(result) + "}", row[0]))
+                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(target_table, "{" + ", ".join(result) + "}", row[0]))
                 else:
-                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(self.output_table, row[0]))
+                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(target_table, row[0]))
         redun_end = time.time()
         self.simplication_time["redundancy"] = redun_end - redun_begin
         self._conn.commit()
@@ -316,26 +337,31 @@ class FaureEvaluation:
                 if (k == "max memory"):
                     print ("Solver Max Memory: %s : %s" % (k, v))
 
-    def _get_column_datatype_mapping(self):
+    def _get_column_datatype_mapping(self, target_table=None):
         """
         Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
         the array datatype returns 'ARRAY' from datatype. We cannot make the accurate datatype for ARRAY. #TODO: specify the accurate datatype for array
         """
+        if target_table is None:
+            target_table = self.output_table
+
+        column_datatype_mapping = {}
         cursor = self._conn.cursor()
-        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table))
+        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(target_table.lower()))
         for column_name, data_type in cursor.fetchall():
-            self.column_datatype_mapping[column_name] = data_type
+            column_datatype_mapping[column_name] = data_type
             if data_type.lower() == 'user-defined':
                 if self._reasoning_sort.lower() == 'int':
-                    self.column_datatype_mapping[column_name] = 'int4_faure'
+                    column_datatype_mapping[column_name] = 'int4_faure'
                 elif self._reasoning_sort.lower() == 'bitvec':
-                    self.column_datatype_mapping[column_name] = 'inet_faure'
+                    column_datatype_mapping[column_name] = 'inet_faure'
                 else:
                     print("Unsupported reasoning sort:", self._reasoning_sort)
                     exit()
             else:
-                self.column_datatype_mapping[column_name] = data_type
+                column_datatype_mapping[column_name] = data_type
         self._conn.commit()
+        return column_datatype_mapping
     
     def _upd_condition_BDD(self, domains, variables):
         if self._information_on:

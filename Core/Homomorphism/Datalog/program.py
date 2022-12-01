@@ -5,6 +5,7 @@ sys.path.append(root)
 import psycopg2 
 from copy import deepcopy
 from Core.Homomorphism.Datalog.rule import DT_Rule
+from Backend.reasoning.Z3.z3smt import z3SMTTools
 import databaseconfig as cfg
 import time
 
@@ -42,6 +43,12 @@ class DT_Program:
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
     def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=True, c_tables=[]):
         self._rules = []
+        self._domains = domains
+        self._reasoning_engine=reasoning_engine
+        self._reasoning_type=reasoning_type
+        self._simplication_on=simplification_on
+        
+        self.z3tools = z3SMTTools(variables=c_variables,domains=domains, reasoning_type=reasoning_type)
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         if isinstance(program_str, DT_Rule):
             self._rules.append(program_str)
@@ -67,6 +74,62 @@ class DT_Program:
         return True
 
     def execute(self, conn):
+        # program_sql = "WITH recursive temp_G(c0, c1, c2, condition, depth) AS (\
+        #                     select c0, c1, c2, condition, 1 as depth from G\
+        #                     UNION\
+        #                     select t1.c0 as c0, t2.c1 as c1, t3.c1 as c2, \
+        #                         t1.condition || t2.condition || t3.condition || t4.condition || t5.condition ||\
+        #                         Array[\
+        #                             t1.c1 || ' == ' || t2.c0,\
+        #                             t2.c0 || ' == ' || t3.c0,\
+        #                             t1.c2 || ' == ' || t3.c1,\
+        #                             t3.c1 || ' == ' || t4.c0,\
+        #                             t4.c0 || ' == ' || t4.c1,\
+        #                             t4.c1 || ' == ' || t5.c0,\
+        #                             t2.c1 || ' == ' || t5.c1\
+        #                         ] as condition,\
+        #                         t1.depth+1 as depth\
+        #                     from temp_G t1, A t2, A t3, A t4, A t5\
+        #                     where t1.c1 = t2.c0 \
+        #                         and t2.c0 = t3.c0 \
+        #                         and t1.c2 = t3.c1 \
+        #                         and t3.c1 = t4.c0 \
+        #                         and t4.c0 = t4.c1 \
+        #                         and t4.c1 = t5.c0 \
+        #                         and t2.c1 = t5.c1\
+        #                         and depth < 3\
+        #                     )\
+        #                     insert into G select c0, c1, c2, condition from temp_G;"
+        # # program_sql = "WITH RECURSIVE temp_R(c0, c1, depth, condition) AS (\
+        # #                     SELECT c0, c1, 1, condition from L\
+        # #                     UNION\
+        # #                     SELECT t1.c0 as c0, t2.c1 as c1, depth+1 as depth, t1.condition || t2.condition || Array[t1.c1 || ' == ' || t2.c0] as condition\
+        # #                     FROM temp_R t1, L t2\
+        # #                     WHERE t1.c1 = t2.c0 and depth < 2\
+        # #                 )\
+        # #                 insert into R SELECT c0, c1, condition from temp_R;"
+        # print("program_sql", program_sql)
+        # table = "G"
+        # eval_time = time.time()
+        # FaureEvaluation(conn, program_sql, output_table=table, domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+        # eval_end = time.time()
+        
+
+        # # input()
+        # # delete redundants
+        # merge_begin = time.time()
+        # num = merge_tuples_z3.merge_tuples(table, # tablename of header
+        #                             "{}_out".format(table), # output tablename
+        #                             self.z3tools, # reasoning type of engine
+        #                             simplification_on=self._simplication_on,
+        #                             information_on=False
+        #                             ) 
+        # merge_end = time.time()
+        # print("**********************\nevaluation time:", eval_end-eval_time, "\n***************************************\n")
+        # print("count: ", num, "merging time:", merge_end-merge_begin, "\n**********************\n")
+
+        # return False
+
         changed = False
         for rule in self._rules:
             print("\n------------------------")
@@ -74,6 +137,9 @@ class DT_Program:
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
         return changed
+
+
+
 
     def initiateDB(self, conn):
         databases = []
@@ -107,11 +173,26 @@ class DT_Program:
         self.initiateDB(conn)
         rule2.addConstants(conn)
         iterations = 0
-        while (changed and iterations < self.__MAX_ITERATIONS):
+        while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.execute(conn)
+
+            if self._simplication_on:
+                simp_begin = time.time()
+                self.z3tools.simplification(rule2._head.db["name"], conn)
+                simp_end = time.time()
+                print("simplification_time:", simp_end-simp_begin, "\n*******************************\n")
+                # input()
+        
+            check_head_begin = time.time()
             if rule2.isHeadContained(conn):
+                check_head_end = time.time()
+                print("*******************checking head containment***********************\n")
+                print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
                 return True
+            check_head_end = time.time()
+            print("*******************checking head containment***********************\n")
+            print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
         return False
 
 

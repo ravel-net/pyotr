@@ -1,8 +1,9 @@
-from ast import operator
 import z3
 from z3 import * 
 from ipaddress import IPv4Network
 import re
+import time
+from tqdm import tqdm
 
 class z3SMTTools:
     """
@@ -64,6 +65,7 @@ class z3SMTTools:
         self._domains = domains # {variable: []}
         self._reasoning_type = reasoning_type
         self.solver = z3.Solver()
+        self.simplication_time = {}
 
         domain_str = self._get_domain_str()
         if len((domain_str)) != 0:
@@ -116,7 +118,7 @@ class z3SMTTools:
             and_condition = conditions[0]
         else:
             and_condition = "And({})".format(", ".join(conditions))
-        
+        # print("and_condition", and_condition)
         prcd_cond = self.condition_parser(and_condition)
         self.solver.push()
         self.solver.add(eval("Not({})".format(prcd_cond)))
@@ -339,6 +341,7 @@ class z3SMTTools:
 
         prcd_condition1 = self.condition_parser(condition1)
         prcd_condition2 = self.condition_parser(condition2)
+        # print("prcd_condition2", prcd_condition2)
         
         C1 = eval(prcd_condition1)
         C2 = eval(prcd_condition2)
@@ -406,6 +409,77 @@ class z3SMTTools:
         
         return simplified_condition
 
+    def simplification(self, target_table, conn):
+        cursor = conn.cursor()
+
+        column_datatype_mapping = self._get_column_datatype_mapping(target_table, conn)
+            
+        if 'id' not in column_datatype_mapping:
+            column_datatype_mapping['id'] = 'integer' # add id column
+            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(target_table))
+        conn.commit()
+
+        '''
+        delete contradiction
+        '''
+        contrd_begin = time.time()
+        cursor.execute("select id, condition from {}".format(target_table))
+        contrad_count = cursor.rowcount
+        # logging.info("size of input(delete contradiction): %s" % str(count))
+        del_tuple = []
+        for i in tqdm(range(contrad_count)):
+            row = cursor.fetchone()
+            # print("check contrad")
+            # if len(row[1]) == 0:
+            #     print(len(row[1]))
+            # else:
+            #     print(len(row[1][0]))
+
+            is_contrad = self.iscontradiction(row[1])
+
+            if is_contrad:
+                del_tuple.append(row[0])
+        
+        if len(del_tuple) == 0:
+            pass
+        elif len(del_tuple) == 1:
+            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
+        else:
+            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
+
+        contrd_end = time.time()
+        self.simplication_time['contradiction'] = contrd_end - contrd_begin
+        conn.commit()
+
+        '''
+        set tautology and remove redundant
+        '''
+        # print("remove redundant")
+        redun_begin = time.time()
+        cursor.execute("select id, condition from {}".format(target_table))
+        redun_count = cursor.rowcount
+        # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
+        upd_cur = conn.cursor()
+
+        for i in tqdm(range(redun_count)):
+            row = cursor.fetchone()
+            # print("check redun")
+            has_redun, result = self.has_redundancy(row[1])
+            if has_redun:
+                if result != '{}':
+                    result = ['"{}"'.format(r) for r in result]
+                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(target_table, "{" + ", ".join(result) + "}", row[0]))
+                else:
+                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(target_table, row[0]))
+        redun_end = time.time()
+        self.simplication_time["redundancy"] = redun_end - redun_begin
+        conn.commit()
+
+        # if self._information_on:
+        for k, v in self.solver.statistics():
+            if (k == "max memory"):
+                print ("Solver Max Memory: %s : %s" % (k, v))
+
     def _get_domain_str(self):
         domain_conditions = []
         if self._reasoning_type == 'Int':
@@ -444,7 +518,7 @@ class z3SMTTools:
         # TODO: BitVec datatype of value in array
         if "\\not_in" in condition or "\\in" in condition:
             return self._convert_array_condition2z3_variable(condition)
-
+        # print("condition", condition)
         c_list = condition.split()
         operator = c_list[1]
 
@@ -534,6 +608,29 @@ class z3SMTTools:
                 conditionFinal += ","
         conditionFinal += ')'
         return conditionFinal
+
+    def _get_column_datatype_mapping(self, target_table, conn):
+        """
+        Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
+        the array datatype returns 'ARRAY' from datatype. We cannot make the accurate datatype for ARRAY. #TODO: specify the accurate datatype for array
+        """
+        column_datatype_mapping = {}
+        cursor = conn.cursor()
+        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(target_table.lower()))
+        for column_name, data_type in cursor.fetchall():
+            column_datatype_mapping[column_name] = data_type
+            if data_type.lower() == 'user-defined':
+                if self._reasoning_type.lower() == 'int':
+                    column_datatype_mapping[column_name] = 'int4_faure'
+                elif self._reasoning_type.lower() == 'bitvec':
+                    column_datatype_mapping[column_name] = 'inet_faure'
+                else:
+                    print("Unsupported reasoning sort:", self._reasoning_sort)
+                    exit()
+            else:
+                column_datatype_mapping[column_name] = data_type
+        conn.commit()
+        return column_datatype_mapping
 
 if __name__ == '__main__':
     condition1 = "Or(x == 1, x == 2)"
