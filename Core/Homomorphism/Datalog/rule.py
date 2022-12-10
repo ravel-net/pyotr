@@ -75,20 +75,19 @@ class DT_Rule:
             self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
         else:
             head_str = rule_str.split(":-")[0].strip()
-            body_str = rule_str.split(":-")[1].strip()
+            additional_constraint_split = rule_str.split(":-")[1].strip().split(",(")
+            body_str = additional_constraint_split[0]
+            if len(additional_constraint_split) > 1:
+                self._additional_constraints += additional_constraint_split[1:]
             head = DT_Atom(head_str, databaseTypes, operators, c_variables, c_tables)
             body = []
             # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
             atom_strs = self.split_atoms(body_str)
             for atom_str in atom_strs:
                 atom_str = atom_str.strip()
-                # if "[" in atom_str:  # atom with conditions for c-variables
-                #     pass
-                # elif "(" in atom_str: # atom without c-variables
-                #     pass
-                if atom_str[0] == '(': # additional constraint
-                    self._additional_constraints.append(atom_str[1:-1])
-                    continue
+                # if atom_str[0] == '(': # additional constraint
+                #     self._additional_constraints.append(atom_str[1:-1])
+                #     continue
                 currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
                 body.append(currAtom)
             self.generateRule(head, body, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
@@ -138,7 +137,8 @@ class DT_Rule:
             db_names.append(self._head.db["name"])
 
         # TODO: Make sure that the mapping does not overlap with any other constant in the body
-        for i, var in enumerate(self._variables+self._c_variables):
+        # for i, var in enumerate(self._variables+self._c_variables):
+        for i, var in enumerate(self._variables):
             self._mapping[var] = 100+i
             self._reverseMapping[100+i] = var
 
@@ -170,6 +170,18 @@ class DT_Rule:
     @property
     def getDBs(self):
         return self._DBs
+
+    # returns the signature of a rule
+    def getSignature(self):
+        signature = self._head.db["name"]+":-"
+        bodyTables = []
+
+        for atom in self._body:
+            table = atom.db["name"]
+            bodyTables.append(table)
+        bodyTables.sort()
+        signature += ",".join(bodyTables)
+        return signature
 
     def deleteAtom(self, atomNum):
         del self._body[atomNum]
@@ -621,7 +633,7 @@ class DT_Rule:
         for atom in self._body:
             string += str(atom) + ","
         if self._additional_constraints:
-            string += " ({})".format(", ".join(self._additional_constraints))
+            string += "({})".format(",".join(self._additional_constraints))
             return string
         return string[:-1]
 

@@ -1,25 +1,19 @@
-import string
-import random
+import time
 import sys
 from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 from Core.Homomorphism.Datalog.atom import DT_Atom
 from Core.Homomorphism.Datalog.rule import DT_Rule
-from Core.Homomorphism.Datalog.program import DT_Program
 import psycopg2 
 import databaseconfig as cfg
- 
+
 # initializing size of new c-variable
 N = 2
 
 
 # Note: We do not take into account cases where a c-variable appears in the head but not in the body
 def unify(rule1, rule2, rule1Name):
-	if not sameTables(rule1, rule2):
-		return False
-	if not headConstantsSame(rule1, rule2):
-		return False
 	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name)
 	substitutions_r3_to_r2, tables_r2 = getSubstitutions(rule3, rule2) 
 	if len(substitutions_r3_to_r2) == 0: # no substitutions found so no way to align atoms
@@ -27,7 +21,17 @@ def unify(rule1, rule2, rule1Name):
 	equal_subs_r3_to_r2 = getEquivalentSubstitutions(substitutions_r3_to_r2, rule3, rule2, tables_r2)
 	if not equal_subs_r3_to_r2: # no equal substitutions found
 		return None
+
 	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, rule1Name)
+	# Delete repeated conditions
+	for cond in C1_head:
+		if cond in C1_body:
+			C1_head.remove(cond)
+	for cond in C2_head:
+		if cond in C2_body:
+			C2_head.remove(cond)
+
+
 	cVarReplacements = getCVarReplacements(C1_head, C2_head)
 	cVarReplacements.update(getCVarReplacements(C1_body, C2_body))
 	C1_head_str = "And("+",".join(C1_head+C1_body)+")"
@@ -40,38 +44,8 @@ def unify(rule1, rule2, rule1Name):
 	rule3Str = str(rule3)
 	for cvar in cVarReplacements:
 		rule3Str = rule3Str.replace(cvar, cVarReplacements[cvar])
-	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
+	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=rule3._additional_constraints+[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
 	return newRule
-
-def sameTables(r1, r2):
-	if r1._head.db["name"] != r2._head.db["name"]:
-		return False
-	r1_tables = {} # contains count of each table
-	r2_tables = {} # contains count of each table
-	for atom in r1._body:
-		table = atom.db["name"]
-		if table not in r1_tables:
-			r1_tables[table] = 1
-		else:
-			r1_tables[table] += 1
-	for atom in r2._body:
-		table = atom.db["name"]
-		if table not in r2_tables:
-			r2_tables[table] = 1
-		else:
-			r2_tables[table] += 1
-	for table in r1_tables:
-		if table not in r2_tables or r2_tables[table] != r1_tables[table]:
-			return False
-	return True
-
-def headConstantsSame(r1, r2):
-	for paramNum in range(len(r1._head.parameters)):
-		param1 = r1._head.parameters[paramNum]
-		param2 = r2._head.parameters[paramNum]
-		if isConstant(param1) and isConstant(param2) and param1 != param2:
-			return False
-	return True
 
 # Takes two list of conditions involving c-variables. If any condition is common in both lists, the c-variable is replaced by a constant. e.g. getCVarReplacements([a == 3, b == 2], [a == 3, b ==4]) results in {a: 3} 
 def getCVarReplacements(conditions1, conditions2):
@@ -96,7 +70,7 @@ def getCVarReplacements(conditions1, conditions2):
 # Variable is ignoring
 def getConditions(substitution, rule, rule2, ruleName):
 	conditions = []
-	for atom in rule._body:
+	for atom in rule2._body:
 		if atom.constraints:
 			conditions += atom.constraints
 	atomNum = 0
@@ -111,19 +85,27 @@ def getConditions(substitution, rule, rule2, ruleName):
 				newCondition = c_var_param + " == " + val
 				if newCondition not in conditions:
 					conditions.append(newCondition) 
-			elif int(val) in rule2._reverseMapping:
-				replaceVar = rule2._reverseMapping[int(val)]
-				replacements[replaceVar] = c_var_param
+			elif val in rule2._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
+				replacements[val] = c_var_param
 			parameterNum += 1
 		atomNum += 1
-	replacedConditions = conditions
-	for replacement in replacements:
-		c_var = replacements[replacement]
-		for cond in condition:
-			replacedConditions.append(cond.replace(replacement, c_var))
 	_, newHeadCondition, _ = getEquivalentAtom(rule2._head, rule2, ruleName+"-H-"+rule2._head.db["name"])
+	replacedBodyConditions = []
+	replacedHeadConditions = []
+
+	for cond in conditions:
+		for replacement in replacements:
+			c_var = replacements[replacement]
+			cond = cond.replace(replacement, c_var)
+		replacedBodyConditions.append(cond)
+	for cond in newHeadCondition:
+		for replacement in replacements:
+			c_var = replacements[replacement]
+			cond = cond.replace(replacement, c_var)
+		replacedHeadConditions.append(cond)
+
 	# newHeadCondition = "And(" + ",".join(newHeadCondition) + ")"
-	return newHeadCondition, replacedConditions,
+	return replacedHeadConditions, replacedBodyConditions
 
 # takes in a tuple and removes the last column
 def removeCondition(strTuple):
