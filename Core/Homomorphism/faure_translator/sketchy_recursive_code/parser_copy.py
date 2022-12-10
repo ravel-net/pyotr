@@ -32,6 +32,140 @@ class SQL_Parser:
     
     def __init__(self, conn, sql, is_sep=False, reasoning_engine='z3', databases={}):
         self._conn = conn
+        self._original_sql = sql.strip().rstrip(';')
+        self._reasoning_engine=reasoning_engine
+        self._is_sep = is_sep
+        self.databases = {}
+        for table in databases:
+            table_lower = table.lower()
+            self.databases[table_lower] = {'types': [], 'names': []}
+            for i in range(len(databases[table]['names'])):
+                self.databases[table_lower]['types'].append(databases[table]['types'][i].lower()) 
+                self.databases[table_lower]['names'].append(databases[table]['names'][i].lower()) 
+
+        self.type = None # 1: select, 2: insert, 3: delete, 4: recursive with query
+        
+        self._manipulation=None
+
+        if sql.lower().startswith('select'):
+            self.type = 1
+            self._manipulation = Selection(conn, sql, is_sep, reasoning_engine, databases)
+        elif 'with' in sql.lower() and 'recursive' in sql.lower():
+            # print("recursive with query")
+            self.type = 4
+            self.process_recursive_with_query()
+
+        else:
+            print("We only support selection now! Sorry!")
+            exit()
+            
+    @property
+    def execution_sql(self):
+        if self.type == 1:
+            return self._manipulation.execution_sql
+        else:
+            return None
+    
+    @property
+    def combined_sql(self):
+        if self.type == 1:
+            return self._manipulation.combined_sql
+        else:
+            return None
+
+    @property
+    def sql(self):
+        return self._original_sql
+    
+    @property
+    def additional_conditions_SQL_format(self):
+        self._manipulation.additional_conditions_SQL_format
+
+    @property
+    def old_conditions_attributes_BDD(self):
+        self._manipulation.old_conditions_attributes_BDD
+
+    @property
+    def base_query_selection(self):
+        if self.type == 4:
+            base_query_selection = Selection(self._conn, self.base_query_str, is_sep=self._is_sep, reasoning_engine=self._reasoning_engine, databases=self.databases)
+            return base_query_selection
+        else:
+            return None
+
+    @property
+    def recursive_query_selection(self):
+        if self.type == 4:
+            return Selection(self._conn, self.recursive_query_str, is_sep=self._is_sep, reasoning_engine=self._reasoning_engine, databases=self.databases)
+        else:
+            return None
+    
+    @property
+    def primary_query_selection(self):
+        if self.type == 4:
+            return Selection(self._conn, self.primary_query_str, is_sep=self._is_sep, reasoning_engine=self._reasoning_engine, databases=self.databases)
+        else:
+            return None
+
+    def process_recursive_with_query(self):
+        recursive_with_query_pattern = re.compile(r'with recursive(?P<CTE>.*?)as[ ]{0,1}\((?P<queries>.*?)\)(?P<primary>.*)', re.IGNORECASE)
+        m = re.match(recursive_with_query_pattern, self._original_sql)
+
+        # extract commom table expression, assume only one for recursive query
+        self.CTE = m.group('CTE').strip().split('(')[0].strip()
+        # print("CTE", self.CTE)
+        # extract base query and recursive query
+        queries_str = m.group('queries').strip()
+        # print("queries_str", queries_str)
+        queries = None
+        if 'union all' in queries_str.lower():
+            union_pattern = re.compile(r'union all', re.IGNORECASE)
+            queries = re.split(union_pattern, queries_str)
+        elif 'union' in queries_str.lower():
+            union_pattern = re.compile(r'union', re.IGNORECASE)
+            queries = re.split(union_pattern, queries_str)
+        else:
+            print("No union! Exit!")
+            exit()
+        
+        self.base_query_str = queries[0].strip()
+        self.recursive_query_str = queries[1].strip()
+        # print("base query", queries[0].strip())
+        # print("recursive", queries[1].strip())
+        # base_query_selection = Selection(self._conn, queries[0].strip(), is_sep=False, reasoning_engine=self._reasoning_engine, databases=self.databases)
+        # recursive_selection = Selection(self._conn, queries[1].strip(), is_sep=False, reasoning_engine=self._reasoning_engine, databases=self.databases)
+
+        
+        primary_query_str = m.group('primary').strip()
+        self.primary_query_str = primary_query_str
+
+        # print("primary_query_str", primary_query_str)
+        # primary_query_selection = Selection(self._conn, primary_query_str, is_sep=False, reasoning_engine=self._reasoning_engine, databases=self.databases)
+
+        # self.base_query_selection = base_query_selection
+        # self.recursive_query_selection = recursive_selection
+        # self.primary_query_selection = primary_query_selection
+
+class Selection:
+    """
+    
+    Parameters:
+    -----------
+    sql: 
+        SQL str. Now only supports selection.
+
+    databases:
+        all columns are default int4_faure datatype except for condition column.
+        format: {"tablename": {"types": list[datatypes], "names": list[attribute_names]}} 
+        require to include 'condition' column and datatype of 'condition' column
+    
+    """
+    _ARRAY_OPERATORS = ["||", "@>", "<@"]
+    _ARITHMATIC_OPERATORS = ['+', '-', '/', '*']
+    _FAURE_DATATYPE = ['int4_faure', 'inet_faure']
+    
+    def __init__(self, conn, sql, is_sep=False, reasoning_engine='z3', databases={}):
+        self._conn = conn
         self._original_sql = sql
         self._reasoning_engine=reasoning_engine
         self._is_sep = is_sep
@@ -43,7 +177,7 @@ class SQL_Parser:
                 self.databases[table_lower]['types'].append(databases[table]['types'][i].lower()) 
                 self.databases[table_lower]['names'].append(databases[table]['names'][i].lower()) 
 
-        self.type = None # 1: select, 2: insert, 3: delete
+        # self.type = None # 1: select, 2: insert, 3: delete, 4: recursive with query
         self._selected_attributes = {'is_star': False, 'attributes': []}
         self.working_tables = []
 
@@ -82,7 +216,6 @@ class SQL_Parser:
             selected_attributes_str = re.findall(selected_attributes_pattern, sql_lowercase)[0].strip()
             self._process_select_clause(selected_attributes_str)
             
-            
         else:
             print("We only support selection now! Sorry!")
             exit()
@@ -96,116 +229,117 @@ class SQL_Parser:
         
     @property
     def execution_sql(self):
-        if self.type == 1:
-            attributes_strs = []
-            if self._selected_attributes['is_star']:
-                for key in self._all_attributes:
-                    if key == 'condition':
-                        if self._reasoning_engine == 'z3':
-                            attr_strs = []
-                            for attr in self._all_attributes[key]:
-                                attr_strs.append(str(attr))
-                            attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
-                        elif self._reasoning_engine.lower() == 'bdd':
-                            for attr in self._all_attributes[key]:
-                                attributes_strs.append(str(attr))
-                    else:
+        attributes_strs = []
+        if self._selected_attributes['is_star']:
+            for key in self._all_attributes:
+                if key == 'condition':
+                    if self._reasoning_engine == 'z3':
+                        attr_strs = []
+                        for attr in self._all_attributes[key]:
+                            attr_strs.append(str(attr))
+                        attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                    elif self._reasoning_engine.lower() == 'bdd':
                         for attr in self._all_attributes[key]:
                             attributes_strs.append(str(attr))
-            else:
-                for key in self._selected_attributes['attributes']:
-                    attributes_strs.append(str(key))
-                    
-                # attr_strs = []
-                # for attr in self._all_attributes['condition']:
-                #     attr_strs.append(str(attr))
-                # attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
-
-                for key in self._all_attributes:
-                    if key == 'condition':
-                        if self._reasoning_engine == 'z3':
-                            attr_strs = []
-                            for attr in self._all_attributes[key]:
-                                attr_strs.append(str(attr))
-                            attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
-                        elif self._reasoning_engine.lower() == 'bdd':
-                            for attr in self._all_attributes[key]:
-                                attributes_strs.append(str(attr))
-                    else:
-                        for attr in self._all_attributes[key]:
-                            attributes_strs.append(str(attr))
-
-            table_strs = []
-            for table in self.working_tables:
-                table_strs.append(str(table))
-
-            sql = ""
-            if len(self._position_subclause_mapping_dict) == 0:
-                sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
-            else:
-                root_clause = self._position_subclause_mapping_dict['root']
-                where_str = self._convert_subclause_to_SQL(root_clause)
-                if where_str.startswith('(') and where_str.endswith(')'):
-                    where_str = where_str[1:-1]
-                sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
-            return sql
+                else:
+                    for attr in self._all_attributes[key]:
+                        attributes_strs.append(str(attr))
         else:
-            return None
+            for key in self._selected_attributes['attributes']:
+                attributes_strs.append(str(key))
+                
+            # attr_strs = []
+            # for attr in self._all_attributes['condition']:
+            #     attr_strs.append(str(attr))
+            # attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
 
+            for key in self._all_attributes:
+                if key == 'condition':
+                    if self._reasoning_engine == 'z3':
+                        attr_strs = []
+                        for attr in self._all_attributes[key]:
+                            attr_strs.append(str(attr))
+                        attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                    elif self._reasoning_engine.lower() == 'bdd':
+                        for attr in self._all_attributes[key]:
+                            attributes_strs.append(str(attr))
+                else:
+                    for attr in self._all_attributes[key]:
+                        attributes_strs.append(str(attr))
+
+        table_strs = []
+        for table in self.working_tables:
+            table_strs.append(str(table))
+
+        sql = ""
+        if len(self._position_subclause_mapping_dict) == 0:
+            sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
+        else:
+            root_clause = self._position_subclause_mapping_dict['root']
+            where_str = self._convert_subclause_to_SQL(root_clause)
+            if where_str.startswith('(') and where_str.endswith(')'):
+                where_str = where_str[1:-1]
+            sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
+        return sql
     
     @property
     def combined_sql(self):
-        if self.type == 1:
-            attributes_strs = []
-            if self._selected_attributes['is_star']:
-                for key in self._all_attributes:
-                    if key == 'condition':
-                        if self._reasoning_engine == 'z3':
-                            attr_strs = []
-                            for attr in self._all_attributes[key]:
-                                attr_strs.append(str(attr))
-                            attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
-                        elif self._reasoning_engine.lower() == 'bdd':
-                            # for attr in self._all_attributes[key]:
-                            #     attributes_strs.append(str(attr))
-                            print("Developing...")
-                            exit()
-                    else:
+        attributes_strs = []
+        if self._selected_attributes['is_star']:
+            for key in self._all_attributes:
+                if key == 'condition':
+                    if self._reasoning_engine == 'z3':
+                        attr_strs = []
                         for attr in self._all_attributes[key]:
-                            attributes_strs.append(str(attr))
-            else:
-                for key in self._selected_attributes['attributes']:
-                    attributes_strs.append(str(key))
-                    
-                attr_strs = []
-                for attr in self._all_attributes['condition']:
-                    attr_strs.append(str(attr))
-
-                if self._reasoning_engine == 'z3':
-                    if self.additional_conditions_SQL_format:
-                        attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
-                    else:
-                        attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
-                elif self._reasoning_engine.lower() == 'bdd':
-                    print("Developing...")
-                    exit()
-
-            table_strs = []
-            for table in self.working_tables:
-                table_strs.append(str(table))
-
-            sql = ""
-            if len(self._position_subclause_mapping_dict) == 0:
-                sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
-            else:
-                root_clause = self._position_subclause_mapping_dict['root']
-                where_str = self._convert_subclause_to_SQL(root_clause)
-                if where_str.startswith('(') and where_str.endswith(')'):
-                    where_str = where_str[1:-1]
-                sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
-            return sql
+                            attr_strs.append(str(attr))
+                        
+                        conjunction_condition = self.additional_conditions_SQL_format
+                        # print("conjunction_condition", conjunction_condition)
+                        if conjunction_condition is None:
+                            attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                        else:
+                            attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), conjunction_condition))
+                        # attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                    elif self._reasoning_engine.lower() == 'bdd':
+                        # for attr in self._all_attributes[key]:
+                        #     attributes_strs.append(str(attr))
+                        print("Developing...")
+                        exit()
+                else:
+                    for attr in self._all_attributes[key]:
+                        attributes_strs.append(str(attr))
         else:
-            return None
+            for key in self._selected_attributes['attributes']:
+                attributes_strs.append(str(key))
+                
+            attr_strs = []
+            for attr in self._all_attributes['condition']:
+                attr_strs.append(str(attr))
+
+            if self._reasoning_engine == 'z3':
+                conjunction_condition = self.additional_conditions_SQL_format
+                if conjunction_condition is None:
+                    attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+                else:
+                    attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), conjunction_condition))
+            elif self._reasoning_engine.lower() == 'bdd':
+                print("Developing...")
+                exit()
+
+        table_strs = []
+        for table in self.working_tables:
+            table_strs.append(str(table))
+
+        sql = ""
+        if len(self._position_subclause_mapping_dict) == 0:
+            sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
+        else:
+            root_clause = self._position_subclause_mapping_dict['root']
+            where_str = self._convert_subclause_to_SQL(root_clause)
+            if where_str.startswith('(') and where_str.endswith(')'):
+                where_str = where_str[1:-1]
+            sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
+        return sql
 
     @property
     def sql(self):
@@ -219,11 +353,10 @@ class SQL_Parser:
             root_clause = self._position_subclause_mapping_dict['root']
             # print("self._position_subclause_mapping_dict", self._position_subclause_mapping_dict)
             # print('root_clause', root_clause)
-            # print(self._is_sep)
             if self._is_sep: # is separate step 1 and step 2
-                return self._convert_subclause_to_Z3format(root_clause, None)
+                return self._convert_subclause_to_Z3format(root_clause, self.simple_attribute_mapping )
             else:
-                return self._convert_subclause_to_Z3format(root_clause, self.simple_attribute_mapping)
+                return self._convert_subclause_to_Z3format(root_clause, None)
 
     @property
     def old_conditions_attributes_BDD(self):
@@ -422,15 +555,15 @@ class SQL_Parser:
             return "'Or(' || {} || ')'".format(" || ', ' || ".join(disjunction_strs))
 
     def _get_simple_attr2datatype_mapping(self):
-        # print(self.simple_attribute_mapping.keys())
+        print(self.simple_attribute_mapping.keys())
         for table in self._all_attributes:
             if table == 'condition':
                 pass
             else:
-                # print(table)
+                print(table)
                 for idx, attribute in enumerate(self._all_attributes[table]):
-                    # print(str(attribute))
-                    # print(idx)
+                    print(str(attribute))
+                    print(idx)
                     self.simple_attr2column_name_mapping[attribute.AttributePart] = self.databases[table]['names'][idx]
                     self.simple_attr2datatype_mapping[attribute.AttributePart] = self.databases[table]['types'][idx]
         
@@ -458,10 +591,10 @@ class SQL_Parser:
         drop_columns = []
         if self._selected_attributes['is_star']:
             # drop duplicated columns
-            for attr in self.equal_attributes_from_where_clause:
-                for col in self.equal_attributes_from_where_clause[attr]:
+            # for attr in self.equal_attributes_from_where_clause:
+            #     for col in self.equal_attributes_from_where_clause[attr]:
 
-                    drop_columns.append(self.simple_attribute_mapping[col].AttributeName)
+            #         drop_columns.append(self.simple_attribute_mapping[col].AttributeName)
 
             if self._reasoning_engine.lower() == 'bdd':
                 # drop old condition attributes
@@ -513,6 +646,7 @@ class SQL_Parser:
             return True
         else:
             return False
+
 
 class WorkingTable:
     def __init__(self, table_str) -> None:
@@ -703,9 +837,22 @@ if __name__ == '__main__':
     #         'names':['c0', 'c1', 'condition']
     #     }})
 
-    sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
-    p = SQL_Parser(conn, sql, is_sep=True)
-    print(p.execution_sql)
-    print(p.combined_sql)
-    print(p.additional_conditions_SQL_format)
+    # sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
+    # p = SQL_Parser(conn, sql, is_sep=True)
+    # print(p.execution_sql)
+    # print(p.combined_sql)
+    # print(p.additional_conditions_SQL_format)
 
+    recursive_sql = "WITH RECURSIVE temp_R(n1, n2) AS (\
+                        SELECT * from R \
+                        UNION \
+                        SELECT t1.n1 as n1, t2.n2 as n2 \
+                        FROM temp_R t1, L t2\
+                        WHERE t1.n2 = t2.n1\
+                    )\
+                    SELECT * from temp_R; "
+    p = SQL_Parser(conn, recursive_sql, is_sep=True)
+    print(p.base_query_selection.combined_sql)
+    print(p.recursive_query_selection.combined_sql)
+    print(p.recursive_query_selection.databases)
+    print(p.primary_query_selection.combined_sql)

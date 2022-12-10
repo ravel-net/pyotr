@@ -9,7 +9,7 @@ from Backend.reasoning.Z3.z3smt import z3SMTTools
 import BDD_managerModule as bddmm
 import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
 
-from Core.Homomorphism.faure_translator.parser import SQL_Parser
+from Core.Homomorphism.faure_translator.sketchy_recursive_code.parser_copy import SQL_Parser
 from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2 
@@ -45,7 +45,7 @@ class FaureEvaluation:
     _process_condition_on_ctable(tablename, variables, domains)
         convert a c-table with text condition to a c-table with BDD reference
     """
-    def __init__(self, conn, SQL, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
+    def __init__(self, conn, SQL, is_recursive=False, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
         """
         Parameters:
         ------------
@@ -89,34 +89,26 @@ class FaureEvaluation:
 
         self.output_table=output_table
         self._information_on = information_on
-        self._simplification_on = simplication_on
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
-        self._additional_condition = additional_condition
         self._is_IP = reasoning_sort.lower() == 'bitvec' # if it is IP address
-        self._domains = domains
-        self._databases = databases
+        self._SQL_parser = SQL_Parser(conn, self._SQL, False, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
 
         self.data_time = 0.0 # record time for step 1: data
         self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
         self.simplication_time = {} # record time for step 3, format: {'contradiction': 0, 'redundancy': 0}
+        self.column_datatype_mapping = {} # mapping between column and datatype for output table
+        
+        self._additional_condition = additional_condition
+        
+        self._empty_condition_idx = None # the reference of the empty condition with BDD
+        self._z3Smt = z3SMTTools(list(domains.keys()), domains, self._reasoning_sort)
 
-        # self.column_datatype_mapping = self._get_column_datatype_mapping() # mapping between column and datatype for output table
-        self._z3Smt = z3SMTTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
-
-        # self._SQL_parser = SQL_Parser(conn, self._SQL, True, self._reasoning_engine, self._databases) # A parser to parse SQL, return SQL_Parser instance
-        if self._SQL.lower().startswith('with'):
-            cursor = conn.cursor()
-            cursor.execute(self._SQL)
-            conn.commit()
-
-            if simplication_on:
-                self._z3Smt.simplification(self.output_table)
+        if is_recursive:
+            self._run_base_query()
+            self._run_recursive_query()
+            pass
         else:
-            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
-            self._additional_condition = additional_condition
-            self._empty_condition_idx = None # the reference of the empty condition with BDD
-            
             # print(self._reasoning_engine)
             if self._reasoning_engine.lower() == 'z3':
                 # integration of step 1 and step 2
@@ -126,9 +118,13 @@ class FaureEvaluation:
 
                 # # Step 2: update
                 # self._upd_condition_z3()
+
+                # self._z3Smt = None # An instance of Z3SMTtool
                 if simplication_on:
+                    self._get_column_datatype_mapping()
+                    
                     # Step 3: simplication
-                    self._z3Smt.simplification(self.output_table, self._conn)
+                    self._simplification_z3()
 
             elif self._reasoning_engine.lower() == 'bdd':
                 # step 1: data
@@ -148,8 +144,8 @@ class FaureEvaluation:
                     bddmm.initialize(len(variables), len(domain_list))
 
                 for workingtable in self._SQL_parser.working_tables:
-                    # print(workingtable.TableName), 
-                    # print(self._SQL_parser.databases)
+                    print(workingtable.TableName), 
+                    print(self._SQL_parser.databases)
                     self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
 
                 self._get_column_datatype_mapping()
@@ -196,10 +192,7 @@ class FaureEvaluation:
             print("No additional conditions for c-variables!")
             self.update_condition_time['update_condition'] = 0
         else:
-            upd_sql = "update {} set condition = condition".format(self.output_table)
-            if (conjunction_condition):
-                upd_sql = "update {} set condition = condition || Array[{}]".format(self.output_table, conjunction_condition)
-
+            upd_sql = "update {} set condition = condition || Array[{}]".format(self.output_table, conjunction_condition)
             if self._additional_condition is not None: # append additional conditions to output table
                 upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_condition)
             
@@ -260,23 +253,13 @@ class FaureEvaluation:
             print("\ncombined executing time: ", self.data_time)
         self._conn.commit()
 
-    def simplification_z3(self, target_table=None):
+    def _simplification_z3(self):
         if self._information_on:
             print("\n************************Step 3: Normalization****************************")
-
         cursor = self._conn.cursor()
 
-        column_datatype_mapping = {}
-        # the target simplied table is the output table 
-        if target_table is None:
-            target_table=self.output_table
-            column_datatype_mapping = self.column_datatype_mapping
-        else:
-            column_datatype_mapping = self._get_column_datatype_mapping(target_table)
-            
-        if 'id' not in column_datatype_mapping:
-            column_datatype_mapping['id'] = 'integer' # add id column
-            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(target_table))
+        if 'id' not in self.column_datatype_mapping:
+            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(self.output_table))
         self._conn.commit()
 
         '''
@@ -286,7 +269,7 @@ class FaureEvaluation:
             print("delete contradiction")
         
         contrd_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
+        cursor.execute("select id, condition from {}".format(self.output_table))
         contrad_count = cursor.rowcount
         # logging.info("size of input(delete contradiction): %s" % str(count))
         del_tuple = []
@@ -296,13 +279,13 @@ class FaureEvaluation:
 
             if is_contrad:
                 del_tuple.append(row[0])
-        
+            
         if len(del_tuple) == 0:
             pass
         elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
+            cursor.execute("delete from {} where id = {}".format(self.output_table, del_tuple[0]))
         else:
-            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
+            cursor.execute("delete from {} where id in {}".format(self.output_table, tuple(del_tuple)))
 
         contrd_end = time.time()
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
@@ -313,21 +296,20 @@ class FaureEvaluation:
         '''
         # print("remove redundant")
         redun_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
+        cursor.execute("select id, condition from {}".format(self.output_table))
         redun_count = cursor.rowcount
         # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
         upd_cur = self._conn.cursor()
 
         for i in tqdm(range(redun_count)):
             row = cursor.fetchone()
-
             has_redun, result = self._z3Smt.has_redundancy(row[1])
             if has_redun:
                 if result != '{}':
                     result = ['"{}"'.format(r) for r in result]
-                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(target_table, "{" + ", ".join(result) + "}", row[0]))
+                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(self.output_table, "{" + ", ".join(result) + "}", row[0]))
                 else:
-                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(target_table, row[0]))
+                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(self.output_table, row[0]))
         redun_end = time.time()
         self.simplication_time["redundancy"] = redun_end - redun_begin
         self._conn.commit()
@@ -337,31 +319,26 @@ class FaureEvaluation:
                 if (k == "max memory"):
                     print ("Solver Max Memory: %s : %s" % (k, v))
 
-    def _get_column_datatype_mapping(self, target_table=None):
+    def _get_column_datatype_mapping(self):
         """
         Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
         the array datatype returns 'ARRAY' from datatype. We cannot make the accurate datatype for ARRAY. #TODO: specify the accurate datatype for array
         """
-        if target_table is None:
-            target_table = self.output_table
-
-        column_datatype_mapping = {}
         cursor = self._conn.cursor()
-        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(target_table.lower()))
+        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table))
         for column_name, data_type in cursor.fetchall():
-            column_datatype_mapping[column_name] = data_type
+            self.column_datatype_mapping[column_name] = data_type
             if data_type.lower() == 'user-defined':
                 if self._reasoning_sort.lower() == 'int':
-                    column_datatype_mapping[column_name] = 'int4_faure'
+                    self.column_datatype_mapping[column_name] = 'int4_faure'
                 elif self._reasoning_sort.lower() == 'bitvec':
-                    column_datatype_mapping[column_name] = 'inet_faure'
+                    self.column_datatype_mapping[column_name] = 'inet_faure'
                 else:
                     print("Unsupported reasoning sort:", self._reasoning_sort)
                     exit()
             else:
-                column_datatype_mapping[column_name] = data_type
+                self.column_datatype_mapping[column_name] = data_type
         self._conn.commit()
-        return column_datatype_mapping
     
     def _upd_condition_BDD(self, domains, variables):
         if self._information_on:
@@ -615,6 +592,148 @@ class FaureEvaluation:
         # cursor.executemany(new_tuples)
         self._conn.commit()
 
+    def _run_base_query(self):
+        if self._information_on:
+            print("\n************************Step 1: base query****************************")
+        
+        base_query_sql = self._SQL_parser.base_query_selection.combined_sql
+
+        cursor = self._conn.cursor()
+
+        # store query result in output table
+        cursor.execute("drop table if exists {}".format(self.output_table))
+        data_sql = "create table {} as {}".format(self.output_table, base_query_sql)
+
+        if self._information_on:
+            print(data_sql)
+
+        begin_data = time.time()
+        cursor.execute(data_sql)
+        end_data = time.time()
+
+        # replace the content of temporary working table with the query result for recursive query
+        cursor.execute("drop table if exists {}".format(self._SQL_parser.CTE))
+        data_sql = "create table {} as {}".format(self._SQL_parser.CTE, base_query_sql)
+
+        begin_data = time.time()
+        cursor.execute(data_sql)
+        end_data = time.time()
+
+        self.data_time = end_data - begin_data
+
+        if self._information_on:
+            print("\nbase query executing time: ", self.data_time)
+        self._conn.commit()
+
+
+    def _run_recursive_query(self):
+        if self._information_on:
+            print("\n************************Step 2: recursive query****************************")
+        recursive_query_sql = self._SQL_parser.recursive_query_selection.combined_sql
+
+        if self._information_on:
+            print(recursive_query_sql)
+
+        # intermediate_table = "intermediate_table"
+        cursor = self._conn.cursor()
+
+        # # create intermediate table to store the intermediate results
+        # cursor.execute("create table {} inherits({})".format(intermediate_table, self._SQL_parser.CTE))
+        # self._conn.commit()
+        
+        _MAX_ITERATION = 20
+        iteration = 0
+        while iteration < _MAX_ITERATION:
+            iteration += 1
+
+            # generating intermediate result
+            cursor.execute(recursive_query_sql)
+            intermediate_results = cursor.fetchall()
+            self._conn.commit()
+
+            if len(intermediate_results) == 0: # if results is empty, done
+                return
+
+            # retrieve previous results
+            cursor.execute("select * from {}".format(self.output_table))
+            previous_results = cursor.fetchall()
+            self._conn.commit()
+
+            '''
+            check the valid rows in the generated intermediate result
+            i.e., the new row is not implied by any old row in the 
+            valid results only include rows that do not duplicate any row in previous results
+            '''
+            valid_results = []
+            valid_idxs = []
+            for idx, row2 in enumerate(intermediate_results):
+                # print("row2", row2)
+                # check if it is a contradiction
+                is_contrd = self._z3Smt.iscontradiction(row2[-1])
+                if is_contrd:
+                    continue
+
+                is_valid = True
+
+                if idx in valid_idxs: # if row2 is already implied by one of row1, it doesn't need to be checked again
+                    continue
+                
+                # check if every row1 does not imply row2
+                for row1 in previous_results:
+                    # print("row1", row1)
+                    is_implies = self._is_row1_implies_row2(row1, row2)
+                    if is_implies:
+                        is_valid = False
+                        continue
+                
+                if is_valid:
+                    valid_results.append(row2)
+                    valid_idxs.append(idx)
+            
+            if len(valid_idxs) == 0: # no results generated 
+                print("No valid intermediate results!")
+                self._conn.commit()
+                return
+            else:
+                # store valid intermediate results in the output table
+                sql = "insert into {} values %s".format(self.output_table)
+                execute_values(cursor, sql, valid_results)
+
+                # update last iteration results for the next iteration
+                cursor.execute("truncate {}".format(self._SQL_parser.CTE))
+                sql = "insert into {} values %s".format(self._SQL_parser.CTE)
+                execute_values(cursor, sql, valid_results)
+                self._conn.commit()
+                # print("*******************************88")
+                # input()
+
+    def _is_row1_implies_row2(self, row1, row2):
+        # assume condition column locate the last attribute
+        data_portion_equavalence_conditions = []
+        for i in range(len(row1)-1):
+            var1 = row1[i]
+            var2 = row2[i]
+
+            if var1[0].isdigit() and var2[0].isdigit():
+                if var1 != var2: # data portion are not same
+                    return False
+            else:
+                data_portion_equavalence_conditions.append("{} == {}".format(var1, var2))
+        condition1 = None
+        condition2_with_equal_conds = None
+        if len(row1[-1]) != 0:
+            condition1 = "And({})".format(", ".join(row1[-1]))
+        
+        conds = row2[-1] + data_portion_equavalence_conditions
+        if len(conds) != 0:
+            condition2_with_equal_conds = "And({})".format(", ".join(conds))
+
+        # print("condition1", condition1)
+        # print("condition2_with_equal_conds", condition2_with_equal_conds)
+        result = self._z3Smt.is_implication(condition1, condition2_with_equal_conds)
+
+        return result
+
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"
     # databases = {
@@ -658,7 +777,7 @@ if __name__ == '__main__':
 
     sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
     FaureEvaluation(conn, sql, databases={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=True)
-
+    
 
     # bddmm.initialize(1, 2**32-1)
     # bdd1_str = ""

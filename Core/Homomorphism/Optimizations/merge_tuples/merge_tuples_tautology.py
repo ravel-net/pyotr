@@ -36,8 +36,6 @@ def merge_tuples(tablename, out_tablename, z3tools, simplification_on=True, info
         An instance of z3SMTTools
 
     simplification_on: Boolean
-
-    SELECT column_name FROM information_schema.columns WHERE table_name = 'R';
     """
     if information_on:
         print("\n********************merge tuples******************************")
@@ -94,8 +92,6 @@ def merge_tuples(tablename, out_tablename, z3tools, simplification_on=True, info
         else:
             tuple_dict[t].append("And({conditions_no_dup})".format(conditions_no_dup=", ".join(conditions_no_duplicates)))
     
-    # domain_conditions, domain_time = check_tautology.get_domain_conditions_general(domain, reasoning_type)
-    
     new_tuples = []
     for key in tuple_dict.keys():
         tp = list(key)
@@ -113,26 +109,18 @@ def merge_tuples(tablename, out_tablename, z3tools, simplification_on=True, info
             or_cond = conditions[0]
         else:
             or_cond = 'Or({tuple_conditions})'.format(tuple_conditions=", ".join(tuple_dict[key]))
-        # print("or_cond", or_cond)
-        
-        is_tauto = z3tools.istauto([or_cond])
-        # print('is_tauto', is_tauto)
-        if is_tauto:
-            tp.insert(idx_cond, '{}')
-        else:
-            if simplification_on:
-                simplified_cond = z3tools.simplify_condition(or_cond)
-                tp.insert(idx_cond, '{"' + simplified_cond + '"}')
-            else:
-                tp.insert(idx_cond, '{"' + or_cond + '"}')
+       
+        tp.insert(idx_cond, '{"' + or_cond + '"}')
         new_tuples.append(tp)
 
     # print("new_tuples", new_tuples)
-    cursor.execute("drop table if exists {out_tablename}".format(out_tablename=out_tablename))
-    cursor.execute("create table {out_tablename} as select * from {tablename} where 1 = 2".format(out_tablename=out_tablename, tablename=tablename))
-    sql = "insert into {out_tablename} values %s".format(out_tablename=out_tablename)
+    cursor.execute("truncate table {}".format(tablename))
+    # cursor.execute("drop table if exists {out_tablename}".format(out_tablename=out_tablename))
+    # cursor.execute("create table {out_tablename} (like {tablename} including defaults including constraints including indexes)".format(out_tablename=out_tablename, tablename=tablename))
+    sql = "insert into {tablename} values %s".format(tablename=tablename)
     execute_values(cursor, sql, new_tuples)
     conn.commit()
+
     return len(new_tuples)
 
 

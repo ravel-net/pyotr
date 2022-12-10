@@ -11,6 +11,7 @@ from operator import add
 import sys
 from os.path import dirname, abspath
 from unicodedata import name
+import time
 
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
@@ -509,6 +510,9 @@ class DT_Rule:
     # The argument conditions1 and conditions2 are list of conditions. The length of the lists should be equal, otherwise this function should not be called
     # Function computes if all conditions in the same index are equivalent
     def conditionsEquivalent(self, conditions1, conditions2):
+        # print("condition equivalent")
+        changed_checking_begin = time.time()
+        
         for i in range(len(conditions1)):
             condition1 = ""
             condition2 = ""
@@ -517,7 +521,11 @@ class DT_Rule:
             if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
                 condition2 = conditions2[i][0][0]
             if not self.z3tools.check_equivalence_for_two_string_conditions(condition1, condition2):
+                changed_checking_end = time.time()
+                print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
                 return False
+        changed_checking_end = time.time()
+        print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
         return True
 
     # Adds the result of the table "output" to head. Only adds distinct variables
@@ -552,15 +560,20 @@ class DT_Rule:
 
         conn.commit()
         # delete redundants
+        merge_begin = time.time()
         merge_tuples_z3.merge_tuples(header_table, # tablename of header
                                     "{}_out".format(header_table), # output tablename
                                     self.z3tools, # reasoning type of engine
                                     simplification_on=self._simplication_on,
                                     information_on=False
                                     ) 
-        cursor = conn.cursor()
-        cursor.execute("drop table if exists {}".format(header_table))
-        cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
+        # input()
+        # cursor = conn.cursor()
+        # cursor.execute("drop table if exists {}".format(header_table))
+        # cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
+        # conn.commit()
+        merge_end = time.time()
+        print("merge time:", merge_end-merge_begin, "\n********************************\n")
         # counting non-redundant rows in header after inserting output tables
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterInsert = int(cursor.fetchall()[0][0])
@@ -579,14 +592,21 @@ class DT_Rule:
         return changed
     
     def run_with_faure(self, conn, program_sql):
+        print("program_sql", program_sql)
         header_table = self._head.db["name"]
         changed = False
         '''
         generate new facts
         '''
-        FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False)
-
+        query_begin = time.time()
+        FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+        query_end = time.time()
+        print("query_time:", query_end-query_begin, "\n*******************************\n")
+        
+        # input()
+        
         changed = self.insertTuplesToHead(conn)
+        # input()
         return changed
 
     def addtional_constraints2where_clause(self, constraints, variableList):
