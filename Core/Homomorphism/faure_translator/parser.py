@@ -160,16 +160,22 @@ class SQL_Parser:
             if self._selected_attributes['is_star']:
                 for key in self._all_attributes:
                     if key == 'condition':
+                        attr_strs = []
+                        for attr in self._all_attributes[key]:
+                            attr_strs.append(str(attr))
+
                         if self._reasoning_engine == 'z3':
-                            attr_strs = []
-                            for attr in self._all_attributes[key]:
-                                attr_strs.append(str(attr))
-                            attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                            if self.additional_conditions_SQL_format:
+                                attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                            else:
+                                attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
+
                         elif self._reasoning_engine.lower() == 'bdd':
-                            # for attr in self._all_attributes[key]:
-                            #     attributes_strs.append(str(attr))
-                            print("Developing...")
-                            exit()
+                            if self.additional_conditions_SQL_format:
+                                attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
+                            else:
+                                attributes_strs.append("{} as condition, null as conjunction_condition".format(" || ".join(attr_strs)))
+
                     else:
                         for attr in self._all_attributes[key]:
                             attributes_strs.append(str(attr))
@@ -187,8 +193,10 @@ class SQL_Parser:
                     else:
                         attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
                 elif self._reasoning_engine.lower() == 'bdd':
-                    print("Developing...")
-                    exit()
+                    if self.additional_conditions_SQL_format:
+                        attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
+                    else:
+                        attributes_strs.append("{} as condition, null as conjunction_condition".format(" || ".join(attr_strs)))
 
             table_strs = []
             for table in self.working_tables:
@@ -292,10 +300,11 @@ class SQL_Parser:
                     else:
                         attribute_str = "{tab}.{attr} as {tab}_{attr}".format(tab=workingtable.table, attr=attr_name)
                 if attr_name == 'condition':
-                    if self._reasoning_engine == 'z3':
-                        condition_attributes.append(SelectedAttribute(attribute_str.split(" as ")[0].strip()))
-                    elif self._reasoning_engine == 'bdd':
-                        condition_attributes.append(SelectedAttribute(attribute_str))
+                    condition_attributes.append(SelectedAttribute(attribute_str.split(" as ")[0].strip()))
+                    # if self._reasoning_engine == 'z3':
+                    #     condition_attributes.append(SelectedAttribute(attribute_str.split(" as ")[0].strip()))
+                    # elif self._reasoning_engine == 'bdd':
+                    #     condition_attributes.append(SelectedAttribute(attribute_str))
                 else:
                     if workingtable.table not in self._all_attributes:
                         self._all_attributes[workingtable.table] = []

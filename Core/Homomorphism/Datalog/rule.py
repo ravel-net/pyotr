@@ -26,10 +26,11 @@ import Core.Homomorphism.translator_pyotr as translator_z3
 import Core.Homomorphism.translator_pyotr_BDD as translator_bdd
 import BDD_managerModule as bddmm
 import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
-import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_z3
+import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_BDD as merge_tuples_bdd
 import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 from utils.parsing_utils import z3ToSQL
+from Backend.reasoning.CUDD.BDDTools import BDDTools
 
 class DT_Rule:
     """
@@ -154,7 +155,10 @@ class DT_Rule:
         self.selectColumns = self.calculateSelect() 
 
         if len(c_tables) > 0:
-            self.z3tools = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+            if self._reasoning_engine == 'z3':
+                self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+            else:
+                self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
 
     # Includes the select part of query including datatype
     # e.g. 
@@ -204,6 +208,11 @@ class DT_Rule:
     def addConstants(self, conn):
         for atom in self._body:
             atom.addConstants(conn, self._mapping)
+
+        # if using bdd engine, convert text[]-type condition to integer-type condition
+        if len(self._c_tables) > 0 and self._reasoning_engine == 'bdd': 
+            for ctablename in self._c_tables:
+                self.reasoning_tool.process_condition_on_ctable(conn, ctablename)
 
     def convertRuleToSQL(self):
         summary_nodes, tables, constraints = self.convertRuleToSQLPartitioned()
@@ -331,6 +340,7 @@ class DT_Rule:
         if len(self._c_variables) == 0:
             cursor = conn.cursor()
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self.selectColumns))
+            print(except_sql)
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
             conn.commit()
@@ -423,7 +433,10 @@ class DT_Rule:
         '''
         check whether Q_summary is in resulting table
         '''
-        cursor.execute("select {} from {}".format(", ".join(self.selectColumns), self._head.db["name"]))
+        sql = "select {} from {}".format(", ".join(self.selectColumns), self._head.db["name"])
+        if self._reasoning_engine == 'bdd':
+            sql = sql.replace('text[]', 'integer')
+        cursor.execute(sql)
         resulting_tuples = cursor.fetchall()
         conn.commit()
 
@@ -494,14 +507,28 @@ class DT_Rule:
                         str_tup_cond = tup_cond[0]
 
                     # Does the condition in the tuple imply the condition in the header?
-                    if not self.z3tools.iscontradiction([str_tup_cond]) and self.z3tools.is_implication(str_tup_cond, extra_conditions) and self.z3tools.check_equivalence_for_two_string_conditions(str_tup_cond, header_condition):
+                    if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.check_equivalence_for_two_string_conditions(str_tup_cond, header_condition):
                         contains = True
                         return contains
 
                 elif self._reasoning_engine == 'bdd':
-                    if bddmm.is_implication(header_condition, tup_cond) and bddmm.is_implication(tup_cond, header_condition):
+                    # convert list of conditions to a string of condition
+                    extra_conditions = "And({})".format(", ".join(extra_conditions))
+                    print("extra_conditions", extra_conditions)
+                    extra_condition_idx = self.reasoning_tool.str_to_BDD(extra_conditions)
+                    # str_tup_cond_idx = reasoning_tool.str_to_BDD(str_tup_cond)
+                    if header_condition is None:
+                        header_condition=""
+                    header_condition_idx = self.reasoning_tool.str_to_BDD(header_condition)
+
+                    if self.reasoning_tool.evaluate(tup_cond) != 0 and \
+                        self.reasoning_tool.is_implication(tup_cond, extra_condition_idx) and \
+                        (self.reasoning_tool.is_implication(tup_cond, header_condition_idx) and self.reasoning_tool.is_implication(header_condition_idx, tup_cond)):
                         contains = True
                         return contains
+                    # if bddmm.is_implication(header_condition, tup_cond) and bddmm.is_implication(tup_cond, header_condition):
+                    #     contains = True
+                    #     return contains
                 else:
                     print("We do not support {} engine!".format(self._reasoning_engine))
                     exit()
@@ -512,15 +539,50 @@ class DT_Rule:
     def conditionsEquivalent(self, conditions1, conditions2):
         # print("condition equivalent")
         changed_checking_begin = time.time()
-        
+        if self._reasoning_engine == 'z3':
+            for i in range(len(conditions1)):
+                condition1 = ""
+                condition2 = ""
+                if len(conditions1[i]) > 0 and len(conditions1[i][0]) > 0:
+                    condition1 = conditions1[i][0][0]
+                if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
+                    condition2 = conditions2[i][0][0]
+                if not self.reasoning_tool.check_equivalence_for_two_string_conditions(condition1, condition2):
+                    changed_checking_end = time.time()
+                    print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
+                    return False
+            changed_checking_end = time.time()
+            print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
+        else:
+            for i in range(len(conditions1)):
+                condition1 = conditions1[i][0]
+                condition2 = conditions2[i][0]
+                if not (self.reasoning_tool.is_implication(condition1, condition2) and self.reasoning_tool.is_implication(condition2, condition1)):
+                    changed_checking_end = time.time()
+                    print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
+                    return False
+            changed_checking_end = time.time()
+            print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
+        return True
+    
+    def conditionsEquivalent_bdd(self, conditions1, conditions2):
+        # print("condition equivalent")
+        changed_checking_begin = time.time()
+        # print("conditions1", conditions1)
+        # print("conditions2", conditions2)
+
         for i in range(len(conditions1)):
-            condition1 = ""
-            condition2 = ""
-            if len(conditions1[i]) > 0 and len(conditions1[i][0]) > 0:
-                condition1 = conditions1[i][0][0]
-            if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
-                condition2 = conditions2[i][0][0]
-            if not self.z3tools.check_equivalence_for_two_string_conditions(condition1, condition2):
+            condition1 = conditions1[i][0]
+            condition2 = conditions2[i][0]
+            # print("condition1", condition1)
+            # print("condition2", condition2)
+            # condition1 = ""
+            # condition2 = ""
+            # if len(conditions1[i]) > 0 and len(conditions1[i][0]) > 0:
+            #     condition1 = conditions1[i][0][0]
+            # if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
+            #     condition2 = conditions2[i][0][0]
+            if not (self.reasoning_tool.is_implication(condition1, condition2) and self.reasoning_tool.is_implication(condition2, condition1)):
                 changed_checking_end = time.time()
                 print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
                 return False
@@ -534,46 +596,30 @@ class DT_Rule:
         changed = False
         header_table = self._head.db["name"]
 
-        # if self._reasoning_engine == "z3":
-        #     translator_z3.normalization(self._reasoning_type, header_table)
-        # elif self._reasoning_engine == "bdd": # TODO: Add table name to BDD
-        #     translator_bdd.normalization(self._reasoning_type, header_table)
-
-        # '''
-        # Merge tuples
-        # '''
-        # merge_tuples_z3.merge_tuples(header_table, # tablename of header
-        #                             "{}_out".format(header_table), # output tablename
-        #                             [], # domain
-        #                             self._reasoning_type) # reasoning type of engine
-        # cursor = conn.cursor()
-        # cursor.execute("drop table if exists {}".format(header_table))
-        # cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
-
         # counting non-redundant rows in header after simplification``
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterSimp = int(cursor.fetchall()[0][0])
         cursor.execute("select condition from {}".format(header_table))
         conditionsPre = cursor.fetchall()
-        # Adding result of output to header
-        cursor.execute("insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable))
 
+        # Adding result of output to header
+        insert_sql = "insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable)
+        if self._reasoning_engine == 'bdd': # replace condition datatype from text[] to integer 
+            insert_sql = insert_sql.replace('text[]', 'integer')  
+        print("insert_sql", insert_sql)
+        cursor.execute(insert_sql)
         conn.commit()
+
         # delete redundants
         merge_begin = time.time()
-        merge_tuples_z3.merge_tuples(header_table, # tablename of header
-                                    "{}_out".format(header_table), # output tablename
-                                    self.z3tools, # reasoning type of engine
-                                    simplification_on=self._simplication_on,
-                                    information_on=False
-                                    ) 
-        # input()
-        # cursor = conn.cursor()
-        # cursor.execute("drop table if exists {}".format(header_table))
-        # cursor.execute("alter table {}_out rename to {}".format(header_table, header_table))
-        # conn.commit()
+        if self._reasoning_engine == 'z3':
+            merge_tuples.merge_tuples_z3(header_table, # tablename of header
+                                        information_on=False) 
+        else:
+            merge_tuples.merge_tuples_bdd(header_table, self.reasoning_tool, information_on=False)
         merge_end = time.time()
         print("merge time:", merge_end-merge_begin, "\n********************************\n")
+
         # counting non-redundant rows in header after inserting output tables
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterInsert = int(cursor.fetchall()[0][0])
@@ -599,7 +645,7 @@ class DT_Rule:
         generate new facts
         '''
         query_begin = time.time()
-        FaureEvaluation(conn, program_sql, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
         query_end = time.time()
         print("query_time:", query_end-query_begin, "\n*******************************\n")
         

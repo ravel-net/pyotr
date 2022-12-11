@@ -8,6 +8,7 @@ from Backend.reasoning.Z3.z3smt import z3SMTTools
 # BDD manager Module
 import BDD_managerModule as bddmm
 import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
+from Backend.reasoning.CUDD.BDDTools import BDDTools
 
 from Core.Homomorphism.faure_translator.parser import SQL_Parser
 from tqdm import tqdm
@@ -45,7 +46,7 @@ class FaureEvaluation:
     _process_condition_on_ctable(tablename, variables, domains)
         convert a c-table with text condition to a c-table with BDD reference
     """
-    def __init__(self, conn, SQL, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
+    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
         """
         Parameters:
         ------------
@@ -54,6 +55,9 @@ class FaureEvaluation:
         
         SQL: string
             SQL for faure evaluation
+
+        reasoning_tool: object
+            Object of z3 Solver or BDDManagerMondule
         
         additional_condition: string
             None by default. If not None, it is an additional condition that would be appended to condition column of the output table before doing simplication.
@@ -102,7 +106,8 @@ class FaureEvaluation:
         self.simplication_time = {} # record time for step 3, format: {'contradiction': 0, 'redundancy': 0}
 
         # self.column_datatype_mapping = self._get_column_datatype_mapping() # mapping between column and datatype for output table
-        self._z3Smt = z3SMTTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
+        # self._z3Smt = z3SMTTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
+        self._reasoning_tool = reasoning_tool
 
         # self._SQL_parser = SQL_Parser(conn, self._SQL, True, self._reasoning_engine, self._databases) # A parser to parse SQL, return SQL_Parser instance
         if self._SQL.lower().startswith('with'):
@@ -111,7 +116,7 @@ class FaureEvaluation:
             conn.commit()
 
             if simplication_on:
-                self._z3Smt.simplification(self.output_table)
+                self._reasoning_tool.simplification(self.output_table)
         else:
             self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
             self._additional_condition = additional_condition
@@ -121,41 +126,26 @@ class FaureEvaluation:
             if self._reasoning_engine.lower() == 'z3':
                 # integration of step 1 and step 2
                 self._integration()
-                # # step 1: data
-                # self._data()
 
-                # # Step 2: update
-                # self._upd_condition_z3()
                 if simplication_on:
                     # Step 3: simplication
-                    self._z3Smt.simplification(self.output_table, self._conn)
+                    self._reasoning_tool.simplification(self.output_table, self._conn)
 
             elif self._reasoning_engine.lower() == 'bdd':
+                # self.bddTool = BDDTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
+
+                # processed_tables = []
+                # for workingtable in self._SQL_parser.working_tables:
+                #     if workingtable.TableName not in processed_tables:
+                #         print("process", workingtable.TableName)
+                #         self._process_condition_on_ctable(workingtable.TableName)
+                #         processed_tables.append(workingtable.TableName)
+                
                 # step 1: data
-                self._data()
-
-                # assume all variables have the same domain
-                if len(domains.keys()) == 0:
-                    print("Domain is empty!")
-                    exit()
-
-                variables = list(domains.keys())
-                domain_list =  domains[variables[0]]
-
-                if self._reasoning_sort.lower() == 'bitvec':
-                    bddmm.initialize(len(variables), 2**32-1) # the domain of IP address is 2^32
-                else:
-                    bddmm.initialize(len(variables), len(domain_list))
-
-                for workingtable in self._SQL_parser.working_tables:
-                    # print(workingtable.TableName), 
-                    # print(self._SQL_parser.databases)
-                    self._process_condition_on_ctable(workingtable.TableName, variables, domain_list)
-
-                self._get_column_datatype_mapping()
+                self._integration()
 
                 # Step 2: update
-                self._upd_condition_BDD(domain_list, variables)
+                self._upd_condition_BDD()
 
             else:
                 print("Unsupported reasoning engine", self._reasoning_engine)
@@ -292,7 +282,7 @@ class FaureEvaluation:
         del_tuple = []
         for i in tqdm(range(contrad_count)):
             row = cursor.fetchone()
-            is_contrad = self._z3Smt.iscontradiction(row[1])
+            is_contrad = self._reasoning_tool.iscontradiction(row[1])
 
             if is_contrad:
                 del_tuple.append(row[0])
@@ -321,7 +311,7 @@ class FaureEvaluation:
         for i in tqdm(range(redun_count)):
             row = cursor.fetchone()
 
-            has_redun, result = self._z3Smt.has_redundancy(row[1])
+            has_redun, result = self._reasoning_tool.has_redundancy(row[1])
             if has_redun:
                 if result != '{}':
                     result = ['"{}"'.format(r) for r in result]
@@ -333,7 +323,7 @@ class FaureEvaluation:
         self._conn.commit()
 
         if self._information_on:
-            for k, v in self._z3Smt.solver.statistics():
+            for k, v in self._reasoning_tool.solver.statistics():
                 if (k == "max memory"):
                     print ("Solver Max Memory: %s : %s" % (k, v))
 
@@ -363,13 +353,96 @@ class FaureEvaluation:
         self._conn.commit()
         return column_datatype_mapping
     
-    def _upd_condition_BDD(self, domains, variables):
+    def _upd_condition_BDD(self):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
         cursor = self._conn.cursor()
 
-        if 'id' not in self.column_datatype_mapping:
-            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(self.output_table))
+        # if 'id' not in self.column_datatype_mapping:
+        cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
+        self._conn.commit()
+
+        select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
+        if self._information_on:
+            print(select_sql)
+        
+        begin_upd = time.time()
+        cursor.execute(select_sql)
+        end_upd = time.time()
+
+        count_num = cursor.rowcount
+
+        new_reference_mapping = {}
+        for i in range(count_num):
+            (old_conditions, conjunctin_conditions, id) = cursor.fetchone()
+            # print(old_conditions, conjunctin_conditions, id)
+            '''
+            Logical AND all original conditions for all tables
+            '''
+            # print("result", bddmm.operate_BDDs(0, 1, "&"))
+            old_bdd = old_conditions[0]
+            for cond_idx in range(1, len(old_conditions)):
+                bdd1 = old_conditions[cond_idx]
+                # print("old_bdd", old_bdd, "bdd1", bdd1)
+                old_bdd = self._reasoning_tool.operate_BDDs(int(bdd1), int(old_bdd), "&")
+                # print('old', old_bdd)
+
+            '''
+            get BDD reference number for conjunction condition
+            '''
+            # print("conjunctin_conditions", conjunctin_conditions)
+            if len(conjunctin_conditions) != 0:
+                # conjunction_str = "And({})".format(", ".join(conjunctin_conditions))
+                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunctin_conditions)
+
+                # Logical AND original BDD and conjunction BDD
+                new_ref = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
+                new_reference_mapping[id] = new_ref
+            else:
+                new_reference_mapping[id] = old_bdd
+
+        
+        '''
+        append additional conditions to output table
+        '''
+        if self._additional_condition is not None:
+            additional_ref = self._reasoning_tool.str_to_BDD(self._additional_condition)
+            for id in new_reference_mapping.keys():
+                cond_ref = new_reference_mapping[id]
+                new_ref = self._reasoning_tool.operate_BDDs(cond_ref, additional_ref, '&')
+                # update condition reference for each tuple after appending additional conditions
+                new_reference_mapping[id] = new_ref
+
+        '''
+        add condition column of integer type
+        update bdd reference number on condition column
+        '''
+        sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, add column condition integer".format(self.output_table)
+        cursor.execute(sql)
+        self._conn.commit()
+
+        begin_upd = time.time()
+        for key in new_reference_mapping.keys():
+            sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
+            cursor.execute(sql)
+        end_upd = time.time()
+        self._conn.commit()
+
+        self.update_condition_time['update_condition'] = end_upd - begin_upd
+        self._conn.commit()
+
+        sql = "alter table if exists {} drop column if exists id".format(self.output_table)
+        cursor.execute(sql)
+        self._conn.commit()
+        
+
+    def _upd_condition_BDD_old(self, domains, variables):
+        if self._information_on:
+            print("\n************************Step 2: update condition****************************")
+        cursor = self._conn.cursor()
+
+        # if 'id' not in self.column_datatype_mapping:
+        cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
         self._conn.commit()
 
         '''
@@ -517,8 +590,8 @@ class FaureEvaluation:
         else:
             print("Coming soon!")
             exit()
-
-    def _process_condition_on_ctable(self, tablename, variables, domains):
+    
+    def _process_condition_on_ctable(self, tablename):
         """
         convert text condition to BDD reference in a c-table
 
@@ -556,13 +629,10 @@ class FaureEvaluation:
                 if self._empty_condition_idx is None:
                     condition = ""
                     begin_process = time.time()
-                    encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables, self._is_IP)
-                    end_process_encode = time.time()
-                    empty_condition_idx = bddmm.str_to_BDD(encoded_c)
+                    empty_condition_idx = self._reasoning_tool.str_to_BDD(condition)
                     end_process_strToBDD = time.time()
                     if self._information_on:
-                        print("Time to encode condition {}: {} s".format(empty_condition_idx, end_process_encode-begin_process))
-                        print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-end_process_encode))
+                        print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-begin_process))
                     self._empty_condition_idx = empty_condition_idx
                 list_row[cond_idx] = self._empty_condition_idx
             else:
@@ -570,44 +640,24 @@ class FaureEvaluation:
 
                 # Call BDD module 
                 begin_process = time.time()
-                encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, domains, variables, self._is_IP)
-                end_process_encode = time.time()
-                bdd_idx = bddmm.str_to_BDD(encoded_c)
+                bdd_idx = self._reasoning_tool.str_to_BDD(condition)
                 end_process_strToBDD = time.time()
                 if self._information_on:
-                    print("Time to encode condition {}: {} s".format(bdd_idx, end_process_encode-begin_process))
-                    print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-end_process_encode))
+                    print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-begin_process))
                 list_row[cond_idx] = bdd_idx
 
             row = tuple(list_row)
             new_tuples.append(deepcopy(row))
-
-        sql = "drop table if exists {tablename}".format(tablename=tablename)
+        
+        # truncate content in target table
+        sql = "truncate table {tablename}".format(tablename=tablename)
         cursor.execute(sql)
 
-        self.column_datatype_mapping['condition'] = 'integer'
+        # alter table condition column's datatype from text[] to integer
+        sql = "alter table if exists {tablename} drop column if exists condition".format(tablename=tablename)
+        cursor.execute(sql)
 
-        columns = []
-        for idx, name in enumerate(self._SQL_parser.databases[tablename]['names']):
-            datatype = self._SQL_parser.databases[tablename]['types'][idx]
-
-            if name == 'condition':
-                datatype = 'integer'
-                self._SQL_parser.databases[tablename]['types'][idx] = datatype # update it
-
-            elif datatype.lower() == 'user-defined':
-                if self._reasoning_sort.lower() == 'int':
-                    datatype = 'int4_faure'
-                elif self._reasoning_sort.lower() == 'bitvec':
-                    datatype = 'inet_faure'
-                else:
-                    print("Unsupported reasoning sort:", self._reasoning_sort)
-                    exit()
-
-                self._SQL_parser.databases[tablename]['types'][idx] = datatype # update it
-
-            columns.append("{} {}".format(name, datatype))
-        sql = "create table {} ({})".format(tablename, ", ".join(columns))
+        sql = "alter table if exists {tablename} add column IF NOT EXISTS condition integer".format(tablename=tablename)
         cursor.execute(sql)
 
         sql = "insert into {tablename} values %s".format(tablename=tablename)

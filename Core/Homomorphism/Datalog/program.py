@@ -3,10 +3,14 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 import psycopg2 
+from psycopg2.extras import execute_values
 from copy import deepcopy
 from Core.Homomorphism.Datalog.rule import DT_Rule
 from Core.Homomorphism.Datalog.DL_minimization import minimizeAtoms, minimizeRules, enhancedMinimization
 from Backend.reasoning.Z3.z3smt import z3SMTTools
+from Backend.reasoning.CUDD.BDDTools import BDDTools
+from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
+import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_z3
 import databaseconfig as cfg
 import time
 
@@ -80,32 +84,32 @@ class DT_Program:
         return True
 
     def execute(self, conn):
-        # program_sql = "WITH recursive temp_G(c0, c1, c2, condition, depth) AS (\
-        #                     select c0, c1, c2, condition, 1 as depth from G\
-        #                     UNION\
-        #                     select t1.c0 as c0, t2.c1 as c1, t3.c1 as c2, \
-        #                         t1.condition || t2.condition || t3.condition || t4.condition || t5.condition ||\
-        #                         Array[\
-        #                             t1.c1 || ' == ' || t2.c0,\
-        #                             t2.c0 || ' == ' || t3.c0,\
-        #                             t1.c2 || ' == ' || t3.c1,\
-        #                             t3.c1 || ' == ' || t4.c0,\
-        #                             t4.c0 || ' == ' || t4.c1,\
-        #                             t4.c1 || ' == ' || t5.c0,\
-        #                             t2.c1 || ' == ' || t5.c1\
-        #                         ] as condition,\
-        #                         t1.depth+1 as depth\
-        #                     from temp_G t1, A t2, A t3, A t4, A t5\
-        #                     where t1.c1 = t2.c0 \
-        #                         and t2.c0 = t3.c0 \
-        #                         and t1.c2 = t3.c1 \
-        #                         and t3.c1 = t4.c0 \
-        #                         and t4.c0 = t4.c1 \
-        #                         and t4.c1 = t5.c0 \
-        #                         and t2.c1 = t5.c1\
-        #                         and depth < 3\
-        #                     )\
-        #                     insert into G select c0, c1, c2, condition from temp_G;"
+        # # program_sql = "WITH recursive temp_G(c0, c1, c2, condition, depth) AS (\
+        # #                     select c0, c1, c2, condition, 1 as depth from G\
+        # #                     UNION\
+        # #                     select t1.c0 as c0, t2.c1 as c1, t3.c1 as c2, \
+        # #                         t1.condition || t2.condition || t3.condition || t4.condition || t5.condition ||\
+        # #                         Array[\
+        # #                             t1.c1 || ' == ' || t2.c0,\
+        # #                             t2.c0 || ' == ' || t3.c0,\
+        # #                             t1.c2 || ' == ' || t3.c1,\
+        # #                             t3.c1 || ' == ' || t4.c0,\
+        # #                             t4.c0 || ' == ' || t4.c1,\
+        # #                             t4.c1 || ' == ' || t5.c0,\
+        # #                             t2.c1 || ' == ' || t5.c1\
+        # #                         ] as condition,\
+        # #                         t1.depth+1 as depth\
+        # #                     from temp_G t1, A t2, A t3, A t4, A t5\
+        # #                     where t1.c1 = t2.c0 \
+        # #                         and t2.c0 = t3.c0 \
+        # #                         and t1.c2 = t3.c1 \
+        # #                         and t3.c1 = t4.c0 \
+        # #                         and t4.c0 = t4.c1 \
+        # #                         and t4.c1 = t5.c0 \
+        # #                         and t2.c1 = t5.c1\
+        # #                         and depth < 3\
+        # #                     )\
+        # #                     insert into G select c0, c1, c2, condition from temp_G;"
         # # program_sql = "WITH RECURSIVE temp_R(c0, c1, depth, condition) AS (\
         # #                     SELECT c0, c1, 1, condition from L\
         # #                     UNION\
@@ -114,26 +118,52 @@ class DT_Program:
         # #                     WHERE t1.c1 = t2.c0 and depth < 2\
         # #                 )\
         # #                 insert into R SELECT c0, c1, condition from temp_R;"
+        # program_sql = "WITH recursive temp_G(c0, c1, c2) AS (\
+        #                 select c0, c1, c2 from G0\
+        #                 UNION\
+        #                 select t1.c0 as c0, t2.c1 as c1, t3.c1 as c2\
+        #                 from temp_G t1, A t2, A t3, A t4, A t5\
+        #                 where t1.c1 = t2.c0 \
+        #                     and t2.c0 = t3.c0 \
+        #                     and t1.c2 = t3.c1 \
+        #                     and t3.c1 = t4.c0 \
+        #                     and t4.c0 = t4.c1 \
+        #                     and t4.c1 = t5.c0 \
+        #                     and t2.c1 = t5.c1\
+        #                 )\
+        #                 insert into G select c0, c1, c2 from temp_G;"
         # print("program_sql", program_sql)
-        # table = "G"
-        # eval_time = time.time()
-        # FaureEvaluation(conn, program_sql, output_table=table, domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
-        # eval_end = time.time()
+        # # table = "G"
+        # # eval_time = time.time()
+        # # FaureEvaluation(conn, program_sql, output_table=table, domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+        # # eval_end = time.time()
         
 
-        # # input()
-        # # delete redundants
-        # merge_begin = time.time()
-        # num = merge_tuples_z3.merge_tuples(table, # tablename of header
-        #                             "{}_out".format(table), # output tablename
-        #                             self.z3tools, # reasoning type of engine
-        #                             simplification_on=self._simplication_on,
-        #                             information_on=False
-        #                             ) 
-        # merge_end = time.time()
-        # print("**********************\nevaluation time:", eval_end-eval_time, "\n***************************************\n")
-        # print("count: ", num, "merging time:", merge_end-merge_begin, "\n**********************\n")
+        # # # input()
+        # # # delete redundants
+        # # merge_begin = time.time()
+        # # num = merge_tuples_z3.merge_tuples(table, # tablename of header
+        # #                             "{}_out".format(table), # output tablename
+        # #                             self.z3tools, # reasoning type of engine
+        # #                             simplification_on=self._simplication_on,
+        # #                             information_on=False
+        # #                             ) 
+        # # merge_end = time.time()
+        # # print("**********************\nevaluation time:", eval_end-eval_time, "\n***************************************\n")
+        # # print("count: ", num, "merging time:", merge_end-merge_begin, "\n**********************\n")
 
+        # # return False
+        # program_sql = "WITH RECURSIVE temp_R(c0, c1) AS (\
+        #                 SELECT * from L \
+        #                 UNION \
+        #                 SELECT t1.c0 as c0, t2.c1 as c1 \
+        #                 FROM temp_R t1, L t2\
+        #                 WHERE t1.c1 = t2.c0\
+        #             )\
+        #             insert into R SELECT * from temp_R;"
+        # cursor = conn.cursor()
+        # cursor.execute(program_sql)
+        # conn.commit()
         # return False
 
         changed = False
@@ -177,13 +207,24 @@ class DT_Program:
         conn.set_session()
         changed = True
         self.initiateDB(conn)
+
+        # num = 100
+        # tuples = []
+
+        # for i in range(num):
+        #     # tuples.append(["x"+str(i), "x"+str(i+1), "{}"])
+        #     tuples.append([i, i+1])
+        
+        # cursor = conn.cursor()
+        # execute_values(cursor, "insert into L values %s", tuples)
+        # conn.commit()
+
         rule2.addConstants(conn)
         iterations = 0
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.execute(conn)
-
-            if self._simplification_on:
+            if self._simplification_on and self._reasoning_engine == 'z3':
                 simp_begin = time.time()
                 self.z3tools.simplification(rule2._head.db["name"], conn)
                 simp_end = time.time()
