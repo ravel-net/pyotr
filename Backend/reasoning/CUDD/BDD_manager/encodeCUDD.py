@@ -79,8 +79,11 @@ def processCon(var1, var2, updatedDomains, is_ip=False):
 	newItems = []
 	processedCond = ""
 	numBinDigits = 32
-	if not is_ip:
-		numBinDigits = math.ceil(math.log(len(updatedDomains),2))
+	varDomain = [] # If varDomain is empty, that means the domain is the entire integer set
+	if var1 in updatedDomains:
+		varDomain = updatedDomains[var1]
+	if not is_ip and varDomain: 
+		numBinDigits = math.ceil(math.log(len(varDomain),2))
 	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
 		for i in range(numBinDigits):
 			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
@@ -100,25 +103,30 @@ def processCon(var1, var2, updatedDomains, is_ip=False):
 			binary_rep = bin(int(addr))[2:]
 			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, subnet)
 			processedCond = combineItems(newItems, "&")
-		else: # case when it is var = constant
-			binary_rep = bin(updatedDomains.index(newVar2))[2:]
+		elif len(varDomain) > 0: # case when it is var = constant with a specified domain
+			binary_rep = bin(varDomain.index(newVar2))[2:]
 			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
 			processedCond = combineItems(newItems, "&")
-			if updatedDomains.index(newVar2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
+			if varDomain.index(newVar2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
 				allConditions = [processedCond]
-				for i in range(len(updatedDomains), int(math.pow(2,numBinDigits))):
+				for i in range(len(varDomain), int(math.pow(2,numBinDigits))):
 					binary_rep = bin(i)[2:]
 					newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
 					allConditions.append(combineItems(newItems, "&"))
 				processedCond = combineItems(allConditions, "^")
+		else: # case when it is var = constant in the entire integer domain
+			binary_rep = bin(int(newVar2))[2:]
+			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
+			processedCond = combineItems(newItems, "&")
+
 	return processedCond
 
 def getUpdatedVariables(variables, input_domain, is_ip=False):
 	newVariables = []
 	for var in variables:
 		numVars = 32
-		if not is_ip:
-			numVars = math.ceil(math.log(len(input_domain),2))
+		if not is_ip and var in input_domain:
+			numVars = math.ceil(math.log(len(input_domain[var]),2))
 		for i in range(numVars):
 			newVariables.append(var + "_" + str(i))
 	return newVariables
@@ -251,3 +259,6 @@ if __name__ == "__main__":
 				f_output.write(str(numVars) + " " + str(conditionSize) + " " + condition + "\n")
 		f_input.close()
 		f_output.close()
+	# # condition, variablesArray = convertToCUDD("And(x == 2, y == 5, z == 10)", {'x':['1','2','3'],'y':['4','5','6'],'z':['1','10']},['x','y','z'], False)
+	# condition, variablesArray = convertToCUDD("And(x == 2, y == 5, z == 10)", {'x':['1','2','3'],'y':['4','5','6']},['x','y','z'], False)
+	# print(condition, variablesArray)

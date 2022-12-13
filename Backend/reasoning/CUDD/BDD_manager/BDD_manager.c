@@ -23,9 +23,9 @@ void write_dd (DdManager *gbm, DdNode *dd, char* filename)
     fclose (outfile); // close the file */
 }
 
-void Cinitialize(unsigned int numberOfVariables, unsigned int domainCardinality) { 
+void Cinitialize(unsigned int numberOfBDDVariables) { 
     initializeBDD(&BDDs, INITIALSIZE);
-    numVars = numBinaryVars(numberOfVariables, domainCardinality);
+    numVars = numberOfBDDVariables;
     gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
     variableNodes = initVars(numVars, gbm);
     // gbm = Cudd_Init(numVars,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
@@ -36,13 +36,13 @@ void Cinitialize(unsigned int numberOfVariables, unsigned int domainCardinality)
 static PyObject* initialize(PyObject* self, PyObject* args)
 {
     // instantiate our `n` value
-    unsigned int numberOfVariables;
+    unsigned int numberOfBDDVariables;
     unsigned int domainCardinality;
     // if our `n` value
-    if(!PyArg_ParseTuple(args, "II", &numberOfVariables, &domainCardinality))
+    if(!PyArg_ParseTuple(args, "i", &numberOfBDDVariables))
         return NULL;
 
-    Cinitialize(numberOfVariables, domainCardinality);
+    Cinitialize(numberOfBDDVariables);
     return Py_None;
 }
          
