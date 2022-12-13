@@ -1,12 +1,18 @@
-import program as program
 import time
+
+import sys
+from os.path import dirname, abspath
+root = dirname(dirname(abspath(__file__)))
+print(root)
+sys.path.append(root)
+from Core.Homomorphism.Datalog.program import DT_Program
 
 if __name__ == "__main__":
     # ====================================== Example 6 - Containment ========================================
     p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
     p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
-    program1 = program.DT_Program(p1)
-    program2 = program.DT_Program(p2)
+    program1 = DT_Program(p1)
+    program2 = DT_Program(p2)
     start = time.time()
     if not program1.contains(program2):
         print("Test 1.1 failed")
@@ -25,7 +31,7 @@ if __name__ == "__main__":
 
     # ===================================== Example 7 - Minimization ========================================
     p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
-    program1 = program.DT_Program(p1)
+    program1 = DT_Program(p1)
     start = time.time()
     program1.minimize()
     print(program1)
@@ -38,7 +44,7 @@ if __name__ == "__main__":
 
     # ======================================== ACL Example ========================================
     p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    program1 = program.DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+    program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "l"])
     start = time.time()
     program1.minimize()
     print(program1)
@@ -52,7 +58,7 @@ if __name__ == "__main__":
     # ====================================== c-variable data part test  =====================================
     # Tests is_head_contained_faure
     p1 = "R(x, y) :- l(x,y)\nR(x,z) :- R(x,y), l(y,z)"
-    program1 = program.DT_Program(p1, {"R":["int4_faure", "int4_faure"], "l":["int4_faure", "int4_faure"]}, domains={'x':['1', '2'],'y':['1', '2'],'z':['1', '2']}, c_variables=['x','y','z'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+    program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure"], "l":["int4_faure", "int4_faure"]}, domains={'x':['1', '2'],'y':['1', '2'],'z':['1', '2']}, c_variables=['x','y','z'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "l"])
     start = time.time()
     program1.minimize()
     print(program1)
@@ -66,7 +72,7 @@ if __name__ == "__main__":
     # ======================================= c-variable as header test  ====================================
     # Tests c-variable appearing in header that does not appear anywhere in the body
     p1 = "R(x,y) :- L(x,q,z), Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
-    program1 = program.DT_Program(p1, {"R":["integer", "int4_faure"], "L":["integer", "integer", "int4_faure"], "Q":["int4_faure"]}, domains={'z':['1', '2'], 'y':['1', '2']}, c_variables=['z','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "L", "Q"])
+    program1 = DT_Program(p1, {"R":["integer", "int4_faure"], "L":["integer", "integer", "int4_faure"], "Q":["int4_faure"]}, domains={'z':['1', '2'], 'y':['1', '2']}, c_variables=['z','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "L", "Q"])
     start = time.time()
     program1.minimize()
     print(program1)
@@ -80,7 +86,7 @@ if __name__ == "__main__":
     # ==================================== New Condition Format Test  ======================================
     # Note that the brackets in the conditions are curly brackets. TODO: Fix constraint parser so that they don't have to be square brackets
     p1 = "R(x,y)[And{y = 10, y < 20}] :- L(x,y,z)[And{y = 10, y < 20}], Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
-    program1 = program.DT_Program(p1, {"R":["integer", "int4_faure"], "L":["integer", "int4_faure", "int4_faure"], "Q":["int4_faure"]}, domains={'z':['1', '2'], 'y':['1', '2']}, c_variables=['z','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "L", "Q"])
+    program1 = DT_Program(p1, {"R":["integer", "int4_faure"], "L":["integer", "int4_faure", "int4_faure"], "Q":["int4_faure"]}, domains={'z':['1', '2'], 'y':['1', '2']}, c_variables=['z','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "L", "Q"])
     start = time.time()
     program1.minimize()
     print(program1)
@@ -96,8 +102,8 @@ if __name__ == "__main__":
 
     p2 = "R(1,x)[Or{And{y == 2, x == 10}, And{y == 3, x == 20}, And{y == 4 , x == 30}}]  :- l(1,2), l(1,3), l(1,4), R(y,x)[Or{And{y == 2, x == 10}, And{y == 3, x == 20}, And{y == 4 , x == 30}}]"
 
-    program1 = program.DT_Program(p1, {"R":["int4_faure", "int4_faure"], "l":["integer", "integer"]}, domains={'x':[10,20,30],'y':[2,3,4]}, c_variables=['x','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
-    program2 = program.DT_Program(p2, {"R":["int4_faure", "int4_faure"], "l":["integer", "integer"]}, domains={'x':[10,20,30],'y':[2,3,4]}, c_variables=['x','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["R", "l"])
+    program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure"], "l":["integer", "integer"]}, domains={'x':[10,20,30],'y':[2,3,4]}, c_variables=['x','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "l"])
+    program2 = DT_Program(p2, {"R":["int4_faure", "int4_faure"], "l":["integer", "integer"]}, domains={'x':[10,20,30],'y':[2,3,4]}, c_variables=['x','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "l"])
     start = time.time()
     if (not program2.contains(program1)):
         print("Text 7.1 failed")
@@ -119,8 +125,8 @@ if __name__ == "__main__":
     p2 = "l(3,4) :- l(y,c), k(d,y,e), l(f,g)"
 
     
-    program1 = program.DT_Program(p1, {"l":["int4_faure", "int4_faure"], "k":["int4_faure", "int4_faure", "int4_faure"]}, domains={}, c_variables=['a','b','c','d','e','f','g','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["l","k"])
-    program2 = program.DT_Program(p2, {"l":["int4_faure", "int4_faure"], "k":["int4_faure", "int4_faure", "int4_faure"], "m":["int4_faure", "int4_faure"]}, domains={}, c_variables=['a','b','c','d','e','f','g','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=True, c_tables=["l","k","m"])
+    program1 = DT_Program(p1, {"l":["int4_faure", "int4_faure"], "k":["int4_faure", "int4_faure", "int4_faure"]}, domains={}, c_variables=['a','b','c','d','e','f','g','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["l","k"])
+    program2 = DT_Program(p2, {"l":["int4_faure", "int4_faure"], "k":["int4_faure", "int4_faure", "int4_faure"], "m":["int4_faure", "int4_faure"]}, domains={}, c_variables=['a','b','c','d','e','f','g','y'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["l","k","m"])
 
     start = time.time()
     if (not program2.contains(program1)):
