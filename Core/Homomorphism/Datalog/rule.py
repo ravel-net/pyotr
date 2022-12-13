@@ -243,6 +243,14 @@ class DT_Rule:
             cursor.execute(table_creation_query)
         conn.commit()
 
+    def getRuleWithoutFaure(self): # returns the same rule but without any c-variables and conditions
+        newRuleStr = self._head.strAtomWithoutConditions() + " :- "
+        for bodyAtom in self._body:
+            newRuleStr += bodyAtom.strAtomWithoutConditions() + ", "
+        newRuleStr = newRuleStr[:-2]
+        newRule = DT_Rule(newRuleStr) # assuming that the default is without faure
+        return newRule
+
     def convertRuleToSQLPartitioned(self):
         tables = []
         constraints = []

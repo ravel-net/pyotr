@@ -29,4 +29,20 @@ if __name__ == "__main__":
         exit()
     else:
         end = time.time()
-        print("Test 2 passed in {} seconds".format(end-start))
+        print("Test 2 passed in {} seconds".format(end-start))    
+
+
+    # ====================================== Toy Example 2 ========================================
+    p1 = "R(2)[And{y > 0, y < 10}] :- l(y)[And{y > 0, y < 10}]\nR(2)[And{z > -1, z < 5}] :- l(z)[And{z > -1, z < 5}]"
+
+    program1 = program.DT_Program(p1, {"R":["int4_faure"], "l":["int4_faure"]}, domains={}, c_variables=['y','z'], reasoning_engine='z3', reasoning_type='Int', datatype='int4_faure', simplification_on=False, c_tables=["R", "l"])
+
+    start = time.time()
+    program1.minimize(False, False, True)
+    print(program1)
+    if (str(program1) != "R(2)[Or(And(And(y > 0, y < 10)),And(And(y > -1, y < 5)))] :- l(y),(Or(And(And(y > 0, y < 10)),And(And(y > -1, y < 5)))))"):
+        print("Test 3 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 3 passed in {} seconds".format(end-start))

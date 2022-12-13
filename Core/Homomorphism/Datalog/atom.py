@@ -135,6 +135,16 @@ class DT_Atom:
             atom_str += "[{}]".format(", ".join(self.constraints))
         return atom_str
 
+    def strAtomWithoutConditions(self):
+        parameter_strs = []
+        for p in self.parameters:
+            if type(p) == list:
+                parameter_strs.append("[{}]".format(", ".join(p)))
+            else:
+                parameter_strs.append(p)
+        atom_str = self.db["name"]+"("+",".join(parameter_strs)+")"
+        return atom_str
+
     def replaceCondition(self, condition):
         self.constraints = condition
 

@@ -15,14 +15,13 @@ N = 2
 # Note: We do not take into account cases where a c-variable appears in the head but not in the body
 def unify(rule1, rule2, rule1Name):
 	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name)
-	substitutions_r3_to_r2, tables_r2 = getSubstitutions(rule3, rule2) 
+	substitutions_r3_to_r2, tables_r2, r2_without_faure = getSubstitutions(rule3, rule2) 
 	if len(substitutions_r3_to_r2) == 0: # no substitutions found so no way to align atoms
 		return None 
-	equal_subs_r3_to_r2 = getEquivalentSubstitutions(substitutions_r3_to_r2, rule3, rule2, tables_r2)
+	equal_subs_r3_to_r2 = getEquivalentSubstitutions(substitutions_r3_to_r2, r2_without_faure, tables_r2)
 	if not equal_subs_r3_to_r2: # no equal substitutions found
 		return None
-
-	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, rule1Name)
+	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, r2_without_faure, rule1Name)
 	# Delete repeated conditions
 	for cond in C1_head:
 		if cond in C1_body:
@@ -68,24 +67,26 @@ def getCVarReplacements(conditions1, conditions2):
 # Constants is equality
 # C-variables is replacement of conditions from rule 2
 # Variable is ignoring
-def getConditions(substitution, rule, rule2, ruleName):
+def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 	conditions = []
 	for atom in rule2._body:
 		if atom.constraints:
 			conditions += atom.constraints
 	atomNum = 0
-
 	replacements = {}
 	for atom in rule._body: # note that the order of tuples in substitution should be the same as the order of atoms of rule
 		currTuple = substitution[atomNum][1:-1].split(",")
 		parameterNum = 0
-		for val in currTuple[:-1]: # assuming last element is condition
+		for val in currTuple: 
 			c_var_param = atom.parameters[parameterNum]
 			if isConstant(val):
 				newCondition = c_var_param + " == " + val
 				if newCondition not in conditions:
 					conditions.append(newCondition) 
-			elif val in rule2._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
+			elif int(val) in r2_without_faure._reverseMapping:
+				variable = r2_without_faure._reverseMapping[int(val)]
+				replacements[variable] = c_var_param
+			elif val in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 				replacements[val] = c_var_param
 			parameterNum += 1
 		atomNum += 1
@@ -110,8 +111,14 @@ def getConditions(substitution, rule, rule2, ruleName):
 # takes in a tuple and removes the last column
 def removeCondition(strTuple):
 	i = len(strTuple)-1
-	while strTuple[i] != ",":
+	inBracketCount = 0
+	while strTuple[i] != "," or inBracketCount > 0:
 		i -= 1
+		if (strTuple[i] == ")"):
+			inBracketCount += 1
+		if (strTuple[i] == "("):
+			inBracketCount -= 1
+
 	return strTuple[:i]+")"
 
 # takes a particular substitution and returns the corresponding atoms
@@ -122,13 +129,14 @@ def getAtomSubstitutions(substitution, tables_r2):
 	for i in range(len(substitution)):
 		currTuple = substitution[i]
 		currTable = tables_r2[i].strip()[0]
-		substitutedAtom = currTable+removeCondition(currTuple) #ignoring the final condition column
+		# substitutedAtom = currTable+removeCondition(currTuple) #ignoring the final condition column
+		substitutedAtom = currTable+currTuple #ignoring the final condition column
 		substitutedAtoms.append(substitutedAtom)
 	return substitutedAtoms
 
 # Get substitutions for which there is equivalence between rule and rule2
 # The intuition is that the correct substitutions should contain all constants and c-variables that the data instance rule (rule2) had
-def getEquivalentSubstitutions(substitutions, rule, rule2, tables_r2):
+def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
 	# create a set with that contains all mapped atoms of rule2 as string
 	mappedAtomsRule2 = []
 	for atom in rule2._body:
@@ -141,6 +149,7 @@ def getEquivalentSubstitutions(substitutions, rule, rule2, tables_r2):
 				parameters.append(str(parameter))
 		atomString += ",".join(parameters) + ")"
 		mappedAtomsRule2.append(atomString)
+
 	for substitution in substitutions:
 		substitutedAtoms = getAtomSubstitutions(substitution, tables_r2) 
 		found = True
@@ -159,9 +168,10 @@ def getEquivalentSubstitutions(substitutions, rule, rule2, tables_r2):
 def getSubstitutions(rule, rule2):
 	conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 	conn.set_session()
-	rule2.initiateDB(conn)
-	rule2.addConstants(conn)
-	summary_nodes, tables, constraints = rule.convertRuleToSQLPartitioned()
+	rule2_without_Faure = rule2.getRuleWithoutFaure()
+	rule2_without_Faure.initiateDB(conn)
+	rule2_without_Faure.addConstants(conn)
+	_, tables, constraints = rule.convertRuleToSQLPartitioned()
 	tuples = []
 	for table in tables:
 		tuples.append(table.split()[1])
@@ -172,7 +182,7 @@ def getSubstitutions(rule, rule2):
 	cursor.execute(sql)
 	conn.commit()
 	result = cursor.fetchall()
-	return result, tables
+	return result, tables, rule2_without_Faure
 
 # Takes a rule as input and returns a new rule that has all parameters replaced with c-variables. 
 def getEquivalentRule(rule, ruleName):
