@@ -10,26 +10,38 @@ class BDDTools:
 
     def __init__(self, variables, domains={}, reasoning_type='Int') -> None:
         # assume all variables have the same domain
-        if len(domains.keys()) == 0:
-            print("Domain is empty!")
-            exit()
+        # if len(domains.keys()) == 0:
+        #     print("Domain is empty!")
+        #     exit()
 
-        self.variables = list(domains.keys())
-        self.domain_list =  domains[variables[0]]
+        self.variables = variables
+        # self.domain_list =  domains[variables[0]]
+        self.domain_list =  domains
         self._reasoning_sort = reasoning_type
         self._is_IP = False
         self._empty_condition_idx = None
 
         if self._reasoning_sort.lower() == 'bitvec':
             self._is_IP = True
-            bddmm.initialize(len(variables), 2**32-1) # the domain of IP address is 2^32
-        else:
-            bddmm.initialize(len(variables), len(self.domain_list))
+            # bddmm.initialize(len(variables)) # the domain of IP address is 2^32
+        # else:
+        # print("variables", variables)
+        upd_variables = encodeCUDD.getUpdatedVariables(variables, domains, self._is_IP)
+        bddmm.initialize(len(upd_variables))
+
+        # condition1 = "And(d1 == 5, d2 == 1)"
+        
+        # encoded_c, upd_variables = encodeCUDD.convertToCUDD(condition1, self.domain_list, self.variables, self._is_IP)
+        # print(encoded_c)
+        # idx = bddmm.str_to_BDD(encoded_c)
+        # print(idx)
     
     def str_to_BDD(self, condition):
+        print("condition", condition)
         encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, self.domain_list, self.variables, self._is_IP)
+        print("variablesArray", variablesArray)
+        print("encoded_c", encoded_c)
         bdd_condition_idx = bddmm.str_to_BDD(encoded_c)
-
         return bdd_condition_idx
 
     def operate_BDDs(self, bdd_idx1, bdd_idx2, operator):
