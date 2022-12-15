@@ -10,6 +10,8 @@ from tqdm import tqdm
 import encodeCUDD as encodeCUDD
 import psycopg2 
 import databaseconfig as cfg
+from Backend.reasoning.CUDD.BDDTools import BDDTools
+import time
 
 # conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
@@ -78,31 +80,47 @@ import databaseconfig as cfg
 
 
 
-domain = {'d1':['1', '5', '4']}
-# domain = []
-variables_list = ['d1', 'd2']
+# domain = {'d1':['1', '5', '4'], 'd2':['1', '5', '4']}
+# # domain = []
+# domain = {}
+# variables_list = ['d1', 'd2']
 
-# condition1 = "Or(And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))), And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))))"
-condition1 = "And(d1 == 5, d2 == 1)"
+# # condition1 = "Or(And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))), And(d2 == 2, And(4 == 4, Or(d2 == 1, d2 == 2))))"
+# condition1 = "And(d1 == 5, d2 == 1)"
 # condition2 = "d2 == 1"
-# condition1 = "Or(And(d1 == 10.0.0.0/24, d2 == 1.0.0.0), And(d1 == 10.0.0.0/24, d2 == 1.0.0.2))"
-# condition2 = "And(d1 == 1, d1 == 1)"
-# condition1 = "Or(And(d == 10.0.0.0/31, And(d == 10.0.0.0)), And(d == 10.0.0.0/31, And(d == 10.0.0.1)), And(d == 10.0.0.0/31, And(d == 10.0.0.1)))"
-# condition1 = "And(And(d1 == 10.0.0.0/24, d2 == 10.0.1.0/24), Or(d1 == 10.0.1.0/24, d2 == 1.0.1.0))"
-# print(condition)
-encoded_condition1, variable_array1 = encodeCUDD.convertToCUDD(condition1, domain, variables_list, False)
+# # condition1 = "Or(And(d1 == 10.0.0.0/24, d2 == 1.0.0.0), And(d1 == 10.0.0.0/24, d2 == 1.0.0.2))"
+# # condition2 = "And(d1 == 1, d1 == 1)"
+# # condition1 = "Or(And(d == 10.0.0.0/31, And(d == 10.0.0.0)), And(d == 10.0.0.0/31, And(d == 10.0.0.1)), And(d == 10.0.0.0/31, And(d == 10.0.0.1)))"
+# # condition1 = "And(And(d1 == 10.0.0.0/24, d2 == 10.0.1.0/24), Or(d1 == 10.0.1.0/24, d2 == 1.0.1.0))"
+# # print(condition)
+
+# bddTool = BDDTools(variables_list, domain)
+# indx = bddTool.str_to_BDD(condition1)
+# print(indx)
+
+domain = {
+    # 'x':[1, 2, 3],
+    # 'y':[1, 2, 3],
+    # 'z':[1, 2, 3],
+    # 'w':[1, 2, 3]
+}
+variables_list = ['x', 'y', 'z', 'w']
+condition3 = "And(w == z, z == z, z == y, y == w, w == z, z == w, y == z)"
+
+encoded_condition1, variable_array1 = encodeCUDD.convertToCUDD(condition3, domain, variables_list, False)
 bddmm.initialize(len(variable_array1))
-# encoded_condition2, variable_array2 = encodeCUDD.convertToCUDD(condition2, domain, variables_list)
+# encoded_condition2, variable_array2 = encodeCUDD.convertToCUDD(condition2, domain, variables_list, False)
 print(encoded_condition1)
 # print(encoded_condition2)
-
+begin  = time.time()
 bdd_idx1 = bddmm.str_to_BDD(encoded_condition1)
+print("running time:", time.time() - begin)
 # bdd_idx2 = bddmm.str_to_BDD(encoded_condition2)
 
 print("bdd_idx1", bdd_idx1)
 # print("bdd_idx2", bdd_idx2)
-# res1 = bddmm.is_implication(bdd_idx1, bdd_idx2)
-res1 = bddmm.evaluate(bdd_idx1)
+# # res1 = bddmm.is_implication(bdd_idx1, bdd_idx2)
+# res1 = bddmm.evaluate(bdd_idx1)
 
-print('res1', res1)
+# print('res1', res1)
 # print('res2', res2)
