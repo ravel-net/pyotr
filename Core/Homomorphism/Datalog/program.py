@@ -13,6 +13,9 @@ from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_z3
 import databaseconfig as cfg
 import time
+import logging
+logging.basicConfig(filename='program.log', level=logging.DEBUG)
+logging.debug('[Program] Start Logging ...')
 
 class DT_Program:
     """
@@ -47,6 +50,8 @@ class DT_Program:
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
     def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[]):
+        logging.info("Initiating program: \n" + program_str)
+        start = time.time()
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -66,6 +71,8 @@ class DT_Program:
             rules_str = program_str.split("\n")
             for rule in rules_str:
                 self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables))
+        end = time.time()
+        logging.info("Time: init took {}".format(end-start))
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
     
@@ -78,9 +85,15 @@ class DT_Program:
     # Uniform containment. self C dt_program2 (self program contains dt_program2)
     def contains(self, dt_program2):
         # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
+        logging.info("Calling contains")
+        start = time.time()
         for rule in dt_program2._rules:
             if not self.contains_rule(rule):
+                end = time.time()
+                logging.info("Time: contains returned False and took {}".format(end-start))
                 return False
+        end = time.time()
+        logging.info("Time: contains returned true and took {}".format(end-start))
         return True
 
     def execute(self, conn):
@@ -165,19 +178,24 @@ class DT_Program:
         # cursor.execute(program_sql)
         # conn.commit()
         # return False
-
+        logging.info("Calling execute")
+        start = time.time()
         changed = False
         for rule in self._rules:
             print("\n------------------------")
             print("executing rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
+        end = time.time()
+        logging.info("Time: execute took {}".format(end-start))
         return changed
 
 
 
 
     def initiateDB(self, conn):
+        logging.info("Calling initiateDB")
+        start = time.time()
         databases = []
         db_names = []
         for rule in self._rules:
@@ -198,11 +216,16 @@ class DT_Program:
             # print(table_creation_query)
             cursor.execute(table_creation_query)
         conn.commit()
+        end = time.time()
+        logging.info("Time: initiateDB took {}".format(end-start))
+
 
 
     # Uniform containment. 
     # self contains one rule of dt_program2
     def contains_rule(self, rule2):
+        logging.info("Calling contains_rule")
+        start = time.time()
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         conn.set_session()
         changed = True
@@ -228,35 +251,53 @@ class DT_Program:
                 simp_begin = time.time()
                 self.z3tools.simplification(rule2._head.db["name"], conn)
                 simp_end = time.time()
-                print("simplification_time:", simp_end-simp_begin, "\n*******************************\n")
+                logging.info("Time: simplification_time: {}".format(simp_end-simp_begin))
                 # input()
         
             check_head_begin = time.time()
             if rule2.isHeadContained(conn):
                 check_head_end = time.time()
-                print("*******************checking head containment***********************\n")
-                print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
+                logging.info("Time: checking_head: {}".format(check_head_end-check_head_begin))
+                end = time.time()
+                logging.info("Time: contains_rule took {}".format(end-start))
                 return True
             check_head_end = time.time()
-            print("*******************checking head containment***********************\n")
-            print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
+            logging.info("Time: checking_head: {}".format(check_head_end-check_head_begin))
+        end = time.time()
+        logging.info("Time: contains_rule took {}".format(end-start))
         return False
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
     def replaceProgram(self, newRules):
+        logging.info("Calling replaceProgram")
+        start = time.time()
         newProgram = DT_Program(program_str="\n".join(newRules), databaseTypes=self._databaseTypes, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplification_on, c_tables=self._c_tables)
         # newObj = func(newProgram)
         self.__dict__.update(newProgram.__dict__)
+        end = time.time()
+        logging.info("Time: replaceProgram took {}".format(end-start))
 
     def replaceRule(self, ruleNum, newRule):
+        logging.info("Calling replaceRule")
+        start = time.time()
         self._rules[ruleNum] = newRule
+        end = time.time()
+        logging.info("Time: replaceRule took {}".format(end-start))
 
     def deleteRule(self, ruleNum):
+        logging.info("Calling deleteRule")
+        start = time.time()
         self._rules.pop(ruleNum)
+        end = time.time()
+        logging.info("Time: deleteRule took {}".format(end-start))
 
     def copyWithDeletedRule(self, ruleNum):
+        logging.info("Calling copyWithDeletedRule")
+        start = time.time()
         newProgram = deepcopy(self)
         newProgram.deleteRule(ruleNum)
+        end = time.time()
+        logging.info("Time: copyWithDeletedRule took {}".format(end-start))
         return newProgram
         
 
@@ -264,11 +305,23 @@ class DT_Program:
     #TODO IMPORTANT: Program only rule should be entire program. Method: Delete contained rule and then add a rule without atom
     def minimize(self, minimizeAtomsOn = True, minimizeRulesOn = True, enhancedMinimizationOn = False):
         if minimizeAtomsOn:
+            logging.info("Calling minimizeAtomsOn")
+            start = time.time()
             minimizeAtoms(self)
+            end = time.time()
+            logging.info("Time: minimizeAtomsOn took {}".format(end-start))
         if minimizeRulesOn:
+            logging.info("Calling minimizeRules")
+            start = time.time()
             minimizeRules(self)
+            end = time.time()
+            logging.info("Time: minimizeRules took {}".format(end-start))
         if enhancedMinimizationOn:
+            logging.info("Calling enhancedMinimization")
+            start = time.time()
             enhancedMinimization(self)
+            end = time.time()
+            logging.info("Time: enhancedMinimization took {}".format(end-start))
     
     @property
     def numRules(self):

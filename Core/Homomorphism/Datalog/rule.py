@@ -31,6 +31,9 @@ import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_BDD as merge_tu
 import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 from utils.parsing_utils import z3ToSQL
 from Backend.reasoning.CUDD.BDDTools import BDDTools
+import logging
+logging.basicConfig(filename='rule.log', level=logging.DEBUG)
+logging.debug('[Rule] Start Logging ...')
 
 class DT_Rule:
     """
@@ -600,11 +603,13 @@ class DT_Rule:
 
     # Adds the result of the table "output" to head. Only adds distinct variables
     def insertTuplesToHead(self, conn, fromTable="output"):
+        logging.info("Calling insertTuplesToHead")
         cursor = conn.cursor()
         changed = False
         header_table = self._head.db["name"]
 
         # counting non-redundant rows in header after simplification``
+        start = time.time()
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterSimp = int(cursor.fetchall()[0][0])
         cursor.execute("select condition from {}".format(header_table))
@@ -617,6 +622,9 @@ class DT_Rule:
         print("insert_sql", insert_sql)
         cursor.execute(insert_sql)
         conn.commit()
+        end = time.time()
+        logging.info("Time: insertTuplesToHead_postgres_start took {}".format(end-start))
+
 
         # delete redundants
         merge_begin = time.time()
@@ -626,19 +634,26 @@ class DT_Rule:
         else:
             merge_tuples.merge_tuples_bdd(header_table, self.reasoning_tool, information_on=False)
         merge_end = time.time()
-        print("merge time:", merge_end-merge_begin, "\n********************************\n")
+        logging.info("Time: insertTuplesToHead_merge took {}".format(merge_end-merge_begin))
 
+        start = time.time()
         # counting non-redundant rows in header after inserting output tables
         cursor.execute("select distinct count(*) from {}".format(header_table))
         headerCountAfterInsert = int(cursor.fetchall()[0][0])
         conn.commit()
         cursor.execute("select condition from {}".format(header_table))
         conditionsPost = cursor.fetchall()
+        end = time.time()
+        logging.info("Time: insertTuplesToHead_postgres_end took {}".format(end-start))
 
+
+        start = time.time()
         if headerCountAfterInsert > headerCountAfterSimp:
             changed = True
         elif not self.conditionsEquivalent(conditionsPre, conditionsPost):
             changed = True
+        end = time.time()
+        logging.info("Time: insertTuplesToHead_conditionsEquivalent took {}".format(end-start))
 
         # if not changed, check for equivalence of all conditions. If they are trivially same (e.g. string equivalence, move on. Also, simplify conditions along the way to make checking easier)
         conn.commit()
@@ -646,7 +661,7 @@ class DT_Rule:
         return changed
     
     def run_with_faure(self, conn, program_sql):
-        print("program_sql", program_sql)
+        logging.info("Calling run_with_faure")
         header_table = self._head.db["name"]
         changed = False
         '''
@@ -655,11 +670,14 @@ class DT_Rule:
         query_begin = time.time()
         FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
         query_end = time.time()
-        print("query_time:", query_end-query_begin, "\n*******************************\n")
+        logging.info("Time: FaureEvaluation took {}".format(query_end-query_begin))
         
         # input()
         
+        start = time.time()
         changed = self.insertTuplesToHead(conn)
+        end = time.time()
+        logging.info("Time: insertTuplesToHead took {}".format(end-start))
         # input()
         return changed
 
@@ -711,8 +729,14 @@ class DT_Rule:
             return string
         return string[:-1]
 
-if __name__ == "__main__":
-    a = "Asd"
-    rule = DT_Rule("A(x,y,z) :- Gasd(x,1,y)[],B(z,x),C(y,z,2)")
-    # rule.isHeadContained(a)
-    # print(atom.db)
+# if __name__ == "__main__":
+#     a = "Asd"
+#     rule = DT_Rule("A(x,y,z) :- Gasd(x,1,y)[],B(z,x),C(y,z,2)")
+#     # rule.isHeadContained(a)
+#     # print(atom.db)
+
+if __name__ =="__main__":
+    if os.path.exists('core.log'):
+        os.remove('core.log')
+    logging.basicConfig(filename='core.log', level=logging.DEBUG)
+    logging.debug('[Core] Start Logging ...')

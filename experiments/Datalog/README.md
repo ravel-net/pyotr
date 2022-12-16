@@ -1,0 +1,2 @@
+# Analyze.py:
+Analyze.py takes a log file as input (hardcoded as rule.log) and returns the sum of the running time of each function. Currently, the logging in rule.py and program.py save the log in a file called rule.log
