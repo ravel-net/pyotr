@@ -84,7 +84,13 @@ def processCon(var1, var2, updatedDomains, is_ip=False):
 		varDomain = updatedDomains[var1]
 	if not is_ip and varDomain: 
 		numBinDigits = math.ceil(math.log(len(varDomain),2))
-	if isVarCondition(var1,var2):	# TODO: Get the domain with the minimum range
+	if isVarCondition(var1,var2):	
+		numBinDigits2 = 32
+		if var2 in updatedDomains:
+			numBinDigits2 = math.ceil(math.log(len(updatedDomains[var2]),2))
+		if (numBinDigits != numBinDigits2):
+			print("Error: {}={} is an incorrect condition since the domains do not match".format(var1,var2))
+			exit()
 		for i in range(numBinDigits):
 			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
 		processedCond = combineItems(newItems, "&")
