@@ -27,10 +27,9 @@ void Cinitialize(unsigned int numberOfBDDVariables) {
     initializeBDD(&BDDs, INITIALSIZE);
     numVars = numberOfBDDVariables;
     gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
+    Cudd_AutodynEnable(gbm, CUDD_REORDER_SYMM_SIFT); // enables automatic reordering of BDD through SYMM_SIFT method
+    // Cudd_ReduceHeap(gbm, CUDD_REORDER_SYMM_SIFT, 30000); // Uses dynamic ordering using SYMM_SIFT method to reduce heap size. Last para
     variableNodes = initVars(numVars, gbm);
-    // gbm = Cudd_Init(numVars,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-    // Cudd_AutodynEnable(gbm, CUDD_REORDER_SYMM_SIFT);
-    // Cudd_ReduceHeap(gbm, CUDD_REORDER_SYMM_SIFT, 3000);
 }
   
 static PyObject* initialize(PyObject* self, PyObject* args)
