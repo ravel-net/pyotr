@@ -174,7 +174,7 @@ class SQL_Parser:
                             if self.additional_conditions_SQL_format:
                                 attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
                             else:
-                                attributes_strs.append("{} as condition, null as conjunction_condition".format(" || ".join(attr_strs)))
+                                attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
                     else:
                         for attr in self._all_attributes[key]:
@@ -196,7 +196,7 @@ class SQL_Parser:
                     if self.additional_conditions_SQL_format:
                         attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
                     else:
-                        attributes_strs.append("{} as condition, null as conjunction_condition".format(" || ".join(attr_strs)))
+                        attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
             table_strs = []
             for table in self.working_tables:

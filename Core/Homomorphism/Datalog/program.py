@@ -3,14 +3,11 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 import psycopg2 
-from psycopg2.extras import execute_values
 from copy import deepcopy
 from Core.Homomorphism.Datalog.rule import DT_Rule
 from Core.Homomorphism.Datalog.DL_minimization import minimizeAtoms, minimizeRules, enhancedMinimization
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 from Backend.reasoning.CUDD.BDDTools import BDDTools
-from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
-import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_tautology as merge_tuples_z3
 import databaseconfig as cfg
 import time
 
@@ -46,7 +43,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[]):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[], reasoning_tool=None):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -58,14 +55,14 @@ class DT_Program:
         self._datatype = datatype
         self._simplification_on = simplification_on
         self._c_tables = c_tables
-        self.z3tools = z3SMTTools(variables=c_variables,domains=domains, reasoning_type=reasoning_type)
-
+        # self.z3tools = z3SMTTools(variables=c_variables,domains=domains, reasoning_type=reasoning_type)
+        self._reasoning_tool = reasoning_tool
         if isinstance(program_str, DT_Rule):
             self._rules.append(program_str)
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables))
+                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables, reasoning_tool))
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
     
@@ -226,11 +223,11 @@ class DT_Program:
             changed = self.execute(conn)
             if self._simplification_on and self._reasoning_engine == 'z3':
                 simp_begin = time.time()
-                self.z3tools.simplification(rule2._head.db["name"], conn)
+                self._reasoning_tool.simplification(rule2._head.db["name"], conn)
                 simp_end = time.time()
                 print("simplification_time:", simp_end-simp_begin, "\n*******************************\n")
                 # input()
-        
+
             check_head_begin = time.time()
             if rule2.isHeadContained(conn):
                 check_head_end = time.time()
@@ -244,7 +241,7 @@ class DT_Program:
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
     def replaceProgram(self, newRules):
-        newProgram = DT_Program(program_str="\n".join(newRules), databaseTypes=self._databaseTypes, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplification_on, c_tables=self._c_tables)
+        newProgram = DT_Program(program_str="\n".join(newRules), databaseTypes=self._databaseTypes, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplification_on, c_tables=self._c_tables, reasoning_tool=self._reasoning_tool)
         # newObj = func(newProgram)
         self.__dict__.update(newProgram.__dict__)
 

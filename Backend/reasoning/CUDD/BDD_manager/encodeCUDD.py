@@ -76,26 +76,28 @@ def binaryRepresentation(var1, numBinDigits, binary_rep, expectedBinDigits):
 	return newItems
 
 def processCon(var1, var2, updatedDomains, is_ip=False):
+	# print("var1", var1, "var2", var2)
 	newItems = []
 	processedCond = ""
 	numBinDigits = 32
 	varDomain = [] # If varDomain is empty, that means the domain is the entire integer set
-	if var1 in updatedDomains:
-		varDomain = updatedDomains[var1]
+	newVar1, newVar2 = preprocessCond(var1, var2)
+	if newVar1 in updatedDomains:
+		varDomain = updatedDomains[newVar1]
 	if not is_ip and varDomain: 
 		numBinDigits = math.ceil(math.log(len(varDomain),2))
-	if isVarCondition(var1,var2):	
+	if isVarCondition(newVar1,newVar2):	
 		numBinDigits2 = 32
 		if var2 in updatedDomains:
 			numBinDigits2 = math.ceil(math.log(len(updatedDomains[var2]),2))
 		if (numBinDigits != numBinDigits2):
-			print("Error: {}={} is an incorrect condition since the domains do not match".format(var1,var2))
+			print("Error: {}={} is an incorrect condition since the domains do not match".format(newVar1,newVar2))
 			exit()
 		for i in range(numBinDigits):
 			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
 		processedCond = combineItems(newItems, "&")
 	else:
-		newVar1, newVar2 = preprocessCond(var1, var2)
+		# newVar1, newVar2 = preprocessCond(var1, var2)
 		if (newVar1 == TRUE or newVar1 == FALSE): # case when it is constant = constant
 			processedCond = newVar1
 		elif (is_ip): # For IP address. Only 32 bit ip addresses supported right now
@@ -110,28 +112,31 @@ def processCon(var1, var2, updatedDomains, is_ip=False):
 			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, subnet)
 			processedCond = combineItems(newItems, "&")
 		elif len(varDomain) > 0: # case when it is var = constant with a specified domain
-			binary_rep = bin(varDomain.index(newVar2))[2:]
-			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
-			processedCond = combineItems(newItems, "&")
-			if varDomain.index(newVar2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
-				allConditions = [processedCond]
-				for i in range(len(varDomain), int(math.pow(2,numBinDigits))):
-					binary_rep = bin(i)[2:]
-					newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
-					allConditions.append(combineItems(newItems, "&"))
-				processedCond = combineItems(allConditions, "^")
+			if newVar2 not in varDomain or str(newVar2) not in varDomain: #if constant is out of the domain, var = constant is a contraiction
+				processedCond = FALSE 
+			else:
+				binary_rep = bin(varDomain.index(newVar2))[2:]
+				newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
+				processedCond = combineItems(newItems, "&")
+				if varDomain.index(newVar2) == 0: # if domain is not an exponential of two, we need to fill in the missing elements. We do this by filling the left over elements with the first element i.e. domain = [1,2,3,4,5] becomes domain = [1,2,3,4,5,1,1,1]
+					allConditions = [processedCond]
+					for i in range(len(varDomain), int(math.pow(2,numBinDigits))):
+						binary_rep = bin(i)[2:]
+						newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
+						allConditions.append(combineItems(newItems, "&"))
+					processedCond = combineItems(allConditions, "^")
 		else: # case when it is var = constant in the entire integer domain
 			binary_rep = bin(int(newVar2))[2:]
 			newItems = binaryRepresentation(newVar1, numBinDigits, binary_rep, numBinDigits)
 			processedCond = combineItems(newItems, "&")
-
+	# print("processedCond", processedCond)
 	return processedCond
 
 def getUpdatedVariables(variables, input_domain, is_ip=False):
 	newVariables = []
 	for var in variables:
 		numVars = 32
-		if not is_ip and var in input_domain:
+		if not is_ip and var in input_domain and len(input_domain[var]) != 0:
 			numVars = math.ceil(math.log(len(input_domain[var]),2))
 		for i in range(numVars):
 			newVariables.append(var + "_" + str(i))

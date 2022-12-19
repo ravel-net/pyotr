@@ -37,10 +37,10 @@ class BDDTools:
         # print(idx)
     
     def str_to_BDD(self, condition):
-        print("condition", condition)
+        # print("condition", condition)
         encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, self.domain_list, self.variables, self._is_IP)
-        print("variablesArray", variablesArray)
-        print("encoded_c", encoded_c)
+        # print("variablesArray", variablesArray)
+        # print("encoded_c", encoded_c)
         bdd_condition_idx = bddmm.str_to_BDD(encoded_c)
         return bdd_condition_idx
 
@@ -51,13 +51,18 @@ class BDDTools:
         return result_idx
     
     def is_implication(self, bdd_idx1, bdd_idx2):
+        print("is_implication", bdd_idx1, bdd_idx2)
         if bddmm.is_implication(bdd_idx1, bdd_idx2) == 1:
             return True
         else:
             return False
 
     def evaluate(self, bdd_idx):
+        print("evaluate bdd_idx", bdd_idx)
         return bddmm.evaluate(bdd_idx)
+
+    def is_equivalent(self, bdd_idx1, bdd_idx2):
+        return self.is_implication(bdd_idx1, bdd_idx2) and self.is_implication(bdd_idx2, bdd_idx1)
 
     def process_condition_on_ctable(self, conn, tablename):
         """

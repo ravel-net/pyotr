@@ -7,10 +7,8 @@
 # Rule to sql
 # Populate with constants in database (return the expected head). Give connection
 # Expected head to sql
-from operator import add
 import sys
 from os.path import dirname, abspath
-from unicodedata import name
 import time
 
 from Backend.reasoning.Z3.z3smt import z3SMTTools
@@ -22,13 +20,7 @@ from copy import deepcopy
 from psycopg2.extras import execute_values
 from Core.Homomorphism.Datalog.atom import DT_Atom
 from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
-import Core.Homomorphism.translator_pyotr as translator_z3
-import Core.Homomorphism.translator_pyotr_BDD as translator_bdd
-import BDD_managerModule as bddmm
-import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
-import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples_BDD as merge_tuples_bdd
-import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 from utils.parsing_utils import z3ToSQL
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 
@@ -70,9 +62,9 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
 
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], headAtom="", bodyAtoms=[], additional_constraints=[]):
-
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, headAtom="", bodyAtoms=[], additional_constraints=[]):
         self._additional_constraints = deepcopy(additional_constraints) 
+        self.reasoning_tool = reasoning_tool
         if headAtom and bodyAtoms:
             self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
         else:
@@ -154,11 +146,11 @@ class DT_Rule:
 
         self.selectColumns = self.calculateSelect() 
 
-        if len(c_tables) > 0:
-            if self._reasoning_engine == 'z3':
-                self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
-            else:
-                self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+        # if len(c_tables) > 0:
+        #     if self._reasoning_engine == 'z3':
+        #         self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+        #     else:
+        #         self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
 
     # Includes the select part of query including datatype
     # e.g. 
@@ -202,7 +194,7 @@ class DT_Rule:
             else:
                 newRule_body.append(atom)
 
-        newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints)
+        newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints)
         return newRule
 
     def addConstants(self, conn):
@@ -522,7 +514,7 @@ class DT_Rule:
                 elif self._reasoning_engine == 'bdd':
                     # convert list of conditions to a string of condition
                     extra_conditions = "And({})".format(", ".join(extra_conditions))
-                    print("extra_conditions", extra_conditions)
+
                     extra_condition_idx = self.reasoning_tool.str_to_BDD(extra_conditions)
                     # str_tup_cond_idx = reasoning_tool.str_to_BDD(str_tup_cond)
                     if header_condition is None:
@@ -531,7 +523,7 @@ class DT_Rule:
 
                     if self.reasoning_tool.evaluate(tup_cond) != 0 and \
                         self.reasoning_tool.is_implication(tup_cond, extra_condition_idx) and \
-                        (self.reasoning_tool.is_implication(tup_cond, header_condition_idx) and self.reasoning_tool.is_implication(header_condition_idx, tup_cond)):
+                        self.reasoning_tool.is_equivalent(tup_cond, header_condition_idx):
                         contains = True
                         return contains
                     # if bddmm.is_implication(header_condition, tup_cond) and bddmm.is_implication(tup_cond, header_condition):
@@ -545,7 +537,6 @@ class DT_Rule:
     # The argument conditions1 and conditions2 are list of conditions. The length of the lists should be equal, otherwise this function should not be called
     # Function computes if all conditions in the same index are equivalent
     def conditionsEquivalent(self, conditions1, conditions2):
-        # print("condition equivalent")
         changed_checking_begin = time.time()
         if self._reasoning_engine == 'z3':
             for i in range(len(conditions1)):
@@ -565,6 +556,8 @@ class DT_Rule:
             for i in range(len(conditions1)):
                 condition1 = conditions1[i][0]
                 condition2 = conditions2[i][0]
+                # print("condition1", condition1)
+                # print("condition2", condition2)
                 if not (self.reasoning_tool.is_implication(condition1, condition2) and self.reasoning_tool.is_implication(condition2, condition1)):
                     changed_checking_end = time.time()
                     print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
@@ -573,31 +566,6 @@ class DT_Rule:
             print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
         return True
     
-    def conditionsEquivalent_bdd(self, conditions1, conditions2):
-        # print("condition equivalent")
-        changed_checking_begin = time.time()
-        # print("conditions1", conditions1)
-        # print("conditions2", conditions2)
-
-        for i in range(len(conditions1)):
-            condition1 = conditions1[i][0]
-            condition2 = conditions2[i][0]
-            # print("condition1", condition1)
-            # print("condition2", condition2)
-            # condition1 = ""
-            # condition2 = ""
-            # if len(conditions1[i]) > 0 and len(conditions1[i][0]) > 0:
-            #     condition1 = conditions1[i][0][0]
-            # if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
-            #     condition2 = conditions2[i][0][0]
-            if not (self.reasoning_tool.is_implication(condition1, condition2) and self.reasoning_tool.is_implication(condition2, condition1)):
-                changed_checking_end = time.time()
-                print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
-                return False
-        changed_checking_end = time.time()
-        print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
-        return True
-
     # Adds the result of the table "output" to head. Only adds distinct variables
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
@@ -653,7 +621,7 @@ class DT_Rule:
         generate new facts
         '''
         query_begin = time.time()
-        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=True)
         query_end = time.time()
         print("query_time:", query_end-query_begin, "\n*******************************\n")
         
