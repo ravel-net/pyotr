@@ -82,11 +82,11 @@ class z3SMTTools:
         --------
         True or False
         """
-        self.solver.push()
 
         if len(conditions) == 0:
             return 
 
+        self.solver.push()
         for c in conditions:
             prcd_cond = self.condition_parser(c)
             self.solver.add(eval(prcd_cond))
