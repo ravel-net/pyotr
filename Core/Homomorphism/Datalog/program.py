@@ -252,17 +252,16 @@ class DT_Program:
                 self.z3tools.simplification(rule2._head.db["name"], conn)
                 simp_end = time.time()
                 logging.info("Time: simplification_time: {}".format(simp_end-simp_begin))
-                # input()
-        
-            check_head_begin = time.time()
-            if rule2.isHeadContained(conn):
-                check_head_end = time.time()
-                logging.info("Time: checking_head: {}".format(check_head_end-check_head_begin))
-                end = time.time()
-                logging.info("Time: contains_rule took {}".format(end-start))
-                return True
+                # input()        
+        check_head_begin = time.time()
+        if rule2.isHeadContained(conn):
             check_head_end = time.time()
             logging.info("Time: checking_head: {}".format(check_head_end-check_head_begin))
+            end = time.time()
+            logging.info("Time: contains_rule took {}".format(end-start))
+            return True
+        check_head_end = time.time()
+        logging.info("Time: checking_head: {}".format(check_head_end-check_head_begin))
         end = time.time()
         logging.info("Time: contains_rule took {}".format(end-start))
         return False

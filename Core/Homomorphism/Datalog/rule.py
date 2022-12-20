@@ -441,6 +441,20 @@ class DT_Rule:
     def is_head_contained_faure(self, conn):
         cursor = conn.cursor()
         contains = False
+
+        # delete redundants
+        print("Starting merge")
+
+        merge_begin = time.time()
+        if self._reasoning_engine == 'z3':
+            merge_tuples.merge_tuples_z3(self._head.db["name"], # tablename of header
+                                        information_on=False) 
+        else:
+            merge_tuples.merge_tuples_bdd(self._head.db["name"], self.reasoning_tool, information_on=False)
+        merge_end = time.time()
+        print("Ending merge")
+        logging.info("Time: insertTuplesToHead_merge took {}".format(merge_end-merge_begin))
+
         '''
         check whether Q_summary is in resulting table
         '''
@@ -490,9 +504,6 @@ class DT_Rule:
                 header_condition = self._head.constraints[0]
             else:
                 header_condition = "And({})".format(", ".join(self._head.constraints))
-        # print(resulting_tuples)
-        # print(header_data_portion)
-        # print(self._head)
         # exit()
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
@@ -603,62 +614,25 @@ class DT_Rule:
 
     # Adds the result of the table "output" to head. Only adds distinct variables
     def insertTuplesToHead(self, conn, fromTable="output"):
-        logging.info("Calling insertTuplesToHead")
         cursor = conn.cursor()
-        changed = False
         header_table = self._head.db["name"]
-
-        # counting non-redundant rows in header after simplification``
-        start = time.time()
-        cursor.execute("select distinct count(*) from {}".format(header_table))
-        headerCountAfterSimp = int(cursor.fetchall()[0][0])
-        cursor.execute("select condition from {}".format(header_table))
-        conditionsPre = cursor.fetchall()
-
-        # Adding result of output to header
+        select_gen_sql = "select {} from {}".format(", ".join(self.selectColumns), fromTable)
+        cursor.execute(select_gen_sql)
+        generatedHead = cursor.fetchall()
+        if not generatedHead:
+            return False
+        select_head_table_sql = "select * from {}".format(header_table)
+        cursor.execute(select_head_table_sql)
+        head_table = cursor.fetchall()
+        for tuple in head_table:
+            if str(generatedHead[-1]) == str(tuple):
+                print("False")
+                conn.commit()
+                return False
         insert_sql = "insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable)
-        if self._reasoning_engine == 'bdd': # replace condition datatype from text[] to integer 
-            insert_sql = insert_sql.replace('text[]', 'integer')  
-        print("insert_sql", insert_sql)
         cursor.execute(insert_sql)
         conn.commit()
-        end = time.time()
-        logging.info("Time: insertTuplesToHead_postgres_start took {}".format(end-start))
-
-
-        # delete redundants
-        merge_begin = time.time()
-        if self._reasoning_engine == 'z3':
-            merge_tuples.merge_tuples_z3(header_table, # tablename of header
-                                        information_on=False) 
-        else:
-            merge_tuples.merge_tuples_bdd(header_table, self.reasoning_tool, information_on=False)
-        merge_end = time.time()
-        logging.info("Time: insertTuplesToHead_merge took {}".format(merge_end-merge_begin))
-
-        start = time.time()
-        # counting non-redundant rows in header after inserting output tables
-        cursor.execute("select distinct count(*) from {}".format(header_table))
-        headerCountAfterInsert = int(cursor.fetchall()[0][0])
-        conn.commit()
-        cursor.execute("select condition from {}".format(header_table))
-        conditionsPost = cursor.fetchall()
-        end = time.time()
-        logging.info("Time: insertTuplesToHead_postgres_end took {}".format(end-start))
-
-
-        start = time.time()
-        if headerCountAfterInsert > headerCountAfterSimp:
-            changed = True
-        elif not self.conditionsEquivalent(conditionsPre, conditionsPost):
-            changed = True
-        end = time.time()
-        logging.info("Time: insertTuplesToHead_conditionsEquivalent took {}".format(end-start))
-
-        # if not changed, check for equivalence of all conditions. If they are trivially same (e.g. string equivalence, move on. Also, simplify conditions along the way to make checking easier)
-        conn.commit()
-
-        return changed
+        return True
     
     def run_with_faure(self, conn, program_sql):
         logging.info("Calling run_with_faure")

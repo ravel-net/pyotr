@@ -2,7 +2,7 @@ import time
 
 import sys
 from os.path import dirname, abspath
-root = dirname(dirname(abspath(__file__)))
+root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 from Core.Homomorphism.Datalog.program import DT_Program
