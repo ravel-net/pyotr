@@ -233,14 +233,14 @@ class DT_Program:
                 # input()
 
             check_head_begin = time.time()
-            if rule2.isHeadContained(conn):
-                check_head_end = time.time()
-                print("*******************checking head containment***********************\n")
-                print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
-                return True
+        if rule2.isHeadContained(conn):
             check_head_end = time.time()
             print("*******************checking head containment***********************\n")
             print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
+            return True
+        check_head_end = time.time()
+        print("*******************checking head containment***********************\n")
+        print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
         return False
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules

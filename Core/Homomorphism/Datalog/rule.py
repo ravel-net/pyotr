@@ -430,6 +430,16 @@ class DT_Rule:
     def is_head_contained_faure(self, conn):
         cursor = conn.cursor()
         contains = False
+
+        # delete redundants
+        merge_begin = time.time()
+        if self._reasoning_engine == 'z3':
+            merge_tuples.merge_tuples_z3(self._head.db["name"], # tablename of header
+                                        information_on=False) 
+        else:
+            merge_tuples.merge_tuples_bdd(self._head.db["name"], self.reasoning_tool, information_on=False)
+        merge_end = time.time()
+
         '''
         check whether Q_summary is in resulting table
         '''
@@ -479,10 +489,6 @@ class DT_Rule:
                 header_condition = self._head.constraints[0]
             else:
                 header_condition = "And({})".format(", ".join(self._head.constraints))
-        # print(resulting_tuples)
-        # print(header_data_portion)
-        # print(self._head)
-        # exit()
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
             data_portion = list(tup[:-1])
@@ -509,12 +515,11 @@ class DT_Rule:
                     # Does the condition in the tuple imply the condition in the header?
                     if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.check_equivalence_for_two_string_conditions(str_tup_cond, header_condition):
                         contains = True
-                        return contains
 
                 elif self._reasoning_engine == 'bdd':
                     # convert list of conditions to a string of condition
                     extra_conditions = "And({})".format(", ".join(extra_conditions))
-
+                    print("extra_conditions", extra_conditions)
                     extra_condition_idx = self.reasoning_tool.str_to_BDD(extra_conditions)
                     # str_tup_cond_idx = reasoning_tool.str_to_BDD(str_tup_cond)
                     if header_condition is None:
@@ -523,95 +528,67 @@ class DT_Rule:
 
                     if self.reasoning_tool.evaluate(tup_cond) != 0 and \
                         self.reasoning_tool.is_implication(tup_cond, extra_condition_idx) and \
-                        self.reasoning_tool.is_equivalent(tup_cond, header_condition_idx):
+                        (self.reasoning_tool.is_implication(tup_cond, header_condition_idx) and self.reasoning_tool.is_implication(header_condition_idx, tup_cond)):
                         contains = True
-                        return contains
-                    # if bddmm.is_implication(header_condition, tup_cond) and bddmm.is_implication(tup_cond, header_condition):
-                    #     contains = True
-                    #     return contains
                 else:
                     print("We do not support {} engine!".format(self._reasoning_engine))
                     exit()
         return contains
 
-    # The argument conditions1 and conditions2 are list of conditions. The length of the lists should be equal, otherwise this function should not be called
-    # Function computes if all conditions in the same index are equivalent
-    def conditionsEquivalent(self, conditions1, conditions2):
-        changed_checking_begin = time.time()
+
+    # The argument tuple1 and tuple2 are single tuples. 
+    # Functions checks if the tuples are equivalent
+    def tuplesEquivalent(self, tuple1, tuple2):
+        if str(tuple1[:-1]) != str(tuple2[:-1]): # data portion must be the same
+            return False
+        conditions1 = tuple1[-1]
+        conditions2 = tuple2[-1]
         if self._reasoning_engine == 'z3':
-            for i in range(len(conditions1)):
-                condition1 = ""
-                condition2 = ""
-                if len(conditions1[i]) > 0 and len(conditions1[i][0]) > 0:
-                    condition1 = conditions1[i][0][0]
-                if len(conditions2[i]) > 0 and len(conditions2[i][0]) > 0:
-                    condition2 = conditions2[i][0][0]
-                if not self.reasoning_tool.check_equivalence_for_two_string_conditions(condition1, condition2):
-                    changed_checking_end = time.time()
-                    print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
+            if len(conditions1) != len(conditions2): # for Z3, we can just check the strings since they would be equal if the conditions are equal. This is only true when inserting head
+                return False
+            for i, cond in enumerate(conditions1):
+                if str(cond) != str(conditions2[i]):
                     return False
-            changed_checking_end = time.time()
-            print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
         else:
-            for i in range(len(conditions1)):
-                condition1 = conditions1[i][0]
-                condition2 = conditions2[i][0]
-                # print("condition1", condition1)
-                # print("condition2", condition2)
-                if not (self.reasoning_tool.is_implication(condition1, condition2) and self.reasoning_tool.is_implication(condition2, condition1)):
-                    changed_checking_end = time.time()
-                    print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
-                    return False
-            changed_checking_end = time.time()
-            print("changed_checking_time:", changed_checking_end-changed_checking_begin, "\n*******************************\n")
+            if not (self.reasoning_tool.is_implication(conditions1, conditions2) and self.reasoning_tool.is_implication(conditions2, conditions1)):
+                return False
         return True
     
     # Adds the result of the table "output" to head. Only adds distinct variables
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
-        changed = False
         header_table = self._head.db["name"]
 
-        # counting non-redundant rows in header after simplification``
-        cursor.execute("select distinct count(*) from {}".format(header_table))
-        headerCountAfterSimp = int(cursor.fetchall()[0][0])
-        cursor.execute("select condition from {}".format(header_table))
-        conditionsPre = cursor.fetchall()
-
-        # Adding result of output to header
-        insert_sql = "insert into {} select {} from {}".format(header_table, ", ".join(self.selectColumns), fromTable)
+        select_gen_sql = "select distinct {} from {}".format(", ".join(self.selectColumns), fromTable)
         if self._reasoning_engine == 'bdd': # replace condition datatype from text[] to integer 
-            insert_sql = insert_sql.replace('text[]', 'integer')  
-        print("insert_sql", insert_sql)
-        cursor.execute(insert_sql)
-        conn.commit()
+            select_gen_sql = select_gen_sql.replace('text[]', 'integer')  
+        cursor.execute(select_gen_sql)
+        generatedHead = cursor.fetchall()
+        if not generatedHead:
+            return False
 
-        # delete redundants
-        merge_begin = time.time()
-        if self._reasoning_engine == 'z3':
-            merge_tuples.merge_tuples_z3(header_table, # tablename of header
-                                        information_on=False) 
+        select_head_table_sql = "select * from {}".format(header_table)
+        cursor.execute(select_head_table_sql)
+        head_table = cursor.fetchall()
+
+        # Check if any of the generated head is new
+        newTuples = []
+        for generatedTuple in generatedHead:
+            alreadExists = False
+            for tuple in head_table:
+                if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
+                    alreadExists = True
+            if not alreadExists:
+                newTuples.append(generatedTuple)
+
+        if len(newTuples) > 0:
+            execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
+            conn.commit()
+            return True
         else:
-            merge_tuples.merge_tuples_bdd(header_table, self.reasoning_tool, information_on=False)
-        merge_end = time.time()
-        print("merge time:", merge_end-merge_begin, "\n********************************\n")
+            conn.commit()
+            return False
 
-        # counting non-redundant rows in header after inserting output tables
-        cursor.execute("select distinct count(*) from {}".format(header_table))
-        headerCountAfterInsert = int(cursor.fetchall()[0][0])
-        conn.commit()
-        cursor.execute("select condition from {}".format(header_table))
-        conditionsPost = cursor.fetchall()
-
-        if headerCountAfterInsert > headerCountAfterSimp:
-            changed = True
-        elif not self.conditionsEquivalent(conditionsPre, conditionsPost):
-            changed = True
-
-        # if not changed, check for equivalence of all conditions. If they are trivially same (e.g. string equivalence, move on. Also, simplify conditions along the way to make checking easier)
-        conn.commit()
-
-        return changed
     
     def run_with_faure(self, conn, program_sql):
         print("program_sql", program_sql)
