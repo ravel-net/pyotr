@@ -43,7 +43,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[], reasoning_tool=None):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[]):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -55,14 +55,18 @@ class DT_Program:
         self._datatype = datatype
         self._simplification_on = simplification_on
         self._c_tables = c_tables
-        # self.z3tools = z3SMTTools(variables=c_variables,domains=domains, reasoning_type=reasoning_type)
-        self._reasoning_tool = reasoning_tool
+
+        if self._reasoning_engine == 'z3':
+            self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+        else:
+            self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+
         if isinstance(program_str, DT_Rule):
             self._rules.append(program_str)
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables, reasoning_tool))
+                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables, self.reasoning_tool))
     # def __eq__(self, other):
     #     return True if self._account_number == other._account_number else False
     
