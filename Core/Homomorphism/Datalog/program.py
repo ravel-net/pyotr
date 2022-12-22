@@ -245,7 +245,7 @@ class DT_Program:
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
     def replaceProgram(self, newRules):
-        newProgram = DT_Program(program_str="\n".join(newRules), databaseTypes=self._databaseTypes, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplification_on, c_tables=self._c_tables, reasoning_tool=self._reasoning_tool)
+        newProgram = DT_Program(program_str="\n".join(newRules), databaseTypes=self._databaseTypes, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplification_on, c_tables=self._c_tables)
         # newObj = func(newProgram)
         self.__dict__.update(newProgram.__dict__)
 
