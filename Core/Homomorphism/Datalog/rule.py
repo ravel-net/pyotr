@@ -240,7 +240,7 @@ class DT_Rule:
         for bodyAtom in self._body:
             newRuleStr += bodyAtom.strAtomWithoutConditions() + ", "
         newRuleStr = newRuleStr[:-2]
-        newRule = DT_Rule(newRuleStr) # assuming that the default is without faure
+        newRule = DT_Rule(newRuleStr, databaseTypes=self._databaseTypes) # assuming that the default is without faure
         return newRule
 
     def convertRuleToSQLPartitioned(self):

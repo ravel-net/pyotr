@@ -43,6 +43,7 @@ def unify(rule1, rule2, rule1Name):
 	rule3Str = str(rule3)
 	for cvar in cVarReplacements:
 		rule3Str = rule3Str.replace(cvar, cVarReplacements[cvar])
+
 	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=rule3._additional_constraints+[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
 	return newRule
 
@@ -79,7 +80,19 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 		parameterNum = 0
 		for val in currTuple: 
 			c_var_param = atom.parameters[parameterNum]
-			if isConstant(val):
+			if val[0] == '{': # is a list
+				listCurrTuple = val[1:-1].split(",")
+				for i, listVal in enumerate(listCurrTuple):
+					if isConstant(listVal):
+						newCondition = c_var_param[i] + " == " + listVal
+						if newCondition not in conditions:
+							conditions.append(newCondition) 
+					elif int(listVal) in r2_without_faure._reverseMapping:
+						variable = r2_without_faure._reverseMapping[int(listVal)]
+						replacements[variable] = c_var_param[i]
+					elif listVal in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
+						replacements[listVal] = c_var_param[i]
+			elif isConstant(val):
 				newCondition = c_var_param + " == " + val
 				if newCondition not in conditions:
 					conditions.append(newCondition) 
@@ -143,7 +156,16 @@ def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
 		parameters = []
 		atomString = atom.db["name"] + "("
 		for parameter in atom.parameters:
-			if parameter in rule2._mapping:
+			if isinstance(parameter, list):
+				listParams = []
+				for i, listParam in enumerate(parameter):
+					if listParam in rule2._mapping:
+						listParams.append(str(rule2._mapping[listParam]))
+					else:
+						listParams.append(str(listParam))
+				parameters.append('{'+",".join(listParams)+'}')
+
+			elif parameter in rule2._mapping:
 				parameters.append(str(rule2._mapping[parameter]))
 			else:
 				parameters.append(str(parameter))
@@ -235,7 +257,24 @@ def getEquivalentAtom(atom, rule, atomName):
 		c_variables = atom.c_variables
 		new_cvariables = []
 		for paramNum, param in enumerate(atom.parameters):
-			if isConstant(param):
+			if isinstance(param, list):
+				listParams = []
+				for i, listParam in enumerate(param):
+					if isConstant(listParam):
+						new_cvar = atomName+"_l"+str(paramNum+i)
+						new_cvariables.append(new_cvar)
+						listParams.append(new_cvar)
+						conditions.append(new_cvar + " == " + listParam)
+					elif param in c_variables:
+						listParams.append(listParam)
+						conditions += atom.constraints
+					else: # variables:
+						new_cvar = listParam + "`"
+						new_cvariables.append(new_cvar)
+						listParams.append(new_cvar)
+				parameters.append('['+",".join(listParams)+']')
+
+			elif isConstant(param):
 				new_cvar = atomName+"_"+str(paramNum)
 				new_cvariables.append(new_cvar)
 				parameters.append(new_cvar)

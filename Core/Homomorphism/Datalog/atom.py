@@ -200,7 +200,6 @@ class DT_Atom:
 
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
-        # print(sql)
         cursor.execute(sql)
         conn.commit()
     
@@ -221,7 +220,7 @@ class DT_Atom:
                     c = c.replace('=', '==')
                 conds.append(c)
         else:
-            if condition.split()[1].strip() == '=':
+            if len(condition.split()) > 1 and condition.split()[1].strip() == '=':
                 condition = condition.replace('=', '==')
             processed_cond = condition
         
