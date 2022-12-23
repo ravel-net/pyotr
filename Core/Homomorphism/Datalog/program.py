@@ -82,7 +82,7 @@ class DT_Program:
                 return False
         return True
 
-    def execute(self, conn, rule):
+    def execute(self, conn):
         # program_sqls = RecursiveConverter(self).recursion_converter()
         # cursor = conn.cursor()
         # for sql in program_sqls:
