@@ -9,8 +9,6 @@
 # Expected head to sql
 import sys
 from os.path import dirname, abspath
-import time
-
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
@@ -23,6 +21,7 @@ from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
 from utils.parsing_utils import z3ToSQL
 from Backend.reasoning.CUDD.BDDTools import BDDTools
+from utils.logging import timeit
 
 class DT_Rule:
     """
@@ -61,7 +60,7 @@ class DT_Rule:
     isHeadContained(conn)
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
-
+    @timeit
     def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, headAtom="", bodyAtoms=[], additional_constraints=[]):
         self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
@@ -93,6 +92,7 @@ class DT_Rule:
                 return False        
         return True
 
+    @timeit
     def generateRule(self, head, body, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Int', simplification_on=True, c_tables=[]):
         self._variables = [] 
         self._c_variables = [] 
@@ -152,8 +152,8 @@ class DT_Rule:
         #     else:
         #         self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
 
+    @timeit
     # Includes the select part of query including datatype
-    # e.g. 
     def calculateSelect(self):
         selectColumns = []
         for i, col in enumerate(self._head.db["column_names"]):
@@ -169,6 +169,7 @@ class DT_Rule:
         return self._DBs
 
     # returns the signature of a rule
+    @timeit
     def getSignature(self):
         signature = self._head.db["name"]+":-"
         bodyTables = []
@@ -183,6 +184,7 @@ class DT_Rule:
     def deleteAtom(self, atomNum):
         del self._body[atomNum]
 
+    @timeit
     def copyWithDeletedAtom(self, atomNum):
         newRule_head = self._head
         newRule_body = []
@@ -197,6 +199,7 @@ class DT_Rule:
         newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints)
         return newRule
 
+    @timeit
     def addConstants(self, conn):
         for atom in self._body:
             atom.addConstants(conn, self._mapping)
@@ -206,6 +209,7 @@ class DT_Rule:
             for ctablename in self._c_tables:
                 self.reasoning_tool.process_condition_on_ctable(conn, ctablename)
 
+    @timeit
     def convertRuleToSQL(self):
         summary_nodes, tables, constraints = self.convertRuleToSQLPartitioned()
         sql = "select " + ", ".join(summary_nodes) + " from " + ", ".join(tables)
@@ -214,6 +218,7 @@ class DT_Rule:
         return sql
 
     # initiates database of rule
+    @timeit
     def initiateDB(self, conn):
         databases = []
         db_names = []
@@ -231,10 +236,10 @@ class DT_Rule:
                 table_creation_query += '{} {},'.format(db["column_names"][col], db["column_types"][col])
             table_creation_query = table_creation_query[:-1]
             table_creation_query += ");"
-            # print(table_creation_query)
             cursor.execute(table_creation_query)
         conn.commit()
 
+    @timeit
     def getRuleWithoutFaure(self): # returns the same rule but without any c-variables and conditions
         newRuleStr = self._head.strAtomWithoutConditions() + " :- "
         for bodyAtom in self._body:
@@ -243,6 +248,7 @@ class DT_Rule:
         newRule = DT_Rule(newRuleStr, databaseTypes=self._databaseTypes) # assuming that the default is without faure
         return newRule
 
+    @timeit
     def convertRuleToSQLPartitioned(self):
         tables = []
         constraints = []
@@ -336,11 +342,11 @@ class DT_Rule:
                 #     constraints.append("{}[{}] = ANY({})".format(variables_idx_in_array[var]['location'], variables_idx_in_array[var]['idx'], attr))
         return summary_nodes, tables, constraints
 
+    @timeit
     def execute(self, conn):
         if len(self._c_variables) == 0:
             cursor = conn.cursor()
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self.selectColumns))
-            print(except_sql)
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
             conn.commit()
@@ -349,6 +355,7 @@ class DT_Rule:
             return self.run_with_faure(conn, self.sql)
         return changed
 
+    @timeit
     def isHeadContained(self, conn):
         if len(self._c_variables) != 0:
             return self.is_head_contained_faure(conn)
@@ -387,16 +394,15 @@ class DT_Rule:
         sql = "select * from " + self._head.db["name"]
         if (constraints):
             sql += " where " + " and ".join(constraints)
-        # print(sql)
         cursor = conn.cursor()
         cursor.execute(sql)
         result = cursor.fetchall()
         conn.commit()
         contained = (len(result) > 0)
-        # print("contained", contained)
         return contained
     
     # Check if two variables/constants/c_variables are the same
+    @timeit
     def _equal_faure(self, elem1, elem2):
         elem1 = elem1.strip()
         elem2 = elem2.strip()
@@ -406,6 +412,7 @@ class DT_Rule:
             return (str(elem1) == str(elem2))
 
     # Check if two lists have the same data portion
+    @timeit
     def _sameDataPortion(self, list1, list2):
         for i, elem in enumerate(list1):
             elem2 = list2[i]
@@ -427,18 +434,17 @@ class DT_Rule:
     # 2. Finds out the target head tuple (by mapping the variables to assigned constants)
     # 3. Loops over all tuples to see if target tuple is found
     # 4. Checks if the condition of the head implies the condition in the found tuple 
+    @timeit
     def is_head_contained_faure(self, conn):
         cursor = conn.cursor()
         contains = False
 
         # delete redundants
-        merge_begin = time.time()
         if self._reasoning_engine == 'z3':
             merge_tuples.merge_tuples_z3(self._head.db["name"], # tablename of header
                                         information_on=False) 
         else:
             merge_tuples.merge_tuples_bdd(self._head.db["name"], self.reasoning_tool, information_on=False)
-        merge_end = time.time()
 
         '''
         check whether Q_summary is in resulting table
@@ -519,7 +525,7 @@ class DT_Rule:
                 elif self._reasoning_engine == 'bdd':
                     # convert list of conditions to a string of condition
                     extra_conditions = "And({})".format(", ".join(extra_conditions))
-                    print("extra_conditions", extra_conditions)
+                    # print("extra_conditions", extra_conditions)
                     extra_condition_idx = self.reasoning_tool.str_to_BDD(extra_conditions)
                     # str_tup_cond_idx = reasoning_tool.str_to_BDD(str_tup_cond)
                     if header_condition is None:
@@ -538,6 +544,7 @@ class DT_Rule:
 
     # The argument tuple1 and tuple2 are single tuples. 
     # Functions checks if the tuples are equivalent
+    @timeit
     def tuplesEquivalent(self, tuple1, tuple2):
         if str(tuple1[:-1]) != str(tuple2[:-1]): # data portion must be the same
             return False
@@ -555,6 +562,7 @@ class DT_Rule:
         return True
     
     # Adds the result of the table "output" to head. Only adds distinct variables
+    @timeit
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
         header_table = self._head.db["name"]
@@ -589,25 +597,19 @@ class DT_Rule:
             conn.commit()
             return False
 
-    
+    @timeit
     def run_with_faure(self, conn, program_sql):
-        print("program_sql", program_sql)
         header_table = self._head.db["name"]
         changed = False
         '''
         generate new facts
         '''
-        query_begin = time.time()
-        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=True)
-        query_end = time.time()
-        print("query_time:", query_end-query_begin, "\n*******************************\n")
-        
-        # input()
-        
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+                
         changed = self.insertTuplesToHead(conn)
-        # input()
         return changed
 
+    @timeit
     def addtional_constraints2where_clause(self, constraints, variableList):
         newConstraints = []
         singleLocVarList = {}
@@ -620,6 +622,7 @@ class DT_Rule:
             newConstraint = " and ".join(newConstraints)
         return newConstraint.replace("==","=")
 
+    @timeit
     def split_atoms(self, bodystr):
         i = 0
         in_parenth = False

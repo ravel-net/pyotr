@@ -1,7 +1,6 @@
 import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(dirname(dirname(abspath(__file__))))))
-print(root)
 sys.path.append(root)
 from ipaddress import IPv4Address, IPv4Network
 import time
@@ -200,7 +199,7 @@ def get_domain_conditions(overlay_nodes, variables_list, datatype):
         var_domain_list.append("Or({})".format(", ".join(var_domain)))
     domain_conditions = ", ".join(var_domain_list)  
     end = time.time()
-    print(domain_conditions)
+    # print(domain_conditions)
     return domain_conditions, end - begin
 
 def get_domain_conditions_general(domain, datatype):
@@ -233,11 +232,11 @@ def check_equivalence_for_two_string_conditions(condition1, condition2, reasonin
     s.add(Not(C1 == C2))
     result = s.check()
     if result == z3.unsat:
-        print("proved")
+        # print("proved")
         return True
     else:
-        print("unproved")
-        print(s.model())
+        # print("unproved")
+        # print(s.model())
         return False
 
 def check_is_implication(condition1, condition2, reasoning_type='Int'):
@@ -253,11 +252,11 @@ def check_is_implication(condition1, condition2, reasoning_type='Int'):
     s.add(Not(Implies(C1, C2)))
     result = s.check()
     if result == z3.unsat:
-        print("Implies")
+        # print("Implies")
         return True
     else:
-        print("Does not Imply")
-        print(s.model())
+        # print("Does not Imply")
+        # print(s.model())
         return False
 
 def check_is_tautology(union_conditions, domain_conditions):

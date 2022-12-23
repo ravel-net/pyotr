@@ -3,7 +3,9 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 from Core.Homomorphism.Datalog.unify import unify
+from utils.logging import timeit
 
+@timeit
 def minimizeAtoms(P):        
     for ruleNum in range(P.numRules):
         rule = P.getRule(ruleNum)
@@ -23,6 +25,7 @@ def minimizeAtoms(P):
             else:
                 atomNum += 1   
 
+@timeit
 def minimizeRules(P):
     ruleNum = 0
     while ruleNum < P.numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
@@ -35,6 +38,7 @@ def minimizeRules(P):
         else:
             ruleNum += 1   
 
+@timeit
 def enhancedMinimization(P):
     signatureBuckets = {}
     ruleName = {}

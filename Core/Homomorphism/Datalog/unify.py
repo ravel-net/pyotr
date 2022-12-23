@@ -1,10 +1,10 @@
-import time
 import sys
 from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 from Core.Homomorphism.Datalog.atom import DT_Atom
 from Core.Homomorphism.Datalog.rule import DT_Rule
+from utils.logging import timeit
 import psycopg2 
 import databaseconfig as cfg
 
@@ -13,6 +13,7 @@ N = 2
 
 
 # Note: We do not take into account cases where a c-variable appears in the head but not in the body
+@timeit
 def unify(rule1, rule2, rule1Name):
 	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name)
 	substitutions_r3_to_r2, tables_r2, r2_without_faure = getSubstitutions(rule3, rule2) 
@@ -48,6 +49,7 @@ def unify(rule1, rule2, rule1Name):
 	return newRule
 
 # Takes two list of conditions involving c-variables. If any condition is common in both lists, the c-variable is replaced by a constant. e.g. getCVarReplacements([a == 3, b == 2], [a == 3, b ==4]) results in {a: 3} 
+@timeit
 def getCVarReplacements(conditions1, conditions2):
 	cVarReplacements = {}
 	for cond1 in conditions1.copy():
@@ -68,6 +70,7 @@ def getCVarReplacements(conditions1, conditions2):
 # Constants is equality
 # C-variables is replacement of conditions from rule 2
 # Variable is ignoring
+@timeit
 def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 	conditions = []
 	for atom in rule2._body:
@@ -122,6 +125,7 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 	return replacedHeadConditions, replacedBodyConditions
 
 # takes in a tuple and removes the last column
+@timeit
 def removeCondition(strTuple):
 	i = len(strTuple)-1
 	inBracketCount = 0
@@ -137,6 +141,7 @@ def removeCondition(strTuple):
 # takes a particular substitution and returns the corresponding atoms
 # e.g. given getAtomSubstitutions((100,1,{})', '(2,100,3,{})', '(100,1,{})'), ["l t0", "k t1", "l t2"] 
 # returns {l(100,1),l(2,100,3),l(100,1) 
+@timeit
 def getAtomSubstitutions(substitution, tables_r2):
 	substitutedAtoms = []
 	for i in range(len(substitution)):
@@ -149,6 +154,7 @@ def getAtomSubstitutions(substitution, tables_r2):
 
 # Get substitutions for which there is equivalence between rule and rule2
 # The intuition is that the correct substitutions should contain all constants and c-variables that the data instance rule (rule2) had
+@timeit
 def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
 	# create a set with that contains all mapped atoms of rule2 as string
 	mappedAtomsRule2 = []
@@ -187,6 +193,7 @@ def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
 
 
 # Treats rule as program and rule2 as data and finds substitutions that enable homomorphism between rule and rule2
+@timeit
 def getSubstitutions(rule, rule2):
 	conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 	conn.set_session()
@@ -207,6 +214,7 @@ def getSubstitutions(rule, rule2):
 	return result, tables, rule2_without_Faure
 
 # Takes a rule as input and returns a new rule that has all parameters replaced with c-variables. 
+@timeit
 def getEquivalentRule(rule, ruleName):
 	newAtoms = []
 	newConditions = []
@@ -249,6 +257,7 @@ def isConstant(param):
 # Function assumes that atom1 and atom2 can be combined together
 # Takes two atoms and returns a combined atom
 # Atom number means atomName 
+@timeit
 def getEquivalentAtom(atom, rule, atomName):
 		table = atom.db["name"]
 		conditions = []

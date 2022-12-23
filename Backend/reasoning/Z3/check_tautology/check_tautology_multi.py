@@ -1,7 +1,6 @@
 import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(abspath(__file__))))
-print(root)
 sys.path.append(root)
 
 import time
@@ -76,13 +75,13 @@ def table_contains_answer(tablename, domain, variables):
     z3_begin = time.time()
     ans = solver.check() # check the answer, if it answers sat, that means it is not a tautology
     z3_end = time.time()
-    print("Answer:", ans, "z3 execution time:", z3_end - z3_begin)
-    print("total execution time: ", z3_end - begin)
+    # print("Answer:", ans, "z3 execution time:", z3_end - z3_begin)
+    # print("total execution time: ", z3_end - begin)
     conn.commit()
     conn.close()
     if ans == z3.sat:
         model = solver.model()
-        print(model)
+        # print(model)
         return False
     else:
         return True

@@ -10,10 +10,10 @@ import time
 import databaseconfig as cfg
 import psycopg2
 from psycopg2.extras import execute_values
-
+from utils.logging import timeit
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
-
+@timeit
 def merge_tuples_bdd(tablename, BDDTool, information_on=False):
     """
     merge rows which are the same data portion:
@@ -89,7 +89,8 @@ def merge_tuples_bdd(tablename, BDDTool, information_on=False):
     conn.commit()
 
     return len(new_tuples)
-    
+   
+@timeit 
 def merge_tuples_z3(tablename, information_on=False):
     """
     merge rows which are the same data portion:

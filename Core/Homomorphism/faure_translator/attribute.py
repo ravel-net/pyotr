@@ -86,7 +86,6 @@ class SelectedAttribute:
         # for array_operator_attribute
         for array_op in self._array_operators:
             if array_op in attribute_part:
-                # print(3)
                 self._attribute['type'] = 3
                 self._process_array_operator_attribute(attribute_part)
                 return
@@ -94,14 +93,12 @@ class SelectedAttribute:
         # for arithmatic operation attribute
         for arithmatic_opr in self._arithmatic_operators:
             if arithmatic_opr in attribute_part:
-                # print(4)
                 self._attribute['type'] = 4
                 self._attribute['function'] = ArithmaticAttribute(attribute_part)
                 return
         
         # for array attribute
         if attribute_part.lower().startswith('array'):
-            # print(2)
             self._attribute['type'] = 2
             self._attribute['array'] = ArrayAttribute(attribute_part)
             return
@@ -218,8 +215,7 @@ class ArrayAttribute:
     def concatenation(self, simple_attr_mapping):
         item_strs = []
         for item in self.items:
-            # print("\nitem-------------", item._has_alias)
-            # print("item", item.AttributeName)
+
             name = item.AttributeName
             if name in simple_attr_mapping:
                 name = simple_attr_mapping[name].AttributeName

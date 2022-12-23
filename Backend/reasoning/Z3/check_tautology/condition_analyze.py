@@ -82,11 +82,11 @@ def check_equivalence_for_two_string_conditions(condition1, condition2):
     s.add(Not(C1 == C2))
     result = s.check()
     if result == z3.unsat:
-        print("proved")
+        # print("proved")
         return True
     else:
-        print("unproved")
-        print(s.model())
+        # print("unproved")
+        # print(s.model())
         return False
 
 if __name__ == '__main__':

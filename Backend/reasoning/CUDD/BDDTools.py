@@ -5,9 +5,11 @@ from tqdm import tqdm
 import time
 from copy import deepcopy
 from psycopg2.extras import execute_values
+from utils.logging import timeit
 
 class BDDTools:
 
+    @timeit
     def __init__(self, variables, domains={}, reasoning_type='Int') -> None:
         # assume all variables have the same domain
         # if len(domains.keys()) == 0:
@@ -36,6 +38,7 @@ class BDDTools:
         # idx = bddmm.str_to_BDD(encoded_c)
         # print(idx)
     
+    @timeit
     def str_to_BDD(self, condition):
         # print("condition", condition)
         encoded_c, variablesArray = encodeCUDD.convertToCUDD(condition, self.domain_list, self.variables, self._is_IP)
@@ -44,12 +47,14 @@ class BDDTools:
         bdd_condition_idx = bddmm.str_to_BDD(encoded_c)
         return bdd_condition_idx
 
+    @timeit
     def operate_BDDs(self, bdd_idx1, bdd_idx2, operator):
 
         result_idx = bddmm.operate_BDDs(int(bdd_idx1), int(bdd_idx2), operator)
 
         return result_idx
     
+    @timeit
     def is_implication(self, bdd_idx1, bdd_idx2):
         print("is_implication", bdd_idx1, bdd_idx2)
         if bddmm.is_implication(bdd_idx1, bdd_idx2) == 1:
@@ -57,13 +62,16 @@ class BDDTools:
         else:
             return False
 
+    @timeit
     def evaluate(self, bdd_idx):
         print("evaluate bdd_idx", bdd_idx)
         return bddmm.evaluate(bdd_idx)
 
+    @timeit
     def is_equivalent(self, bdd_idx1, bdd_idx2):
         return self.is_implication(bdd_idx1, bdd_idx2) and self.is_implication(bdd_idx2, bdd_idx1)
 
+    @timeit
     def process_condition_on_ctable(self, conn, tablename):
         """
         convert text condition to BDD reference in a c-table

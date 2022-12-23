@@ -10,7 +10,7 @@ import time
 import databaseconfig as cfg
 import psycopg2
 from psycopg2.extras import execute_values
-
+from utils.logging import timeit
 import BDD_managerModule as bddmm
 
 OPEN_OUTPUT = True
@@ -26,6 +26,7 @@ def set_variables(variables):
     global VARIABLES
     VARIABLES = variables
 
+@timeit
 def merge_tuples(tablename, out_tablename):
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(readonly=False, autocommit=True)

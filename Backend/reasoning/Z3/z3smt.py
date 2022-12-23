@@ -4,6 +4,8 @@ from ipaddress import IPv4Network
 import re
 import time
 from tqdm import tqdm
+from utils.logging import timeit
+
 
 class z3SMTTools:
     """
@@ -45,6 +47,7 @@ class z3SMTTools:
     _convert_z3_variable_bit(condition, datatype, bits)
         A tool to get IP data with z3 BitVec
     """
+    @timeit
     def __init__(self, variables, domains={}, reasoning_type='Int') -> None:
         """
         Parameters:
@@ -71,6 +74,7 @@ class z3SMTTools:
         if len((domain_str)) != 0:
             self.solver.add(eval(domain_str))
 
+    @timeit
     def iscontradiction(self, conditions):
         """
         Parameters:
@@ -100,6 +104,7 @@ class z3SMTTools:
             self.solver.pop()
             return False
     
+    @timeit
     def istauto(self, conditions):
         """
         Parameters:
@@ -129,7 +134,8 @@ class z3SMTTools:
             return True
         else:
             return False
-        
+    
+    @timeit
     def has_redundancy(self, conditions):
         """
         Parameters:
@@ -266,6 +272,7 @@ class z3SMTTools:
         else:
             return has_redundant, result
 
+    @timeit
     def condition_parser(self, condition):
         """
         Parameters:
@@ -335,6 +342,7 @@ class z3SMTTools:
             #         prcd_cond += ","
         return prcd_cond
     
+    @timeit
     def check_equivalence_for_two_string_conditions(self, condition1, condition2):
         # print("condition1", condition1)
         # print("condition2", condition2)
@@ -352,15 +360,16 @@ class z3SMTTools:
         self.solver.add(Not(C1 == C2))
         result = self.solver.check()
         if result == z3.unsat:
-            print("proved")
+            # print("proved")
             self.solver.pop()
             return True
         else:
-            print("unproved")
-            print(self.solver.model())
+            # print("unproved")
+            # print(self.solver.model())
             self.solver.pop()
             return False
 
+    @timeit
     def is_implication(self, condition1, condition2):
         """
         Check if condition1 implies condition2
@@ -377,15 +386,16 @@ class z3SMTTools:
         result = self.solver.check()
 
         if result == z3.unsat:
-            print("implies")
+            # print("implies")
             self.solver.pop()
             return True
         else:
-            print("Does not imply")
-            print(self.solver.model())
+            # print("Does not imply")
+            # print(self.solver.model())
             self.solver.pop()
             return False
 
+    @timeit
     def simplify_condition(self, condition):
         """
         Simplify a single condition
@@ -409,6 +419,7 @@ class z3SMTTools:
         
         return simplified_condition
 
+    @timeit
     def simplification(self, target_table, conn):
         cursor = conn.cursor()
 
@@ -480,6 +491,7 @@ class z3SMTTools:
             if (k == "max memory"):
                 print ("Solver Max Memory: %s : %s" % (k, v))
 
+    @timeit
     def _get_domain_str(self):
         domain_conditions = []
         if self._reasoning_type == 'Int':
@@ -511,6 +523,7 @@ class z3SMTTools:
         domain_str = ", ".join(domain_conditions)
         return domain_str
     
+    @timeit
     def _convert_z3_variable(self, condition, datatype):
         if datatype == "BitVec":
             return self._convert_z3_variable_bit(condition, datatype, 32)
@@ -534,6 +547,7 @@ class z3SMTTools:
         
         return "{} {} {}".format(op1, operator, op2)
 
+    @timeit
     def _convert_array_condition2z3_variable(self, condition):
         # array must be at right operand
         c_list = condition.split()
@@ -558,6 +572,7 @@ class z3SMTTools:
         else:
             return "Not(isMember({}, {}))".format(op1, array_condition)
 
+    @timeit
     def _convertIPToBits(self, IP, bits):
         IP_stripped = IP.split(".")
         bitValue = 0
@@ -568,6 +583,7 @@ class z3SMTTools:
         return (bitValue)
 
     # Breaks IP into a range if it is subnetted. sep is a separator. For z3, it must be empty. For sql, it must be a single quotation mark
+    @timeit
     def _getRange(self, var, op, IP, sep): 
         net = IPv4Network(IP)
         if (net[0] != net[-1]): # subnet
@@ -581,6 +597,7 @@ class z3SMTTools:
         else:
             return ["{} {} {}{}{}".format(var,op,sep,IP,sep)]
 
+    @timeit
     def _convert_z3_variable_bit(self, condition, datatype, bits):
         conditionSplit = condition.split()
         constraints = [condition]
@@ -609,6 +626,7 @@ class z3SMTTools:
         conditionFinal += ')'
         return conditionFinal
 
+    @timeit
     def _get_column_datatype_mapping(self, target_table, conn):
         """
         Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 

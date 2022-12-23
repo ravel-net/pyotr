@@ -11,6 +11,7 @@ import psycopg2
 # import Backend.reasoning.Z3.check_tautology.check_tautology as check_tautology
 # import Backend.reasoning.Z3.check_tautology.condition_analyze as condition_analyze
 # import Backend.reasoning.Z3.z3smt as z3SMTtool
+from utils.logging import timeit
 from psycopg2.extras import execute_values
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
@@ -18,6 +19,7 @@ cursor = conn.cursor()
 
 OPEN_OUTPUT = False
 
+@timeit
 def merge_tuples(tablename, out_tablename, z3tools, simplification_on=True, information_on=False):
     """
     merge rows which are the same data portion:

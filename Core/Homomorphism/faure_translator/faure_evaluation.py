@@ -15,6 +15,7 @@ from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2 
 from psycopg2.extras import execute_values
+from utils.logging import timeit
 # conn = psycopg2.connect(
 #     host=cfg.postgres["host"], 
 #     database=cfg.postgres["db"], 
@@ -46,6 +47,7 @@ class FaureEvaluation:
     _process_condition_on_ctable(tablename, variables, domains)
         convert a c-table with text condition to a c-table with BDD reference
     """
+    @timeit
     def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
         """
         Parameters:
@@ -122,7 +124,6 @@ class FaureEvaluation:
             self._additional_condition = additional_condition
             self._empty_condition_idx = None # the reference of the empty condition with BDD
             
-            # print(self._reasoning_engine)
             if self._reasoning_engine.lower() == 'z3':
                 # integration of step 1 and step 2
                 self._integration()
@@ -151,6 +152,7 @@ class FaureEvaluation:
                 print("Unsupported reasoning engine", self._reasoning_engine)
                 exit()
 
+    @timeit
     def _data(self):
         if self._information_on:
             print("\n************************Step 1: create data content****************************")
@@ -172,6 +174,7 @@ class FaureEvaluation:
             print("\ndata executing time: ", self.data_time)
         self._conn.commit()
 
+    @timeit
     def _upd_condition_z3(self):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
@@ -229,6 +232,7 @@ class FaureEvaluation:
             print("Coming soon!")
             exit()
 
+    @timeit
     def _integration(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition****************************")
@@ -250,6 +254,7 @@ class FaureEvaluation:
             print("\ncombined executing time: ", self.data_time)
         self._conn.commit()
 
+    @timeit
     def simplification_z3(self, target_table=None):
         if self._information_on:
             print("\n************************Step 3: Normalization****************************")
@@ -327,6 +332,7 @@ class FaureEvaluation:
                 if (k == "max memory"):
                     print ("Solver Max Memory: %s : %s" % (k, v))
 
+    @timeit
     def _get_column_datatype_mapping(self, target_table=None):
         """
         Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
@@ -353,6 +359,7 @@ class FaureEvaluation:
         self._conn.commit()
         return column_datatype_mapping
     
+    @timeit
     def _upd_condition_BDD(self):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
@@ -435,7 +442,7 @@ class FaureEvaluation:
         cursor.execute(sql)
         self._conn.commit()
         
-
+    @timeit
     def _upd_condition_BDD_old(self, domains, variables):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
@@ -591,6 +598,7 @@ class FaureEvaluation:
             print("Coming soon!")
             exit()
     
+    @timeit
     def _process_condition_on_ctable(self, tablename):
         """
         convert text condition to BDD reference in a c-table

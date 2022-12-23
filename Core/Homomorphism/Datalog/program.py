@@ -9,7 +9,6 @@ from Core.Homomorphism.Datalog.DL_minimization import minimizeAtoms, minimizeRul
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 import databaseconfig as cfg
-import time
 
 class DT_Program:
     """
@@ -67,8 +66,6 @@ class DT_Program:
             rules_str = program_str.split("\n")
             for rule in rules_str:
                 self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables, self.reasoning_tool))
-    # def __eq__(self, other):
-    #     return True if self._account_number == other._account_number else False
     
     def __str__(self):
         DT_Program_str = ""
@@ -169,8 +166,6 @@ class DT_Program:
 
         changed = False
         for rule in self._rules:
-            print("\n------------------------")
-            print("executing rule:", rule)
             DB_changes = rule.execute(conn)
             changed = changed or DB_changes
         return changed
@@ -196,7 +191,6 @@ class DT_Program:
                 table_creation_query += '{} {},'.format(db["column_names"][col], db["column_types"][col])
             table_creation_query = table_creation_query[:-1]
             table_creation_query += ");"
-            # print(table_creation_query)
             cursor.execute(table_creation_query)
         conn.commit()
 
@@ -209,38 +203,16 @@ class DT_Program:
         changed = True
         self.initiateDB(conn)
 
-        # num = 100
-        # tuples = []
-
-        # for i in range(num):
-        #     # tuples.append(["x"+str(i), "x"+str(i+1), "{}"])
-        #     tuples.append([i, i+1])
-        
-        # cursor = conn.cursor()
-        # execute_values(cursor, "insert into L values %s", tuples)
-        # conn.commit()
-
         rule2.addConstants(conn)
         iterations = 0
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.execute(conn)
             if self._simplification_on and self._reasoning_engine == 'z3':
-                simp_begin = time.time()
                 self._reasoning_tool.simplification(rule2._head.db["name"], conn)
-                simp_end = time.time()
-                print("simplification_time:", simp_end-simp_begin, "\n*******************************\n")
-                # input()
 
-            check_head_begin = time.time()
         if rule2.isHeadContained(conn):
-            check_head_end = time.time()
-            print("*******************checking head containment***********************\n")
-            print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
             return True
-        check_head_end = time.time()
-        print("*******************checking head containment***********************\n")
-        print("checking head time: ", check_head_end-check_head_begin, "\n*****************************\n")
         return False
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
