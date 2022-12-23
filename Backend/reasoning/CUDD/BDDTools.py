@@ -56,7 +56,6 @@ class BDDTools:
     
     @timeit
     def is_implication(self, bdd_idx1, bdd_idx2):
-        print("is_implication", bdd_idx1, bdd_idx2)
         if bddmm.is_implication(bdd_idx1, bdd_idx2) == 1:
             return True
         else:
@@ -64,7 +63,6 @@ class BDDTools:
 
     @timeit
     def evaluate(self, bdd_idx):
-        print("evaluate bdd_idx", bdd_idx)
         return bddmm.evaluate(bdd_idx)
 
     @timeit

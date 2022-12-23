@@ -378,10 +378,12 @@ class FaureEvaluation:
         end_upd = time.time()
 
         count_num = cursor.rowcount
-
+        data_tuples = cursor.fetchall()
+        self._conn.commit()
         new_reference_mapping = {}
         for i in range(count_num):
-            (old_conditions, conjunctin_conditions, id) = cursor.fetchone()
+            
+            (old_conditions, conjunctin_conditions, id) = data_tuples[i]
             # print(old_conditions, conjunctin_conditions, id)
             '''
             Logical AND all original conditions for all tables

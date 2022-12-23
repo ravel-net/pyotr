@@ -521,7 +521,7 @@ class DT_Rule:
                     # Does the condition in the tuple imply the condition in the header?
                     if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.check_equivalence_for_two_string_conditions(str_tup_cond, header_condition):
                         contains = True
-
+                        return contains                    
                 elif self._reasoning_engine == 'bdd':
                     # convert list of conditions to a string of condition
                     extra_conditions = "And({})".format(", ".join(extra_conditions))
@@ -536,6 +536,7 @@ class DT_Rule:
                         self.reasoning_tool.is_implication(tup_cond, extra_condition_idx) and \
                         (self.reasoning_tool.is_implication(tup_cond, header_condition_idx) and self.reasoning_tool.is_implication(header_condition_idx, tup_cond)):
                         contains = True
+                        return contains
                 else:
                     print("We do not support {} engine!".format(self._reasoning_engine))
                     exit()
