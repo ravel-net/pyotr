@@ -149,7 +149,14 @@ class SelectedAttribute:
 class NormalAttribute:
     def __init__(self, normal_attribute_str):
         self._specify_table = None
-        if (normal_attribute_str.startswith("'") and normal_attribute_str.endswith("'")) or (normal_attribute_str.startswith('"') and normal_attribute_str.endswith('"')):
+        """
+        case1: constant surrounded by '
+        case2: constant surrounded by "
+        case3: IP prefix
+        """
+        if (normal_attribute_str.startswith("'") and normal_attribute_str.endswith("'")) or \
+            (normal_attribute_str.startswith('"') and normal_attribute_str.endswith('"')) or \
+            (self._is_IP(normal_attribute_str)):
             self._specify_table = False
         else:
             self._specify_table = '.' in normal_attribute_str
@@ -167,7 +174,16 @@ class NormalAttribute:
         if self._specify_table:
             return "{}.{}".format(self.table, self.attribute)
         else:
+            if self._is_IP(self.attribute):
+                return "'{}'".format(self.attribute)
+                
             return self.attribute
+    
+    def _is_IP(self, str):
+        if len(str.split('.')) == 4:
+            return True
+        return False
+
 
 class ArithmaticAttribute:
     """

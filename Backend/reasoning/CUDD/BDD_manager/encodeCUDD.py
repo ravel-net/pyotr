@@ -82,19 +82,20 @@ def processCon(var1, var2, updatedDomains, is_ip=False):
 	numBinDigits = 32
 	varDomain = [] # If varDomain is empty, that means the domain is the entire integer set
 	newVar1, newVar2 = preprocessCond(var1, var2)
+	# print("newVar1", newVar1, "newVar2", newVar2, '\n')
 	if newVar1 in updatedDomains:
 		varDomain = updatedDomains[newVar1]
 	if not is_ip and varDomain: 
 		numBinDigits = math.ceil(math.log(len(varDomain),2))
-	if isVarCondition(newVar1,newVar2):	
+	if isVarCondition(newVar1,newVar2):	 #operands all are variables
 		numBinDigits2 = 32
-		if var2 in updatedDomains:
-			numBinDigits2 = math.ceil(math.log(len(updatedDomains[var2]),2))
+		if newVar2 in updatedDomains:
+			numBinDigits2 = math.ceil(math.log(len(updatedDomains[newVar2]),2))
 		if (numBinDigits != numBinDigits2):
 			print("Error: {}={} is an incorrect condition since the domains do not match".format(newVar1,newVar2))
 			exit()
 		for i in range(numBinDigits):
-			newItems.append("$("+var1+"_"+str(i)+","+var2+"_"+str(i)+")")
+			newItems.append("$("+newVar1+"_"+str(i)+","+newVar2+"_"+str(i)+")")
 		processedCond = combineItems(newItems, "&")
 	else:
 		# newVar1, newVar2 = preprocessCond(var1, var2)
