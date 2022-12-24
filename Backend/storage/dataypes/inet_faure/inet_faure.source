@@ -192,12 +192,13 @@ CREATE OPERATOR <= (
    -- commutator = >= , negator = > ,
    restrict = scalarlesel, join = scalarlejoinsel
 );
+
 CREATE OPERATOR = (
    leftarg = inet_faure, rightarg = inet_faure, procedure = c_equal,
    commutator = = ,
    -- leave out negator since we didn't create <> operator
    -- negator = <> ,
-   restrict = eqsel, join = eqjoinsel, MERGES
+   restrict = eqsel, join = eqjoinsel, HASHES
 );
 
 CREATE OPERATOR >= (
@@ -238,6 +239,14 @@ CREATE OPERATOR && (
 -- create the support function too
 CREATE FUNCTION network_cmp(inet_faure, inet_faure) RETURNS int4
    AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
+
+CREATE FUNCTION inet_faure_hash(inet_faure) RETURNS int4
+   AS '_OBJWD_/inet_faure' LANGUAGE C IMMUTABLE STRICT;
+
+CREATE OPERATOR CLASS inet_faure_ops
+DEFAULT FOR TYPE inet_faure USING hash AS
+     OPERATOR    1   =  (inet_faure, inet_faure),
+     FUNCTION    1   inet_faure_hash(inet_faure);
 
 -- now we can make the operator class
 
