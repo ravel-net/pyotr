@@ -109,9 +109,19 @@ See [sheet](https://docs.google.com/spreadsheets/d/1eag-hdVJLU3USVnYnF_T9020bt_E
 
 We just adjust code in [`run_script.py`](../../experiments/chase_distributed_invariants/run_script.py) to run experiments with different requirements.
 
-## Note after hotnet submission
 
-**updated: we had fixed all bugs and the chase is working correctly for any orderings**
+## Corrections in the Chase after hotnet submission
+
+- \sigma_new added, 
+- \sigma_1' and \sigma_2' take N and X (current and next hop) into account, 
+- The changes in egds are table wide, 
+- \sigma_D only applied at the start and removed from the Chase process, 
+- We no longer explicitly skip tuples that have already been checked in tgds; this made the code simpler and technically accurate. 
+- The orderings are random now instead of one specific one.
+
+## Note in hotnet submission
+
+**updated: we had fixed all bugs and the chase is working correctly for any orderings**, see [last subsection](#corrections-in-the-chase-after-hotnet-submission).
 
 The current version does not work for all orderings. The only ordering that always works is dependency [0,1,2,3,4,5] (or optimal from before). For some orderings, the results is sometimes True and sometimes False. This means that there is some bug in our code.
 
