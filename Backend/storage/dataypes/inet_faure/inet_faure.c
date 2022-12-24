@@ -827,6 +827,21 @@ is_var(PG_FUNCTION_ARGS)
 	PG_RETURN_BOOL(strcmp(c_variables(a1),"0") != 0);
 }
 
+PG_FUNCTION_INFO_V1(inet_faure_hash);
+Datum
+inet_faure_hash(PG_FUNCTION_ARGS)
+{
+	// inet_faure		*arg1 = PG_GETARG_INET_PP(0);
+	Datum		result;
+
+	// if (is_cvar(arg1))
+	// 	result = hash_any((unsigned char *) C_VAR(arg1), strlen(C_VAR(arg1)));
+	// else 
+	// 	result = hash_uint32(DatumGetInt32IntFaure(arg1));
+	result = 0;
+
+	PG_RETURN_DATUM(result);
+}
 
 // /*
 //  * MIN/MAX support functions.
