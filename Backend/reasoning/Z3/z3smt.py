@@ -136,7 +136,7 @@ class z3SMTTools:
             return False
     
     @timeit
-    def has_redundancy(self, conditions):
+    def has_redundancy_old(self, conditions):
         """
         Parameters:
         -----------
@@ -164,6 +164,7 @@ class z3SMTTools:
                 expr_c = "z3.Bool('True')"
             # print("expr_c", expr_c)
             simplified_c = z3.simplify(eval(expr_c))
+            # print(str(simplified_c))
             result.append(str(simplified_c))
             simplified_conditions.append(simplified_c)
         
@@ -228,6 +229,7 @@ class z3SMTTools:
                         if not has_redundant:
                             has_redundant = True
 
+        final_result = []
         if has_redundant:
             drop_result = {}
             for i in range(len(conditions)):
@@ -248,7 +250,7 @@ class z3SMTTools:
                     dp_arr.append(c2)
 
             is_tauto = True
-            final_result = []
+            # final_result = []
             subset_prcd_conditions = []
             for i in range(0, len(result), 1):
                 if i not in dp_arr:
@@ -267,10 +269,134 @@ class z3SMTTools:
             # result = [result[i] for i in range(0, len(result), 1) if i not in dp_arr]
             if is_tauto:
                 return is_tauto, '{}'
-            return has_redundant, final_result
+            # return has_redundant, final_result
 
         else:
+            final_result = final_result
+            # return has_redundant, result
+
+        if self._reasoning_type.lower() == 'bitvec':
+            # bitvec_to_IP_addresses()
+            pass
+        
+        return has_redundant, result
+    
+    @timeit
+    def has_redundancy(self, conditions):
+        """
+        Parameters:
+        -----------
+        conditions: list
+            A list of conditions
+
+        Returns:
+        --------
+        has_redundant: Boolean
+            If it has redundant condition
+        
+        result: list
+            simplified 'conditions'
+        """
+        has_redundant = False
+        is_tauto = True
+
+        result = []
+        simplified_conditions = []
+        # print("redundant conditions", conditions)
+        for c in conditions:
+            # print("c", c)
+            expr_c = self.condition_parser(c)
+            if expr_c == 'True':
+                expr_c = "z3.Bool('True')"
+            
+            if self._reasoning_type == 'Int':
+                # print("expr_c", expr_c)
+                simplified_c = z3.simplify(eval(expr_c))
+                # print(str(simplified_c))
+                result.append(str(simplified_c))
+            else:
+                simplified_c = eval(expr_c)  # TODO:simpliy a string condition for BitVec
+                result.append(c)
+            simplified_conditions.append(simplified_c)
+        
+        drop_idx = {}
+        for i in range(len(simplified_conditions)):
+            drop_idx[i] = []
+        
+        if len(simplified_conditions) == 0:
             return has_redundant, result
+        
+        drops = []
+        # processed_conditions = {}
+        if len(simplified_conditions) == 1:
+            expr = simplified_conditions[0]
+            # simplified_expr = z3.simplify(eval(expr)) # simplify condition
+
+            # check tautology
+            self.solver.push()
+            self.solver.add(Not(expr))
+            if self.solver.check() == z3.sat:
+                is_tauto = False
+            self.solver.pop()
+
+            if is_tauto:
+                return is_tauto, '{}'
+            else:
+                return has_redundant, expr
+        else:        
+            for idx1 in range(len(simplified_conditions)):
+                # print("drops", drops)
+                # print("idx1", idx1,"-----------")
+                if idx1 in drops:
+                    continue
+
+                expr1 = simplified_conditions[idx1]
+
+                for idx2 in range(len(simplified_conditions)):
+                    if idx1 == idx2 or idx2 in drops:
+                        continue
+                    # print('idx2', idx2)
+                    expr2 = simplified_conditions[idx2]
+                    
+                    G = Implies(expr1, expr2)
+                    self.solver.push()
+                    self.solver.add(Not(G))
+                    re = str(self.solver.check())
+                    self.solver.pop()
+                    if str(re) == 'unsat': # expr1 implies expr2, that is expr1 is subset of expr2
+                        drops.append(idx2)
+                        if not has_redundant:
+                            has_redundant = True
+
+
+        final_result = []
+        if has_redundant:
+            temp_result = []
+            for i in range(len(simplified_conditions)):
+                if i not in drops:
+                    final_result.append(result[i])
+                    temp_result.append(simplified_conditions[i])
+
+            is_tauto = True
+
+            c = Not(And([cond for cond in temp_result]))
+
+            self.solver.push()
+            self.solver.add(c)
+            if self.solver.check() == z3.sat:
+                is_tauto = False
+            self.solver.pop()
+            
+            if is_tauto:
+                return is_tauto, '{}'
+            # else:
+            #     final_result = [str(cond) for cond in final_result]
+            # return has_redundant, final_result
+
+        else:
+            final_result = result
+        
+        return has_redundant, final_result
 
     @timeit
     def condition_parser(self, condition):
@@ -650,6 +776,8 @@ class z3SMTTools:
         conn.commit()
         return column_datatype_mapping
 
+
+    
 if __name__ == '__main__':
     condition1 = "Or(x == 1, x == 2)"
     condition2 = "x == 1"

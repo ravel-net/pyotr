@@ -20,6 +20,9 @@ class SQL_Parser:
     sql: 
         SQL str. Now only supports selection.
 
+    is_sep: Boolean
+        if seperate step 1 and step 2
+
     databases:
         all columns are default int4_faure datatype except for condition column.
         format: {"tablename": {"types": list[datatypes], "names": list[attribute_names]}} 
@@ -343,6 +346,9 @@ class SQL_Parser:
             disjunction_condition_list.append(conjunction_condition_list)
         
         # print("disjunction_condition_list", disjunction_condition_list)
+        # for item in disjunction_condition_list:
+        #     for i in item:
+        #         print(str(i))
         return disjunction_condition_list
     
     def _split_subclause_in_where_clause(self, where_clause_str):
@@ -383,6 +389,7 @@ class SQL_Parser:
         # print("where_clause_str", where_clause_str)
         # return position_subclause_mapping_dict
         self._position_subclause_mapping_dict = position_subclause_mapping_dict
+        # print("_position_subclause_mapping_dict", self._position_subclause_mapping_dict)
         # self._where_clause_with_subclause_pos = where_clause_str
 
     def _convert_subclause_to_SQL(self, clause):
@@ -415,7 +422,7 @@ class SQL_Parser:
             conjunction_strs = []
             for atom in conjunction_list:
                 if isinstance(atom, Constraint):
-                    # print(atom.concatenation(attribute_mapping))
+                    # print("\natom.concatenation(attribute_mapping)", atom.concatenation(attribute_mapping))
                     conjunction_strs.append(atom.concatenation(attribute_mapping))
                 else:
                     sub_clause = self._position_subclause_mapping_dict[atom]
@@ -496,22 +503,7 @@ class SQL_Parser:
         # print(self.simple_attr2datatype_mapping)
         left_simple_attr = left_attribute.AttributePart
         right_simple_attr = right_attribute.AttributePart
-        # if left_simple_attr in self.simple_attr2datatype_mapping:  print("left", self.simple_attr2datatype_mapping[left_simple_attr].lower())
-        # if right_simple_attr in self.simple_attr2datatype_mapping:  print("right", self.simple_attr2datatype_mapping[right_simple_attr].lower())
 
-        # print("if left_attr is faure_type", left_simple_attr in self.simple_attr2datatype_mapping and \
-        #         (self.simple_attr2datatype_mapping[left_simple_attr].lower() in self._FAURE_DATATYPE or \
-        #         self.simple_attr2datatype_mapping[left_simple_attr] == 'USER-DEFINED'))
-        # if left_simple_attr in self.simple_attr2datatype_mapping:
-        #     print(self.simple_attr2datatype_mapping[left_simple_attr])
-
-        # print("if right_attr is faure_type", right_simple_attr in self.simple_attr2datatype_mapping and 
-        #         (self.simple_attr2datatype_mapping[right_simple_attr].lower() in self._FAURE_DATATYPE or 
-        #         self.simple_attr2datatype_mapping[right_simple_attr].lower() == 'user-defined'))
-
-        # if right_simple_attr in self.simple_attr2datatype_mapping:
-        #     print(self.simple_attr2datatype_mapping[right_simple_attr])
-        # True only the datatype of attribute is Faure datatype(learn from user input) or USER-DEFINED(learn from database), update it.
         if (left_simple_attr in self.simple_attr2datatype_mapping and \
                 (self.simple_attr2datatype_mapping[left_simple_attr].lower() in self._FAURE_DATATYPE or \
                 self.simple_attr2datatype_mapping[left_simple_attr].lower() == 'user-defined')) \
@@ -667,6 +659,7 @@ class Constraint:
                 items = self._constraint_str.split(opr)
                 left_opd = items[0].strip()
                 right_opd = items[1].strip()
+                # print("left_opd", left_opd, "opr", opr, "right_opd", right_opd)
                 break
         attribute_pattern = re.compile(r'\((.*?)\)')
         left_match = self._if_contains_function(left_opd)
@@ -712,7 +705,8 @@ if __name__ == '__main__':
     #         'names':['c0', 'c1', 'condition']
     #     }})
 
-    sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
+    # sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
+    sql = "select t2.c0 as c0, t0.c1 as c1 from R t0, R t1, L t2, L t3 where t0.c0 = t2.c1 and t1.c0 = t3.c1 and t2.c0 = t3.c0 and t0.c1 = 10.0.0.0"
     p = SQL_Parser(conn, sql, is_sep=True)
     print(p.execution_sql)
     print(p.combined_sql)

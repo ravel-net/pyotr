@@ -136,7 +136,7 @@ class DT_Program:
             iterations += 1
             changed = self.execute(conn)
             if self._simplification_on and self._reasoning_engine == 'z3':
-                self._reasoning_tool.simplification(rule2._head.db["name"], conn)
+                self.reasoning_tool.simplification(rule2._head.db["name"], conn)
 
         if rule2.isHeadContained(conn):
             return True
