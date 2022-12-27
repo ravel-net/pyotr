@@ -47,12 +47,12 @@ def isVarCondition(var1, var2):
 
 # Preprocessing constant == constant and constant == variables
 def preprocessCond(var1, var2):
-	if (var1.isdigit() and var2.isdigit()): # constant = constant e.g. 1 == 2
+	if (var1[0].isdigit() and var2[0].isdigit()): # constant = constant e.g. 1 == 2
 		if (var1 == var2):
 			return TRUE, TRUE
 		else:
 			return FALSE, FALSE
-	elif (var1.isdigit() and not var2.isdigit()): # constant = variable e.g. 1 == x
+	elif (var1[0].isdigit() and not var2[0].isdigit()): # constant = variable e.g. 1 == x
 		return str(var2), str(var1)
 	else:
 		return str(var1), str(var2)
