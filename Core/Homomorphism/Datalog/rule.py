@@ -455,7 +455,7 @@ class DT_Rule:
         cursor.execute(sql)
         resulting_tuples = cursor.fetchall()
         conn.commit()
-
+        
         # add constants to header data portion
         header_data_portion = []
         for i, p  in enumerate(self._head.parameters):
@@ -469,6 +469,9 @@ class DT_Rule:
                         newP.append(int(elem))
                     elif elem.isdigit() and "integer" not in col_type:
                         newP.append(str(elem))
+                    elif len(elem.split('.')) == 4: # it is an IP constant
+                        # newP.append("'{}'".format(elem))
+                        newP.append(str(elem))
                     elif "integer" in col_type:
                         newP.append(self._mapping[elem])                    
                     else:
@@ -480,6 +483,9 @@ class DT_Rule:
                 elif p.isdigit() and "integer" in col_type:
                     header_data_portion.append(int(p))
                 elif p.isdigit() and "integer" not in col_type:
+                    header_data_portion.append(str(p))
+                elif len(p.split('.')) == 4: # it is an IP constant
+                    # header_data_portion.append("'{}'".format(p))
                     header_data_portion.append(str(p))
                 elif "integer" in col_type:
                     header_data_portion.append(self._mapping[p])

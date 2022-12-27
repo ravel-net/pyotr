@@ -160,6 +160,9 @@ class DT_Atom:
                         mapping_constants.append(str(mapping[v]))
                 variableConstants.append("'{" + ", ".join( mapping_constants) + "}'")
                 continue
+            if len(var.split('.')) == 4: # it is IP constant
+                variableConstants.append("'{}'".format(var))
+                continue
             if var[0].isdigit():
                 variableConstants.append(str(var))
                 continue
