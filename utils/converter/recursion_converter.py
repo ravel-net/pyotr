@@ -79,6 +79,7 @@ def add_base_rules(recursive_rule):
 """
 
 from copy import deepcopy
+from utils.logging import timeit
 
 class RecursiveConverter:
     """
@@ -96,6 +97,7 @@ class RecursiveConverter:
         EDB relations
     
     """
+    @timeit
     def __init__(self, program) -> None:
         self._program = program
         
@@ -103,7 +105,7 @@ class RecursiveConverter:
 
         # self.program_sqls = self.recursion_converter()
 
-
+    @timeit
     def recursion_converter(self):
         rules = self._program._rules
 
@@ -120,6 +122,7 @@ class RecursiveConverter:
         # print("program_sqls", program_sqls)
         return program_sqls
 
+    @timeit
     def _identify_relations(self):
         self.IDB_relations = []
         self.EDB_relations = []
@@ -139,6 +142,7 @@ class RecursiveConverter:
             if b_atom not in self.IDB_relations:
                 self.EDB_relations.append(b_atom)
 
+    @timeit
     def _find_rules_for_IDB(self, IDB_relation, rules):
         base_rules = []
         recursive_rules = []
@@ -162,12 +166,13 @@ class RecursiveConverter:
                 remaining_rules.append(rule)
         return base_rules, recursive_rules, non_recursive_rules, remaining_rules
 
+    @timeit
     def _generate_sql_for_each_IDB(self, IDB_relation, base_rules, recursive_rules, non_recursive_rules):
         
         # if no base rules, add a new base rule
-        if len(base_rules) == 0 and len(non_recursive_rules) == 0:
-            base_rule = self._add_base_rules(IDB_relation, recursive_rules[0])
-            base_rules.append(base_rule)
+        # if len(base_rules) == 0 and len(non_recursive_rules) == 0:
+        #     base_rule = self._add_base_rules(IDB_relation, recursive_rules[0])
+        #     base_rules.append(base_rule)
             # for recursive_rule in recursive_rules:
 
         # generate cte storing in ctes
@@ -197,13 +202,14 @@ class RecursiveConverter:
             )
 
         else: # recursive program
+            
             union_sqls = []
             cte_sqls = []
             for idx, rule in enumerate(recursive_rules):
                 base_query = "select * from temp_{}{}".format(IDB_relation, idx)
                 temp_table = "temp_{}{}".format(IDB_relation, idx+1)
                 union_sqls.append("select * from {}".format(temp_table))
-
+ 
                 rule_copy = deepcopy(rule)
                 for atom in rule_copy._body:
                     if atom.db['name'] == IDB_relation:
@@ -213,10 +219,16 @@ class RecursiveConverter:
                 recursive_sql = rule_copy.convertRuleToSQL()
 
                 if idx == 0:
+                    if len(base_sqls) == 0: # no base rule, add a new base rule
+                        base_rule = self._add_base_rules(IDB_relation, recursive_rules[0])
+                        base_sqls.append(base_rule.convertRuleToSQL())
+                    else: # has base rules, add information for IDB
+                        base_sqls.append("select * from {}".format(IDB_relation))  # for IDB information
+                        # base_query = "select * from ({}) as foo".format(" union ".join(base_sqls))
                     if len(base_sqls) == 1:
                         base_query = base_sqls[0]
                     else:
-                        base_query = "select * from ({}) as foo".format(", ".join(base_sqls))
+                        base_query = "select * from ({}) as foo".format(" union ".join(base_sqls))
                 
                 cte_sql = "{cte_table} AS ({base_query} UNION {recursive_query})".format(
                     cte_table=temp_table,
@@ -234,6 +246,7 @@ class RecursiveConverter:
         # print("program_sql", program_sql)
         return program_sql
 
+    @timeit
     def _add_base_rules(self, IDB_relation, recursive_rule):
         new_body = []
         head_atom = None

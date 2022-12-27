@@ -10,6 +10,7 @@ from Backend.reasoning.Z3.z3smt import z3SMTTools
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils.converter.recursion_converter import RecursiveConverter
 import databaseconfig as cfg
+from utils.logging import timeit
 
 class DT_Program:
     """
@@ -43,7 +44,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[]):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type='Int', datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -55,6 +56,7 @@ class DT_Program:
         self._datatype = datatype
         self._simplification_on = simplification_on
         self._c_tables = c_tables
+        self._pg_native_recursion = pg_native_recursion
 
         if self._reasoning_engine == 'z3':
             self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
@@ -82,20 +84,22 @@ class DT_Program:
                 return False
         return True
 
+    @timeit
     def execute(self, conn):
-        # program_sqls = RecursiveConverter(self).recursion_converter()
-        # cursor = conn.cursor()
-        # for sql in program_sqls:
-        #     print("sql", sql)
-        #     cursor.execute(sql)
-        # conn.commit()
-        # return False
-
-        changed = False
-        for rule in self._rules:
-            DB_changes = rule.execute(conn)
-            changed = changed or DB_changes
-        return changed
+        if self._pg_native_recursion and len(self._c_variables) == 0: # pg_recursion is only used to Datalog
+            program_sqls = RecursiveConverter(self).recursion_converter()
+            cursor = conn.cursor()
+            for sql in program_sqls:
+                # print("sql", sql)
+                cursor.execute(sql)
+            conn.commit()
+            return False
+        else:
+            changed = False
+            for rule in self._rules:
+                DB_changes = rule.execute(conn)
+                changed = changed or DB_changes
+            return changed
 
 
 
