@@ -12,6 +12,7 @@ from psycopg2.extras import execute_values
 import databaseconfig as cfg
 from tqdm import tqdm
 from ipaddress import IPv4Address
+from utils.logging import timeit
 
 FAURE_DATATYPES = ['int4_faure', 'inet_faure']
 INT4_FAURE = 'int4_faure'
@@ -20,47 +21,48 @@ INET_FAURE = 'inet_faure'
 DIGIT_RELATED_TYPES = ['integer', 'double', 'float']
 STR_RELATED_TYPES = ['char', 'text']
 
-conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-cursor = conn.cursor()
+# conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+# cursor = conn.cursor()
 
-# TODO: checked_tuples is redundant everywhere. Not deleting yet since it might break some things
-
-def load_table(attributes, datatypes, tablename, tableau):
+@timeit
+def load_table(conn, attributes, datatypes, tablename, data_instance):
     """
     Load data instance into database
 
     Parameters:
     ------------
-    columns: list, a list of attributes, e.g. [name, age]
+    columns: list, 
+        a list of attributes, e.g. [name, age]
 
-    datatypes: list, a list of datatypes corresponding to columns, e.g. [text, integer] corresponding to columns [name, age]
+    datatypes: list, 
+        a list of datatypes corresponding to columns, e.g. [text, integer] corresponding to columns [name, age]
 
-    tablename: string, database table which stores tableau
+    tablename: string, 
+        database table which stores tableau
 
-    tableau: list, data instance
+    data_instance: list, 
+        data instance
     """
     # conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
-    # cursor = conn.cursor()
-
+    cursor = conn.cursor()
     cursor.execute("drop table if exists {}".format(tablename))
     columns = ["{} {}".format(attributes[i], datatypes[i]) for i in range(len(attributes))]
     cursor.execute("create table {} ({})".format(tablename, ", ".join(columns)))
-    conn.commit()
-
-    execute_values(cursor, "insert into {} values %s".format(tablename), tableau)
-    conn.commit()
-    # cursor.execute("select * from {}".format(tablename))
     # conn.commit()
-    # conn.close()
 
-def gen_z(E_tuples, gamma_tablename):
+    execute_values(cursor, "insert into {} values %s".format(tablename), data_instance)
+    conn.commit()
+
+@timeit
+def gen_inverse_image(conn, E_tuples, gamma_tablename):
     """
-    generate the tuples of Z table
+    generate inverse image of gamma table over end-to-end connectivity view
 
     Parameters:
     -----------
     E_tuples: list[tuple]
-        a list of tuples in table E. the tuple contains condition column
+        a list of tuples in table E(end-to-end connectivity view, i.e., tableau query of topology). 
+        the tuple contains condition column
     
     gamma_tablename: string 
         name of gamma table
@@ -68,12 +70,10 @@ def gen_z(E_tuples, gamma_tablename):
     Returns:
     --------
     Z_tuples: list[tuple]
-        a list of tuples for Z table. Convert gamma table to Z table.
-
-    gen_z: float
-        the time for generating a list of tuples for Z table.
-    
+        a list of tuples for Z table(inverse image of gamma). Convert gamma table to Z table.
     """
+    cursor = conn.cursor()
+
     sql = "select * from {}".format(gamma_tablename)
     cursor.execute(sql)
 
@@ -83,7 +83,6 @@ def gen_z(E_tuples, gamma_tablename):
     Z_tuples = []
     z_tuple_num = 1
 
-    begin_time = time.time()
     for gamma_tuple in gamma_table:
         f = gamma_tuple[0]
         src = gamma_tuple[1]
@@ -110,9 +109,7 @@ def gen_z(E_tuples, gamma_tablename):
 
             z_tuple_num += 1
     
-    end_time = time.time()
-
-    return Z_tuples, end_time-begin_time
+    return Z_tuples
 
 def isIPAddress(value):
     if len(value.strip().split('.')) == 4:
@@ -129,129 +126,152 @@ def is_variable(value, datatype):
     else:
         return False
 
-# Main function of chase to apply dependencies. Calls apply_tgd and apply_egd.
-def apply_dependency(dependency, Z_tablename, checked_tuples):
-    # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    # cursor = conn.cursor()
-    # print("starting dependency")
+
+@timeit
+def apply_dependency(conn, dependency, inverse_image_tablename):
+    """
+    Main function of chase to apply dependencies. Calls apply_tgd and apply_egd.
+    
+    Parameters:
+    -----------
+    dependency: dict
+        format: {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+
+    inverse_image_tablename: string
+        the table of inverse image
+
+    Returns:
+    ---------
+    does_updated: Boolean
+        does the application of the dependency change the inverse image
+
+    """
     type = dependency['dependency_type']
-    dependency_tuples = dependency['dependency_tuples']
-    dependency_attributes = dependency['dependency_attributes']
     dependency_summary = dependency['dependency_summary']
-    dependency_summary_condition = dependency['dependency_summary_condition']
 
     does_updated = True
-    operate_time = 0
-    check_valid_time = 0
     
     if type.lower() == 'tgd':
-        checked_tuples, does_updated, check_valid_time, operate_time = apply_tgd(dependency, Z_tablename, checked_tuples)
+        does_updated= apply_tgd(conn, dependency, inverse_image_tablename)
     elif type.lower() == 'egd':
         # if dependency_summary is empty, it is a deletion for firewall policy
         if len(dependency_summary) == 0: # if dependency summary is empty, the matched tuples are deleted
-            node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z_tablename)
-            # print("node_dict", node_dict)
 
-            egd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
-            # f = open("./sqls.txt", "a")
-            # f.write("{}\n".format(egd_sql))
-            # f.close()
-            # print(egd_sql)
-            check_valid_egd_begin = time.time()
+            egd_sql = convert_dependency_to_sql(dependency, inverse_image_tablename)
+
+            cursor = conn.cursor()
             cursor.execute(egd_sql)
-            check_valid_egd_end = time.time()
-            # f = open("./sqls_time.txt", "a")
-            # f.write("{:.4f}\n".format(check_valid_egd_end - check_valid_egd_begin))
-            # f.close()
-
-            check_valid_time += (check_valid_egd_end - check_valid_egd_begin)
-            operate_time += (check_valid_egd_end - check_valid_egd_begin)
-
-            check_valid_begin = time.time()
             if cursor.rowcount == 0:
                 does_updated = False
-            check_valid_end = time.time()
-            check_valid_time += (check_valid_end - check_valid_begin)
             conn.commit()
-            print("ending dependency")
-            return checked_tuples, does_updated, check_valid_time, operate_time
+            return does_updated
         else:
-            # print("apply_egd")
-            checked_tuples, does_updated, check_valid_time, operate_time = apply_egd(dependency, Z_tablename, checked_tuples)
-            # checked_tuples, does_updated, check_valid_time, operate_time = apply_egd_old(dependency, Z_tablename, checked_tuples)
+            does_updated = apply_egd(conn, dependency, inverse_image_tablename)
     else:
-        check_valid_begin = time.time()
         does_updated = False
         print("wrong type!")
-        check_valid_end = time.time()
-        check_valid_time += (check_valid_end - check_valid_begin)
-    conn.commit()
-    # print("ending dependency")
-    return checked_tuples, does_updated, check_valid_time, operate_time
+        exit()
 
-# Checks for the given pattern and returns the summary (i.e. the tuple to add) IF the given pattern exists. Then computes the difference between the summary and the Z_table. Adds the extra tuple only if it does not already exist in the Z_table (preventing unnecessary additions)
-def apply_tgd(dependency, Z_tablename, checked_tuples):
-    type = dependency['dependency_type']
-    dependency_tuples = dependency['dependency_tuples']
-    dependency_attributes = dependency['dependency_attributes']
-    dependency_summary = dependency['dependency_summary']
-    dependency_summary_condition = dependency['dependency_summary_condition']
-    check_valid_time = 0
-    operate_time = 0
+    return does_updated
 
-    tgd_sql = convert_dependency_to_sql(type, dependency_tuples, Z_tablename, dependency_attributes, dependency_summary, dependency_summary_condition)
-    # print(tgd_sql)
-    check_valid_begin = time.time()
+@timeit
+def apply_tgd(conn, dependency, inverse_image_tablename):
+    """
+    Apply tgd dependency, calls by apply_dependency()
+
+    1. Checks for the given pattern and returns the summary (i.e. the tuple to add) IF the given pattern exists. 
+    2. Then computes the difference between the summary and the Z_table. 
+    3. Adds the extra tuple only if it does not already exist in the Z_table (preventing unnecessary additions)
+    
+    Parameters:
+    -----------
+    dependency: dict
+        format: {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+
+    inverse_image_tablename: string
+        the table of inverse image
+
+    Returns:
+    ---------
+    does_updated: Boolean
+        does the application of the dependency change the inverse image
+    """
+    cursor = conn.cursor()
+
+    tgd_sql = convert_dependency_to_sql(dependency, inverse_image_tablename)
+
     cursor.execute(tgd_sql)
-    check_valid_end = time.time()
-    check_valid_time += (check_valid_end - check_valid_begin)
 
-    # matched_tuples = []
     results = cursor.fetchall()
-    # print("results", results)
     conn.commit()
 
-    z_tuples = getCurrentTable(Z_tablename)
+    z_tuples = getCurrentTable(conn, inverse_image_tablename)
 
     results_set = set(results)
     z_tuples_set = set(z_tuples)
-    # print("results_set", results_set)
-    # print("z_tuples_set", z_tuples_set)
     inserted_tuples_set = results_set.difference(z_tuples_set)
-    # print("inserted_tuples_set", inserted_tuples_set)
+
     inserted_tuples = list(inserted_tuples_set)
     does_updated = False
-    operation_time = 0
-    print("inserted_tuples", inserted_tuples)
+
     if len(inserted_tuples) != 0:
         does_updated = True
+        execute_values(cursor, "insert into {} values %s".format(inverse_image_tablename), inserted_tuples)
+    
+    conn.commit()
+    return does_updated
 
-        begin_time = time.time()
-        execute_values(cursor, "insert into {} values %s".format(Z_tablename), inserted_tuples)
-        conn.commit()
-        end_time = time.time()
-        operation_time += (end_time - begin_time)
-    return [], does_updated, 0, operation_time
-
-# Returns the table tuples from postgres of the table given as a parameter
-def getCurrentTable(tablename):
+@timeit
+def getCurrentTable(conn, tablename):
+    """
+    Returns the table tuples from postgres of the table given as a parameter
+    """
+    cursor = conn.cursor()
     cursor.execute('select * from {};'.format(tablename))
     table = cursor.fetchall()
     conn.commit()
     return table
 
-# Replaces a given table with a new one (new_table given as tuples)
-def replace_z_table(tablename, new_table):
+@timeit
+def replace_z_table(conn, tablename, new_table):
+    """
+    Replaces a given table with a new one (new_table given as tuples)
+    """
+    cursor = conn.cursor()
     cursor.execute("drop table if exists {}".format(tablename))
     conn.commit()
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
     Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
-    load_table(Z_attributes, Z_attributes_datatypes, tablename, new_table)
+    load_table(conn, Z_attributes, Z_attributes_datatypes, tablename, new_table)
 
-# The source must be first hop and the destination must be last hop. This is applied at the start to get rid of variables
-def applySourceDestPolicy(Z_tablename):
-    begin_time = time.time()
-    z_table = getCurrentTable(Z_tablename)
+@timeit
+def applySourceDestPolicy(conn, Z_tablename):
+    """
+    The source must be first hop and the destination must be last hop. 
+    This is applied at the start to get rid of variables
+
+    Parameters:
+    -----------
+    Z_tablename: string
+        the tablename of inverse image
+    """
+    z_table = getCurrentTable(conn, Z_tablename)
     unique_flows = {}
     for i, tuple in enumerate(z_table):
         flowid = tuple[0]
@@ -273,18 +293,20 @@ def applySourceDestPolicy(Z_tablename):
             exit()
         newTuple = (flowid, unique_flows[flowid][0], unique_flows[flowid][1], tuple[3], tuple[4])
         new_z_table.append(newTuple)
-    end_time = time.time()
+
     # Replace Z table code
-    replace_z_table(Z_tablename, new_z_table)
+    replace_z_table(conn, Z_tablename, new_z_table)
 
-    return [], True, 0, end_time-begin_time
+    return True
 
-# For rewrite policy (equalizing flow ids).
-# Searches for the flow ID of the first tuple pattern. Then searches for all flow IDs of the second tuple pattern. Replaces the later flow IDs with the former. This is a tableau wide substitutions (all replace flow IDs are replaced)
-# TODO: Unlike tgds, this is not general. It is specific to flow id equalization
-def applyRewritePolicy(dependency, Z_tablename):
-    start_time = time.time()
-    z_table = getCurrentTable(Z_tablename)
+@timeit
+def applyRewritePolicy(conn, dependency, Z_tablename):
+    """
+    # For rewrite policy (equalizing flow ids).
+    # Searches for the flow ID of the first tuple pattern. Then searches for all flow IDs of the second tuple pattern. Replaces the later flow IDs with the former. This is a tableau wide substitutions (all replace flow IDs are replaced)
+    # TODO: Unlike tgds, this is not general. It is specific to flow id equalization
+    """
+    z_table = getCurrentTable(conn, Z_tablename)
     pattern_source = dependency['dependency_tuples'][0][1]
     pattern_dest = dependency['dependency_tuples'][0][2]
     pattern_n = IPv4Address(dependency['dependency_tuples'][0][3])
@@ -293,8 +315,8 @@ def applyRewritePolicy(dependency, Z_tablename):
     # pattern_condition_IP = IPv4Address(pattern_condition[7:-1])    
 
     if (len(dependency['dependency_tuples']) < 2):
-        end_time = time.time()
-        return [], False, 0, end_time - start_time
+        return False
+
     replace_source = dependency['dependency_tuples'][1][1]
     replace_dest = dependency['dependency_tuples'][1][2]
     replace_n = IPv4Address(dependency['dependency_tuples'][1][3])
@@ -315,8 +337,7 @@ def applyRewritePolicy(dependency, Z_tablename):
             break
     if targetFlow == "":
         # print("No flow found. Hacky solution might not be working")
-        end_time = time.time()
-        return [], False, 0, end_time - start_time
+        return False
 
     flowids_required_replaced = []
     for tuple in z_table:
@@ -347,19 +368,57 @@ def applyRewritePolicy(dependency, Z_tablename):
         else:
             new_z_table.append((tuple[0], tuple[1], tuple[2], tuple[3], tuple[4]))
 
-    replace_z_table(Z_tablename, new_z_table)
-    end_time = time.time()
-    # exit()
-    return [], does_update, 0, end_time - start_time
+    replace_z_table(conn, Z_tablename, new_z_table)
 
+    return does_update
 
-# Applies egd (specifically the one to set flow ids equal) in memory
-def apply_egd(dependency, Z_tablename, checked_tuples):
-    return applyRewritePolicy(dependency, Z_tablename)
+@timeit
+def apply_egd(conn, dependency, inverse_image_tablename):
+    """
+    Apply egd dependency, calls by apply_dependency()
 
-# Returns the position of each variable/constant in the dependency. Useful to check for equivalent variables/constants when converting to sql
-# e.g. for \sigma_new x_f appears in the 0th and 1st tuple both in the 0th column: {'x_f': {0: [0], 1: [0]}, 'x_s1': {0: [1]}, 'x_d': {0: [2], 1: [2]}, 'x_n': {0: [3]}, 'x_x': {0: [4], 1: [3]}, 'x_s2': {1: [1]}, 'x_next': {1: [4]}}
+    Applies egd (specifically the one to set flow ids equal) in memory
+    
+    Parameters:
+    -----------
+    dependency: dict
+        format: {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+
+    inverse_image_tablename: string
+        the table of inverse image
+
+    Returns:
+    ---------
+    does_updated: Boolean
+        does the application of the dependency change the inverse image
+    """
+    return applyRewritePolicy(conn, dependency, inverse_image_tablename)
+
+@timeit
 def analyze_dependency(dependency_tuples, dependency_attributes, Z):
+    """
+    Returns the position of each variable/constant in the dependency. Useful to check for equivalent variables/constants when converting to sql
+    e.g. for \sigma_new x_f appears in the 0th and 1st tuple both in the 0th column: {'x_f': {0: [0], 1: [0]}, 'x_s1': {0: [1]}, 'x_d': {0: [2], 1: [2]}, 'x_n': {0: [3]}, 'x_x': {0: [4], 1: [3]}, 'x_s2': {1: [1]}, 'x_next': {1: [4]}}
+
+    Parameters:
+    -----------
+    dependency_tuples: list
+        the list of tuples of dependency
+    
+    dependency_attributes: list
+        relation of dependency in database
+    
+    Z: string
+        the tablename of sql-applied table
+    """
     node_dict = {}
     tables = []
     for idx, tup in enumerate(dependency_tuples):
@@ -382,11 +441,39 @@ def analyze_dependency(dependency_tuples, dependency_attributes, Z):
                     node_dict[var][idx].append(i)
     return node_dict, tables
 
-def convert_dependency_to_sql(type, dependency, Z, dependency_attributes, dependency_summary, dependency_summary_conditions=None):
+@timeit
+def convert_dependency_to_sql(dependency, Z):
+    """
+    Convert dependency to SQL 
+
+    Parameters:
+    -----------
+    dependency: dict
+        format: {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+
+    Z: string
+        the table of inverse image
+
+    Returns:
+    ---------
+    sql: string
+        corresponding SQL
+    """
+    type = dependency['dependency_type']
+    dependency_tuples = dependency['dependency_tuples']
+    dependency_attributes = dependency['dependency_attributes']
+    dependency_summary = dependency['dependency_summary']
+    dependency_summary_conditions = dependency['dependency_summary_condition']
     
-    node_dict, tables = analyze_dependency(dependency, dependency_attributes, Z)
-    # print(node_dict)
-    # print(tables)
+    node_dict, tables = analyze_dependency(dependency_tuples, dependency_attributes, Z)
 
     conditions = []
     for var in node_dict.keys():
@@ -489,7 +576,27 @@ def convert_dependency_to_sql(type, dependency, Z, dependency_attributes, depend
     
     return sql
 
+@timeit
 def get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict):
+    """
+    generate summary condition
+
+    Parameters:
+    -----------
+    dependency_attributes: list
+        relation of dependency in database
+
+    dependency_summary_conditions: list
+        a list of conditions for dependency summary
+
+    node_dict: dict
+        generated by analyze_dependency()
+    
+    Returns:
+    ---------
+    conditions: list
+        a list of conditions
+    """
     conditions = []
     if dependency_summary_conditions is not None:
         for smy_condition in dependency_summary_conditions:
@@ -529,17 +636,38 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     
     return conditions
 
-# sql query is the tableau E in query form. Gamma_summary is the forbidden source and destination
-def apply_E(sql, Z_tablename, gama_summary):
+@timeit
+def apply_E(conn, sql, Z_tablename, gamma_summary):
+    """
+    sql query is the tableau E in query form. 
+    Gamma_summary is the forbidden source and destination
+    
+    Parameters:
+    -----------
+    sql: string
+        the SQL of tableau query of topology
+
+    Z_tablename:string
+        the tablename of inverse image
+
+    gamma_summary: list
+        the summary of gamma table
+
+    Returns:
+    ---------
+    answer: Boolean
+        if the gamma summary in the inverse image
+    """
     # whether w in E(Z)
     check_cols = []
-    for var_idx, var in enumerate(gama_summary):
+    for var_idx, var in enumerate(gamma_summary):
         if var.isdigit() or isIPAddress(var):
             check_cols.append(var_idx)
     # print("check_cols", check_cols)
 
-    gama_summary_item = "|".join([gama_summary[i] for i in check_cols])
+    gama_summary_item = "|".join([gamma_summary[i] for i in check_cols])
 
+    cursor = conn.cursor()
     # Checking for each flow id individually. This optimization might no longer be very useful since after we fixed chase
     flow_sql = "select f, count(f) as num from {} group by f order by num desc".format(Z_tablename)
     cursor.execute(flow_sql)
@@ -547,8 +675,6 @@ def apply_E(sql, Z_tablename, gama_summary):
     flow_ids_with_num = cursor.fetchall()
     conn.commit()
 
-    total_query_time = 0
-    total_check_time = 0
     answer = False
     count_queries = 0
     for flow_id in flow_ids_with_num:
@@ -559,17 +685,9 @@ def apply_E(sql, Z_tablename, gama_summary):
         temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
         cursor.execute(temp_sql)
         conn.commit()
-        # flow_condition = "t0.f = '{}'".format(flow_id[0])
-        # sql += " and {}".format(flow_condition)
-        # print(sql)
-        # exit()
-        query_begin = time.time()
+
         # Execute the query of tableau E to see reachabilities
         cursor.execute(sql)
-        query_end = time.time()
-        total_query_time += (query_end-query_begin)
-        # print("query_begin", query_begin, query_end)
-        # print(query_end-query_begin)
 
         # The result is a set of all possible source and destinations that are reachable
         results = cursor.fetchall()
@@ -581,22 +699,40 @@ def apply_E(sql, Z_tablename, gama_summary):
             res_item = "|".join([res_tup[i] for i in check_cols])
             result_items.append(res_item)
 
-        check_begin = time.time()
 
         # Checking if the forbidden pair of source and destinations are in the reachability table
         if gama_summary_item in result_items:
             # print("gama_summary_item", gama_summary_item)
             # print("res_item", res_item)
             answer = True
-            check_end = time.time()
-            total_check_time += (check_end-check_begin)
             break
-        check_end = time.time()
-        total_check_time += (check_end-check_begin)
-        
-    return answer,count_queries, total_query_time, total_check_time
+    
+    return answer
 
+@timeit
 def gen_E_query(E, E_attributes, E_summary, Z):
+    """
+    generate SQL of end-to-end connectivity view(tableau query of topology)
+
+    Parameters:
+    -----------
+    E: list[tuple]
+        A list of tuples of tableau E(end-to-end connectivity view)
+    
+    E_attributes: list
+        the relation of tableau E in the database
+    
+    E_summary: list
+        the summary of tableau E
+    
+    Z: string
+        the tablename of inverse image
+
+    Returns:
+    ---------
+    sql: string
+        the SQL of tableau E 
+    """
     node_dict, tables = analyze_dependency(E, E_attributes, Z)
     # print("node_dict", node_dict)
     conditions = []
@@ -663,7 +799,7 @@ def gen_E_query(E, E_attributes, E_summary, Z):
 
 
 if __name__ == '__main__':
-    
+    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 
     E_tuples = [
         ('f', 's1', 'd1', 's', '11.0.0.1', '{}'),
@@ -674,7 +810,7 @@ if __name__ == '__main__':
     E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
     E_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
 
-    load_table(E_attributes, E_attributes_datatypes, "E", E_tuples)
+    load_table(conn, E_attributes, E_attributes_datatypes, "E", E_tuples)
 
     # 1.2 => 4, 1.1 =>3, 1.3 => 5, 1.4 =>6
     gamma_tuples = [
@@ -685,58 +821,30 @@ if __name__ == '__main__':
     gamma_attributes = ['f', 'n', 'x', 'condition']
     gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
     
-    load_table(gamma_attributes, gamma_attributes_datatypes, "W", gamma_tuples)
+    load_table(conn, gamma_attributes, gamma_attributes_datatypes, "W", gamma_tuples)
 
-    Z_tuples = gen_z(E_tuples, "W")
+    Z_tuples = gen_inverse_image(conn, E_tuples, "W")
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_attributes_datatypes = ['text', '', 'text', 'text', 'text']
-    load_table(Z_attributes, Z_attributes_datatypes, "Z", Z_tuples)
+    Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
+    load_table(conn, Z_attributes, Z_attributes_datatypes, "Z", Z_tuples)
 
-    tgd = [
-        ('f', '4', '5', '4', '1', '{}')
-    ]
-    tgd_summary = ['f', '3', '5', '4', '1']
-    tgd_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    tgd_attributes_datatypes = ['int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'text[]']
-    # load_table(tgd_attributes, tgd_attributes_datatypes, "tgd", tgd)
-    # gen_tgd_sql("Z", "tgd", tgd_summary, tgd_attributes)
-    # convert_dependency_to_sql("tgd", tgd, 'Z', tgd_attributes, tgd_summary)
-    apply_dependency("tgd", "Z", Z_attributes, tgd, tgd_summary, tgd_attributes)
+    dependency1 = {'dependency_tuples': [('f', '10.0.0.8', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')
+        ], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'
+        ], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'
+        ], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'
+        ], 'dependency_summary': ['f', '10.0.0.5', '12.0.0.1', '11.0.0.1', '11.0.0.2'
+        ], 'dependency_summary_condition': None, 'dependency_type': 'tgd'
+    }
+    apply_dependency(conn, dependency1, "Z")
 
-    egd = [
-        ('f1', '4', '5', 'n', '{}'),
-        ('f2', '3', '5', 'n', '{}')
-    ]
-    egd_attributes = ['f', 'src', 'dst', 'x', 'condition']
-    egd_attributes_datatypes = ['int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'text[]']
-    egd_condition = ['n <= 1']
-    egd_summary = ['f1 = f2']
-    # convert_dependency_to_sql("egd", egd, 'Z', egd_attributes, egd_summary, egd_condition)
-    # apply_dependency("egd", "Z", Z_attributes, egd, egd_summary, egd_attributes, egd_condition)
+    dependency2 = {'dependency_tuples': [('f1', '10.0.0.8', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.5', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')
+        ], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'
+        ], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'
+        ], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'
+        ], 'dependency_summary': ['f1 = f2'
+        ], 'dependency_summary_condition': None, 'dependency_type': 'egd'
+    }
 
-    # egd2 = [
-    #     ('f1', '3', '5', 'n', '{}'),
-    #     ('f2', '3', '6', 'n', '{}'),
-    # ]
-    egd2 = [
-        ('f1', '3', '5', 'n', '{}'),
-        ('f2', '3', '6', 'n', '{}'),
-        ('f3', '4', '5', 'n', '{}')
-    ]
-    egd2_attributes = ['f', 'src', 'dst', 'x', 'condition']
-    egd2_attributes_datatypes = ['int4_faure', 'int4_faure', 'int4_faure', 'int4_faure', 'text[]']
-    egd2_condition = ['n <= 2']
-    egd2_summary = ['f1 = f2', 'f2 = f3']
-    # apply_dependency("egd", "Z", Z_attributes, egd2, egd2_summary, egd2_attributes, egd2_condition)
-
-    egd3 = [
-        ('f', 's1', 'd1', '{}'),
-        ('f', 's2', 'd2', '{}')
-    ]
-    egd3_attributes = ['f', 'src', 'dst', 'condition']
-    egd3_attributes_datatypes = ['int4_faure', 'int4_faure', 'int4_faure', 'text[]']
-    # egd3_condition = ['n <= 2']
-    egd3_summary = ['s1 = s2', 'd1 = d2']
-    apply_dependency("egd", "Z", Z_attributes, egd3, egd3_summary, egd3_attributes)
+    apply_dependency(conn, dependency2, "Z")
 
 

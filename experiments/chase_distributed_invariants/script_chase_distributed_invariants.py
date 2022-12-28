@@ -13,13 +13,12 @@ import Applications.Chase.chase as chase
 import databaseconfig as cfg
 import experiments.gen_large_tableau.gen_tableau_script as gen_tableau_script
 import experiments.gen_large_tableau.func_gen_tableau as func_gen_tableau
+from utils.logging import timeit
 
-conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-cursor = conn.cursor()
+# conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+# cursor = conn.cursor()
 
-def apply_distributed_invariants_dependencies():
-    return
-
+@timeit
 def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping):
     """
     generate rewrite dependencies. A rewrite policy includes two dependencies, one is tgd, another one is egd.
@@ -185,6 +184,7 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
 
     return tdg_dependency, edg_dependency
 
+@timeit
 def gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes):
     """
     Generate forwarding dependency
@@ -204,8 +204,8 @@ def gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes):
     
     """
     forwarding_tuples = [
-        ('f', 's1', 'd1', '{}'),
-        ('f', 's2', 'd2', '{}')
+        ('f', 's1', 'd1', 'n1', 'x1', '{}'),
+        ('f', 's2', 'd2', 'n2', 'x2', '{}')
     ]
 
     forwarding_summary = ['s1 = s2', 'd1 = d2']
@@ -221,6 +221,7 @@ def gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes):
 
     return edg_dependency
 
+@timeit
 def gen_firewall_dependency(block_list, firewall_attributes, firewall_datatypes):
     """
     generate firewall dependency
@@ -260,6 +261,7 @@ def gen_firewall_dependency(block_list, firewall_attributes, firewall_datatypes)
 
     return edg_dependency
 
+@timeit
 def gen_new_dependency(path_nodes, symbolic_IP_mapping):
     """
     x_f  x_s  x_d 1 2
@@ -303,7 +305,8 @@ def gen_new_dependency(path_nodes, symbolic_IP_mapping):
 
     return tgd_dependency
 
-def gen_gamma_table(block_list, in_hosts, out_hosts, gamma_tablename, gamma_attributes, gamma_datatypes, case):
+@timeit
+def gen_gamma_table(conn, block_list, in_hosts, out_hosts, gamma_tablename, gamma_attributes, gamma_datatypes, case):
     """ 
     generate whitelists for 'relevant' case
 
@@ -340,23 +343,50 @@ def gen_gamma_table(block_list, in_hosts, out_hosts, gamma_tablename, gamma_attr
                 count += 1
     gamma_summary = ['f', block_list[0], block_list[1]]
 
-    chase.load_table(gamma_attributes, gamma_datatypes, gamma_tablename, whitelists_tuples)
+    chase.load_table(conn, gamma_attributes, gamma_datatypes, gamma_tablename, whitelists_tuples)
 
     return gamma_summary
 
-def gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes):
+@timeit
+def gen_E_for_chase_distributed_invariants(conn, file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes):
     E_tuples, source, dest, path_nodes, symbolic_IP_mapping = gen_tableau_script.gen_tableau_for_distributed_invariants(file_dir, filename, as_tablename, topo_tablename)
-    chase.load_table(E_attributes, E_datatypes, E_tablename, E_tuples)
-
-    # ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
-    # egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
+    chase.load_table(conn, E_attributes, E_datatypes, E_tablename, E_tuples)
 
     return E_tuples, path_nodes, symbolic_IP_mapping
 
+@timeit
 def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping):
     '''
     generate block list
     randomly pick one host from ingress hosts and one host from egress hosts
+
+    Parameters:
+    -----------
+    ingress_hosts: list
+        list of ingress hosts with IP prefix
+    
+    egress_hosts: list
+        list of egress hosts with IP prefix
+
+    path_nodes: list
+        list of nodes(symbolic) in the chain
+
+    symbolic_IP_mapping: dict
+        mapping between the symbolic node and the assigned IP prefix
+
+    Returns:
+    ---------
+    dependencies: list[dict]
+        list of dependencies
+    
+    relevant_in_hosts: list
+        a list of IP address related to the block list
+    
+    relevant_out_hosts: list
+        a list of IP address related to the block list
+    
+    block_list: 
+        forbidden IP addresses
     '''
     in_block_node = random.sample(ingress_hosts, 1)[0]
     out_block_node = random.sample(egress_hosts, 1)[0]
@@ -389,204 +419,73 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
 
     return dependencies, relevant_in_hosts, relevant_out_hosts, block_list
 
-def gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_attributes_datatypes):
-    Z_tuples, gen_z_time = chase.gen_z(E_tuples, gamma_tablename)
-    chase.load_table(Z_attributes, Z_attributes_datatypes, Z_tablename, Z_tuples)
+@timeit
+def gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_attributes_datatypes):
+    Z_tuples = chase.gen_inverse_image(conn, E_tuples, gamma_tablename)
+    chase.load_table(conn, Z_attributes, Z_attributes_datatypes, Z_tablename, Z_tuples)
 
-    return Z_tuples, gen_z_time
+    return Z_tuples
 
-def script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes, num_hosts, case, Z_tablename, Z_attributes, Z_attributes_datatypes):
-    f = open("./check_items/check.txt", "a")
-    # generate topology
-    E_tuples, ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping = gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes, num_hosts)
+@timeit
+def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy='random', orderings=None):
+    """
+    Parameters:
+    ------------
+    conn: psycopg2.connect()
+        instance of connention
+
+    E_tuples: list[tuple]
+        The tuples of tableau query E
+
+    E_attributes: list
+        relation of tableau query E
+
+    E_summary: list
+        summary of tableau query E
     
-    f.write("path_nodes = {}\n".format(path_nodes))
-    f.write("symbolic_IP_mapping = {}\n".format(symbolic_IP_mapping))
-    f.write("E_tuples = {}\n".format(E_tuples))
-    f.write("ingress_hosts = {}\n".format(ingress_hosts))
-    f.write("egress_hosts = {}\n".format(egress_hosts))
-
-    # generate dependencies
-    dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping)
+    dependencies: list[dict]
+        list of dependencies
     
-    f.write("block_list = {}\n".format(block_list))
-    f.write("dependencies = {}\n".format(dependencies))
-    f.write("relevant_in_hosts = {}\n".format(relevant_in_hosts))
-    f.write("relevant_out_hosts = {}\n".format(relevant_out_hosts))
+    Z_tablename: string
+        the tablename of inverse image
     
+    gamma_summary: list
+        the summary of gamma table
     
-    '''
-    get whitelist
-    case: relevant, all
-    '''
-    gamma_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
-    gamma_summary = None
-    if case == 'relevant':
-        gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, "W", gamma_attributes, gamma_attributes_datatypes)
-    elif case == 'all':
-        gamma_summary = gen_gamma_table(block_list, ingress_hosts, egress_hosts, "W", gamma_attributes, gamma_attributes_datatypes)
+    order_strategy: string
+        ordering strategy. choose from 'random', 'specific'. Default 'random'. if choosing 'specific', input the orderings 
     
-    f.write("gamma_summary = {}\n".format(gamma_summary))
-    f.write("----------------------------------------------------------\n")
-    f.close()
-    gamma_attributes_switch = {
-        'f': True,
-        'src': False,
-        'dst': False,
-        'n': True,
-        'x': True,
-    }
-
-    # Step 1
-    gen_z_time = gen_Z_for_chase_distributed_invariants(gamma_attributes, gamma_attributes_datatypes, gamma_attributes_switch, Z_tablename, Z_attributes, Z_attributes_datatypes)
-    
-    #step2 and step3
-    run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-
-def run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
-
-    # ordered_indexs = sorted(list(dependencies.keys())) 
-    ordered_indexs = [0, 1, 2, 6, 3, 4, 5]
-    # random.shuffle(ordered_indexs)
-    # print("ordered_indexs", ordered_indexs)
-    checked_records = {} # record checked tuples
-    for idx in ordered_indexs:
-        checked_records[idx] = []
-
+    orderings: list
+        default None. used only when `order_strategy` is specific
+    """
     query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
     print("query sql", query_sql)
-    total_check_applicable_time = 0
-    total_operation_time = 0
-    total_check_answer_time = 0
-    total_query_answer_time = 0 
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
-    total_query_times = 0
-    chase.applySourceDestPolicy(Z_tablename)
+    
+    chase.applySourceDestPolicy(conn, Z_tablename)
+    
     while does_updated:
+        if order_strategy.lower() == 'random':
+            ordered_indexs = list(dependencies.keys())
+            random.shuffle(ordered_indexs)
+        else:
+            ordered_indexs = orderings
+
         temp_updated = False
         for idx in ordered_indexs:
             count_application += 1
-            print("idx", idx)
-            if idx == 0:
-                continue
 
+            if idx == 0: # skip forwarding dependency
+                continue
             dependency = dependencies[idx]
-            checked_tuples = checked_records[idx]
-            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-            print("optimal", count_application, whether_updated)
-            total_check_applicable_time += check_valid_time
-            total_operation_time += operate_time
+            whether_updated = chase.apply_dependency(conn, dependency, Z_tablename)
             temp_updated = (temp_updated or whether_updated)
-            
         does_updated = temp_updated
 
-            # print("gamma_summary", gamma_summary)
-    answer = None
-    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    total_query_times += count_queries
-    total_query_answer_time += query_time
-    total_check_answer_time += check_time
-    # print("gamma_summary", gamma_summary)
-    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
+    answer = chase.apply_E(conn, query_sql, Z_tablename, gamma_summary)
 
-def run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
-
-    # ordered_indexs = sorted(list(dependencies.keys())) 
-    ordered_indexs = [0, 1, 2, 6, 3, 4, 5]
-    # random.shuffle(ordered_indexs)
-    # print("ordered_indexs", ordered_indexs)
-    checked_records = {} # record checked tuples
-    for idx in ordered_indexs:
-        checked_records[idx] = []
-
-    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
-    print("query sql", query_sql)
-    total_check_applicable_time = 0
-    total_operation_time = 0
-    total_check_answer_time = 0
-    total_query_answer_time = 0 
-    count_application = 0 # count the number of the application of the chase
-    does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
-    total_query_times = 0
-    chase.applySourceDestPolicy(Z_tablename)
-    while does_updated:
-        random.shuffle(ordered_indexs)
-        temp_updated = False
-        for idx in ordered_indexs:
-            count_application += 1
-            print("idx", idx)
-            if idx == 0:
-                continue
-
-            dependency = dependencies[idx]
-            checked_tuples = checked_records[idx]
-            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-            print("random", count_application, whether_updated)
-            total_check_applicable_time += check_valid_time
-            total_operation_time += operate_time
-            temp_updated = (temp_updated or whether_updated)
-            
-        does_updated = temp_updated
-
-            # print("gamma_summary", gamma_summary)
-    answer = None
-    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    total_query_times += count_queries
-    total_query_answer_time += query_time
-    total_check_answer_time += check_time
-    # print("gamma_summary", gamma_summary)
-    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
-
-def run_chase_distributed_invariants_in_specific_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary):
-
-    # ordered_indexs = sorted(list(dependencies.keys())) 
-    ordered_indexs = [0, 1, 2, 6, 3, 4, 5]
-    random.shuffle(ordered_indexs)
-    # print("ordered_indexs", ordered_indexs)
-    checked_records = {} # record checked tuples
-    for idx in ordered_indexs:
-        checked_records[idx] = []
-
-    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
-    print("query sql", query_sql)
-    total_check_applicable_time = 0
-    total_operation_time = 0
-    total_check_answer_time = 0
-    total_query_answer_time = 0 
-    count_application = 0 # count the number of the application of the chase
-    does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
-    total_query_times = 0
-    chase.applySourceDestPolicy(Z_tablename)
-    while does_updated:
-        random.shuffle(ordered_indexs)
-        temp_updated = False
-        for idx in ordered_indexs:
-            count_application += 1
-            print("idx", idx)
-            if idx == 0:
-                continue
-
-            dependency = dependencies[idx]
-            checked_tuples = checked_records[idx]
-            checked_records[idx], whether_updated, check_valid_time, operate_time = chase.apply_dependency(dependency, Z_tablename, checked_tuples)
-            print("specific", count_application, whether_updated)
-            total_check_applicable_time += check_valid_time
-            total_operation_time += operate_time
-            temp_updated = (temp_updated or whether_updated)
-            
-        does_updated = temp_updated
-
-            # print("gamma_summary", gamma_summary)
-    answer = None
-    answer, count_queries, query_time, check_time = chase.apply_E(query_sql, Z_tablename, gamma_summary)
-    total_query_times += count_queries
-    total_query_answer_time += query_time
-    total_check_answer_time += check_time
-    # print("gamma_summary", gamma_summary)
-    return answer, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times
-
+    return answer
 
 if __name__ == '__main__':
     AS_num = 7018

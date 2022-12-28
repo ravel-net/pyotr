@@ -93,19 +93,16 @@ See [sheet](https://docs.google.com/spreadsheets/d/1eag-hdVJLU3USVnYnF_T9020bt_E
   -  `all`: put all pairs of ingress and egress hosts in reachability view, i.e., checking all hosts.
   -  adjusted in `gen_gamma_table()`
 
-## Scripts for running experiments
+## Scripts for the chase
 
 - [`chase.py`](../../Applications/Chase/chase.py) provides the main function for the chase, such as 
-  - applying a dependency on the inverse image(`apply_dependecy()`), 
-  - generating inverse image(`gen_z()`).
-- [`experiments/chase_distributed_invariants/script_chase_distributed_invariants.py`](../../experiments/chase_distributed_invariants/script_chase_distributed_invariants.py) provides functions that 
-  - generate dependencies(`gen_dependencies_for_chase_distributed_invariants()`),  
-  - generate reachability view(`gen_gamma_table()`)
-  - generate tableau query for topology(`gen_E_for_chase_distributed_invariants()`)
-  - run the chase with different orderings(`run_chase_distributed_invariants_in_xxx_order()`)
-- [`experiments/chase_distributed_invariants/run_script.py`](../../experiments/chase_distributed_invariants/run_script.py) provides scripts that
-  - run scalability experiments(`run_scalibility()`)
-  - run experiments with different orderings(`run_ordering_strategies()`)
+- - `gen_inverse_image()`: generating inverse image.
+  - `apply_dependecy()`: applying a dependency on the inverse image.
+  - `applySourceDestPolicy()`: this is applied at the start to get rid of variables.
+  - `gen_E_query()`: generate SQL of tableau E of topology
+  - `apply_E()`: apply SQL of E on inverse image
+  - 
+- the scripts for the chase experiments, see [README](../../experiments/chase_distributed_invariants/README.md)
 
 We just adjust code in [`run_script.py`](../../experiments/chase_distributed_invariants/run_script.py) to run experiments with different requirements.
 
