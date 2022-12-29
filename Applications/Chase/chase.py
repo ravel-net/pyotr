@@ -117,14 +117,18 @@ def isIPAddress(value):
     else:
         return False
 
-def is_variable(value, datatype):
-    if datatype.lower() in FAURE_DATATYPES:
-        if datatype.lower() == INT4_FAURE:
-            return not value.isdigit()
-        else:
-            return not isIPAddress(value)
-    else:
+def is_variable(value):
+    if value[0].isdigit():
         return False
+    else:
+        return True
+    # if datatype.lower() in FAURE_DATATYPES:
+    #     if datatype.lower() == INT4_FAURE:
+    #         return not value.isdigit()
+    #     else:
+    #         return not isIPAddress(value)
+    # else:
+    #     return False
 
 
 @timeit
@@ -253,9 +257,9 @@ def replace_z_table(conn, tablename, new_table):
     """
     Replaces a given table with a new one (new_table given as tuples)
     """
-    cursor = conn.cursor()
-    cursor.execute("drop table if exists {}".format(tablename))
-    conn.commit()
+    # cursor = conn.cursor()
+    # cursor.execute("drop table if exists {}".format(tablename))
+    # conn.commit()
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
     Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
     load_table(conn, Z_attributes, Z_attributes_datatypes, tablename, new_table)
@@ -637,82 +641,88 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     return conditions
 
 @timeit
-def apply_E(conn, sql, Z_tablename, gamma_summary):
+def apply_E(conn, sql):
     """
     sql query is the tableau E in query form. 
     Gamma_summary is the forbidden source and destination
     
     Parameters:
     -----------
+    conn: psycopg2.connect()
+        the instance of connection for Postgres
+
     sql: string
         the SQL of tableau query of topology
-
-    Z_tablename:string
-        the tablename of inverse image
-
-    gamma_summary: list
-        the summary of gamma table
 
     Returns:
     ---------
     answer: Boolean
         if the gamma summary in the inverse image
     """
-    # whether w in E(Z)
-    check_cols = []
-    for var_idx, var in enumerate(gamma_summary):
-        if var.isdigit() or isIPAddress(var):
-            check_cols.append(var_idx)
-    # print("check_cols", check_cols)
-
-    gama_summary_item = "|".join([gamma_summary[i] for i in check_cols])
-
     cursor = conn.cursor()
-    # Checking for each flow id individually. This optimization might no longer be very useful since after we fixed chase
-    flow_sql = "select f, count(f) as num from {} group by f order by num desc".format(Z_tablename)
-    cursor.execute(flow_sql)
-
-    flow_ids_with_num = cursor.fetchall()
+    cursor.execute(sql)
+    results = cursor.fetchall()
     conn.commit()
 
-    answer = False
-    count_queries = 0
-    for flow_id in flow_ids_with_num:
-        count_queries += 1
+    answer = True
+    if len(results) == 0:
+        answer = False
 
-        cursor.execute("drop table if exists temp")
-        # Select distinct attributes
-        # temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
-        temp_sql = "with temp as (select distinct * from {} where f = '{}') {}".format(Z_tablename, flow_id[0], sql)
-        # print("temp_sql", temp_sql)
-        cursor.execute(temp_sql)
-        # conn.commit()
+    # # whether w in E(Z)
+    # check_cols = []
+    # for var_idx, var in enumerate(gamma_summary):
+    #     if var.isdigit() or isIPAddress(var):
+    #         check_cols.append(var_idx)
+    # # print("check_cols", check_cols)
 
-        # Execute the query of tableau E to see reachabilities
-        # cursor.execute(sql)
+    # gama_summary_item = "|".join([gamma_summary[i] for i in check_cols])
 
-        # The result is a set of all possible source and destinations that are reachable
-        results = cursor.fetchall()
-        conn.commit()
-        # print("results", results) 
+    # # Checking for each flow id individually. This optimization might no longer be very useful since after we fixed chase
+    # flow_sql = "select f, count(f) as num from {} group by f order by num desc".format(Z_tablename)
+    # cursor.execute(flow_sql)
+
+    # flow_ids_with_num = cursor.fetchall()
+    # conn.commit()
+
+    # answer = False
+    # count_queries = 0
+    # for idx in tqdm(range(len(flow_ids_with_num))):
+    #     flow_id = flow_ids_with_num[idx]
+    #     count_queries += 1
+
+    #     cursor.execute("drop table if exists temp")
+    #     # Select distinct attributes
+    #     # temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
+    #     temp_sql = "with temp as (select distinct * from {} where f = '{}') {}".format(Z_tablename, flow_id[0], sql)
+    #     # print("temp_sql", temp_sql)
+    #     cursor.execute(temp_sql)
+    #     # conn.commit()
+
+    #     # Execute the query of tableau E to see reachabilities
+    #     # cursor.execute(sql)
+
+    #     # The result is a set of all possible source and destinations that are reachable
+    #     results = cursor.fetchall()
+    #     conn.commit()
+    #     # print("results", results) 
         
-        result_items = []
-        for res_tup in results:
-            res_item = "|".join([res_tup[i] for i in check_cols])
-            result_items.append(res_item)
+    #     result_items = []
+    #     for res_tup in results:
+    #         res_item = "|".join([res_tup[i] for i in check_cols])
+    #         result_items.append(res_item)
 
 
-        # Checking if the forbidden pair of source and destinations are in the reachability table
-        if gama_summary_item in result_items:
-            # print("gama_summary_item", gama_summary_item)
-            # print("res_item", res_item)
-            answer = True
-            break
+    #     # Checking if the forbidden pair of source and destinations are in the reachability table
+    #     if gama_summary_item in result_items:
+    #         # print("gama_summary_item", gama_summary_item)
+    #         # print("res_item", res_item)
+    #         answer = True
+    #         # break
     
     return answer
 
 @timeit
-def gen_E_query(E, E_attributes, E_summary, Z, block_list=None):
+def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
     """
     generate SQL of end-to-end connectivity view(tableau query of topology)
 
@@ -729,6 +739,9 @@ def gen_E_query(E, E_attributes, E_summary, Z, block_list=None):
     
     Z: string
         the tablename of inverse image
+
+    gamma_summary: list
+        the summary of gamma table
 
     Returns:
     ---------
@@ -785,26 +798,21 @@ def gen_E_query(E, E_attributes, E_summary, Z, block_list=None):
                     left_opd = "t{}.{}".format(t_idx, E_attributes[n_idx])
                     conditions.append("{} = '{}'".format(left_opd, var))
     # print(conditions) 
-    '''
-    add additional condition: not head
-    '''
-    if block_list is not None:
-        tuple_idx1= list(node_dict['s'].keys())[0] 
-        tuple_idx2= list(node_dict['d'].keys())[0] 
-        col_idx1 = node_dict['s'][tuple_idx1][0]
-        col_idx2 = node_dict['d'][tuple_idx2][0]
-        conditions.append("t{}.{} != '{}' and t{}.{} != '{}'".format(tuple_idx1, E_attributes[col_idx1], block_list[0], tuple_idx2, E_attributes[col_idx2], block_list[1]))
 
     '''
     summary
     '''
     select_clause = []
-    for var in E_summary:
+    for idx, var in enumerate(E_summary):
         # choose first tuple and first colomn var appears
         tup_idx = list(node_dict[var].keys())[0]
         col_idx = node_dict[var][tup_idx][0]
 
-        select_clause.append("t{}.{}".format(tup_idx, E_attributes[col_idx]))
+        selected_param = "t{}.{}".format(tup_idx, E_attributes[col_idx])
+        select_clause.append(selected_param)
+        if gamma_summary is not None: # add additional conditionfrom head, to directly find the summary of gamma table
+            if not is_variable(gamma_summary[idx]):
+                conditions.append("{} = '{}'".format(selected_param, gamma_summary[idx]))
     sql = "select distinct " + ", ".join(select_clause) + " from " + ", ".join(tables) + " where " + " and ".join(conditions)
     # print(sql)
     return sql
@@ -813,50 +821,59 @@ def gen_E_query(E, E_attributes, E_summary, Z, block_list=None):
 if __name__ == '__main__':
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 
-    E_tuples = [
-        ('f', 's1', 'd1', 's', '11.0.0.1', '{}'),
-        ('f', 's2', 'd2', '11.0.0.1', '11.0.0.2', '{}'),
-        ('f', 's3', 'd3', '11.0.0.2', 'd', '{}')
-    ]
+
+    # E_tuples = [
+    #     ('f', 's1', 'd1', 's', '11.0.0.1', '{}'),
+    #     ('f', 's2', 'd2', '11.0.0.1', '11.0.0.2', '{}'),
+    #     ('f', 's3', 'd3', '11.0.0.2', 'd', '{}')
+    # ]
+    cursor = conn.cursor()
+    cursor.execute("select * from e")
+    E_tuples = cursor.fetchall()
+    conn.commit()
+
     E_summary = ['f', 's', 'd']
     E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
     E_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
 
-    load_table(conn, E_attributes, E_attributes_datatypes, "E", E_tuples)
+    sql = gen_E_query(E_tuples, E_attributes, E_summary, 'Z_random')
 
-    # 1.2 => 4, 1.1 =>3, 1.3 => 5, 1.4 =>6
-    gamma_tuples = [
-        ('f1', '10.0.0.2', '12.0.0.3', '{}'),
-        ('f2', '10.0.0.1', '12.0.0.4', '{}')
-    ]
-    gamma_summary = ['f3', '10.0.0.2', '12.0.0.4']
-    gamma_attributes = ['f', 'n', 'x', 'condition']
-    gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    apply_E(conn, sql, 'Z_random', [])
+    # load_table(conn, E_attributes, E_attributes_datatypes, "E", E_tuples)
+
+    # # 1.2 => 4, 1.1 =>3, 1.3 => 5, 1.4 =>6
+    # gamma_tuples = [
+    #     ('f1', '10.0.0.2', '12.0.0.3', '{}'),
+    #     ('f2', '10.0.0.1', '12.0.0.4', '{}')
+    # ]
+    # gamma_summary = ['f3', '10.0.0.2', '12.0.0.4']
+    # gamma_attributes = ['f', 'n', 'x', 'condition']
+    # gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
     
-    load_table(conn, gamma_attributes, gamma_attributes_datatypes, "W", gamma_tuples)
+    # load_table(conn, gamma_attributes, gamma_attributes_datatypes, "W", gamma_tuples)
 
-    Z_tuples = gen_inverse_image(conn, E_tuples, "W")
-    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
-    load_table(conn, Z_attributes, Z_attributes_datatypes, "Z", Z_tuples)
+    # Z_tuples = gen_inverse_image(conn, E_tuples, "W")
+    # Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+    # Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
+    # load_table(conn, Z_attributes, Z_attributes_datatypes, "Z", Z_tuples)
 
-    dependency1 = {'dependency_tuples': [('f', '10.0.0.8', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')
-        ], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'
-        ], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'
-        ], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'
-        ], 'dependency_summary': ['f', '10.0.0.5', '12.0.0.1', '11.0.0.1', '11.0.0.2'
-        ], 'dependency_summary_condition': None, 'dependency_type': 'tgd'
-    }
-    apply_dependency(conn, dependency1, "Z")
+    # dependency1 = {'dependency_tuples': [('f', '10.0.0.8', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')
+    #     ], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'
+    #     ], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'
+    #     ], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'
+    #     ], 'dependency_summary': ['f', '10.0.0.5', '12.0.0.1', '11.0.0.1', '11.0.0.2'
+    #     ], 'dependency_summary_condition': None, 'dependency_type': 'tgd'
+    # }
+    # apply_dependency(conn, dependency1, "Z")
 
-    dependency2 = {'dependency_tuples': [('f1', '10.0.0.8', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.5', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')
-        ], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'
-        ], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'
-        ], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'
-        ], 'dependency_summary': ['f1 = f2'
-        ], 'dependency_summary_condition': None, 'dependency_type': 'egd'
-    }
+    # dependency2 = {'dependency_tuples': [('f1', '10.0.0.8', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.5', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')
+    #     ], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'
+    #     ], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'
+    #     ], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'
+    #     ], 'dependency_summary': ['f1 = f2'
+    #     ], 'dependency_summary_condition': None, 'dependency_type': 'egd'
+    # }
 
-    apply_dependency(conn, dependency2, "Z")
+    # apply_dependency(conn, dependency2, "Z")
 
 
