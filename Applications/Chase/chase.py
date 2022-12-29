@@ -682,12 +682,14 @@ def apply_E(conn, sql, Z_tablename, gamma_summary):
 
         cursor.execute("drop table if exists temp")
         # Select distinct attributes
-        temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
+        # temp_sql = "create table temp as select distinct * from {} where f = '{}'".format(Z_tablename, flow_id[0])
+        temp_sql = "with temp as (select distinct * from {} where f = '{}') {}".format(Z_tablename, flow_id[0], sql)
+        # print("temp_sql", temp_sql)
         cursor.execute(temp_sql)
-        conn.commit()
+        # conn.commit()
 
         # Execute the query of tableau E to see reachabilities
-        cursor.execute(sql)
+        # cursor.execute(sql)
 
         # The result is a set of all possible source and destinations that are reachable
         results = cursor.fetchall()
@@ -710,7 +712,7 @@ def apply_E(conn, sql, Z_tablename, gamma_summary):
     return answer
 
 @timeit
-def gen_E_query(E, E_attributes, E_summary, Z):
+def gen_E_query(E, E_attributes, E_summary, Z, block_list=None):
     """
     generate SQL of end-to-end connectivity view(tableau query of topology)
 
@@ -783,6 +785,16 @@ def gen_E_query(E, E_attributes, E_summary, Z):
                     left_opd = "t{}.{}".format(t_idx, E_attributes[n_idx])
                     conditions.append("{} = '{}'".format(left_opd, var))
     # print(conditions) 
+    '''
+    add additional condition: not head
+    '''
+    if block_list is not None:
+        tuple_idx1= list(node_dict['s'].keys())[0] 
+        tuple_idx2= list(node_dict['d'].keys())[0] 
+        col_idx1 = node_dict['s'][tuple_idx1][0]
+        col_idx2 = node_dict['d'][tuple_idx2][0]
+        conditions.append("t{}.{} != '{}' and t{}.{} != '{}'".format(tuple_idx1, E_attributes[col_idx1], block_list[0], tuple_idx2, E_attributes[col_idx2], block_list[1]))
+
     '''
     summary
     '''

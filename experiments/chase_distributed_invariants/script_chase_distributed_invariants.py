@@ -427,7 +427,7 @@ def gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_ta
     return Z_tuples
 
 @timeit
-def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy='random', orderings=None):
+def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, block_list=None, order_strategy='random', orderings=None):
     """
     Parameters:
     ------------
@@ -458,7 +458,7 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
     orderings: list
         default None. used only when `order_strategy` is specific
     """
-    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
+    query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp", block_list)
     print("query sql", query_sql)
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
