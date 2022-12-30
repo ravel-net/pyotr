@@ -1,8 +1,12 @@
 sums = {}
-with open("host2_specificOrder_allMode_20221228183303.log") as f:
+info = []
+with open("host128_randomOrder_allMode_20221229230947.log") as f:
 	lines = f.readlines()
 	for line in lines:
-		if "Time" in line:
+		if "Numhost" in line:
+			data = line.strip()
+			info.append(data)
+		elif "Time" in line:
 			data = line.split()
 			function = data[1]
 			time = float(data[-1])
@@ -12,3 +16,6 @@ with open("host2_specificOrder_allMode_20221228183303.log") as f:
 
 for function in sums:
 	print(function, sum(sums[function]))
+
+for d in info:
+	print(d)

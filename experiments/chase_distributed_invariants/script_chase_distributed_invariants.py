@@ -213,7 +213,7 @@ def gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes):
         "dependency_tuples": forwarding_tuples,
         "dependency_attributes": forwarding_attributes,
         "dependency_attributes_datatypes": forwarding_datatypes, 
-        "dependency_cares_attributes": ['f', 'src', 'dst'],
+        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
         "dependency_summary": forwarding_summary,
         "dependency_summary_condition": None,
         "dependency_type": 'egd'
@@ -400,8 +400,8 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
     # print("rewrite_dependencies", dependencies)
 
     # gen forwarding dependency
-    forwarding_attributes = ['f', 'src', 'dst', 'condition']
-    forwarding_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    forwarding_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
+    forwarding_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
     forwarding_dependency = gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes)
     # print("forwarding_dependency", forwarding_dependency)
 
@@ -409,7 +409,7 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
 
     # gen firewall dependency
     firewall_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    firewall_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    firewall_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
     firewall_dependency = gen_firewall_dependency(block_list, firewall_attributes, firewall_datatypes)
     # print("firewall_dependency", firewall_dependency)
 
@@ -473,20 +473,21 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
 
         temp_updated = False
         for idx in ordered_indexs:
-            count_application += 1
-
             if idx == 0: # skip forwarding dependency
                 continue
+
+            count_application += 1
+
             dependency = dependencies[idx]
             whether_updated = chase.apply_dependency(conn, dependency, Z_tablename)
             temp_updated = (temp_updated or whether_updated)
         does_updated = temp_updated
-
+    print("#count:", count_application)
     query_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
     print("query sql", query_sql)
     answer = chase.apply_E(conn, query_sql)
 
-    return answer
+    return answer, count_application
 
 if __name__ == '__main__':
     AS_num = 7018
