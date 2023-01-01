@@ -7,7 +7,8 @@ from Core.Homomorphism.Datalog.rule import DT_Rule
 from utils.logging import timeit
 import psycopg2 
 import databaseconfig as cfg
-
+from itertools import permutations
+from copy import deepcopy
 # initializing size of new c-variable
 N = 2
 
@@ -16,13 +17,17 @@ N = 2
 @timeit
 def unify(rule1, rule2, rule1Name):
 	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name)
-	substitutions_r3_to_r2, tables_r2, r2_without_faure = getSubstitutions(rule3, rule2) 
-	if len(substitutions_r3_to_r2) == 0: # no substitutions found so no way to align atoms
-		return None 
-	equal_subs_r3_to_r2 = getEquivalentSubstitutions(substitutions_r3_to_r2, r2_without_faure, tables_r2)
+	rule2_without_Faure = rule2.getRuleWithoutFaure()
+	equal_subs_r3_to_r2 = getEquivalentSubstitutions(rule3, rule2_without_Faure)
 	if not equal_subs_r3_to_r2: # no equal substitutions found
 		return None
-	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, r2_without_faure, rule1Name)
+	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, rule2_without_Faure, rule1Name)
+
+	return getNewRule(C1_head, C1_body, C2_head, C2_body, rule3)
+
+@timeit
+# Performs simplification of conditions and returns a new rule
+def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3):
 	# Delete repeated conditions
 	for cond in C1_head:
 		if cond in C1_body:
@@ -56,6 +61,7 @@ def unify(rule1, rule2, rule1Name):
 	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
 	return newRule
 
+@timeit
 def getSimplifiedCondition(operator, condList):
 	if "" in condList:
 		condList.remove("")
@@ -103,14 +109,17 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 		for val in currTuple: 
 			c_var_param = atom.parameters[parameterNum]
 			if val[0] == '{': # is a list
-				listCurrTuple = val[1:-1].split(",")
+				listCurrTuple = val[1:-1].split("^")
 				for i, listVal in enumerate(listCurrTuple):
 					if isConstant(listVal):
 						newCondition = c_var_param[i] + " == " + listVal
 						if newCondition not in conditions:
 							conditions.append(newCondition) 
-					elif int(listVal) in r2_without_faure._reverseMapping:
+					elif r2_without_faure._datatype != "inet_faure" and int(listVal) in r2_without_faure._reverseMapping:
 						variable = r2_without_faure._reverseMapping[int(listVal)]
+						replacements[variable] = c_var_param[i]
+					elif r2_without_faure._datatype == "inet_faure" and listVal in r2_without_faure._reverseMapping:
+						variable = r2_without_faure._reverseMapping[listVal]
 						replacements[variable] = c_var_param[i]
 					elif listVal in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 						replacements[listVal] = c_var_param[i]
@@ -177,29 +186,32 @@ def getAtomSubstitutions(substitution, tables_r2):
 # Get substitutions for which there is equivalence between rule and rule2
 # The intuition is that the correct substitutions should contain all constants and c-variables that the data instance rule (rule2) had
 @timeit
-def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
+def getEquivalentSubstitutionsDB(rule3, r2_without_faure):
+	substitutions_r3_to_r2, tables_r2 = getSubstitutions(rule3, r2_without_faure) 
+	if len(substitutions_r3_to_r2) == 0: # no substitutions found so no way to align atoms
+		return None 
 	# create a set with that contains all mapped atoms of rule2 as string
 	mappedAtomsRule2 = []
-	for atom in rule2._body:
+	for atom in r2_without_faure._body:
 		parameters = []
 		atomString = atom.db["name"] + "("
 		for parameter in atom.parameters:
 			if isinstance(parameter, list):
 				listParams = []
 				for i, listParam in enumerate(parameter):
-					if listParam in rule2._mapping:
-						listParams.append(str(rule2._mapping[listParam]))
+					if listParam in r2_without_faure._mapping:
+						listParams.append(str(r2_without_faure._mapping[listParam]))
 					else:
 						listParams.append(str(listParam))
-				parameters.append('{'+",".join(listParams)+'}')
-			elif parameter in rule2._mapping:
-				parameters.append(str(rule2._mapping[parameter]))
+				parameters.append('{'+"^".join(listParams)+'}')
+			elif parameter in r2_without_faure._mapping:
+				parameters.append(str(r2_without_faure._mapping[parameter]))
 			else:
 				parameters.append(str(parameter))
 		atomString += ",".join(parameters) + ")"
 		mappedAtomsRule2.append(atomString)
 
-	for substitution in substitutions:
+	for substitution in substitutions_r3_to_r2:
 		substitutedAtoms = getAtomSubstitutions(substitution, tables_r2) 
 		found = True
 		for mappedAtom in mappedAtomsRule2:
@@ -208,17 +220,109 @@ def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
 				break
 			else:
 				substitutedAtoms.remove(mappedAtom)
-		if found:
+		if found: #TODO: Need to check that the head mapping is also correct
 			return tuple(substitution)
 	return None # if we reach this point without returning substitutions, that means we didn't find the correct substitution and need to return
+
+@timeit
+# Checks if two parameters match given the mapping
+def matchParams(param1, param2, mappings):
+	if isinstance(param1, list):
+		for subparamNum, subParam1 in enumerate(param1):
+			sumParam2 = param2[subparamNum]
+			if subParam1 in mappings:
+				return (mappings[subParam1] == sumParam2)
+			mappings[subParam1] = sumParam2
+	else:
+		if param1 in mappings:
+			return (mappings[param1] == param2)
+		mappings[param1] = param2
+	return True
+
+@timeit
+# returns substitutions in the same format as the DB version: e.g. ('(1,2)', '(1,3)', '(1,4)', '(3,10000)')
+def getSubstitutionsMapping(rule3, r2_without_faure, mappings):
+	completeSubstitutions = []
+	for atom in rule3._body:
+		atomSubstitutions = []
+		for param in atom.parameters:
+			if isinstance(param, list):
+				listSubs = []
+				for listVal in param:
+					val = mappings[listVal]
+					if val in r2_without_faure._mapping:
+						listSubs.append(str(r2_without_faure._mapping[val]))
+					else:
+						listSubs.append(str(val))					
+				atomSubstitutions.append("{"+"^".join(listSubs)+"}")					
+			else:		
+				val = mappings[param]
+				if val in r2_without_faure._mapping:
+					atomSubstitutions.append(str(r2_without_faure._mapping[val]))
+				else:
+					atomSubstitutions.append(str(val))
+		completeSubstitutions.append("(" + ",".join(atomSubstitutions).replace(" ","") + ")")
+	return tuple(completeSubstitutions)
+
+
+@timeit
+# Attempts to try all possible cominations of pattern matching rule3 with r2_without_faure
+def getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure):
+	all_combinations = list(permutations(rule3._body))
+	found = True
+	headMappings = {}
+	atom1 = rule3._head
+	atom2 = r2_without_faure._head
+	if atom1.db["name"] != atom2.db["name"]:
+		return None
+	for paramNum, param1 in enumerate(atom1.parameters):
+		param2 = atom2.parameters[paramNum]
+		if not matchParams(param1, param2, headMappings):
+			return None
+
+	for combination_rule in all_combinations:
+		mappings = deepcopy(headMappings)
+		found = True
+		for atomNum, atom1 in enumerate(combination_rule):
+			atom2 = r2_without_faure._body[atomNum]
+			if atom1.db["name"] != atom2.db["name"]:
+				found = False
+				break
+			for paramNum, param1 in enumerate(atom1.parameters):
+				param2 = atom2.parameters[paramNum]
+				if isinstance(param1, list):
+					if len(param1) != len(param2):
+						found - False
+						break
+					for listValNum, listVal1 in enumerate(param1):
+						listVal2 = param2[listValNum]
+						if not matchParams(param1, param2, mappings):
+							found = False
+							break
+				else:
+					if not matchParams(param1, param2, mappings):
+						found = False
+						break
+			if not found:
+				break
+		if found:
+			return getSubstitutionsMapping(rule3, r2_without_faure, mappings)
+			# loop over original body and substitute with mappings
+	return None # if we reach this point then none of the combinations work
+
+def getEquivalentSubstitutions(rule3, r2_without_faure):
+	if len(rule3._body) > 8:
+		return getEquivalentSubstitutionsDB(rule3, r2_without_faure)
+	else:
+		return getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure)
+
 
 
 # Treats rule as program and rule2 as data and finds substitutions that enable homomorphism between rule and rule2
 @timeit
-def getSubstitutions(rule, rule2):
+def getSubstitutions(rule, rule2_without_Faure):
 	conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 	conn.set_session()
-	rule2_without_Faure = rule2.getRuleWithoutFaure()
 	rule2_without_Faure.initiateDB(conn)
 	rule2_without_Faure.addConstants(conn)
 	_, tables, constraints = rule.convertRuleToSQLPartitioned()
@@ -229,10 +333,11 @@ def getSubstitutions(rule, rule2):
 	if (constraints):
 		sql += " where " + " and ".join(constraints)
 	cursor = conn.cursor()
+
 	cursor.execute(sql)
 	conn.commit()
 	result = cursor.fetchall()
-	return result, tables, rule2_without_Faure
+	return result, tables
 
 # Takes a rule as input and returns a new rule that has all parameters replaced with c-variables. 
 @timeit
