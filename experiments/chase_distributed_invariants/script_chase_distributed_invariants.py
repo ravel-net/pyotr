@@ -89,9 +89,9 @@ def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts
     '''
     s_IP1 = block_list[0]
     relevant_in_hosts.append(s_IP1)
-    print("egress_hosts", egress_hosts)
+    # print("egress_hosts", egress_hosts)
     egress_hosts.remove(block_list[1]) 
-    print("after deleting egress", egress_hosts)
+    # print("after deleting egress", egress_hosts)
     d_IP1 = random.sample(egress_hosts, 1)[0]
     relevant_out_hosts.append(d_IP1)
 
@@ -428,7 +428,7 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
     block_list = (in_block_node, out_block_node)
     # print("block_list", block_list)
     # block_list = ['10.0.0.2', '10.0.0.4']
-    block_list = ['2', '4']
+    # block_list = ['2', '4']
     '''
     generate rewrite policies
     '''
@@ -498,8 +498,8 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
     count_application = 0 # count the number of the application of the chase
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     
-    # chase.applySourceDestPolicy(conn, Z_tablename)
-    chase.applySourceDestPolicy_new(conn,Z_tablename)
+    chase.applySourceDestPolicy(conn, Z_tablename)
+    # chase.applySourceDestPolicy_new(conn,Z_tablename)
     while does_updated:
         if order_strategy.lower() == 'random':
             ordered_indexs = list(dependencies.keys())
@@ -537,15 +537,15 @@ if __name__ == '__main__':
     orderings=None
     mode='all'
     path_nodes = ['1', '2']
-    # block_list = ['10.0.0.2', '10.0.0.4']
-    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    # egress_hosts = ['10.0.0.3', '10.0.0.4']
-    block_list = ['2', '4']
-    ingress_hosts = ['1', '2']
-    egress_hosts = ['3', '4']
+    block_list = ['10.0.0.2', '10.0.0.4']
+    ingress_hosts = ['10.0.0.1', '10.0.0.2']
+    egress_hosts = ['10.0.0.3', '10.0.0.4']
+    # block_list = ['2', '4']
+    # ingress_hosts = ['1', '2']
+    # egress_hosts = ['3', '4']
 
-    # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
-    symbolic_IP_mapping = {'1': '1', '2':'2'}
+    symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
+    # symbolic_IP_mapping = {'1': '1', '2':'2'}
     inverse = True 
 
     E_tablename = 'E'
@@ -553,16 +553,16 @@ if __name__ == '__main__':
     E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
     E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
 
-    E_tuples = [
-        ('f', 's0', 'd0', 's', '1', '{}'), 
-        ('f', 's1', 'd1', '1', '2', '{}'), 
-        ('f', 's2', 'd2', '2', 'd', '{}')
-    ]
     # E_tuples = [
-    #     ('f', 's0', 'd0', 's', '11.0.0.1', '{}'), 
-    #     ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), 
-    #     ('f', 's2', 'd2', '11.0.0.2', 'd', '{}')
+    #     ('f', 's0', 'd0', 's', '1', '{}'), 
+    #     ('f', 's1', 'd1', '1', '2', '{}'), 
+    #     ('f', 's2', 'd2', '2', 'd', '{}')
     # ]
+    E_tuples = [
+        ('f', 's0', 'd0', 's', '11.0.0.1', '{}'), 
+        ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), 
+        ('f', 's2', 'd2', '11.0.0.2', 'd', '{}')
+    ]
     
     # generate dependencies
     dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
