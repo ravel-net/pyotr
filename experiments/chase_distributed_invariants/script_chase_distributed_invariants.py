@@ -19,7 +19,7 @@ from utils.logging import timeit
 # cursor = conn.cursor()
 
 @timeit
-def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping):
+def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping, inverse=False):
     """
     generate rewrite dependencies. A rewrite policy includes two dependencies, one is tgd, another one is egd.
 
@@ -40,6 +40,9 @@ def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts
     symbolic_IP_mapping: dict
         the mapping between symbolic integers and real IP addresses.
     
+    inverse: Boolean
+        default False. If True, inverse location of two rewrite policy
+    
     Returns:
     --------
     rewrite_dependencies: dict[index:dependency]
@@ -51,6 +54,8 @@ def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts
     relevant_out_hosts: list
         a list of IP address related to the block list
     """
+
+    
     #random set rewrite location
     # picked_nodes = random.sample(path_nodes, 2)
     # node1 = picked_nodes[0]
@@ -67,41 +72,58 @@ def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts
     #     node1 = node2
     #     node2 = temp
 
+    '''
+    # idx_node1 for rewriting src
+    # idx_node2 for rewriting dst
+    '''
     # set rewrite location at first node and last node
     idx_node1 = 0
     idx_node2 = len(path_nodes)-1
-    # node1 = path_nodes[idx_node1]
-    # node2 = path_nodes[idx_node2]
-    # idx_node1 = path_nodes.index(node1)
-    # idx_node2 = path_nodes.index(node2)
 
     relevant_in_hosts = []
     relevant_out_hosts = []
     rewrite_dependencies = {}
 
-    s_IP = block_list[0]
-    relevant_in_hosts.append(s_IP)
-
+    '''
+    rewrite src policy
+    '''
+    s_IP1 = block_list[0]
+    relevant_in_hosts.append(s_IP1)
+    # print("egress_hosts", egress_hosts)
     egress_hosts.remove(block_list[1]) 
     # print("after deleting egress", egress_hosts)
-    d_IP = random.sample(egress_hosts, 1)[0]
-    relevant_out_hosts.append(d_IP)
+    d_IP1 = random.sample(egress_hosts, 1)[0]
+    relevant_out_hosts.append(d_IP1)
 
     ingress_hosts.remove(block_list[0])
     # print("after deleting ingress", ingress_hosts)
+    # rewrite src to random ingress host
     rewrite_src = random.sample(ingress_hosts, 1)[0]
-    rewrite_value = {"source": rewrite_src, 'dest':None}
+    rewrite_value1 = {"source": rewrite_src, 'dest':None}
 
     relevant_in_hosts.append(rewrite_src)
 
-    tgd1, egd1 = convert_rewrite_policy_to_dependency(s_IP, d_IP, rewrite_value, idx_node1, path_nodes, symbolic_IP_mapping)
-
-    # rewrite dest to end node of block_list
-    rewrite_value = {"source": None, 'dest':block_list[1]}
-    s_IP = rewrite_src
+    '''
+    rewrite dst policy
+    '''
+    # rewrite dest to second node of block_list
+    rewrite_value2 = {"source": None, 'dest':block_list[1]}
+    s_IP2 = rewrite_src
+    d_IP2 = d_IP1
     relevant_out_hosts.append(block_list[1])
-    tgd2, egd2 = convert_rewrite_policy_to_dependency(s_IP, d_IP, rewrite_value, idx_node2, path_nodes, symbolic_IP_mapping)
-
+    
+    '''
+    convert to dependencies
+    '''
+    tgd1, tgd2 = None, None
+    egd1, egd2 = None, None
+    if not inverse:
+        tgd1, egd1 = convert_rewrite_policy_to_dependency(s_IP1, d_IP1, rewrite_value1, idx_node1, path_nodes, symbolic_IP_mapping)
+        tgd2, egd2 = convert_rewrite_policy_to_dependency(s_IP2, d_IP2, rewrite_value2, idx_node2, path_nodes, symbolic_IP_mapping)
+    else:
+        tgd1, egd1 = convert_rewrite_policy_to_dependency(s_IP2, d_IP2, rewrite_value2, idx_node1, path_nodes, symbolic_IP_mapping)
+        tgd2, egd2 = convert_rewrite_policy_to_dependency(s_IP1, d_IP1, rewrite_value1, idx_node2, path_nodes, symbolic_IP_mapping)
+        
     rewrite_dependencies[1] = tgd1
     rewrite_dependencies[2] = egd1
     rewrite_dependencies[3] = tgd2
@@ -123,7 +145,7 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
     #     prev_node = symbolic_IP_mapping[path_nodes[loc-1]]
     
     next_node = None
-    if loc == len(path_nodes)-1:
+    if loc == len(path_nodes)-1 or loc == -1:
         next_node = dest
     else:
         next_node = symbolic_IP_mapping[path_nodes[loc+1]]
@@ -141,8 +163,17 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
             egd_tuples.append(('f2', rewrite_source, dest, n_IP, next_node, '{}'))
         elif key == 'dest' and rewrite_value[key] is not None:
             rewrite_dest = rewrite_value[key]
-            tgd_summary = ['f', source, rewrite_dest, n_IP, rewrite_dest]
-            egd_tuples.append(('f2', source, rewrite_dest, n_IP, rewrite_dest, '{}'))
+            
+
+            print("rewrite_dest", rewrite_dest)
+            print("next_node", next_node)
+            if loc == len(path_nodes) - 1 or loc == -1: # if loc is at the last node, rewrite dest will affect final dest
+                egd_tuples.append(('f2', source, rewrite_dest, n_IP, rewrite_dest, '{}'))
+                tgd_summary = ['f', source, rewrite_dest, n_IP, rewrite_dest]
+            else:
+                egd_tuples.append(('f2', source, rewrite_dest, n_IP, next_node, '{}'))
+                tgd_summary = ['f', source, rewrite_dest, n_IP, next_node]
+            print("egd_tuples", egd_tuples)
     # tgd_summary = ['f', source, dest, prev_node, x_IP]
     # tgd_summary = ['f', source, dest, n_IP, next_node]
     # egd_tuples.append(('f2', source, dest, 'n2', '{}'))
@@ -248,7 +279,7 @@ def gen_firewall_dependency(block_list, firewall_attributes, firewall_datatypes)
     ]
 
     firewall_summary = []
-    firewall_summary_condition = ["s = '{}'".format(block_list[0]), "d = '{}'".format(block_list[1])]
+    firewall_summary_condition = ["s = {}".format(block_list[0]), "d = {}".format(block_list[1])]
     edg_dependency = {
         "dependency_tuples": firewall_tuples,
         "dependency_attributes": firewall_attributes,
@@ -355,7 +386,7 @@ def gen_E_for_chase_distributed_invariants(conn, file_dir, filename, as_tablenam
     return E_tuples, path_nodes, symbolic_IP_mapping
 
 @timeit
-def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping):
+def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping, inverse):
     '''
     generate block list
     randomly pick one host from ingress hosts and one host from egress hosts
@@ -373,6 +404,10 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
 
     symbolic_IP_mapping: dict
         mapping between the symbolic node and the assigned IP prefix
+
+    location: list
+        a pair of locations applied rewriting policy. 
+        The first location is applying rewrite source, the second location is applying rewrite dest.
 
     Returns:
     ---------
@@ -392,16 +427,17 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
     out_block_node = random.sample(egress_hosts, 1)[0]
     block_list = (in_block_node, out_block_node)
     # print("block_list", block_list)
-
+    # block_list = ['10.0.0.2', '10.0.0.4']
+    # block_list = ['2', '4']
     '''
     generate rewrite policies
     '''
-    dependencies,relevant_in_hosts, relevant_out_hosts = gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping)
+    dependencies,relevant_in_hosts, relevant_out_hosts = gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping, inverse)
     # print("rewrite_dependencies", dependencies)
 
     # gen forwarding dependency
     forwarding_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    forwarding_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    forwarding_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
     forwarding_dependency = gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes)
     # print("forwarding_dependency", forwarding_dependency)
 
@@ -409,7 +445,7 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
 
     # gen firewall dependency
     firewall_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    firewall_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    firewall_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
     firewall_dependency = gen_firewall_dependency(block_list, firewall_attributes, firewall_datatypes)
     # print("firewall_dependency", firewall_dependency)
 
@@ -463,7 +499,7 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     
     chase.applySourceDestPolicy(conn, Z_tablename)
-    
+    # chase.applySourceDestPolicy_new(conn,Z_tablename)
     while does_updated:
         if order_strategy.lower() == 'random':
             ordered_indexs = list(dependencies.keys())
@@ -475,10 +511,15 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
         for idx in ordered_indexs:
             if idx == 0: # skip forwarding dependency
                 continue
-
+                # chase.applySourceDestPolicy_new(conn, Z_tablename)
             count_application += 1
 
             dependency = dependencies[idx]
+            print(dependency['dependency_tuples'])
+            print(dependency['dependency_summary'])
+            print(dependency['dependency_summary_condition'])
+            print("--------------------")
+            # input()
             whether_updated = chase.apply_dependency(conn, dependency, Z_tablename)
             temp_updated = (temp_updated or whether_updated)
         does_updated = temp_updated
@@ -490,101 +531,77 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
     return answer, count_application
 
 if __name__ == '__main__':
-    AS_num = 7018
+    #========================= toy example ========================
+    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+    ordering_strategy='random'
+    orderings=None
+    mode='all'
+    path_nodes = ['1', '2']
+    block_list = ['10.0.0.2', '10.0.0.4']
+    ingress_hosts = ['10.0.0.1', '10.0.0.2']
+    egress_hosts = ['10.0.0.3', '10.0.0.4']
+    # block_list = ['2', '4']
+    # ingress_hosts = ['1', '2']
+    # egress_hosts = ['3', '4']
 
-    file_dir  = '/../../topo/ISP_topo/'
-    filename = "{}_edges.txt".format(AS_num)
-
-    as_tablename = 'as_{}'.format(AS_num)
-    topo_tablename = "topo_{}".format(AS_num)
+    symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
+    # symbolic_IP_mapping = {'1': '1', '2':'2'}
+    inverse = True 
 
     E_tablename = 'E'
     E_summary = ['f', 's', 'd']
     E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    E_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
+    E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
 
-    num_hosts = 2
-
-    case = 'relevant'
-
-    Z_tablename = "Z"
-    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_datatypes = ['text', 'text', 'text', 'inet_faure', 'inet_faure']
-
-    # script_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes, num_hosts, case, Z_tablename, Z_attributes, Z_datatypes)
-
-
-    path_nodes =  [11945, 12942, 13000, 13010, 12607, 12588, 12946, 2031]
-    symbolic_IP_mapping =  {11945: '11.0.0.1', 12942: '11.0.0.2', 13000: '11.0.0.3', 13010: '11.0.0.4', 12607: '11.0.0.5', 12588: '11.0.0.6', 12946: '11.0.0.7', 2031: '11.0.0.8'}
-    E_tuples =  [('f', 's0', 'd0', 's', '11.0.0.1', '{}'), ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), ('f', 's2', 'd2', '11.0.0.2', '11.0.0.3', '{}'), ('f', 's3', 'd3', '11.0.0.3', '11.0.0.4', '{}'), ('f', 's4', 'd4', '11.0.0.4', '11.0.0.5', '{}'), ('f', 's5', 'd5', '11.0.0.5', '11.0.0.6', '{}'), ('f', 's6', 'd6', '11.0.0.6', '11.0.0.7', '{}'), ('f', 's7', 'd7', '11.0.0.7', '11.0.0.8', '{}'), ('f', 's8', 'd8', '11.0.0.8', 'd', '{}')]
-    dependencies =  {1: {'dependency_tuples': [('f', '10.0.0.2', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.1', '12.0.0.1', '11.0.0.1', '11.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 2: {'dependency_tuples': [('f1', '10.0.0.2', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}'), ('f2', '10.0.0.1', '12.0.0.1', '11.0.0.1', '11.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 3: {'dependency_tuples': [('f', '10.0.0.1', '12.0.0.1', '11.0.0.8', '12.0.0.1', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['f', '10.0.0.1', '12.0.0.2', '11.0.0.8', '12.0.0.2'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}, 4: {'dependency_tuples': [('f1', '10.0.0.1', '12.0.0.1', '11.0.0.8', '12.0.0.1', '{}'), ('f2', '10.0.0.1', '12.0.0.2', '11.0.0.8', '12.0.0.2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst', 'n', 'x'], 'dependency_summary': ['f1 = f2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 0: {'dependency_tuples': [('f', 's1', 'd1', '{}'), ('f', 's2', 'd2', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst'], 'dependency_summary': ['s1 = s2', 'd1 = d2'], 'dependency_summary_condition': None, 'dependency_type': 'egd'}, 5: {'dependency_tuples': [('f', 's', 'd', 'n', 'x', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['src', 'dst'], 'dependency_summary': [], 'dependency_summary_condition': ["s = '10.0.0.2'", "d = '12.0.0.2'"], 'dependency_type': 'egd'}, 6: {'dependency_tuples': [('x_f', 'x_s1', 'x_d', 'x_n', 'x_x', '{}'), ('x_f', 'x_s2', 'x_d', 'x_x', 'x_next', '{}')], 'dependency_attributes': ['f', 'src', 'dst', 'n', 'x', 'condition'], 'dependency_attributes_datatypes': ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]'], 'dependency_cares_attributes': ['f', 'src', 'dst', 'n', 'x'], 'dependency_summary': ['x_f', 'x_s1', 'x_d', 'x_x', 'x_next'], 'dependency_summary_condition': None, 'dependency_type': 'tgd'}}
-    block_list =  ('10.0.0.2', '12.0.0.2')
-    ingress_hosts =  ['10.0.0.1', '10.0.0.2']
-    egress_hosts =  ['12.0.0.1', '12.0.0.2']
-    relevant_in_hosts =  ['10.0.0.2', '10.0.0.1']
-    relevant_out_hosts =  ['12.0.0.1', '12.0.0.2']
-    gamma_summary =  ['f', '10.0.0.2', '12.0.0.2']
-
-    # chase.load_table(E_attributes, E_datatypes, E_tablename, E_tuples)
-
-    # E_tuples, path_nodes, symbolic_IP_mapping = gen_E_for_chase_distributed_invariants(file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes)
+    # E_tuples = [
+    #     ('f', 's0', 'd0', 's', '1', '{}'), 
+    #     ('f', 's1', 'd1', '1', '2', '{}'), 
+    #     ('f', 's2', 'd2', '2', 'd', '{}')
+    # ]
+    E_tuples = [
+        ('f', 's0', 'd0', 's', '11.0.0.1', '{}'), 
+        ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), 
+        ('f', 's2', 'd2', '11.0.0.2', 'd', '{}')
+    ]
     
-    runs = 1
-    for r in range(runs):
-        ingress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "10.0.0.1")
-        egress_hosts = func_gen_tableau.gen_hosts_IP_address(num_hosts, "12.0.0.1")
+    # generate dependencies
+    dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
 
-        # dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping)
-        # print("path_nodes = ", path_nodes)
-        # print("symbolic_IP_mapping = ", symbolic_IP_mapping)
-        # print("E_tuples = ", E_tuples)
-        # print("dependencies = ", dependencies)
-        # print("block_list = ", block_list)
-        # print("ingress_hosts = ", ingress_hosts)
-        # print("egress_hosts = ", egress_hosts)
-        # print("relevant_in_hosts = ", relevant_in_hosts)
-        # print("relevant_out_hosts = ", relevant_out_hosts)
-        gamma_attributes = ['f', 'n', 'x', 'condition']
-        gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
-        gamma_tablename = "W"
+    '''
+    get whitelist
+    '''
+    gamma_attributes = ['f', 'n', 'x', 'condition']
+    gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
+    gamma_summary = None
+    gamma_tablename= "W_{}".format(ordering_strategy)
+    gamma_summary = gen_gamma_table(conn, block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, mode)
 
-        # gamma_summary = gen_gamma_table(block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'all')
-        # gamma_summary = gen_gamma_table(block_list, relevant_in_hosts, relevant_out_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, 'relevant')
-        # print("gamma_summary = ", gamma_summary)
+    
+    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+    Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
+    Z_tablename = "Z_{}".format(ordering_strategy)
+    Z_tuples = gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
+    # print("block_list", block_list)
+    #step2 and step3
+    ans, count_application = run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
+    print("ans", ans)
 
-        # Z_tuples, gen_z_time = gen_Z_for_chase_distributed_invariants(E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
-        # print(Z_tuples)
-        checked_tuples = {
-            0: [], 
-            1: [],
-            2: [],
-            3: [], 
-            4: [],
-            5: [],
-            6: []
-        }
-        # chase.apply_egd(dependencies[0], Z_tablename, checked_tuples[0])
-        # chase.apply_egd(dependencies[2], Z_tablename, checked_tuples[2])
-        # chase.applySourceDestPolicy(Z_tablename)
-        # chase.apply_dependency(dependencies[0], Z_tablename, checked_tuples[0])
-        # chase.apply_dependency(dependencies[1], Z_tablename, checked_tuples[1])
-        # chase.apply_dependency(dependencies[2], Z_tablename, checked_tuples[2])
-        chase.apply_dependency(dependencies[6], Z_tablename, checked_tuples[6])
-        # chase.apply_dependency(dependencies[3], Z_tablename, checked_tuples[3])
-        # chase.apply_dependency(dependencies[4], Z_tablename, checked_tuples[4])
-        # chase.apply_dependency(dependencies[5], Z_tablename, checked_tuples[5])
-        
-        # sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, "temp")
-        # ans, _, _, _ = chase.apply_E(sql, Z_tablename, gamma_summary)
-        # print("ans", ans)
-        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_optimal_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        # ans, total_check_applicable_time, total_operation_time, total_query_answer_time, total_check_answer_time, count_application, total_query_times = run_chase_distributed_invariants_in_static_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        # run_chase_distributed_invariants_in_random_order(E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary)
-        # print("ans", ans)
-        # print("total_check_applicable_time: {:.4f}".format(total_check_applicable_time*1000))
-        # print("total_operation_time: {:.4f}".format(total_operation_time*1000))
-        # print("total_query_answer_time: {:.4f}".format(total_query_answer_time*1000))
-        # print("total_check_answer_time: {:.4f}".format(total_check_answer_time*1000))
-        # print("count_application: ", count_application)
+    # #========================= inverse: toy example ========================
+    # path_nodes = ['1', '2']
+    # block_list = ['10.0.0.2', '10.0.0.4']
+    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
+    # egress_hosts = ['10.0.0.3', '10.0.0.4']
 
+    # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
+    # inverse = False
+    # rewrite_dependencies, relevant_ingress, relevant_egress =  gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping, inverse)
+
+    # for idx in rewrite_dependencies:
+    #     dependency = rewrite_dependencies[idx]
+    #     print(f"\n***************************{idx}************************************")
+    #     for tuple in dependency['dependency_tuples']:
+    #         print(tuple)
+    #     print("------------------------------------------------------------------")
+    #     print(dependency['dependency_summary'])
+    #     print("****************************************************************\n")
+    
