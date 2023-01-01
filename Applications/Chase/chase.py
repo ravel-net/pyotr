@@ -1127,9 +1127,10 @@ def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
 
                 # print("col_idx:", name_idxs)
                 if len(name_idxs) > 1:
-                    for j in range(len(col_idxs)-1):
-                        left_opd = "t{}.{}".format(t_idx, E_attributes[j])
-                        right_opd = "t{}.{}".format(t_idx, E_attributes[j+1])
+                    for j in range(len(name_idxs)-1):
+                        left_opd = "t{}.{}".format(t_idx, E_attributes[name_idxs[j]])
+                        right_opd = "t{}.{}".format(t_idx, E_attributes[name_idxs[j+1]])
+                        print("{} = {}".format(left_opd, right_opd))
                         conditions.append("{} = {}".format(left_opd, right_opd))
 
                 n_idx = name_idxs[-1]
@@ -1147,11 +1148,14 @@ def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
                 # print("conditions:", conditions)
                 # print()
             
-            col_idxs = node_dict[var][tup_idxs[-1]]
+            idx = tup_idxs[-1]
+            col_idxs = node_dict[var][idx]
+            # print("col_idx:", col_idxs)
             if len(col_idxs) > 1:
                 for j in range(len(col_idxs)-1):
-                    left_opd = "t{}.{}".format(idx, E_attributes[j])
-                    right_opd = "t{}.{}".format(idx, E_attributes[j+1])
+                    left_opd = "t{}.{}".format(idx, E_attributes[col_idxs[j]])
+                    right_opd = "t{}.{}".format(idx, E_attributes[col_idxs[j+1]])
+                    print("{} = {}".format(left_opd, right_opd))
                     conditions.append("{} = {}".format(left_opd, right_opd))
 
             # print("***********************************\n")

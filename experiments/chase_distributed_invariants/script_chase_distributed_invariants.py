@@ -379,6 +379,87 @@ def gen_gamma_table(conn, block_list, in_hosts, out_hosts, gamma_tablename, gamm
     return gamma_summary
 
 @timeit
+def gen_empty_gamma_table(conn, gamma_tablename, gamma_attributes, gamma_datatypes):
+    """ 
+    generate whitelists for 'relevant' case
+
+    Parameters:
+    -----------
+    gamma_tablename: string
+        the tablename of gamma table
+
+    gamma_attributes: list
+        a list of attributes for gamma table
+    
+    gamma_datatypes: list
+        a list of datatypes corresponding to the attributes of gamma table
+
+    """
+    cursor = conn.cursor()
+
+    attr_datatype = []
+    for idx, attr in enumerate(gamma_attributes):
+        attr_datatype.append("{} {}".format(attr, gamma_datatypes[idx]))
+    
+    cursor.execute("drop table if exists {}".format(gamma_tablename))
+    cursor.execute("create table {} ({})".format(gamma_tablename, ", ".join(attr_datatype)))
+    conn.commit()
+
+@timeit
+def gen_whitelists(block_list, in_hosts, out_hosts):
+    """ 
+    generate whitelists for 'relevant' case
+
+    Parameters:
+    -----------
+    block_list: tuple
+        the block list
+
+    in_hosts: list
+        a list of IP address of ingress hosts
+    
+    out_hosts: list
+        a list of IP address of egress hosts
+
+    Returns:
+    --------
+    whitelists_flows: list
+        a list of whitelists of flows
+
+    """
+    whitelists_flows = []
+    for in_h in in_hosts:
+        for out_h in out_hosts:
+            if in_h == block_list[0] and out_h == block_list[1]:
+                continue
+            else:
+                whitelists_flows.append([in_h, out_h])
+
+    return whitelists_flows
+
+@timeit
+def update_gamma_table(conn, flow, gamma_tablename):
+    """
+    change the data instance of gamma table
+    Assume the gamma table has already created
+
+    Parameters:
+    -----------
+    conn: psycopg2.connect()
+        the instance of Postgres connection
+    
+    flow: list
+        the list with size 2. A flow from source to dest. format [source, dest]
+    
+    gamma_tablename:
+        the tablename of gamma table
+    """
+    cursor = conn.cursor()
+    cursor.execute("truncate table {}".format(gamma_tablename))
+    cursor.execute("insert into {} values ('f', '{}', '{}')".format(gamma_tablename, flow[0], flow[1]))
+    conn.commit()
+
+@timeit
 def gen_E_for_chase_distributed_invariants(conn, file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes):
     E_tuples, source, dest, path_nodes, symbolic_IP_mapping = gen_tableau_script.gen_tableau_for_distributed_invariants(file_dir, filename, as_tablename, topo_tablename)
     chase.load_table(conn, E_attributes, E_datatypes, E_tablename, E_tuples)
@@ -531,60 +612,63 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
     return answer, count_application
 
 if __name__ == '__main__':
-    #========================= toy example ========================
-    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    ordering_strategy='random'
-    orderings=None
-    mode='all'
-    path_nodes = ['1', '2']
-    block_list = ['10.0.0.2', '10.0.0.4']
-    ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    egress_hosts = ['10.0.0.3', '10.0.0.4']
-    # block_list = ['2', '4']
-    # ingress_hosts = ['1', '2']
-    # egress_hosts = ['3', '4']
+    # #========================= toy example ========================
+    # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+    # ordering_strategy='random'
+    # orderings=None
+    # mode='all'
+    # path_nodes = ['1', '2']
+    # block_list = ['10.0.0.2', '10.0.0.4']
+    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
+    # egress_hosts = ['10.0.0.3', '10.0.0.4']
+    # # block_list = ['2', '4']
+    # # ingress_hosts = ['1', '2']
+    # # egress_hosts = ['3', '4']
 
-    symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
+    # # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
     # symbolic_IP_mapping = {'1': '1', '2':'2'}
-    inverse = True 
+    # inverse = False 
 
-    E_tablename = 'E'
-    E_summary = ['f', 's', 'd']
-    E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
+    # E_tablename = 'E'
+    # E_summary = ['f', 's', 'd']
+    # E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
+    # E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
 
     # E_tuples = [
-    #     ('f', 's0', 'd0', 's', '1', '{}'), 
-    #     ('f', 's1', 'd1', '1', '2', '{}'), 
-    #     ('f', 's2', 'd2', '2', 'd', '{}')
+    #     ('f', 's', 'd', 's', '1', '{}'), 
+    #     ('f', 's', 'd', '1', '2', '{}'), 
+    #     ('f', 's', 'd', '2', 'd', '{}')
     # ]
-    E_tuples = [
-        ('f', 's0', 'd0', 's', '11.0.0.1', '{}'), 
-        ('f', 's1', 'd1', '11.0.0.1', '11.0.0.2', '{}'), 
-        ('f', 's2', 'd2', '11.0.0.2', 'd', '{}')
-    ]
+    # # E_tuples = [
+    # #     ('f', 's', 'd', 's', '11.0.0.1', '{}'), 
+    # #     ('f', 's', 'd', '11.0.0.1', '11.0.0.2', '{}'), 
+    # #     ('f', 's', 'd', '11.0.0.2', 'd', '{}')
+    # # ]
+    # """
+    # select t0.f, t0.src, t0.dst from Z_random t0, Z_random t1, Z_random t2 where t0.f = t1.f and t1.f = t2.f and t0.n = t1.src and t1.src = t2.src and t0.dst = t1.dst and t1.dst = t2.x and t1.f = t1.src and t0.x = '11.0.0.1' and t1.n = '11.0.0.1' and t1.x = '11.0.0.2' and t2.n = '11.0.0.2' and t0.src = '10.0.0.2' and t0.dst = '10.0.0.3'
+    # """
     
-    # generate dependencies
-    dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
+    # # generate dependencies
+    # dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
 
-    '''
-    get whitelist
-    '''
-    gamma_attributes = ['f', 'n', 'x', 'condition']
-    gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
-    gamma_summary = None
-    gamma_tablename= "W_{}".format(ordering_strategy)
-    gamma_summary = gen_gamma_table(conn, block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, mode)
+    # '''
+    # get whitelist
+    # '''
+    # gamma_attributes = ['f', 'n', 'x', 'condition']
+    # gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
+    # gamma_summary = None
+    # gamma_tablename= "W_{}".format(ordering_strategy)
+    # gamma_summary = gen_gamma_table(conn, block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, mode)
 
     
-    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
-    Z_tablename = "Z_{}".format(ordering_strategy)
-    Z_tuples = gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
-    # print("block_list", block_list)
-    #step2 and step3
-    ans, count_application = run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
-    print("ans", ans)
+    # Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+    # Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
+    # Z_tablename = "Z_{}".format(ordering_strategy)
+    # Z_tuples = gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
+    # # print("block_list", block_list)
+    # #step2 and step3
+    # ans, count_application = run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
+    # print("ans", ans)
 
     # #========================= inverse: toy example ========================
     # path_nodes = ['1', '2']
@@ -605,3 +689,77 @@ if __name__ == '__main__':
     #     print(dependency['dependency_summary'])
     #     print("****************************************************************\n")
     
+    #========================= single gamma ========================
+    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+    ordering_strategy='random'
+    orderings=None
+    path_nodes = ['1', '2']
+    block_list = ['10.0.0.2', '10.0.0.4']
+    ingress_hosts = ['10.0.0.1', '10.0.0.2']
+    egress_hosts = ['10.0.0.3', '10.0.0.4']
+    # block_list = ['2', '4']
+    # ingress_hosts = ['1', '2']
+    # egress_hosts = ['3', '4']
+
+    # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
+    symbolic_IP_mapping = {'1': '1', '2':'2'}
+    inverse = False 
+
+    E_tablename = 'E'
+    E_summary = ['f', 's', 'd']
+    E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
+    E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
+
+    E_tuples = [
+        ('f', 's', 'd0', 's', '1', '{}'), 
+        ('f', 's1', 'd1', '1', '2', '{}'), 
+        ('f', 's2', 'd', '2', 'd', '{}')
+    ]
+    
+    # E_tuples = [
+    #     ('f', 's', 'd', 's', '1', '{}'), 
+    #     ('f', 's', 'd', '1', '2', '{}'), 
+    #     ('f', 's', 'd', '2', 'd', '{}')
+    # ]
+    # E_tuples = [
+    #     ('f', 's', 'd', 's', '11.0.0.1', '{}'), 
+    #     ('f', 's', 'd', '11.0.0.1', '11.0.0.2', '{}'), 
+    #     ('f', 's', 'd', '11.0.0.2', 'd', '{}')
+    # ]
+    """
+    select t0.f, t0.src, t0.dst from Z_random t0, Z_random t1, Z_random t2 where t0.f = t1.f and t1.f = t2.f and t0.n = t1.src and t1.src = t2.src and t0.dst = t1.dst and t1.dst = t2.x and t1.f = t1.src and t0.x = '11.0.0.1' and t1.n = '11.0.0.1' and t1.x = '11.0.0.2' and t2.n = '11.0.0.2' and t0.src = '10.0.0.2' and t0.dst = '10.0.0.3'
+    """
+    
+    # generate dependencies
+    dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
+
+    '''
+    get whitelist
+    '''
+    gamma_attributes = ['f', 'n', 'x', 'condition']
+    gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
+    gamma_summary = ['f', block_list[0], block_list[1]]
+    print("gamma_summary", gamma_summary)
+    gamma_tablename= "W_{}".format(ordering_strategy)
+    gen_empty_gamma_table(conn, gamma_tablename, gamma_attributes, gamma_attributes_datatypes)
+
+    
+    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
+    Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
+    Z_tablename = "Z_{}".format(ordering_strategy)
+
+    # chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
+    # exit()
+    whitelists_flows = gen_whitelists(block_list, ingress_hosts, egress_hosts)
+
+    for flow in whitelists_flows:
+        
+        update_gamma_table(conn, flow, gamma_tablename)
+
+        Z_tuples = gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
+        # print("block_list", block_list)
+        #step2 and step3
+        ans, count_application = run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
+        print("flow", flow)
+        print("ans", ans)
+        input()
