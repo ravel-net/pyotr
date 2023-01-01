@@ -34,19 +34,38 @@ def unify(rule1, rule2, rule1Name):
 
 	cVarReplacements = getCVarReplacements(C1_head, C2_head)
 	cVarReplacements.update(getCVarReplacements(C1_body, C2_body))
-	C1_head_str = "And("+",".join(C1_head+C1_body)+")"
-	C2_head_str = "And("+",".join(C2_head+C2_body)+")"
-	C1_body_str = "And("+",".join(C1_body)+")"
-	C2_body_str = "And("+",".join(C2_body)+")"
-	newHeadCondition = "Or("+C1_head_str+","+C2_head_str+")"
-	newBodyCondition = "Or("+C1_body_str+","+C2_body_str+")"
+
+	
+	C1_head_str = getSimplifiedCondition("And", C1_head+C1_body)
+	C2_head_str = getSimplifiedCondition("And", C2_head+C2_body)
+	C1_body_str = getSimplifiedCondition("And", C1_body)
+	C2_body_str = getSimplifiedCondition("And", C2_body)
+	# The presence of () in a condition means an empty condition. We do not let empty conditions propogate
+	newHeadCondition = getSimplifiedCondition("Or", [C1_head_str]+[C2_head_str])
+	newBodyCondition = getSimplifiedCondition("Or", [C1_body_str]+[C2_body_str])
+
+	if len(rule3._additional_constraints) > 0 and rule3._additional_constraints[0][:2] == "Or": # TODO: Hacky way to combine additional conditions of rules. 
+		newBodyCondition = rule3._additional_constraints[0][:-1] + "," + newBodyCondition + ")"
+		rule3.removeAdditionalCondition()
+
+
 	rule3._head.replaceCondition([newHeadCondition])
 	rule3Str = str(rule3)
 	for cvar in cVarReplacements:
 		rule3Str = rule3Str.replace(cvar, cVarReplacements[cvar])
-
-	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=rule3._additional_constraints+[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
+	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
 	return newRule
+
+def getSimplifiedCondition(operator, condList):
+	if "" in condList:
+		condList.remove("")
+	if len(condList) == 0:
+		return ""
+	elif len(condList) == 1:
+		return condList[0]
+	else:
+		return operator + "("+",".join(condList)+")"
+
 
 # Takes two list of conditions involving c-variables. If any condition is common in both lists, the c-variable is replaced by a constant. e.g. getCVarReplacements([a == 3, b == 2], [a == 3, b ==4]) results in {a: 3} 
 @timeit
@@ -99,8 +118,11 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 				newCondition = c_var_param + " == " + val
 				if newCondition not in conditions:
 					conditions.append(newCondition) 
-			elif int(val) in r2_without_faure._reverseMapping:
+			elif r2_without_faure._datatype != "inet_faure" and int(val) in r2_without_faure._reverseMapping:
 				variable = r2_without_faure._reverseMapping[int(val)]
+				replacements[variable] = c_var_param
+			elif r2_without_faure._datatype == "inet_faure" and val in r2_without_faure._reverseMapping:
+				variable = r2_without_faure._reverseMapping[val]
 				replacements[variable] = c_var_param
 			elif val in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 				replacements[val] = c_var_param
@@ -170,7 +192,6 @@ def getEquivalentSubstitutions(substitutions, rule2, tables_r2):
 					else:
 						listParams.append(str(listParam))
 				parameters.append('{'+",".join(listParams)+'}')
-
 			elif parameter in rule2._mapping:
 				parameters.append(str(rule2._mapping[parameter]))
 			else:
@@ -233,14 +254,22 @@ def getEquivalentRule(rule, ruleName):
 	for atom in newAtoms:
 		rule_str += str(atom) + ", "
 	rule_str = rule_str[:-2]
-	newBodyCondition = "And(" + ",".join(newConditions) + ")"
+	newBodyCondition = ""
+	if len(newCondition) == 1:
+		newBodyCondition = newConditions[0]
+	elif len(newCondition) > 1:
+		newBodyCondition = "And(" + ",".join(newConditions) + ")"
+
 	newRule = DT_Rule("", databaseTypes=rule._databaseTypes, operators=rule._operators, domains=rule._domains, c_variables=c_vars+rule._c_variables, reasoning_engine=rule._reasoning_engine, reasoning_type=rule._reasoning_type, datatype=rule._datatype, simplification_on=rule._simplication_on, c_tables = new_ctables, headAtom=newHead, bodyAtoms = newAtoms, additional_constraints=rule._additional_constraints)
-	# newHeadCondition = "And(" + ",".join(newHeadCondition) + ")"
 	return newRule, newHeadCondition, newConditions
 
-# TODO: the param < 100 is a hardcoded condition. Need to fix 
+# TODO: the param < 10000 is a hardcoded condition. Need to fix 
 def isConstant(param):
-	if param[0].isdigit() and int(param) < 100:
+	if "." in param and param[:5] == '0.0.0':
+		return False
+	elif "." in param:
+		return True
+	elif param[0].isdigit() and int(param) < 10000:
 		return True
 	else:
 		return False

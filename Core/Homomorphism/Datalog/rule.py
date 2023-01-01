@@ -188,6 +188,9 @@ class DT_Rule:
         signature += ",".join(bodyTables)
         return signature
 
+    def removeAdditionalCondition(self):
+        self._additional_constraints = []
+
     def deleteAtom(self, atomNum):
         del self._body[atomNum]
 
