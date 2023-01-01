@@ -178,6 +178,7 @@ def apply_dependency(conn, dependency, inverse_image_tablename):
 
     return does_updated
 
+@timeit
 def apply_edg_for_firewall(conn, dependency, inverse_image_tablename):
     """
     If the dependency_summary of dependency is empty, it is a firewall, i.e., deletion
@@ -316,6 +317,106 @@ def replace_z_table(conn, tablename, new_table):
     Z_attributes = ['f', 'src', 'dst', 'n', 'x']
     Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
     load_table(conn, Z_attributes, Z_attributes_datatypes, tablename, new_table)
+
+@timeit
+def applySourceDestPolicy_new(conn, Z_tablename):
+    """
+    The source must be first hop and the destination must be last hop. 
+    This is applied at the start to get rid of variables
+
+    Parameters:
+    -----------
+    Z_tablename: string
+        the tablename of inverse image
+    """
+    
+    upd_sqls = gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename)
+
+    does_updated = False
+    
+    if len(upd_sqls) != 0: 
+        print("num udpates", len(upd_sqls))
+        does_updated = True
+
+        cursor = conn.cursor()
+        for upd_sql in upd_sqls:
+            print("upd_sql", upd_sql)
+            cursor.execute(upd_sql)
+        conn.commit()
+
+    return does_updated
+
+@timeit
+def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
+
+    forwarding_sql = "select t0.f as f, Array[t0.src, t1.src] as src, Array[t0.dst, t1.dst] as dst from {Z_tablename} t0, {Z_tablename} t1 where t0.f = t1.f and (t0.src != t1.src or t0.dst != t1.dst)".format(Z_tablename=Z_tablename)
+    # print("\ndependency_sql", dependency_sql)
+
+    cursor = conn.cursor()
+    cursor.execute(forwarding_sql)
+
+    results = cursor.fetchall()
+    conn.commit()
+
+    flowid_mapping = {}
+    for record in results:
+        flowid = record[0]
+
+        src_set = set(record[1])
+        dst_set = set(record[2])
+
+        if flowid in flowid_mapping.keys():
+            flowid_mapping[flowid]['src'] = flowid_mapping[flowid]['src'].union(src_set)
+            flowid_mapping[flowid]['dst'] = flowid_mapping[flowid]['dst'].union(dst_set)
+
+        else:
+            flowid_mapping[flowid] = {'src': src_set, 'dst': dst_set}
+    print("flowid_mapping", flowid_mapping)
+    # required_replacement = {}
+    upd_sqls = []
+    for flowid in flowid_mapping.keys():
+        src_set = flowid_mapping[flowid]['src']
+        dst_set = flowid_mapping[flowid]['dst']
+
+        src_replace = None
+        dst_replace = None
+        no_src_change = False
+        if len(src_set) == 0 and len(src_set) == 1:
+            no_src_change = True
+        else:
+            for param in src_set:
+                if param[0].isdigit():
+                    src_replace = param
+                    break
+            if src_replace is None:
+                print("src_set", src_set)
+                exit()
+        
+        no_dst_change = False
+        if len(dst_set) == 0 and len(dst_set) == 1:
+            no_dst_change = True
+        else:
+            for param in dst_set:
+                if param[0].isdigit():
+                    dst_replace = param
+                    break
+            if dst_replace is None:
+                print("dst_set", dst_set)
+                exit()
+        
+        upd_sql = ""
+        if no_src_change and no_dst_change:
+            continue
+        elif no_dst_change:
+            upd_sql = "update {} set src = '{}' where f = '{}'".format(Z_tablename, src_replace, flowid)
+            
+        elif no_src_change:
+            upd_sql = "update {} set dst = '{}' where f = '{}'".format(Z_tablename, dst_replace, flowid)
+        else:
+            upd_sql = "update {} set src = '{}', dst = '{}' where f = '{}'".format(Z_tablename, src_replace, dst_replace, flowid)
+        upd_sqls.append(upd_sql)
+
+    return upd_sqls
 
 @timeit
 def applySourceDestPolicy(conn, Z_tablename):
@@ -494,7 +595,7 @@ def get_required_replacement_pg(conn, dependency, Z_tablename):
     for record in results:
         for idx, l in enumerate(record):
             if idx in idx_mapping.keys():
-                idx_mapping[idx].union(set(l))
+                idx_mapping[idx] = idx_mapping[idx].union(set(l))
             else:
                 idx_mapping[idx] = set(l)
     
@@ -896,10 +997,10 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
                     right = right_items[j]
 
                     if left_items[i].isdigit() or isIPAddress(left_items[i]):
-                        left = "{}".format(left_items[i])
+                        left = "'{}'".format(left_items[i])
                     
                     if right_items[j].isdigit() or isIPAddress(right_items[j]):
-                        right = "{}".format(right_items[j])
+                        right = "'{}'".format(right_items[j])
                         
                     conditions.append("{} {} {}".format(left, opr, right))
     
