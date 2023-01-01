@@ -16,6 +16,9 @@ import databaseconfig as cfg
 import psycopg2 
 from psycopg2.extras import execute_values
 from utils.logging import timeit
+import logging
+logging.basicConfig(filename='program.log', level=logging.DEBUG)
+logging.debug('[Datalog] Start Logging ...')
 # conn = psycopg2.connect(
 #     host=cfg.postgres["host"], 
 #     database=cfg.postgres["db"], 
@@ -115,12 +118,15 @@ class FaureEvaluation:
         if self._SQL.lower().startswith('with'):
             cursor = conn.cursor()
             cursor.execute(self._SQL)
-            conn.commit()
+            #conn.commit()
 
             if simplication_on:
                 self._reasoning_tool.simplification(self.output_table)
         else:
+            start = time.time()
             self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+            end = time.time()
+            logging.info("Time: parser took {}".format(end-start))
             self._additional_condition = additional_condition
             self._empty_condition_idx = None # the reference of the empty condition with BDD
             
@@ -172,7 +178,7 @@ class FaureEvaluation:
 
         if self._information_on:
             print("\ndata executing time: ", self.data_time)
-        self._conn.commit()
+        #self._conn.commit()
 
     @timeit
     def _upd_condition_z3(self):
@@ -203,7 +209,7 @@ class FaureEvaluation:
             cursor.execute(upd_sql)
             end_upd = time.time()
             self.update_condition_time['update_condition'] = end_upd - begin_upd
-            self._conn.commit()
+            #self._conn.commit()
 
         '''
         Check the selected columns
@@ -225,10 +231,10 @@ class FaureEvaluation:
                 end_drop = time.time()
                 self.update_condition_time['drop'] = end_drop-begin_drop
 
-            self._conn.commit()
+            #self._conn.commit()
 
         else:
-            self._conn.commit()
+            #self._conn.commit()
             print("Coming soon!")
             exit()
 
@@ -252,7 +258,10 @@ class FaureEvaluation:
 
         if self._information_on:
             print("\ncombined executing time: ", self.data_time)
-        self._conn.commit()
+        # start = time.time()
+        # self._conn.commit()
+        # end = time.time()
+        # logging.info("Time: Commit took {}".format(end-start))
 
     @timeit
     def simplification_z3(self, target_table=None):
@@ -272,7 +281,7 @@ class FaureEvaluation:
         if 'id' not in column_datatype_mapping:
             column_datatype_mapping['id'] = 'integer' # add id column
             cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(target_table))
-        self._conn.commit()
+        #self._conn.commit()
 
         '''
         delete contradiction
@@ -301,7 +310,7 @@ class FaureEvaluation:
 
         contrd_end = time.time()
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
-        self._conn.commit()
+        #self._conn.commit()
 
         '''
         set tautology and remove redundant
@@ -325,7 +334,7 @@ class FaureEvaluation:
                     upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(target_table, row[0]))
         redun_end = time.time()
         self.simplication_time["redundancy"] = redun_end - redun_begin
-        self._conn.commit()
+        #self._conn.commit()
 
         if self._information_on:
             for k, v in self._reasoning_tool.solver.statistics():
@@ -356,7 +365,7 @@ class FaureEvaluation:
                     exit()
             else:
                 column_datatype_mapping[column_name] = data_type
-        self._conn.commit()
+        #self._conn.commit()
         return column_datatype_mapping
     
     @timeit
@@ -367,7 +376,7 @@ class FaureEvaluation:
 
         # if 'id' not in self.column_datatype_mapping:
         cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
-        self._conn.commit()
+        #self._conn.commit()
 
         select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
         if self._information_on:
@@ -379,7 +388,7 @@ class FaureEvaluation:
 
         count_num = cursor.rowcount
         data_tuples = cursor.fetchall()
-        self._conn.commit()
+        #self._conn.commit()
         new_reference_mapping = {}
         for i in range(count_num):
             
@@ -428,21 +437,21 @@ class FaureEvaluation:
         '''
         sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, add column condition integer".format(self.output_table)
         cursor.execute(sql)
-        self._conn.commit()
+        #self._conn.commit()
 
         begin_upd = time.time()
         for key in new_reference_mapping.keys():
             sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
             cursor.execute(sql)
         end_upd = time.time()
-        self._conn.commit()
+        #self._conn.commit()
 
         self.update_condition_time['update_condition'] = end_upd - begin_upd
-        self._conn.commit()
+        #self._conn.commit()
 
         sql = "alter table if exists {} drop column if exists id".format(self.output_table)
         cursor.execute(sql)
-        self._conn.commit()
+        #self._conn.commit()
         
     @timeit
     def _upd_condition_BDD_old(self, domains, variables):
@@ -452,7 +461,7 @@ class FaureEvaluation:
 
         # if 'id' not in self.column_datatype_mapping:
         cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
-        self._conn.commit()
+        #self._conn.commit()
 
         '''
         conjunction conditions
@@ -544,17 +553,17 @@ class FaureEvaluation:
         '''
         sql = "alter table if exists {} add column condition integer".format(self.output_table)
         cursor.execute(sql)
-        self._conn.commit()
+        #self._conn.commit()
 
         begin_upd = time.time()
         for key in new_reference_mapping.keys():
             sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
             cursor.execute(sql)
         end_upd = time.time()
-        self._conn.commit()
+        #self._conn.commit()
 
         self.update_condition_time['update_condition'] = end_upd - begin_upd
-        self._conn.commit()
+        #self._conn.commit()
         '''
         Check the selected columns
         if select *, drop duplicated columns,
@@ -594,7 +603,7 @@ class FaureEvaluation:
             end_drop = time.time()
             self.update_condition_time['drop'] = end_drop-begin_drop
 
-            self._conn.commit()
+            #self._conn.commit()
 
         else:
             print("Coming soon!")
@@ -673,7 +682,7 @@ class FaureEvaluation:
         sql = "insert into {tablename} values %s".format(tablename=tablename)
         execute_values(cursor, sql, new_tuples)
         # cursor.executemany(new_tuples)
-        self._conn.commit()
+        #self._conn.commit()
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"

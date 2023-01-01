@@ -130,7 +130,8 @@ class DT_Program:
     # self contains one rule of dt_program2
     def contains_rule(self, rule2):
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
-        conn.set_session()
+        # conn.set_session()
+        conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
         changed = True
         self.initiateDB(conn)
 
@@ -141,7 +142,7 @@ class DT_Program:
             changed = self.execute(conn)
             if self._simplification_on and self._reasoning_engine == 'z3':
                 self.reasoning_tool.simplification(rule2._head.db["name"], conn)
-
+        conn.commit()
         if rule2.isHeadContained(conn):
             return True
         return False

@@ -247,7 +247,7 @@ class DT_Rule:
             table_creation_query = table_creation_query[:-1]
             table_creation_query += ");"
             cursor.execute(table_creation_query)
-        conn.commit()
+        #conn.commit()
 
     @timeit
     def getRuleWithoutFaure(self): # returns the same rule but without any c-variables and conditions
@@ -359,7 +359,7 @@ class DT_Rule:
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self.selectColumns))
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
-            conn.commit()
+            #conn.commit()
             changed = (affectedRows > 0)
         else:
             return self.run_with_faure(conn, self.sql)
@@ -407,7 +407,7 @@ class DT_Rule:
         cursor = conn.cursor()
         cursor.execute(sql)
         result = cursor.fetchall()
-        conn.commit()
+        #conn.commit()
         contained = (len(result) > 0)
         return contained
     
@@ -464,7 +464,7 @@ class DT_Rule:
             sql = sql.replace('text[]', 'integer')
         cursor.execute(sql)
         resulting_tuples = cursor.fetchall()
-        conn.commit()
+        #conn.commit()
         
         # add constants to header data portion
         header_data_portion = []
@@ -608,10 +608,10 @@ class DT_Rule:
 
         if len(newTuples) > 0:
             execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
-            conn.commit()
+            #conn.commit()
             return True
         else:
-            conn.commit()
+            #conn.commit()
             return False
 
     @timeit
