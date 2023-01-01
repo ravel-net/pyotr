@@ -190,10 +190,7 @@ class DT_Atom:
 
                 # For supporting ||
                 variableConstants.append("'{" + str(mapping[var]) + "}'")
-            elif self.db["column_types"][i] == "inet_faure":
-                IPaddr = int(IPv4Address('10.0.0.1')) + mapping[var]
-                variableConstants.append("'{}'".format(str(IPv4Address(IPaddr))))
-            elif self.db["column_types"][i] == "int4_faure":
+            else:
                 variableConstants.append("'{}'".format(mapping[var]))
 
         # if self.c_variables:

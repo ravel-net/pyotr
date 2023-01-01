@@ -10,6 +10,7 @@
 import sys
 from os.path import dirname, abspath
 from Backend.reasoning.Z3.z3smt import z3SMTTools
+from ipaddress import IPv4Address
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 
@@ -133,8 +134,14 @@ class DT_Rule:
         # TODO: Make sure that the mapping does not overlap with any other constant in the body
         # for i, var in enumerate(self._variables+self._c_variables):
         for i, var in enumerate(self._variables):
-            self._mapping[var] = 100+i
-            self._reverseMapping[100+i] = var
+            if datatype == "inet_faure":
+                IPaddr = str(IPv4Address(int(IPv4Address('0.0.0.1')) + i))
+                print(IPaddr)
+                self._mapping[var] = IPaddr
+                self._reverseMapping[IPaddr] = var
+            else: # Int data type
+                self._mapping[var] = 10000+i
+                self._reverseMapping[10000+i] = var
 
         # in case of unsafe rule
         if self.safe():
@@ -245,7 +252,7 @@ class DT_Rule:
         for bodyAtom in self._body:
             newRuleStr += bodyAtom.strAtomWithoutConditions() + ", "
         newRuleStr = newRuleStr[:-2]
-        newRule = DT_Rule(newRuleStr, databaseTypes=self._databaseTypes) # assuming that the default is without faure
+        newRule = DT_Rule(newRuleStr, databaseTypes=self._databaseTypes, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on) # assuming that the default is without faure
         return newRule
 
     @timeit

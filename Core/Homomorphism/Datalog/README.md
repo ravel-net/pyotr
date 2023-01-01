@@ -135,3 +135,7 @@ Since conditions (i) and (iii) are not equivalent, we move on to the next tuple.
 
 #### Step 6:
 Repeat step 4 and 5 until all tuples are considered or we find that the instantiated head is in the result. Then, repeat step 1-5 until a fixed point is reached or we find that the instantiated head is in the result.
+
+## Miscellaneous
+### Variables as distinct constants:
+When a rule is treated as a data instance, variables are replaced with distinct constants. Ideally, this requires making sure that the constants are different from any other constant in the rule and any other constant in the program that is applied to it. One way to do this would be to treat variables as c-variables without conditions. However, this might be slow. In our current implementation, we treat variables as constants that are unlikely to appear elsewhere. For integer datatype, we replace variables as constant above 10000. For IP Addresses, the IP for variables starts with 0.0.0.*.  
