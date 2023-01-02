@@ -111,6 +111,61 @@ def gen_inverse_image(conn, E_tuples, gamma_tablename):
     
     return Z_tuples
 
+def gen_inverse_image_with_destbasedforwarding_applied(conn, E_tuples, gamma_tablename):
+    """
+    generate inverse image of gamma table over end-to-end connectivity view
+
+    Parameters:
+    -----------
+    E_tuples: list[tuple]
+        a list of tuples in table E(end-to-end connectivity view, i.e., tableau query of topology). 
+        the tuple contains condition column
+    
+    gamma_tablename: string 
+        name of gamma table
+
+    Returns:
+    --------
+    Z_tuples: list[tuple]
+        a list of tuples for Z table(inverse image of gamma). Convert gamma table to Z table.
+    """
+    cursor = conn.cursor()
+
+    sql = "select * from {}".format(gamma_tablename)
+    cursor.execute(sql)
+
+    gamma_table = cursor.fetchall()
+    conn.commit()
+    
+    Z_tuples = []
+    z_tuple_num = 1
+
+    for gamma_tuple in gamma_table:
+        f = gamma_tuple[0]
+        src = gamma_tuple[1]
+        dst = gamma_tuple[2]
+
+        for e_tuple in E_tuples:
+            z_tuple = list(e_tuple)[:-1]
+            z_tuple[0] = f
+
+            # s = 's{}'.format(z_tuple_num)
+            # d = 'd{}'.format(z_tuple_num)
+
+            z_tuple[1] = src
+            z_tuple[2] = dst
+                
+            if e_tuple[3] == 's':
+                z_tuple[3] = src
+            if e_tuple[4] == 'd':
+                z_tuple[4] = dst
+
+            Z_tuples.append(z_tuple)
+
+            z_tuple_num += 1
+    
+    return Z_tuples
+
 def isIPAddress(value):
     if len(value.strip().split('.')) == 4:
         return True

@@ -13,6 +13,7 @@ from tqdm import tqdm
 import databaseconfig as cfg
 import experiments.gen_large_tableau.func_gen_tableau as func_gen_tableau
 import experiments.chase_distributed_invariants.script_chase_distributed_invariants as chase_scripts
+import Applications.Chase.chase as chase
 from utils.logging import timeit
 import logging
 logging.basicConfig(filename='program.log', level=logging.DEBUG)
@@ -116,19 +117,25 @@ def run_ordering_strategies_single_gamma(conn, runs=10,  num_hosts_list=[2], inv
             gamma_attributes_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'text[]']
             gamma_summary = ['f', block_list[0], block_list[1]]
             gamma_tablename= "W_{}".format(ordering_strategy)
-            chase_scripts.gen_empty_gamma_table(conn, gamma_tablename, gamma_attributes, gamma_attributes_datatypes)
+            chase_scripts.gen_empty_table(conn, gamma_tablename, gamma_attributes, gamma_attributes_datatypes)
 
             Z_attributes = ['f', 'src', 'dst', 'n', 'x']
             Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
             Z_tablename = "Z_{}".format(ordering_strategy)
+            chase_scripts.gen_empty_table(conn, Z_tablename, Z_attributes, Z_datatypes)
 
             whitelists_flows = chase_scripts.gen_whitelists(block_list, ingress_hosts, egress_hosts)
             for flow in whitelists_flows:
                 flow_start = time.time()
-                chase_scripts.update_gamma_table(conn, flow, gamma_tablename)
+
+                flow_tuples = [('f', flow[0], flow[1])]
+                chase_scripts.update_table(conn, flow_tuples, gamma_tablename)
                 
+                Z_tuples = chase.gen_inverse_image_with_destbasedforwarding_applied(conn, E_tuples, gamma_tablename)
+                chase_scripts.update_table(conn, Z_tuples, Z_tablename)
+
                 Z_tuples = chase_scripts.gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
-                print("Z_tuples", Z_tuples)
+                # print("Z_tuples", Z_tuples)
                 ans, count_application = chase_scripts.run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
                 
                 flow_end = time.time()
@@ -150,7 +157,7 @@ if __name__ == '__main__':
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 
     runs=1
-    num_hosts_list=[4]
+    num_hosts_list=[128]
     random_path=True
     ordering_strategy='random'
     orderings=[0, 1, 2, 6, 3, 4, 5]
