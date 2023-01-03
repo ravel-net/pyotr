@@ -325,14 +325,14 @@ def convert_symbol_to_IP_from_path_nodes(path_nodes, IP_address_begin='1.0.0.1')
         IPaddr += 1
 
         if idx == 0:
-            IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), 's', symbolic_IP_mapping[node], '{}'))
+            IP_tuples.append(('f', 's', 'd0'.format(idx), 's', symbolic_IP_mapping[node], '{}'))
             continue
         elif idx == len(path_nodes) - 1:
-            IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
-            IP_tuples.append(('f', 's{}'.format(idx+1), 'd{}'.format(idx+1), symbolic_IP_mapping[node], 'd', '{}'))
+            IP_tuples.append(('f', 's1'.format(idx), 'd1'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
+            IP_tuples.append(('f', 's2'.format(idx+1), 'd', symbolic_IP_mapping[node], 'd', '{}'))
             continue
         
-        IP_tuples.append(('f', 's{}'.format(idx), 'd{}'.format(idx), symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
+        IP_tuples.append(('f', 's1', 'd1', symbolic_IP_mapping[path_nodes[idx-1]], symbolic_IP_mapping[node], '{}'))
     return IP_tuples, symbolic_IP_mapping
 
 def gen_hosts_IP_address(num_hosts, IP_address_begin='1.0.0.1'):
