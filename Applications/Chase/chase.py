@@ -376,6 +376,9 @@ def replace_z_table(conn, tablename, new_table):
 @timeit
 def applySourceDestPolicy_new(conn, Z_tablename):
     """
+    Apply dest-based forwarding policy in Postgres
+    Heavy updates that updating every row
+
     The source must be first hop and the destination must be last hop. 
     This is applied at the start to get rid of variables
 
@@ -385,18 +388,40 @@ def applySourceDestPolicy_new(conn, Z_tablename):
         the tablename of inverse image
     """
     
-    upd_sqls = gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename)
-
+    upd_sql, upd_tuples = gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename)
+    # print("upd_sql", upd_sql)
+    # print("upd_tuples", upd_tuples)
     does_updated = False
-    
-    if len(upd_sqls) != 0: 
-        print("num udpates", len(upd_sqls))
+    # exit()
+    if len(upd_tuples) != 0:
         does_updated = True
 
+        # method 2
+        # cursor = conn.cursor()
+        # execute_values(cursor, upd_sql, upd_tuples)
+        # conn.commit()
+
+        # method 4
+        # step 1: store replacement information to a table
         cursor = conn.cursor()
-        for upd_sql in upd_sqls:
-            print("upd_sql", upd_sql)
-            cursor.execute(upd_sql)
+        cursor.execute("drop table if exists update_src_dst")
+        cursor.execute("create table update_src_dst (flowid text, src text, dst text);")
+        execute_values(cursor, "insert into update_src_dst values %s", upd_tuples)
+        conn.commit()
+
+        # step 2: using left join to get the replaced data and storing them into a new table
+        cursor.execute("drop table if exists temp_{}".format(Z_tablename))
+        cursor.execute("create table temp_{z_table} AS SELECT t.f, u.src, u.dst, t.n, t.x FROM {z_table} t LEFT JOIN update_src_dst u on t.f = u.flowid".format(z_table=Z_tablename))
+        conn.commit()
+
+        # step 3: drop the old table
+        cursor.execute("drop table if exists {}".format(Z_tablename))
+        # cursor.execute("truncate {}".format(Z_tablename))
+        # conn.commit()
+
+        # step 4: rename the new table
+        # cursor.execute("insert into {z_table} table temp_{z_table}".format(z_table=Z_tablename))
+        cursor.execute("alter table temp_{z_table} rename to {z_table}".format(z_table=Z_tablename))
         conn.commit()
 
     return does_updated
@@ -404,7 +429,7 @@ def applySourceDestPolicy_new(conn, Z_tablename):
 @timeit
 def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
 
-    forwarding_sql = "select t0.f as f, Array[t0.src, t1.src] as src, Array[t0.dst, t1.dst] as dst from {Z_tablename} t0, {Z_tablename} t1 where t0.f = t1.f and (t0.src != t1.src or t0.dst != t1.dst)".format(Z_tablename=Z_tablename)
+    forwarding_sql = "select f, array_agg(src) as src, array_agg(dst) as dst from {Z_tablename} group by f".format(Z_tablename=Z_tablename)
     # print("\ndependency_sql", dependency_sql)
 
     cursor = conn.cursor()
@@ -413,31 +438,16 @@ def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
     results = cursor.fetchall()
     conn.commit()
 
-    flowid_mapping = {}
-    for record in results:
-        flowid = record[0]
-
-        src_set = set(record[1])
-        dst_set = set(record[2])
-
-        if flowid in flowid_mapping.keys():
-            flowid_mapping[flowid]['src'] = flowid_mapping[flowid]['src'].union(src_set)
-            flowid_mapping[flowid]['dst'] = flowid_mapping[flowid]['dst'].union(dst_set)
-
-        else:
-            flowid_mapping[flowid] = {'src': src_set, 'dst': dst_set}
-    print("flowid_mapping", flowid_mapping)
-    # required_replacement = {}
-    upd_sqls = []
-    for flowid in flowid_mapping.keys():
-        src_set = flowid_mapping[flowid]['src']
-        dst_set = flowid_mapping[flowid]['dst']
+    upd_tuples = []
+    for (flowid, src, dst) in results:
+        # input()
+        src_set = set(src)
+        dst_set = set(dst)
 
         src_replace = None
         dst_replace = None
-        no_src_change = False
-        if len(src_set) == 0 and len(src_set) == 1:
-            no_src_change = True
+        if len(src_set) == 1:
+            src_replace = src_set[0]
         else:
             for param in src_set:
                 if param[0].isdigit():
@@ -447,9 +457,8 @@ def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
                 print("src_set", src_set)
                 exit()
         
-        no_dst_change = False
-        if len(dst_set) == 0 and len(dst_set) == 1:
-            no_dst_change = True
+        if len(dst_set) == 1:
+            dst_replace = dst_set[0]
         else:
             for param in dst_set:
                 if param[0].isdigit():
@@ -459,23 +468,17 @@ def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
                 print("dst_set", dst_set)
                 exit()
         
-        upd_sql = ""
-        if no_src_change and no_dst_change:
-            continue
-        elif no_dst_change:
-            upd_sql = "update {} set src = '{}' where f = '{}'".format(Z_tablename, src_replace, flowid)
-            
-        elif no_src_change:
-            upd_sql = "update {} set dst = '{}' where f = '{}'".format(Z_tablename, dst_replace, flowid)
-        else:
-            upd_sql = "update {} set src = '{}', dst = '{}' where f = '{}'".format(Z_tablename, src_replace, dst_replace, flowid)
-        upd_sqls.append(upd_sql)
+        upd_tuples.append((flowid, src_replace, dst_replace))
+        # print("upd_tuples", upd_tuples)
+    upd_sql = "update {} set src = updated_src, dst = updated_dst from ( values %s) as updatedvalues (flowid, updated_src, updated_dst) where f = flowid".format(Z_tablename)
+    return upd_sql, upd_tuples
 
-    return upd_sqls
 
 @timeit
 def applySourceDestPolicy(conn, Z_tablename):
     """
+    Apply dest-based forwarding policy in main memory with python
+
     The source must be first hop and the destination must be last hop. 
     This is applied at the start to get rid of variables
 

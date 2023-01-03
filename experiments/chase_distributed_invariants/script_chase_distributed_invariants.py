@@ -508,7 +508,7 @@ def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_host
     out_block_node = random.sample(egress_hosts, 1)[0]
     block_list = (in_block_node, out_block_node)
     # print("block_list", block_list)
-    block_list = ['10.0.0.2', '10.0.0.4']
+    # block_list = ['10.0.0.2', '10.0.0.4']
     # block_list = ['2', '4']
     '''
     generate rewrite policies
@@ -580,7 +580,10 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
     does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
     
     chase.applySourceDestPolicy(conn, Z_tablename)
+    # input()
     # chase.applySourceDestPolicy_new(conn,Z_tablename)
+    # exit()
+    # input()
     while does_updated:
         if order_strategy.lower() == 'random':
             ordered_indexs = list(dependencies.keys())
@@ -596,10 +599,10 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
             count_application += 1
 
             dependency = dependencies[idx]
-            print(dependency['dependency_tuples'])
-            print(dependency['dependency_summary'])
-            print(dependency['dependency_summary_condition'])
-            print("--------------------")
+            # print(dependency['dependency_tuples'])
+            # print(dependency['dependency_summary'])
+            # print(dependency['dependency_summary_condition'])
+            # print("--------------------")
             # input()
             whether_updated = chase.apply_dependency(conn, dependency, Z_tablename)
             temp_updated = (temp_updated or whether_updated)
