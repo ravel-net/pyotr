@@ -1,3 +1,9 @@
+import sys
+from os.path import dirname, abspath, join
+root = dirname(dirname(dirname(dirname(abspath(__file__)))))
+print(root)
+sys.path.append(root)
+
 import z3
 from z3 import * 
 from ipaddress import IPv4Network
@@ -35,6 +41,9 @@ class z3SMTTools:
     _convert_z3_variable(condition, datatype)
         A tool for converting text atom condition to atom condition with z3 datatype. E.g., x == 1 to z3.Int('x') == z3.IntVal(1)
     
+    _variable_type_in_condition(condition)
+        A tool for checking reasoning type for variales/constants in condition
+
     _convert_array_condition2z3_variable(condition)
         A tool for converting text array conditin to array condition with z3 datatype. E.g., 1 \in [1, 2] to IsMember(2,SetAdd(SetAdd(EmptySet(IntSort()), 1), 2))
 
@@ -48,7 +57,7 @@ class z3SMTTools:
         A tool to get IP data with z3 BitVec
     """
     @timeit
-    def __init__(self, variables, domains={}, reasoning_type='Int') -> None:
+    def __init__(self, variables, domains={}, reasoning_type={}) -> None:
         """
         Parameters:
         -----------
@@ -58,8 +67,9 @@ class z3SMTTools:
         domains: dict
             {var:[]}, set domain for each variable
 
-        reasoning_type: string
+        reasoning_type: dict
             Currently only support "Int" and "BitVec"
+            format: {var1: "Int", var2: "BitVec", ...}
         
         solver: z3.Solver()
             The instance of z3.Solver()
@@ -309,7 +319,7 @@ class z3SMTTools:
             if expr_c == 'True':
                 expr_c = "z3.Bool('True')"
             
-            if self._reasoning_type == 'Int':
+            if self._variable_type_in_condition(c) == 'Int':
                 # print("expr_c", expr_c)
                 simplified_c = z3.simplify(eval(expr_c))
                 # print(str(simplified_c))
@@ -453,7 +463,7 @@ class z3SMTTools:
                     prcd_cond += cond_str[condition_positions[idx-1][1]:pair[0]]
                 
                 c = cond_str[pair[0]: pair[1]].strip()
-                prcd_cond += self._convert_z3_variable(c, self._reasoning_type)
+                prcd_cond += self._convert_z3_variable(c)
                 # for num in range(len(op1)):# TODO: assert that length of op1, operator and op2 is the same
                 #     prcd_cond += "{} {} {}".format(op1[num], operator[num], op2[num])
                 #     if num < len(op1)-1:
@@ -461,7 +471,7 @@ class z3SMTTools:
             prcd_cond += cond_str[condition_positions[-1][1]:]
             # print(prcd_cond)
         else:
-            prcd_cond += self._convert_z3_variable(condition, self._reasoning_type)
+            prcd_cond += self._convert_z3_variable(condition)
             # for num in range(len(op1)):# TODO: assert that length of op1, operator and op2 is the same
             #     prcd_cond += "{} {} {}".format(op1[num], operator[num], op2[num])
             #     if num < len(op1)-1:
@@ -548,12 +558,7 @@ class z3SMTTools:
     @timeit
     def simplification(self, target_table, conn):
         cursor = conn.cursor()
-
-        column_datatype_mapping = self._get_column_datatype_mapping(target_table, conn)
-            
-        if 'id' not in column_datatype_mapping:
-            column_datatype_mapping['id'] = 'integer' # add id column
-            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(target_table))
+        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
         conn.commit()
 
         '''
@@ -620,43 +625,39 @@ class z3SMTTools:
     @timeit
     def _get_domain_str(self):
         domain_conditions = []
-        if self._reasoning_type == 'Int':
+        
             
-            for var in self._domains:
+        for var in self._domains:
+
+            if var not in self._reasoning_type.keys() or self._reasoning_type[var] == 'Int':
                 var_conditions = []
                 for val in self._domains[var]:
-                    var_conditions.append("z3.{sort}('{var}') == z3.{sort}Val({val})".format(sort=self._reasoning_type, var=var, val=val))
+                    var_conditions.append("z3.{sort}('{var}') == z3.{sort}Val({val})".format(sort='Int', var=var, val=val))
                 
                 if len(var_conditions) != 0:
                     domain_conditions.append("Or({})".format(", ".join(var_conditions)))
-        else:
-            for var in self._domains:
+            else:
+
                 var_conditions = []
                 for val in self._domains[var]:
-                    condition = self._convert_z3_variable_bit("{} == {}".format(var, val), self._reasoning_type, 32)
+                    condition = self._convert_z3_variable_bit("{} == {}".format(var, val), 'BitVec', 32)
                     var_conditions.append(condition)
 
                 domain_conditions.append("Or({})".format(", ".join(var_conditions)))
-                # var_z3 = "z3.{sort}('{var}', {bits})".format(sort=self._reasoning_type, var=var, bits=32)
-                # lower_bound = self._convertIPToBits('0.0.0.0', 32)
-                # lower_bound_z3 = "z3.{sort}Val('{lower_bound}', {bits})".format(sort=self._reasoning_type, lower_bound=lower_bound, bits=32)
-
-                # upper_bound = self._convertIPToBits('255.255.255.255', 32)
-                # upper_bound_z3 = "z3.{sort}Val('{upper_bound}', {bits})".format(sort=self._reasoning_type, upper_bound=upper_bound, bits=32)
-                
-                # domain_conditions.append("And({var_z3} >= {lower_bound_z3}, {var_z3} <= {upper_bound_z3})".format(var_z3=var_z3, lower_bound_z3=lower_bound_z3, upper_bound_z3=upper_bound_z3))
 
         domain_str = ", ".join(domain_conditions)
         return domain_str
     
     @timeit
-    def _convert_z3_variable(self, condition, datatype):
-        if datatype == "BitVec":
-            return self._convert_z3_variable_bit(condition, datatype, 32)
-
+    def _convert_z3_variable(self, condition):
         # TODO: BitVec datatype of value in array
         if "\\not_in" in condition or "\\in" in condition:
             return self._convert_array_condition2z3_variable(condition)
+
+        datatype = self._variable_type_in_condition(condition)
+        if datatype == "BitVec":
+            return self._convert_z3_variable_bit(condition, datatype, 32)
+        
         # print("condition", condition)
         c_list = condition.split()
         operator = c_list[1]
@@ -672,6 +673,52 @@ class z3SMTTools:
             op2 = f"z3.{datatype}Val('{c_list[2]}')"
         
         return "{} {} {}".format(op1, operator, op2)
+    
+    @timeit
+    def _variable_type_in_condition(self, condition):
+        """
+        check the reasoning type of the variable/constant in condition
+        """
+        c_list = condition.split()
+        # print("left", c_list[0])
+        # print("right", c_list[2])
+        vartype_in_left_opd = None
+        if c_list[0][0].isalpha():
+            if c_list[0].strip() in self._reasoning_type.keys():
+                vartype_in_left_opd = self._reasoning_type[c_list[0].strip()]
+            else:
+                vartype_in_left_opd = 'Int'
+        else:
+            if c_list[0].isdigit():
+                vartype_in_left_opd = 'Int'
+            elif len(c_list[0].split('.')) == 4:
+                vartype_in_left_opd = 'BitVec'
+            else:
+                print("currently only support integer and IP prefix")
+                exit()
+        
+        vartype_in_right_opd = None
+        if c_list[2][0].isalpha():
+            if c_list[2].strip() in self._reasoning_type.keys():
+                vartype_in_right_opd = self._reasoning_type[c_list[2].strip()]
+            else:
+                vartype_in_right_opd = 'Int'
+        else:
+            if c_list[2].isdigit():
+                vartype_in_right_opd = 'Int'
+            elif len(c_list[2].split('.')) == 4:
+                vartype_in_right_opd = 'BitVec'
+            else:
+                print("currently only support integer and IP prefix")
+                exit()
+        
+        if vartype_in_left_opd != vartype_in_right_opd:
+            print("vartype_in_left_opd", vartype_in_left_opd)
+            print("vartype_in_right_opd", vartype_in_right_opd)
+            print(c_list[0],"and", c_list[2], "are not the same reasoning type!")
+            exit()
+        else:
+            return vartype_in_left_opd
 
     @timeit
     def _convert_array_condition2z3_variable(self, condition):
@@ -679,20 +726,27 @@ class z3SMTTools:
         c_list = condition.split()
         operator = c_list[1]
 
+        datatype = None
         if c_list[0][0].isalpha():
-            op1 = "z3.{}('{}')".format(self._reasoning_type, c_list[0])
+            datatype = self._reasoning_type[c_list[0]]
+            op1 = "z3.{}('{}')".format(datatype, c_list[0])
         else: 
-            op1 = "z3.{}Val('{}')".format(self._reasoning_type, c_list[0])
+            if c_list[0].isdigit():
+                datatype = 'Int'
+            else: 
+                print("Do not support IP prefix in array")
+                exit()
+            op1 = "z3.{}Val('{}')".format(datatype, c_list[0])
 
-        array_condition = "EmptySet({}Sort()".format(self._reasoning_type)
+        array_condition = "EmptySet({}Sort()".format(datatype)
         array_items_str = re.findall(r'\[(.*?)\]', c_list[2])
         for item in array_items_str.split(','):
             item = item.strip()
 
             if item.isalpha():
-                array_condition = "SetAdd({}, {}('{}'))".format(array_condition, self._reasoning_type, item)
+                array_condition = "SetAdd({}, {}('{}'))".format(array_condition, datatype, item)
             else:
-                array_condition = "SetAdd({}, {}Val('{}'))".format(array_condition, self._reasoning_type, item)
+                array_condition = "SetAdd({}, {}Val('{}'))".format(array_condition, datatype, item)
         if operator == '\\in':
             return "isMember({}, {})".format(op1, array_condition)
         else:
@@ -710,7 +764,7 @@ class z3SMTTools:
 
     # Breaks IP into a range if it is subnetted. sep is a separator. For z3, it must be empty. For sql, it must be a single quotation mark
     @timeit
-    def _getRange(self, var, op, IP, sep): 
+    def _getRange(self, var, op, IP, sep):
         net = IPv4Network(IP)
         if (net[0] != net[-1]): # subnet
             if op == "==" or op == "=":
@@ -727,10 +781,12 @@ class z3SMTTools:
     def _convert_z3_variable_bit(self, condition, datatype, bits):
         conditionSplit = condition.split()
         constraints = [condition]
-        if not conditionSplit[2][0].isalpha():
-            constraints = self._getRange(conditionSplit[0], conditionSplit[1], conditionSplit[2], "")
-        elif not conditionSplit[0][0].isalpha():
-            constraints = self._getRange(conditionSplit[2], conditionSplit[1], conditionSplit[0], "")
+        left_opd = conditionSplit[0].strip().strip("'").strip('"')
+        right_opd = conditionSplit[2].strip().strip("'").strip('"')
+        if not right_opd[0].isalpha():
+            constraints = self._getRange(left_opd, conditionSplit[1], right_opd, "")
+        elif not left_opd[0].isalpha():
+            constraints = self._getRange(right_opd, conditionSplit[1], left_opd, "")
         conditionFinal = "And("
         for i, constraint in enumerate(constraints):
             c_list = constraint.split()
@@ -752,37 +808,12 @@ class z3SMTTools:
         conditionFinal += ')'
         return conditionFinal
 
-    @timeit
-    def _get_column_datatype_mapping(self, target_table, conn):
-        """
-        Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
-        the array datatype returns 'ARRAY' from datatype. We cannot make the accurate datatype for ARRAY. #TODO: specify the accurate datatype for array
-        """
-        column_datatype_mapping = {}
-        cursor = conn.cursor()
-        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(target_table.lower()))
-        for column_name, data_type in cursor.fetchall():
-            column_datatype_mapping[column_name] = data_type
-            if data_type.lower() == 'user-defined':
-                if self._reasoning_type.lower() == 'int':
-                    column_datatype_mapping[column_name] = 'int4_faure'
-                elif self._reasoning_type.lower() == 'bitvec':
-                    column_datatype_mapping[column_name] = 'inet_faure'
-                else:
-                    print("Unsupported reasoning sort:", self._reasoning_sort)
-                    exit()
-            else:
-                column_datatype_mapping[column_name] = data_type
-        conn.commit()
-        return column_datatype_mapping
-
-
     
 if __name__ == '__main__':
-    condition1 = "Or(x == 1, x == 2)"
-    condition2 = "x == 1"
+    condition1 = "Or(And(x == 1, y == '10.0.0.1'), And(x == 2, y == '10.0.0.2'))"
+    condition2 = "And(x == 1, y == '10.0.0.1')"
 
-    z3tool = z3SMTTools(variables=['x'], domains={})
+    z3tool = z3SMTTools(variables=['x'], domains={}, reasoning_type={'x':'Int', 'y':'BitVec'})
     z3tool.is_implication(condition1, condition2)
     z3tool.is_implication(condition2, condition1)
 

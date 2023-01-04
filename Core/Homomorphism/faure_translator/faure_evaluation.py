@@ -43,15 +43,12 @@ class FaureEvaluation:
     
     _simplication_z3()
         step 3(simplication) for Z3.
-
-    _get_column_datatype_mapping()
-        get the mapping between column and datatype. It only works after step 1. 
         
     _process_condition_on_ctable(tablename, variables, domains)
         convert a c-table with text condition to a c-table with BDD reference
     """
     @timeit
-    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=False) -> None:
+    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False) -> None:
         """
         Parameters:
         ------------
@@ -83,7 +80,9 @@ class FaureEvaluation:
         reasoning_engine: 'z3' or 'bdd'
             We currently support Z3 and BDD as the reasoning engine. 
         
-        reasoning_sort: 'Int' or 'BitVec'
+        reasoning_sort: dict
+            Set reasoning sort for each variable: 'Int' or 'BitVec'.
+            Format: {var1: 'Int', var2: 'BitVec', ...}; the reasoning sort of this variable would be 'Int'if you don't set reasoning type for the variable.
             We currently support reasoning sort 'Int' and 'BitVec' for z3 engine. 
             BDD engine supports integer and IP data (we use 'Int' and 'BitVec' as flags to specify the reasoning type for BDD, i.e., 'Int' for integer data, 'BitVec' for IP data).
         
@@ -102,7 +101,6 @@ class FaureEvaluation:
         self._reasoning_engine = reasoning_engine
         self._reasoning_sort = reasoning_sort
         self._additional_condition = additional_condition
-        self._is_IP = reasoning_sort.lower() == 'bitvec' # if it is IP address
         self._domains = domains
         self._databases = databases
 
@@ -110,7 +108,6 @@ class FaureEvaluation:
         self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
         self.simplication_time = {} # record time for step 3, format: {'contradiction': 0, 'redundancy': 0}
 
-        # self.column_datatype_mapping = self._get_column_datatype_mapping() # mapping between column and datatype for output table
         # self._z3Smt = z3SMTTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
         self._reasoning_tool = reasoning_tool
 
@@ -264,111 +261,6 @@ class FaureEvaluation:
         # logging.info("Time: Commit took {}".format(end-start))
 
     @timeit
-    def simplification_z3(self, target_table=None):
-        if self._information_on:
-            print("\n************************Step 3: Normalization****************************")
-
-        cursor = self._conn.cursor()
-
-        column_datatype_mapping = {}
-        # the target simplied table is the output table 
-        if target_table is None:
-            target_table=self.output_table
-            column_datatype_mapping = self.column_datatype_mapping
-        else:
-            column_datatype_mapping = self._get_column_datatype_mapping(target_table)
-            
-        if 'id' not in column_datatype_mapping:
-            column_datatype_mapping['id'] = 'integer' # add id column
-            cursor.execute("ALTER TABLE {} ADD COLUMN id SERIAL PRIMARY KEY;".format(target_table))
-        #self._conn.commit()
-
-        '''
-        delete contradiction
-        '''
-        if self._information_on:
-            print("delete contradiction")
-        
-        contrd_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
-        contrad_count = cursor.rowcount
-        # logging.info("size of input(delete contradiction): %s" % str(count))
-        del_tuple = []
-        for i in tqdm(range(contrad_count)):
-            row = cursor.fetchone()
-            is_contrad = self._reasoning_tool.iscontradiction(row[1])
-
-            if is_contrad:
-                del_tuple.append(row[0])
-        
-        if len(del_tuple) == 0:
-            pass
-        elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
-        else:
-            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
-
-        contrd_end = time.time()
-        self.simplication_time['contradiction'] = contrd_end - contrd_begin
-        #self._conn.commit()
-
-        '''
-        set tautology and remove redundant
-        '''
-        # print("remove redundant")
-        redun_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
-        redun_count = cursor.rowcount
-        # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
-        upd_cur = self._conn.cursor()
-
-        for i in tqdm(range(redun_count)):
-            row = cursor.fetchone()
-
-            has_redun, result = self._reasoning_tool.has_redundancy(row[1])
-            if has_redun:
-                if result != '{}':
-                    result = ['"{}"'.format(r) for r in result]
-                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(target_table, "{" + ", ".join(result) + "}", row[0]))
-                else:
-                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(target_table, row[0]))
-        redun_end = time.time()
-        self.simplication_time["redundancy"] = redun_end - redun_begin
-        #self._conn.commit()
-
-        if self._information_on:
-            for k, v in self._reasoning_tool.solver.statistics():
-                if (k == "max memory"):
-                    print ("Solver Max Memory: %s : %s" % (k, v))
-
-    @timeit
-    def _get_column_datatype_mapping(self, target_table=None):
-        """
-        Because the datatypes are read from database, the 'int4_faure' and 'inet_faure' are faure datatype that return 'USER-DEFINE' from database; 
-        the array datatype returns 'ARRAY' from datatype. We cannot make the accurate datatype for ARRAY. #TODO: specify the accurate datatype for array
-        """
-        if target_table is None:
-            target_table = self.output_table
-
-        column_datatype_mapping = {}
-        cursor = self._conn.cursor()
-        cursor.execute("SELECT column_name, data_type FROM information_schema.columns WHERE table_name = '{}';".format(target_table.lower()))
-        for column_name, data_type in cursor.fetchall():
-            column_datatype_mapping[column_name] = data_type
-            if data_type.lower() == 'user-defined':
-                if self._reasoning_sort.lower() == 'int':
-                    column_datatype_mapping[column_name] = 'int4_faure'
-                elif self._reasoning_sort.lower() == 'bitvec':
-                    column_datatype_mapping[column_name] = 'inet_faure'
-                else:
-                    print("Unsupported reasoning sort:", self._reasoning_sort)
-                    exit()
-            else:
-                column_datatype_mapping[column_name] = data_type
-        #self._conn.commit()
-        return column_datatype_mapping
-    
-    @timeit
     def _upd_condition_BDD(self):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
@@ -453,162 +345,6 @@ class FaureEvaluation:
         cursor.execute(sql)
         #self._conn.commit()
         
-    @timeit
-    def _upd_condition_BDD_old(self, domains, variables):
-        if self._information_on:
-            print("\n************************Step 2: update condition****************************")
-        cursor = self._conn.cursor()
-
-        # if 'id' not in self.column_datatype_mapping:
-        cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
-        #self._conn.commit()
-
-        '''
-        conjunction conditions
-        '''
-        conjunction_condition = self._SQL_parser.additional_conditions_SQL_format
-        old_constraints = self._SQL_parser.old_conditions_attributes_BDD
-
-        new_reference_mapping = {}
-        if conjunction_condition is not None:
-            
-            select_sql = "select ARRAY[{}] as old_conditions, {} as conjunction_condition, id from {}".format(", ".join(old_constraints), conjunction_condition, self.output_table) 
-            if self._information_on:
-                print(select_sql)
-                
-            begin_upd = time.time()
-            cursor.execute(select_sql)
-            end_upd = time.time()
-            count_num = cursor.rowcount
-            
-            for i in range(count_num):
-                (old_conditions, conjunctin_conditions, id) = cursor.fetchone()
-                # print(old_conditions, conjunctin_conditions, id)
-                '''
-                Logical AND all original conditions for all tables
-                '''
-                # print("result", bddmm.operate_BDDs(0, 1, "&"))
-                old_bdd = old_conditions[0]
-                for cond_idx in range(1, len(old_conditions)):
-                    bdd1 = old_conditions[cond_idx]
-                    # print("old_bdd", old_bdd, "bdd1", bdd1)
-                    old_bdd = bddmm.operate_BDDs(int(bdd1), int(old_bdd), "&")
-                    # print('old', old_bdd)
-
-                '''
-                get BDD reference number for conjunction condition
-                '''
-                conjunction_str = "And({})".format(", ".join(conjunctin_conditions))
-                encoded_conjunction_str, variables_arr = encodeCUDD.convertToCUDD(conjunction_str, domains, variables, self._is_IP)
-                conjunction_ref = bddmm.str_to_BDD(encoded_conjunction_str)
-
-                # Logical AND original BDD and conjunction BDD
-                new_ref = bddmm.operate_BDDs(old_bdd, conjunction_ref, "&")
-                new_reference_mapping[id] = new_ref
-        else:
-            if self._information_on:
-                print("No conjunction conditions for c-variables!")
-            self.update_condition_time['update_condition'] = 0
-            
-            select_sql = "select ARRAY[{}] as old_conditions, id from {}".format(", ".join(old_constraints), self.output_table) 
-            if self._information_on:
-                print(select_sql)
-                
-            begin_upd = time.time()
-            cursor.execute(select_sql)
-            end_upd = time.time()
-            count_num = cursor.rowcount
-            
-            for i in range(count_num):
-                (old_conditions, id) = cursor.fetchone()
-                # print(old_conditions, conjunctin_conditions, id)
-                '''
-                Logical AND all original conditions for all tables
-                '''
-                # print("result", bddmm.operate_BDDs(0, 1, "&"))
-                old_bdd = old_conditions[0]
-                for cond_idx in range(1, len(old_conditions)):
-                    bdd1 = old_conditions[cond_idx]
-                    # print("old_bdd", old_bdd, "bdd1", bdd1)
-                    old_bdd = bddmm.operate_BDDs(int(bdd1), int(old_bdd), "&")
-                    # print('old', old_bdd)
-
-                new_reference_mapping[id] = old_bdd
-        
-        '''
-        append additional conditions to output table
-        '''
-        if self._additional_condition is not None:
-            encoded_additional_conditions, _ = encodeCUDD.convertToCUDD(self._additional_condition, domains, variables, self._is_IP)
-            additional_ref = bddmm.str_to_BDD(encoded_additional_conditions)
-            for id in new_reference_mapping.keys():
-                cond_ref = new_reference_mapping[id]
-                new_ref = bddmm.operate_BDDs(cond_ref, additional_ref, '&')
-                # update condition reference for each tuple after appending additional conditions
-                new_reference_mapping[id] = new_ref
-
-        '''
-        add condition column of integer type
-        update bdd reference number on condition column
-        '''
-        sql = "alter table if exists {} add column condition integer".format(self.output_table)
-        cursor.execute(sql)
-        #self._conn.commit()
-
-        begin_upd = time.time()
-        for key in new_reference_mapping.keys():
-            sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
-            cursor.execute(sql)
-        end_upd = time.time()
-        #self._conn.commit()
-
-        self.update_condition_time['update_condition'] = end_upd - begin_upd
-        #self._conn.commit()
-        '''
-        Check the selected columns
-        if select *, drop duplicated columns,
-        else only keep selected columns
-        '''
-        sqls = []
-        for key_simple_attr in self._SQL_parser.equal_attributes_from_where_clause:
-            key_name = self._SQL_parser.simple_attribute_mapping[key_simple_attr].AttributeName
-            is_faure_datatype_key = self._SQL_parser.simple_attr2datatype_mapping[key_simple_attr].lower() in self._SQL_parser._FAURE_DATATYPE
-
-            for attr in self._SQL_parser.equal_attributes_from_where_clause[key_simple_attr]:
-                attr_name = self._SQL_parser.simple_attribute_mapping[attr].AttributeName
-
-                is_faure_datatype_attr = self._SQL_parser.simple_attr2datatype_mapping[attr].lower() in self._SQL_parser._FAURE_DATATYPE
-
-                if is_faure_datatype_key or is_faure_datatype_attr:
-                    sql = "update {} set {} = {} where not is_var({})".format(self.output_table,  attr_name, key_name, key_name)
-                    sqls.append(sql)
-            
-        begin_instantiated = time.time()
-        for sql in sqls:
-            if self._information_on:
-                print(sql)
-            cursor.execute(sql)
-        end_instantiated = time.time()
-        self.update_condition_time['instantiation'] = end_instantiated-begin_instantiated
-
-        if self._SQL_parser.type == 1: # selection
-            drop_columns = self._SQL_parser.drop_columns
-
-            drop_sql = "ALTER TABLE {} drop column ".format(self.output_table) + ", drop column ".join(drop_columns)
-            if self._information_on:
-                print(drop_sql)
-            
-            begin_drop = time.time()
-            cursor.execute(drop_sql)
-            end_drop = time.time()
-            self.update_condition_time['drop'] = end_drop-begin_drop
-
-            #self._conn.commit()
-
-        else:
-            print("Coming soon!")
-            exit()
-    
     @timeit
     def _process_condition_on_ctable(self, tablename):
         """
@@ -726,7 +462,7 @@ if __name__ == '__main__':
         password=cfg.postgres["password"])
 
     sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
-    FaureEvaluation(conn, sql, databases={}, reasoning_engine='z3', reasoning_sort='Int', simplication_on=True, information_on=True)
+    FaureEvaluation(conn, sql, databases={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=True)
 
 
     # bddmm.initialize(1, 2**32-1)
