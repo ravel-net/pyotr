@@ -167,13 +167,17 @@ class DT_Program:
 
     # minimize. Does minimization in place. Make sure to make a copy if you want the original program
     #TODO IMPORTANT: Program only rule should be entire program. Method: Delete contained rule and then add a rule without atom
-    def minimize(self, minimizeAtomsOn = True, minimizeRulesOn = True, enhancedMinimizationOn = False):
+    def minimize(self, minimizeAtomsOn = True, minimizeRulesOn = True, enhancedMinimizationOn = "Off"):
         if minimizeAtomsOn:
             minimizeAtoms(self)
         if minimizeRulesOn:
             minimizeRules(self)
-        if enhancedMinimizationOn:
-            enhancedMinimization(self)
+        if enhancedMinimizationOn != "Off": # enhancedMinimizationOn can either be "Off", "Const", or "No-Const". "No-Const" disables constant unification
+            if enhancedMinimizationOn == "No-Const":
+                enhancedMinimization(self, False)
+            else:
+                enhancedMinimization(self, True)
+
     
     @property
     def numRules(self):

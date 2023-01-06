@@ -39,7 +39,7 @@ def minimizeRules(P):
             ruleNum += 1   
 
 @timeit
-def enhancedMinimization(P):
+def enhancedMinimization(P, constantUnificationOn = True):
     signatureBuckets = {}
     ruleName = {}
     P_unified = []
@@ -60,7 +60,7 @@ def enhancedMinimization(P):
             while j < len(bucket):
                 r1 = bucket[i]
                 r2 = bucket[j]
-                r_tmp = unify(r1, r2, ruleNums[i])
+                r_tmp = unify(r1, r2, ruleNums[i], constantUnificationOn)
                 if (r_tmp != None): # unification was successful
                     bucket[i] = r_tmp
                     del bucket[j]

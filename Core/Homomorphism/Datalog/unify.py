@@ -15,19 +15,18 @@ N = 2
 
 # Note: We do not take into account cases where a c-variable appears in the head but not in the body
 @timeit
-def unify(rule1, rule2, rule1Name):
-	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name)
+def unify(rule1, rule2, rule1Name, constantUnificationOn = True):
+	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name, constantUnificationOn)
 	rule2_without_Faure = rule2.getRuleWithoutFaure()
 	equal_subs_r3_to_r2 = getEquivalentSubstitutions(rule3, rule2_without_Faure)
 	if not equal_subs_r3_to_r2: # no equal substitutions found
 		return None
-	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, rule2_without_Faure, rule1Name)
-
-	return getNewRule(C1_head, C1_body, C2_head, C2_body, rule3)
+	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, rule2_without_Faure, rule1Name, constantUnificationOn)
+	return getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn)
 
 @timeit
 # Performs simplification of conditions and returns a new rule
-def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3):
+def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn):
 	# Delete repeated conditions
 	for cond in C1_head:
 		if cond in C1_body:
@@ -36,10 +35,8 @@ def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3):
 		if cond in C2_body:
 			C2_head.remove(cond)
 
-
 	cVarReplacements = getCVarReplacements(C1_head, C2_head)
 	cVarReplacements.update(getCVarReplacements(C1_body, C2_body))
-
 	
 	C1_head_str = getSimplifiedCondition("And", C1_head+C1_body)
 	C2_head_str = getSimplifiedCondition("And", C2_head+C2_body)
@@ -48,16 +45,15 @@ def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3):
 	# The presence of () in a condition means an empty condition. We do not let empty conditions propogate
 	newHeadCondition = getSimplifiedCondition("Or", [C1_head_str]+[C2_head_str])
 	newBodyCondition = getSimplifiedCondition("Or", [C1_body_str]+[C2_body_str])
-
-	if len(rule3._additional_constraints) > 0 and rule3._additional_constraints[0][:2] == "Or": # TODO: Hacky way to combine additional conditions of rules. 
-		newBodyCondition = rule3._additional_constraints[0][:-1] + "," + newBodyCondition + ")"
+	if len(rule3._additional_constraints) > 0 and rule3._additional_constraints[0][:2] == "Or" and newBodyCondition != '': # TODO: Hacky way to combine additional conditions of rules. 
+		newBodyCondition = "("+rule3._additional_constraints[0][:-1] + "," + newBodyCondition + ")"
 		rule3.removeAdditionalCondition()
-
-
 	rule3._head.replaceCondition([newHeadCondition])
 	rule3Str = str(rule3)
-	for cvar in cVarReplacements:
-		rule3Str = rule3Str.replace(cvar, cVarReplacements[cvar])
+
+	if constantUnificationOn:
+		for cvar in cVarReplacements:
+			rule3Str = rule3Str.replace(cvar, cVarReplacements[cvar])
 	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
 	return newRule
 
@@ -96,7 +92,7 @@ def getCVarReplacements(conditions1, conditions2):
 # C-variables is replacement of conditions from rule 2
 # Variable is ignoring
 @timeit
-def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
+def getConditions(substitution, rule, rule2, r2_without_faure, ruleName, constantUnificationOn):
 	conditions = []
 	for atom in rule2._body:
 		if atom.constraints:
@@ -108,6 +104,9 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 		parameterNum = 0
 		for val in currTuple: 
 			c_var_param = atom.parameters[parameterNum]
+			if isConstant(c_var_param):
+				continue
+			datatype = atom.db["column_types"][parameterNum]
 			if val[0] == '{': # is a list
 				listCurrTuple = val[1:-1].split("^")
 				for i, listVal in enumerate(listCurrTuple):
@@ -115,29 +114,37 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName):
 						newCondition = c_var_param[i] + " == " + listVal
 						if newCondition not in conditions:
 							conditions.append(newCondition) 
-					elif r2_without_faure._datatype != "inet_faure" and int(listVal) in r2_without_faure._reverseMapping:
+					elif "inet" not in datatype and int(listVal) in r2_without_faure._reverseMapping:
 						variable = r2_without_faure._reverseMapping[int(listVal)]
 						replacements[variable] = c_var_param[i]
-					elif r2_without_faure._datatype == "inet_faure" and listVal in r2_without_faure._reverseMapping:
+						if "True" not in conditions:
+							conditions.append("True")
+					elif "inet" in datatype and listVal in r2_without_faure._reverseMapping:
 						variable = r2_without_faure._reverseMapping[listVal]
 						replacements[variable] = c_var_param[i]
+						if "True" not in conditions:
+							conditions.append("True")
 					elif listVal in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 						replacements[listVal] = c_var_param[i]
 			elif isConstant(val):
 				newCondition = c_var_param + " == " + val
 				if newCondition not in conditions:
 					conditions.append(newCondition) 
-			elif r2_without_faure._datatype != "inet_faure" and int(val) in r2_without_faure._reverseMapping:
+			elif "inet" not in datatype and int(val) in r2_without_faure._reverseMapping: # variables
 				variable = r2_without_faure._reverseMapping[int(val)]
 				replacements[variable] = c_var_param
-			elif r2_without_faure._datatype == "inet_faure" and val in r2_without_faure._reverseMapping:
+				if "True" not in conditions:
+					conditions.append("True")
+			elif "inet" in datatype and val in r2_without_faure._reverseMapping: # variables
 				variable = r2_without_faure._reverseMapping[val]
 				replacements[variable] = c_var_param
+				if "True" not in conditions:
+					conditions.append("True")
 			elif val in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 				replacements[val] = c_var_param
 			parameterNum += 1
 		atomNum += 1
-	_, newHeadCondition, _ = getEquivalentAtom(rule2._head, rule2, ruleName+"-H-"+rule2._head.db["name"])
+	_, newHeadCondition, _ = getEquivalentAtom(rule2._head, rule2, ruleName+"-H-"+rule2._head.db["name"], constantUnificationOn)
 	replacedBodyConditions = []
 	replacedHeadConditions = []
 
@@ -230,6 +237,8 @@ def matchParams(param1, param2, mappings):
 	if isinstance(param1, list):
 		for subparamNum, subParam1 in enumerate(param1):
 			sumParam2 = param2[subparamNum]
+			if isConstant(subParam1) and subParam1 != sumParam2:
+				return False
 			if subParam1 in mappings:
 				return (mappings[subParam1] == sumParam2)
 			mappings[subParam1] = sumParam2
@@ -279,7 +288,6 @@ def getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure):
 		param2 = atom2.parameters[paramNum]
 		if not matchParams(param1, param2, headMappings):
 			return None
-
 	for combination_rule in all_combinations:
 		mappings = deepcopy(headMappings)
 		found = True
@@ -311,10 +319,11 @@ def getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure):
 	return None # if we reach this point then none of the combinations work
 
 def getEquivalentSubstitutions(rule3, r2_without_faure):
-	if len(rule3._body) > 8:
-		return getEquivalentSubstitutionsDB(rule3, r2_without_faure)
-	else:
-		return getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure)
+	# if len(rule3._body) > 8:
+	# 	return getEquivalentSubstitutionsDB(rule3, r2_without_faure)
+	# else:
+	# 	return getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure)
+	return getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure)
 
 
 
@@ -341,15 +350,15 @@ def getSubstitutions(rule, rule2_without_Faure):
 
 # Takes a rule as input and returns a new rule that has all parameters replaced with c-variables. 
 @timeit
-def getEquivalentRule(rule, ruleName):
+def getEquivalentRule(rule, ruleName, constantUnificationOn):
 	newAtoms = []
 	newConditions = []
 	c_vars = []
-	newHead, newHeadCondition, new_cvars = getEquivalentAtom(rule._head, rule, ruleName+"-H-"+rule._head.db["name"])
+	newHead, newHeadCondition, new_cvars = getEquivalentAtom(rule._head, rule, ruleName+"-H-"+rule._head.db["name"], constantUnificationOn)
 	c_vars += new_cvars
 	new_ctables = rule._c_tables
 	for atomNum, atom in enumerate(rule._body):
-		newAtom, newCondition, new_cvars = getEquivalentAtom(atom, rule, ruleName+"-"+str(atomNum)+"-"+rule._head.db["name"])
+		newAtom, newCondition, new_cvars = getEquivalentAtom(atom, rule, ruleName+"-"+str(atomNum)+"-"+rule._head.db["name"], constantUnificationOn)
 		c_vars += new_cvars # to avoid reusing a c-variable
 		newAtoms.append(newAtom)
 		newConditions += newCondition
@@ -374,7 +383,7 @@ def isConstant(param):
 		return False
 	elif "." in param:
 		return True
-	elif param[0].isdigit() and int(param) < 10000:
+	elif param[0].isdigit() and int(param) < 100000:
 		return True
 	else:
 		return False
@@ -392,7 +401,7 @@ def isConstant(param):
 # Takes two atoms and returns a combined atom
 # Atom number means atomName 
 @timeit
-def getEquivalentAtom(atom, rule, atomName):
+def getEquivalentAtom(atom, rule, atomName, constantUnificationOn):
 		table = atom.db["name"]
 		conditions = []
 		parameters = []
@@ -404,13 +413,18 @@ def getEquivalentAtom(atom, rule, atomName):
 				listParams = []
 				for i, listParam in enumerate(param):
 					if isConstant(listParam):
-						new_cvar = atomName+"_l"+str(paramNum+i)
-						new_cvariables.append(new_cvar)
-						listParams.append(new_cvar)
-						conditions.append(new_cvar + " == " + listParam)
+						if constantUnificationOn:
+							new_cvar = atomName+"_l"+str(paramNum+i)
+							new_cvariables.append(new_cvar)
+							listParams.append(new_cvar)
+							if (new_cvar + " == " + listParam) not in conditions:
+								conditions.append(new_cvar + " == " + listParam)
+						else:
+							listParams.append(listParam)
 					elif param in c_variables:
 						listParams.append(listParam)
-						conditions += atom.constraints
+						if atom.constraints and atom.constraints[0] not in conditions:
+							conditions += atom.constraints
 					else: # variables:
 						new_cvar = listParam + "`"
 						new_cvariables.append(new_cvar)
@@ -418,13 +432,18 @@ def getEquivalentAtom(atom, rule, atomName):
 				parameters.append('['+",".join(listParams)+']')
 
 			elif isConstant(param):
-				new_cvar = atomName+"_"+str(paramNum)
-				new_cvariables.append(new_cvar)
-				parameters.append(new_cvar)
-				conditions.append(new_cvar + " == " + param)
+				if constantUnificationOn:
+					new_cvar = atomName+"_"+str(paramNum)
+					new_cvariables.append(new_cvar)
+					parameters.append(new_cvar)
+					if (new_cvar + " == " + param) not in conditions:
+						conditions.append(new_cvar + " == " + param)
+				else:
+					parameters.append(param)
 			elif param in c_variables:
 				parameters.append(param)
-				conditions += atom.constraints
+				if atom.constraints and atom.constraints[0] not in conditions:
+					conditions += atom.constraints
 			else: # variables:
 				new_cvar = param + "`"
 				new_cvariables.append(new_cvar)

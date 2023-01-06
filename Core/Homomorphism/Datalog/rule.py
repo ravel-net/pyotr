@@ -63,7 +63,9 @@ class DT_Rule:
     """
     @timeit
     def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, headAtom="", bodyAtoms=[], additional_constraints=[]):
-        self._additional_constraints = deepcopy(additional_constraints) 
+        self._additional_constraints = []
+        if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
+            self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
         if headAtom and bodyAtoms:
             self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
@@ -72,6 +74,7 @@ class DT_Rule:
             additional_constraint_split = rule_str.split(":-")[1].strip().split(",(")
             body_str = additional_constraint_split[0]
             if len(additional_constraint_split) > 1:
+                additional_constraint_split[1] = additional_constraint_split[1][:-1]
                 self._additional_constraints += additional_constraint_split[1:]
             head = DT_Atom(head_str, databaseTypes, operators, c_variables, c_tables)
             body = []
@@ -132,16 +135,36 @@ class DT_Rule:
             db_names.append(self._head.db["name"])
 
         # TODO: Make sure that the mapping does not overlap with any other constant in the body
-        # for i, var in enumerate(self._variables+self._c_variables):
-        for i, var in enumerate(self._variables):
-            if datatype == "inet_faure":
-                IPaddr = str(IPv4Address(int(IPv4Address('0.0.0.1')) + i))
-                print(IPaddr)
-                self._mapping[var] = IPaddr
-                self._reverseMapping[IPaddr] = var
-            else: # Int data type
-                self._mapping[var] = 10000+i
-                self._reverseMapping[10000+i] = var
+        i = 0
+        for atom in self._body:
+            for paramNum, var in enumerate(atom.parameters):
+                if isinstance(var, list):
+                    for listVar in var:
+                        if listVar not in self._variables:
+                            continue
+                        paramDatatype = paramDatatype[:-2]
+                        if "inet" in paramDatatype:
+                            IPaddr = str(IPv4Address(int(IPv4Address('0.0.0.1')) + i))
+                            self._mapping[listVar] = IPaddr
+                            self._reverseMapping[IPaddr] = listVar
+                            i += 1
+                        else: # Int data type
+                            self._mapping[listVar] = 100000+i
+                            self._reverseMapping[100000+i] = listVar
+                            i += 1
+                    continue    
+                if var not in self._variables:
+                    continue
+                paramDatatype = atom.db["column_types"][paramNum]
+                if "inet" in paramDatatype:
+                    IPaddr = str(IPv4Address(int(IPv4Address('0.0.0.1')) + i))
+                    self._mapping[var] = IPaddr
+                    self._reverseMapping[IPaddr] = var
+                    i += 1
+                else: # Int data type
+                    self._mapping[var] = 100000+i
+                    self._reverseMapping[100000+i] = var
+                    i += 1
 
         # in case of unsafe rule
         if self.safe():
@@ -642,24 +665,29 @@ class DT_Rule:
     @timeit
     def split_atoms(self, bodystr):
         i = 0
-        in_parenth = False
+        in_cond = False
+        in_param = False
         atom_strs = []
         begin_pos = i
         while i < len(bodystr):
-            if bodystr[i] == '(':
-                in_parenth = True
-            elif bodystr[i] == ')':
-                in_parenth = False
+            if bodystr[i] == '(' and not in_cond:
+                in_param = True
+            elif bodystr[i] == '[' and not in_param:
+                in_cond = True
+            elif bodystr[i] == ')' and not in_cond:
+                in_param = False
                 atom_str = bodystr[begin_pos: i+1].strip(" ,")
                 atom_strs.append(atom_str)
                 begin_pos = i+1
-            elif bodystr[i] == ']':
-                if not in_parenth:
-                    relation = atom_strs.pop(-1)
-                    atom_str_with_condition = relation + bodystr[begin_pos: i+1]
-                    atom_str_with_condition.strip(" ,")
-                    atom_strs.append(atom_str_with_condition)
-                    begin_pos = i + 1
+            elif bodystr[i] == ']' and not in_param:
+                # if len(in_parenth) < 1:
+                in_cond = False
+                in_param = False
+                relation = atom_strs.pop(-1)
+                atom_str_with_condition = relation + bodystr[begin_pos: i+1]
+                atom_str_with_condition.strip(" ,")
+                atom_strs.append(atom_str_with_condition)
+                begin_pos = i + 1
             
             i += 1
         if begin_pos != len(bodystr):
