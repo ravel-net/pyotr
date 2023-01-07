@@ -319,14 +319,8 @@ class z3SMTTools:
             if expr_c == 'True':
                 expr_c = "z3.Bool('True')"
             
-            if self._variable_type_in_condition(c) == 'Int':
-                # print("expr_c", expr_c)
-                simplified_c = z3.simplify(eval(expr_c))
-                # print(str(simplified_c))
-                result.append(str(simplified_c))
-            else:
-                simplified_c = eval(expr_c)  # TODO:simpliy a string condition for BitVec
-                result.append(c)
+            simplified_c = eval(expr_c)  # TODO:simpliy a string condition
+            result.append(c)
             simplified_conditions.append(simplified_c)
         
         drop_idx = {}
@@ -678,6 +672,8 @@ class z3SMTTools:
     def _variable_type_in_condition(self, condition):
         """
         check the reasoning type of the variable/constant in condition
+
+        input atomic condition. i.e., x == 1; x == y; ...
         """
         c_list = condition.split()
         # print("left", c_list[0])

@@ -131,6 +131,9 @@ class FaureEvaluation:
                 # integration of step 1 and step 2
                 self._integration()
 
+                if self._additional_condition is not None:
+                    self._append_additional_condition()
+
                 if simplication_on:
                     # Step 3: simplication
                     self._reasoning_tool.simplification(self.output_table, self._conn)
@@ -259,6 +262,12 @@ class FaureEvaluation:
         # self._conn.commit()
         # end = time.time()
         # logging.info("Time: Commit took {}".format(end-start))
+
+    @timeit
+    def _append_additional_condition(self):
+        cursor = self._conn.cursor()
+        cursor.execute("update {} set condition = condition || Array['{}']".format(self.output_table, self._additional_condition))
+        conn.commit()
 
     @timeit
     def _upd_condition_BDD(self):
@@ -454,15 +463,17 @@ if __name__ == '__main__':
     # # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
     # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and (t1.a2 = '1' or t1.a2 = '2');"
     # FaureEvaluation(conn, sql, additional_condition="d != 2", databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='Int', simplication_on=False, information_on=True)
-
+    z3smt = z3SMTTools(variables=['x', 'y', 'z', 'w'], domains={}, reasoning_type={})
     conn = psycopg2.connect(
         host=cfg.postgres["host"], 
         database=cfg.postgres["db"], 
         user=cfg.postgres["user"], 
         password=cfg.postgres["password"])
 
-    sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
-    FaureEvaluation(conn, sql, databases={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=True)
+    # sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
+    sql = "select t1.c0 as c0, t2.c1 as c1, t3.c1 as c2 from G t1, A t2, A t3, A t4, A t5 where t1.c1 = t2.c0 and t2.c0 = t3.c0 and t1.c2 = t3.c1 and t3.c1 = t4.c0 and t4.c0 = t4.c1 and t4.c1 = t5.c0 and t2.c1 = t5.c1"
+    additional_condition = "And(y == 1, x == 2)"
+    FaureEvaluation(conn, sql, reasoning_tool=z3smt, additional_condition=additional_condition, databases={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=True)
 
 
     # bddmm.initialize(1, 2**32-1)
