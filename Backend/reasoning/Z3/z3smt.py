@@ -685,7 +685,7 @@ class z3SMTTools:
             else:
                 vartype_in_left_opd = 'Int'
         else:
-            if c_list[0].isdigit():
+            if c_list[0].isdigit() or c_list[0][0] == "-":
                 vartype_in_left_opd = 'Int'
             elif len(c_list[0].split('.')) == 4:
                 vartype_in_left_opd = 'BitVec'
@@ -700,7 +700,7 @@ class z3SMTTools:
             else:
                 vartype_in_right_opd = 'Int'
         else:
-            if c_list[2].isdigit():
+            if c_list[2].isdigit() or c_list[2][0] == "-":
                 vartype_in_right_opd = 'Int'
             elif len(c_list[2].split('.')) == 4:
                 vartype_in_right_opd = 'BitVec'
