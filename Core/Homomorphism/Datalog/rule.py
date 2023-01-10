@@ -557,8 +557,10 @@ class DT_Rule:
                     elif len(tup_cond) == 1:
                         str_tup_cond = tup_cond[0]
 
-                    # Does the condition in the tuple imply the condition in the header?
-                    if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.check_equivalence_for_two_string_conditions(str_tup_cond, header_condition):
+                    # Does the condition in the header imply the condition in the tuple?
+                    # We are not checking for equivalence because we are merging tuples
+                    # if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.is_implication(header_condition, str_tup_cond):
+                    if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions):
                         contains = True
                         return contains                    
                 elif self._reasoning_engine == 'bdd':

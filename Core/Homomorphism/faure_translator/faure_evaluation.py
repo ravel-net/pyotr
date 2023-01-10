@@ -131,7 +131,7 @@ class FaureEvaluation:
                 # integration of step 1 and step 2
                 self._integration()
 
-                if self._additional_condition is not None:
+                if self._additional_condition:
                     self._append_additional_condition()
 
                 if simplication_on:
@@ -267,7 +267,7 @@ class FaureEvaluation:
     def _append_additional_condition(self):
         cursor = self._conn.cursor()
         cursor.execute("update {} set condition = condition || Array['{}']".format(self.output_table, self._additional_condition))
-        conn.commit()
+        # conn.commit()
 
     @timeit
     def _upd_condition_BDD(self):
@@ -324,7 +324,7 @@ class FaureEvaluation:
         '''
         append additional conditions to output table
         '''
-        if self._additional_condition is not None:
+        if self._additional_condition:
             additional_ref = self._reasoning_tool.str_to_BDD(self._additional_condition)
             for id in new_reference_mapping.keys():
                 cond_ref = new_reference_mapping[id]

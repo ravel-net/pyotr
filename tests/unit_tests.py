@@ -152,6 +152,51 @@ def unit_test8():
         end = time.time()
         print("Test 8.2 passed in {} seconds".format(end-start))
 
+def unit_test9():
+    p1 = "l(1,x)[x == 1] :- R(x)[x == 1]\nl(1,x)[x == 2] :- R(x)[x == 2]"
+    p2 = "l(1,x)[Or(x == 1, x == 2)] :- R(x)[Or(x == 1, x == 2)]"
+
+    
+    program1 = DT_Program(p1, {"l":["int4_faure", "int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"])
+    program2 = DT_Program(p2, {"l":["int4_faure", "int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"])
+
+    start = time.time()
+    if (not program2.contains(program1)):
+        print("Text 9.1 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 9.1 passed in {} seconds".format(end-start))
+
+    start = time.time()
+    if (not program1.contains(program2)):
+        print("Text 9.2 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 9.2 passed in {} seconds".format(end-start))
+
+def unit_test10():
+    p1 = "l(x)[And(x > 2, x  < 7)] :- R(x)[And(x > 0, x  < 10)], R(x)[And(x > 2, x  < 7)]"
+    p2 = "l(x)[And(x > 2, x  < 7)] :- R(x)[And(x > 2, x  < 7)], R(x)[And(x > 0, x  < 10)]"
+
+    
+    program1 = DT_Program(p1, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"])
+    program2 = DT_Program(p2, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"])
+
+    start = time.time()
+    program1.minimize()
+    program2.minimize()
+    print("Program 1 after minimization:", program1)
+    print("Program 2 after minimization:", program2)
+    if (str(program1) != str(program2)):
+        print("Text 10 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 10 passed in {} seconds".format(end-start))
+
+
 if __name__ == "__main__":
     unit_test1()
     unit_test2()
@@ -161,6 +206,8 @@ if __name__ == "__main__":
     unit_test6()
     unit_test7()
     unit_test8()
+    # unit_test9()
+    unit_test10()
 
 
 

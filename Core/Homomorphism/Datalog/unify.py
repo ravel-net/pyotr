@@ -22,21 +22,23 @@ def unify(rule1, rule2, rule1Name, constantUnificationOn = True):
 	if not equal_subs_r3_to_r2: # no equal substitutions found
 		return None
 	C2_head, C2_body = getConditions(equal_subs_r3_to_r2, rule3, rule2, rule2_without_Faure, rule1Name, constantUnificationOn)
-	return getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn)
+	finalRule = getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn)
+	return finalRule
 
 @timeit
 # Performs simplification of conditions and returns a new rule
 def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn):
 	# Delete repeated conditions
-	for cond in C1_head:
-		if cond in C1_body:
-			C1_head.remove(cond)
-	for cond in C2_head:
-		if cond in C2_body:
-			C2_head.remove(cond)
+	# for cond in C1_head:
+	# 	if cond in C1_body:
+	# 		C1_head.remove(cond)
+	# for cond in C2_head:
+	# 	if cond in C2_body:
+	# 		C2_head.remove(cond)
 
-	cVarReplacements = getCVarReplacements(C1_head, C2_head)
-	cVarReplacements.update(getCVarReplacements(C1_body, C2_body))
+	if constantUnificationOn:
+		cVarReplacements = getCVarReplacements(C1_head, C2_head)
+		cVarReplacements.update(getCVarReplacements(C1_body, C2_body))
 	
 	C1_head_str = getSimplifiedCondition("And", C1_head+C1_body)
 	C2_head_str = getSimplifiedCondition("And", C2_head+C2_body)
@@ -421,7 +423,7 @@ def getEquivalentAtom(atom, rule, atomName, constantUnificationOn):
 								conditions.append(new_cvar + " == " + listParam)
 						else:
 							listParams.append(listParam)
-					elif param in c_variables:
+					elif listParam in c_variables or listParam in new_cvariables:
 						listParams.append(listParam)
 						if atom.constraints and atom.constraints[0] not in conditions:
 							conditions += atom.constraints
@@ -440,7 +442,7 @@ def getEquivalentAtom(atom, rule, atomName, constantUnificationOn):
 						conditions.append(new_cvar + " == " + param)
 				else:
 					parameters.append(param)
-			elif param in c_variables:
+			elif param in c_variables or param in new_cvariables:
 				parameters.append(param)
 				if atom.constraints and atom.constraints[0] not in conditions:
 					conditions += atom.constraints
