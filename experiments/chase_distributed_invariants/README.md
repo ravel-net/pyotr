@@ -4,6 +4,14 @@
 
 `run_toy.py`
 
+- run_the_chase(conn, initial_T_tablename, initial_T_tuples, policies, sigma_new_sqls, E_tuples, security_hole)
+  - conn: a instance of Postgres connection
+  - initial_T_tablename: tablename of input table T
+  - initial_T_tuples: the tuples of input table T
+  - policies: a list of policies. A policy contains multiple dependencies.
+  - sigma_new_sqls: a list of SQLs corresponding to the datalog rules of \sigma_new
+  - security_hole: the checking security hole
+
 - database configuration, modify [`databaseconfig.py`](../../databaseconfig.py)
   ```python
     # modify config in databaseconfig.py under pyotr folder
@@ -91,13 +99,7 @@
   security_hole = ['10.0.0.2', '10.0.0.4'] # block [source, dest]
   ```
 
-- run_the_chase(conn, initial_T_tablename, initial_T_tuples, policies, sigma_new_sqls, E_tuples, security_hole)
-  - conn: a instance of Postgres connection
-  - initial_T_tablename: tablename of input table T
-  - initial_T_tuples: the tuples of input table T
-  - policies: a list of policies. A policy contains multiple dependencies.
-  - sigma_new_sqls: a list of SQLs corresponding to the datalog rules of \sigma_new
-  - security_hole: the checking security hole
+
 
 **Note1: we use etheir integer or IP prefix for nodes and hosts. '10.2' is invalid encoding**
 
