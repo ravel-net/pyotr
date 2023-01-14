@@ -185,6 +185,50 @@ def is_variable(value):
     # else:
     #     return False
 
+def print_dependency(dependency):
+    print("*************************")
+    for t in dependency['dependency_tuples']:
+        print(t)
+    print("---------------------------")
+    print(dependency['dependency_summary'])
+    print(dependency['dependency_summary_condition'])
+    print("*************************")
+
+@timeit
+def apply_policy(conn, policy, inverse_image_tablename):
+    # print("\n=====================policy begin============================")
+
+    does_update = False
+    for dependency in policy:
+        # print_dependency(dependency)
+        temp_update = apply_dependency(conn, dependency, inverse_image_tablename)
+
+        if temp_update:
+            does_update = True
+    # print("=====================policy end============================\n")
+    return does_update
+
+@timeit
+def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
+    # print("\n=====================policy begin============================")
+
+    count_application = 0
+    iterations = 0
+    does_update = True
+    while does_update:
+        iterations += 1
+        does_update = False
+        for dependency in policy:
+            # print_dependency(dependency)
+            temp_update = apply_dependency(conn, dependency, inverse_image_tablename)
+            count_application += 1
+            does_update = (does_update or temp_update)
+    
+    atomic_unit_update = False
+    if iterations > 1:
+        atomic_unit_update = True
+    # print("=====================policy end============================\n")
+    return atomic_unit_update, count_application
 
 @timeit
 def apply_dependency(conn, dependency, inverse_image_tablename):
@@ -274,6 +318,107 @@ def apply_edg_for_firewall(conn, dependency, inverse_image_tablename):
 
     return does_updated
 
+@timeit
+def apply_sigma_new_atomically_toy(conn, sqls, inverse_image_tablename):
+    '''
+    forward propogation forwarding
+    f(f, src, dst, n, x)
+    l(n, x)
+
+    f(x_f, x_s, x_d, x_x, x_next) :- f(x_f, x_s, x_d, x_n, x_x), 
+                                                    l(x_x, x_next)
+    '''
+    
+    # forward_propogation_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.x = t1.n".format(inverse_image_tablename)
+
+    '''
+    back propogation forwarding
+    f(f, src, dst, n, x)
+    l(n, x)
+
+    f(x_f, x_s, x_d, x_pre, x_n) :- f(x_f, x_s, x_d, x_n, x_x), 
+                                                l(x_pre, x_n)
+    '''
+
+    # sigma_fp1_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.x = t1.n and t1.flag = '1'".format(inverse_image_tablename, subpath_tablename)
+    # sigma_fp2_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.x = t1.n and t0.dst = t1.x and t1.flag = '0'".format(inverse_image_tablename, subpath_tablename)
+
+    # sigma_bp1_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.n = t1.x and t1.flag = '1'".format(inverse_image_tablename, subpath_tablename)
+    # sigma_bp2_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.n = t1.x and t0.src = t1.n and t1.flag = '0'".format(inverse_image_tablename, subpath_tablename)
+
+    # sqls = [sigma_fp1_sql, sigma_fp2_sql, sigma_bp1_sql, sigma_bp2_sql]
+    # back_propogation_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.n = t1.x".format(inverse_image_tablename)
+    does_updated = False # if \sigma_new affects inverse image
+    cursor = conn.cursor()
+    while True:
+        temp_updated = False # if \sigma_new converges
+        for sql in sqls:
+            # print("sigma_sql", sql)
+            difference_sql = "{} except select * from {}".format(sql, inverse_image_tablename)
+            cursor.execute(difference_sql)
+            if cursor.rowcount != 0:
+                # print("insert rows:", cursor.rowcount)
+                does_updated = True
+                temp_updated = True
+                inserting_tuples = cursor.fetchall()
+                # print('inserting_tuples', inserting_tuples)
+                execute_values(cursor, "insert into {} values %s".format(inverse_image_tablename), inserting_tuples)
+        
+        if not temp_updated:
+            break
+
+    conn.commit()
+    return does_updated
+
+def apply_sigma_new_atomically(conn, inverse_image_tablename, subpath_tablename):
+    print("run sigma_new")
+    '''
+    forward propogation forwarding
+    f(f, src, dst, n, x)
+    l(n, x)
+
+    f(x_f, x_s, x_d, x_x, x_next) :- f(x_f, x_s, x_d, x_n, x_x), 
+                                                    l(x_x, x_next)
+    '''
+    
+    # forward_propogation_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.x = t1.n".format(inverse_image_tablename)
+
+    '''
+    back propogation forwarding
+    f(f, src, dst, n, x)
+    l(n, x)
+
+    f(x_f, x_s, x_d, x_pre, x_n) :- f(x_f, x_s, x_d, x_n, x_x), 
+                                                l(x_pre, x_n)
+    '''
+
+    sigma_fp1_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.x = t1.n and t1.flag = '1'".format(inverse_image_tablename, subpath_tablename)
+    sigma_fp2_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.x = t1.n and t0.dst = t1.x and t1.flag = '0'".format(inverse_image_tablename, subpath_tablename)
+
+    sigma_bp1_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.n = t1.x and t1.flag = '1'".format(inverse_image_tablename, subpath_tablename)
+    sigma_bp2_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, {} t1 where t0.n = t1.x and t0.src = t1.n and t1.flag = '0'".format(inverse_image_tablename, subpath_tablename)
+
+    sqls = [sigma_fp1_sql, sigma_fp2_sql, sigma_bp1_sql, sigma_bp2_sql]
+    # back_propogation_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.n = t1.x".format(inverse_image_tablename)
+    does_updated = False # if \sigma_new affects inverse image
+    cursor = conn.cursor()
+    while True:
+        temp_updated = False # if \sigma_new converges
+        for sql in sqls:
+            difference_sql = "{} except select * from {}".format(sql, inverse_image_tablename)
+            cursor.execute(difference_sql)
+            if cursor.rowcount != 0:
+                # print("insert rows:", cursor.rowcount)
+                does_updated = True
+                temp_updated = True
+                inserting_tuples = cursor.fetchall()
+                execute_values(cursor, "insert into {} values %s".format(inverse_image_tablename), inserting_tuples)
+        
+        if not temp_updated:
+            break
+
+    conn.commit()
+    return does_updated
 
 @timeit
 def apply_tgd(conn, dependency, inverse_image_tablename):
@@ -329,7 +474,8 @@ def apply_tgd(conn, dependency, inverse_image_tablename):
     if cursor.rowcount != 0:
         # print("insert rows:", cursor.rowcount)
         does_updated = True
-        execute_values(cursor, "insert into {} values %s".format(inverse_image_tablename), cursor.fetchall())
+        tuples = cursor.fetchall()
+        execute_values(cursor, "insert into {} values %s".format(inverse_image_tablename), tuples)
     conn.commit()
     # print('insert time:', time.time()-start)
 
@@ -895,9 +1041,12 @@ def convert_dependency_to_sql(dependency, Z):
     
     node_dict, tables = analyze_dependency(dependency_tuples, dependency_attributes, Z)
 
+    # print("node_dict", node_dict)
     conditions = []
     for var in node_dict.keys():
-        if not var.isdigit() and not isIPAddress(var):
+        # print("\nnode_dict", node_dict)
+        # print("var", var)
+        if not var.strip('>').isdigit() and not isIPAddress(var.strip('>')):
             tup_idxs = list(node_dict[var].keys())
             # print("tup_idxs:", tup_idxs)
             for idx in range(len(tup_idxs)-1):
@@ -906,9 +1055,9 @@ def convert_dependency_to_sql(dependency, Z):
 
                 # print("col_idx:", name_idxs)
                 if len(name_idxs) > 1:
-                    for j in range(len(col_idxs)-1):
-                        left_opd = "t{}.{}".format(t_idx, dependency_attributes[j])
-                        right_opd = "t{}.{}".format(t_idx, dependency_attributes[j+1])
+                    for j in range(len(name_idxs)-1):
+                        left_opd = "t{}.{}".format(t_idx, dependency_attributes[name_idxs[j]])
+                        right_opd = "t{}.{}".format(t_idx, dependency_attributes[name_idxs[j+1]])
                         conditions.append("{} = {}".format(left_opd, right_opd))
 
                 n_idx = name_idxs[-1]
@@ -924,13 +1073,160 @@ def convert_dependency_to_sql(dependency, Z):
 
                 conditions.append("{} = {}".format(left_opd, right_opd))
                 # print("conditions:", conditions)
-                # print()
             
-            col_idxs = node_dict[var][tup_idxs[-1]]
+            tup_idx = tup_idxs[-1]
+            col_idxs = node_dict[var][tup_idx]
+            # print("col_idxs", col_idxs)
             if len(col_idxs) > 1:
                 for j in range(len(col_idxs)-1):
-                    left_opd = "t{}.{}".format(idx, dependency_attributes[j])
-                    right_opd = "t{}.{}".format(idx, dependency_attributes[j+1])
+                    left_opd = "t{}.{}".format(tup_idx, dependency_attributes[col_idxs[j]])
+                    right_opd = "t{}.{}".format(tup_idx, dependency_attributes[col_idxs[j+1]])
+                    conditions.append("{} = {}".format(left_opd, right_opd))
+
+            # print("***********************************\n")
+        else:
+            tup_idxs = node_dict[var].keys()
+            for t_idx in tup_idxs:
+                name_idxs = node_dict[var][t_idx]
+
+                for n_idx in name_idxs:
+                    left_opd = "t{}.{}".format(t_idx, dependency_attributes[n_idx])
+                    conditions.append("{} = '{}'".format(left_opd, var))
+    
+    
+    # print(conditions) 
+    # add summary conditions
+    conditions += get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict)
+
+    sql = None
+    '''
+    summary
+    '''
+    select_clause = []
+    if type == 'tgd':
+        for i in range(len(dependency_summary)):
+            if not dependency_summary[i].strip('>').isdigit() and not isIPAddress(dependency_summary[i].strip('>')):
+                var = dependency_summary[i]
+                # print(node_dict[var])
+                first_tup = list(node_dict[var].keys())[0] # first tuple appears var
+                # print(node_dict[var][first_tup])
+                first_col = node_dict[var][first_tup][0] # first col appears var
+                select_clause.append("t{}.{}".format(first_tup, dependency_attributes[first_col]))
+            else:
+                select_clause.append("'{}'".format(dependency_summary[i]))
+
+        sql = "select {} from {} where {}".format(", ".join(select_clause), ", ".join(tables), " and ".join(conditions))
+    elif type == 'egd':
+        if len(dependency_summary) == 0:
+            sql = "delete from {} where {}".format(", ".join(tables), " and ".join(conditions))
+        else:
+            # convert_summary_to_condition
+            additional_condition = [] 
+            for idx, summary in enumerate(dependency_summary):
+                items = summary.split()
+                left_opd = items[0]
+                right_opd = items[2]
+                left_tup_idx = list(node_dict[left_opd].keys())[0]
+                left_attr_idx = node_dict[left_opd][left_tup_idx][0]
+                right_tup_idx = list(node_dict[right_opd].keys())[0]
+                right_attr_idx = node_dict[right_opd][right_tup_idx][0]
+
+                left_param = "t{}.{}".format(left_tup_idx, dependency_attributes[left_attr_idx])
+                right_param = "t{}.{}".format(right_tup_idx, dependency_attributes[right_attr_idx])
+                additional_condition.append(("{} != {}").format(left_param, right_param))
+                select_clause.append("Array[{}, {}] as {}".format(left_param, right_param, dependency_attributes[left_attr_idx])) # for summary f1 = f2, store f1, f2 into an array, e.g., [f1, f2]
+            if len(additional_condition) == 1:
+                conditions += additional_condition
+            else:
+                conditions.append("({})".format(" or ".join(additional_condition))) 
+
+            # print("additional_condition", additional_condition)
+            # select_clause.append("*")
+            # for idx in range(len(tables)):
+            #     for attr in dependency_attributes:
+            #         if 'condition' in attr:
+            #             continue
+            #         select_clause.append("t{}.{}".format(idx, attr))
+            sql = "select {} from {} where {}".format(", ".join(select_clause), ", ".join(tables), " and ".join(conditions))
+    else:
+        print("Wrong dependency type!")
+        exit()
+    
+    return sql
+
+def convert_dependency_to_sql_old(dependency, Z):
+    """
+    Convert dependency to SQL 
+
+    Parameters:
+    -----------
+    dependency: dict
+        format: {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+
+    Z: string
+        the table of inverse image
+
+    Returns:
+    ---------
+    sql: string
+        corresponding SQL
+    """
+    type = dependency['dependency_type']
+    dependency_tuples = dependency['dependency_tuples']
+    dependency_attributes = dependency['dependency_attributes']
+    dependency_summary = dependency['dependency_summary']
+    dependency_summary_conditions = dependency['dependency_summary_condition']
+    
+    node_dict, tables = analyze_dependency(dependency_tuples, dependency_attributes, Z)
+
+    # print("node_dict", node_dict)
+    conditions = []
+    for var in node_dict.keys():
+        # print("\nnode_dict", node_dict)
+        # print("var", var)
+        if not var.isdigit() and not isIPAddress(var):
+            tup_idxs = list(node_dict[var].keys())
+            # print("tup_idxs:", tup_idxs)
+            for idx in range(len(tup_idxs)-1):
+                t_idx = tup_idxs[idx]
+                name_idxs = node_dict[var][t_idx]
+
+                # print("col_idx:", name_idxs)
+                if len(name_idxs) > 1:
+                    for j in range(len(name_idxs)-1):
+                        left_opd = "t{}.{}".format(t_idx, dependency_attributes[name_idxs[j]])
+                        right_opd = "t{}.{}".format(t_idx, dependency_attributes[name_idxs[j+1]])
+                        conditions.append("{} = {}".format(left_opd, right_opd))
+
+                n_idx = name_idxs[-1]
+                left_opd = "t{}.{}".format(t_idx, dependency_attributes[n_idx])
+
+                # print(node_dict[var])
+                t_idx2 = tup_idxs[idx+1]
+                name_idxs2 = node_dict[var][t_idx2]
+                # print("col_idxs2:", name_idxs2)
+
+                n_idx2 = name_idxs2[-1]
+                right_opd = "t{}.{}".format(t_idx2, dependency_attributes[n_idx2])
+
+                conditions.append("{} = {}".format(left_opd, right_opd))
+                # print("conditions:", conditions)
+            
+            tup_idx = tup_idxs[-1]
+            col_idxs = node_dict[var][tup_idx]
+            # print("col_idxs", col_idxs)
+            if len(col_idxs) > 1:
+                for j in range(len(col_idxs)-1):
+                    left_opd = "t{}.{}".format(tup_idx, dependency_attributes[col_idxs[j]])
+                    right_opd = "t{}.{}".format(tup_idx, dependency_attributes[col_idxs[j+1]])
                     conditions.append("{} = {}".format(left_opd, right_opd))
 
             # print("***********************************\n")
@@ -1085,6 +1381,7 @@ def apply_E(conn, sql):
     """
     cursor = conn.cursor()
     cursor.execute(sql)
+    # results = cursor.rowcount
     results = cursor.fetchall()
     conn.commit()
 
@@ -1188,7 +1485,7 @@ def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
                     for j in range(len(name_idxs)-1):
                         left_opd = "t{}.{}".format(t_idx, E_attributes[name_idxs[j]])
                         right_opd = "t{}.{}".format(t_idx, E_attributes[name_idxs[j+1]])
-                        print("{} = {}".format(left_opd, right_opd))
+                        # print("{} = {}".format(left_opd, right_opd))
                         conditions.append("{} = {}".format(left_opd, right_opd))
 
                 n_idx = name_idxs[-1]
@@ -1213,7 +1510,7 @@ def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
                 for j in range(len(col_idxs)-1):
                     left_opd = "t{}.{}".format(idx, E_attributes[col_idxs[j]])
                     right_opd = "t{}.{}".format(idx, E_attributes[col_idxs[j+1]])
-                    print("{} = {}".format(left_opd, right_opd))
+                    # print("{} = {}".format(left_opd, right_opd))
                     conditions.append("{} = {}".format(left_opd, right_opd))
 
             # print("***********************************\n")
@@ -1303,5 +1600,7 @@ if __name__ == '__main__':
     # }
 
     # apply_dependency(conn, dependency2, "Z")
+
+    
 
 
