@@ -4,13 +4,12 @@
 
 `run_toy.py`
 
-- run_the_chase(conn, initial_T_tablename, initial_T_tuples, policies, sigma_new_sqls, E_tuples, security_hole)
+- run_the_chase_sqls(conn, initial_T_tablename, initial_T_tuples, policies, sigma_new_sqls, E_tuples, security_hole)
   - conn: a instance of Postgres connection
   - initial_T_tablename: tablename of input table T
   - initial_T_tuples: the tuples of input table T
   - policies: a list of policies. A policy contains multiple dependencies.
   - sigma_new_sqls: a list of SQLs corresponding to the datalog rules of \sigma_new
-  - security_hole: the checking security hole
 
 - database configuration, modify [`databaseconfig.py`](../../databaseconfig.py)
   ```python
@@ -103,7 +102,7 @@
 
 **Note1: we use etheir integer or IP prefix for nodes and hosts. '10.2' is invalid encoding**
 
-**Note2: we call `run_the_chase()` to completely run the chase. For the complete example, see `__main__` in [`run_toy.py`](run_toy.py). The ordering strategy is that chasing policies by given a certain ordering then checking security hole until run to converge**
+**Note2: we call `run_the_chase_sqls()` to completely run the chase. For the complete example, see `__main__` in [`run_toy.py`](run_toy.py). The ordering strategy is that chasing policies by given a certain ordering then checking security hole until run to converge**
 
 ****
 ## experiment code

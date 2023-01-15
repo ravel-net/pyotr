@@ -353,7 +353,7 @@ def apply_sigma_new_atomically_toy(conn, sqls, inverse_image_tablename):
     while True:
         temp_updated = False # if \sigma_new converges
         for sql in sqls:
-            # print("sigma_sql", sql)
+            print("sigma_sql", sql)
             difference_sql = "{} except select * from {}".format(sql, inverse_image_tablename)
             cursor.execute(difference_sql)
             if cursor.rowcount != 0:
@@ -361,7 +361,7 @@ def apply_sigma_new_atomically_toy(conn, sqls, inverse_image_tablename):
                 does_updated = True
                 temp_updated = True
                 inserting_tuples = cursor.fetchall()
-                # print('inserting_tuples', inserting_tuples)
+                print('inserting_tuples', inserting_tuples)
                 execute_values(cursor, "insert into {} values %s".format(inverse_image_tablename), inserting_tuples)
         
         if not temp_updated:
@@ -1033,7 +1033,7 @@ def convert_dependency_to_sql(dependency, Z):
     sql: string
         corresponding SQL
     """
-    type = dependency['dependency_type']
+    dependency_type = dependency['dependency_type']
     dependency_tuples = dependency['dependency_tuples']
     dependency_attributes = dependency['dependency_attributes']
     dependency_summary = dependency['dependency_summary']
@@ -1041,12 +1041,11 @@ def convert_dependency_to_sql(dependency, Z):
     
     node_dict, tables = analyze_dependency(dependency_tuples, dependency_attributes, Z)
 
-    # print("node_dict", node_dict)
     conditions = []
     for var in node_dict.keys():
         # print("\nnode_dict", node_dict)
         # print("var", var)
-        if not var.strip('>').isdigit() and not isIPAddress(var.strip('>')):
+        if type(var) is not int  and not var.strip('>').isdigit() and not isIPAddress(var.strip('>')):
             tup_idxs = list(node_dict[var].keys())
             # print("tup_idxs:", tup_idxs)
             for idx in range(len(tup_idxs)-1):
@@ -1103,9 +1102,9 @@ def convert_dependency_to_sql(dependency, Z):
     summary
     '''
     select_clause = []
-    if type == 'tgd':
+    if dependency_type == 'tgd':
         for i in range(len(dependency_summary)):
-            if not dependency_summary[i].strip('>').isdigit() and not isIPAddress(dependency_summary[i].strip('>')):
+            if type(dependency_summary[i]) is not int and not dependency_summary[i].strip('>').isdigit() and not isIPAddress(dependency_summary[i].strip('>')):
                 var = dependency_summary[i]
                 # print(node_dict[var])
                 first_tup = list(node_dict[var].keys())[0] # first tuple appears var
@@ -1116,7 +1115,7 @@ def convert_dependency_to_sql(dependency, Z):
                 select_clause.append("'{}'".format(dependency_summary[i]))
 
         sql = "select {} from {} where {}".format(", ".join(select_clause), ", ".join(tables), " and ".join(conditions))
-    elif type == 'egd':
+    elif dependency_type == 'egd':
         if len(dependency_summary) == 0:
             sql = "delete from {} where {}".format(", ".join(tables), " and ".join(conditions))
         else:
