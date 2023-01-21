@@ -44,7 +44,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False, recursive_rules=True):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -68,7 +68,7 @@ class DT_Program:
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule, databaseTypes, self.__OPERATORS, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables, self.reasoning_tool))
+                self._rules.append(DT_Rule(rule_str=rule, databaseTypes=databaseTypes, operators=self.__OPERATORS, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=recursive_rules))
     
     def __str__(self):
         DT_Program_str = ""
@@ -99,9 +99,15 @@ class DT_Program:
             for rule in self._rules:
                 DB_changes = rule.execute(conn)
                 changed = changed or DB_changes
+            conn.commit()
             return changed
 
-
+    def stats(self):
+        print("Number of rules: ", len(self._rules))
+        numAtoms = 0
+        for rule in self._rules:
+            numAtoms += len(rule._body)
+        print("Number of atoms: ", numAtoms)
 
 
     def initiateDB(self, conn):
@@ -123,7 +129,7 @@ class DT_Program:
             table_creation_query = table_creation_query[:-1]
             table_creation_query += ");"
             cursor.execute(table_creation_query)
-        conn.commit()
+        # conn.commit()
 
 
     # Uniform containment. 
@@ -134,9 +140,10 @@ class DT_Program:
         conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
         changed = True
         self.initiateDB(conn)
-
+        rule2.initiateDB(conn)
         rule2.addConstants(conn)
         iterations = 0
+        # conn.commit()
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.execute(conn)

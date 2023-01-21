@@ -16,3 +16,4 @@ experiments/Batfish/.ipynb_checkpoints/Analyzing ACLs and Firewall Rules-checkpo
 Backend/reasoning/CUDD/BDD_manager/BDD_managerModule.egg-info
 Backend/reasoning/CUDD/BDD_manager/dist
 *.log
+*.jpeg

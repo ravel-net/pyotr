@@ -23,6 +23,8 @@ import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
 from utils.parsing_utils import z3ToSQL
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils.logging import timeit
+import logging
+import time 
 
 class DT_Rule:
     """
@@ -62,13 +64,13 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
     @timeit
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, headAtom="", bodyAtoms=[], additional_constraints=[]):
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, recursive_rules=True, headAtom="", bodyAtoms=[], additional_constraints=[]):
         self._additional_constraints = []
         if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
             self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
         if headAtom and bodyAtoms:
-            self.generateRule(headAtom, bodyAtoms, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
+            self.generateRule(head=headAtom, body=bodyAtoms, databaseTypes=databaseTypes, operators=operators, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, recursive_rules=recursive_rules)
         else:
             head_str = rule_str.split(":-")[0].strip()
             additional_constraint_split = rule_str.split(":-")[1].strip().split(",(")
@@ -87,7 +89,7 @@ class DT_Rule:
                 #     continue
                 currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
                 body.append(currAtom)
-            self.generateRule(head, body, databaseTypes, operators, domains, c_variables, reasoning_engine, reasoning_type, datatype, simplification_on, c_tables)
+            self.generateRule(head=head, body=body, databaseTypes=databaseTypes, operators=operators, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, recursive_rules=recursive_rules)
 
     def safe(self):
         headVars = self._head.variables
@@ -97,7 +99,7 @@ class DT_Rule:
         return True
 
     @timeit
-    def generateRule(self, head, body, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[]):
+    def generateRule(self, head, body, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], recursive_rules=True):
         self._variables = [] 
         self._c_variables = [] 
         self._head = head
@@ -113,6 +115,7 @@ class DT_Rule:
         self._databaseTypes = databaseTypes
         self._c_tables = c_tables
         self._reverseMapping = {}
+        self._recursive_rules = recursive_rules
         db_names = []
         # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
         for currAtom in self._body:
@@ -380,10 +383,17 @@ class DT_Rule:
         if len(self._c_variables) == 0:
             cursor = conn.cursor()
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self.selectColumns))
+            if (not self._recursive_rules):
+                except_sql = "insert into {header_table} {sql}".format(header_table=self._head.db["name"], sql = self.sql)
+            start = time.time()
             cursor.execute(except_sql)
             affectedRows = cursor.rowcount
-            #conn.commit()
+            end = time.time()
+            total_time = end-start
+            logging.info(f'Time: execute_except_sql took {total_time:.4f}')
             changed = (affectedRows > 0)
+            if (not self._recursive_rules):
+                changed = False
         else:
             return self.run_with_faure(conn, self.sql)
         return changed
