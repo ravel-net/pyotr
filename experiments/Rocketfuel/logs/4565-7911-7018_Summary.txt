@@ -1,0 +1,9 @@
+Name: 4565-7911-7018
+numLinksBefore: 21
+numLinksAfter: 9
+numNodesBefore: 10
+numNodesAfter: 5
+Average Minimization Time: 2.2335824330647784 0.3140065375641726
+Average EqualityClasses Time: 6.286040679613749 0.6480319742726192
+Average Combination Time: 0.08483055432637533 0.0309609094254575
+Average Total Time: 8.604453667004902 0.8759201934552764

@@ -108,6 +108,7 @@ class DT_Program:
         for rule in self._rules:
             numAtoms += len(rule._body)
         print("Number of atoms: ", numAtoms)
+        return len(self._rules), numAtoms
 
 
     def initiateDB(self, conn):

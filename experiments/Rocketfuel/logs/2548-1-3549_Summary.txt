@@ -1,0 +1,9 @@
+Name: 2548-1-3549
+numLinksBefore: 35
+numLinksAfter: 15
+numNodesBefore: 16
+numNodesAfter: 9
+Average Minimization Time: 16.1242315530777 1.3884198465075386
+Average EqualityClasses Time: 15.157860684394837 2.08327782247862
+Average Combination Time: 0.7396583795547486 0.09684299870773626
+Average Total Time: 32.02175061702728 3.228625964806367

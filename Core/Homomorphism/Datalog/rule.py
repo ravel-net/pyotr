@@ -172,10 +172,10 @@ class DT_Rule:
         # in case of unsafe rule
         if self.safe():
             self.sql = self.convertRuleToSQL()
-        else:
-            print("\n------------------------")
-            print("Unsafe rule: {}!".format(self)) 
-            print("------------------------\n")
+        # else:
+        #     print("\n------------------------")
+        #     print("Unsafe rule: {}!".format(self)) 
+        #     print("------------------------\n")
 
         self.selectColumns = self.calculateSelect() 
 
@@ -387,7 +387,9 @@ class DT_Rule:
                 except_sql = "insert into {header_table} {sql}".format(header_table=self._head.db["name"], sql = self.sql)
             start = time.time()
             cursor.execute(except_sql)
-            affectedRows = cursor.rowcount
+            affectedRows = 0
+            if (not self._recursive_rules):
+                affectedRows = cursor.rowcount
             end = time.time()
             total_time = end-start
             logging.info(f'Time: execute_except_sql took {total_time:.4f}')
