@@ -1553,33 +1553,22 @@ if __name__ == '__main__':
     initial_T = {
         'tablename': 'T',
         'tuples': initial_T_tuples,
-        'attributes': ['f', 's', 'd', 'n', 'x'],
+        'attributes': ['f', 'src', 'dst', 'n', 'x'],
         'datatypes': ['text', 'text', 'text', 'text', 'text']
     }
 
     policy_p1 = [
         {
             'dependency_tuples': [
-                ('f', '10', '11', '10', '2'),
-                ('f', 's', 'd', '2', '3')
+                ('f', '9', '11', '9', '1'),
+                ('f', 's', 'd', '1', '3')
             ], 
-            'dependency_summary': ["s = 9", "d = 11"], 
+            'dependency_summary': ["s = 9", "d = 12"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
             'dependency_type': 'egd'
         }, 
-        {
-            'dependency_tuples': [
-                ('f', '9', '11', '9', '1'),
-                ('f', 's', 'd', '1', '3')
-            ], 
-            'dependency_summary': ["s = 9", "d = 11"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
         {
             'dependency_tuples': [
                 ('f', '9', '12', '9', '1'),
@@ -1590,16 +1579,27 @@ if __name__ == '__main__':
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
             'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', '10', '11', '10', '2'),
+                ('f', 's', 'd', '2', '3')
+            ], 
+            'dependency_summary': ["s = 10", "d = 11"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
         }
     ]
 
     policy_p2 = [
         {
             'dependency_tuples': [
-                ('f', '9', '11', '5', '6'),
+                ('f', '10', '11', '5', '6'),
                 ('f', 's', 'd', '6', 'x')
             ], 
-            'dependency_summary': ["s = 9", "d = 12"], 
+            'dependency_summary': ["s = 9", "d = 11"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
@@ -1607,10 +1607,10 @@ if __name__ == '__main__':
         }, 
         {
             'dependency_tuples': [
-                ('f', '9', '12', '5', '6'),
+                ('f', '9', '11', '5', '6'),
                 ('f', 's', 'd', '6', 'x')
             ], 
-            'dependency_summary': ["s = 9", "d = 12"], 
+            'dependency_summary': ["s = 9", "d = 11"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
@@ -1618,10 +1618,10 @@ if __name__ == '__main__':
         },
         {
             'dependency_tuples': [
-                ('f', '10', '11', '5', '6'),
+                ('f', '9', '12', '5', '6'),
                 ('f', 's', 'd', '6', 'x')
             ], 
-            'dependency_summary': ["s = 10", "d = 11"], 
+            'dependency_summary': ["s = 9", "d = 12"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
@@ -1635,7 +1635,7 @@ if __name__ == '__main__':
                 ('f', 's1', 'd1', 'n', '3'),
                 ('f', 's2', 'd2', '3', '4')
             ], 
-            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_summary': ["s2 = s1", "d2 = d1"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
@@ -1646,7 +1646,7 @@ if __name__ == '__main__':
                 ('f', 's1', 'd1', '3', '4'),
                 ('f', 's2', 'd2', '4', '5')
             ], 
-            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_summary': ["s2 = s1", "d2 = d1"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
@@ -1657,7 +1657,7 @@ if __name__ == '__main__':
                 ('f', 's1', 'd1', '4', '5'),
                 ('f', 's2', 'd2', '5', '6')
             ], 
-            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_summary': ["s2 = s1", "d2 = d1"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 
@@ -1668,7 +1668,7 @@ if __name__ == '__main__':
                 ('f', 's1', 'd1', '6', 'x1'),
                 ('f', 's2', 'd2', 'x1', 'x2')
             ], 
-            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_summary': ["s2 = s1", "d2 = d1"], 
             'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
             'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
             'dependency_summary_condition': None, 

@@ -786,7 +786,7 @@ def get_update_sqls_for_egd(conn, dependency, Z_tablename):
 
     update_sqls = []
     for record in results:
-        print("\nrecord", record)
+        # print("\nrecord", record)
         replaced_values = ['' for i in range(len(replaced_symbol_idxs))]
         replacing_values = ['' for i in range(len(replaced_symbol_idxs))]
         constrains = None
@@ -806,9 +806,9 @@ def get_update_sqls_for_egd(conn, dependency, Z_tablename):
             if not replacing_constant:
                 replacing_values[p_idx] = record[replacing_v_idx]
 
-        print("replaced_values", replaced_values)
-        print("replacing_values", replacing_values)
-        print("constrains", constrains)
+        # print("replaced_values", replaced_values)
+        # print("replacing_values", replacing_values)
+        # print("constrains", constrains)
         sqls = []           
         if constrains is None: # replace all variables with constants
             for i in range(len(replacing_values)):
@@ -845,8 +845,8 @@ def get_update_sqls_for_egd(conn, dependency, Z_tablename):
                         continue
 
                     sql = "update {} set {} = {} where {} = '{}'".format(Z_tablename, attr, replacing_v, attr, replaced_v)
-                    sqls.append(sql)   
-        print("sqls", "\n".join(sqls))
+                    sqls.append(sql) 
+        # print("sqls", "\n".join(sqls))
         update_sqls += sqls
     return update_sqls
 
@@ -1231,7 +1231,6 @@ def convert_dependency_to_sql(dependency, Z):
     # print(conditions) 
     # add summary conditions
     summary_conditions = get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict)
-    print(summary_conditions)
     if len(summary_conditions) != 0:
         conditions.append( " and ".join(summary_conditions))
 
