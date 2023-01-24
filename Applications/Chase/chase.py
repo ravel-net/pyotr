@@ -13,6 +13,7 @@ import databaseconfig as cfg
 from tqdm import tqdm
 from ipaddress import IPv4Address
 from utils.logging import timeit
+from copy import deepcopy
 
 FAURE_DATATYPES = ['int4_faure', 'inet_faure']
 INT4_FAURE = 'int4_faure'
@@ -177,13 +178,6 @@ def is_variable(value):
         return False
     else:
         return True
-    # if datatype.lower() in FAURE_DATATYPES:
-    #     if datatype.lower() == INT4_FAURE:
-    #         return not value.isdigit()
-    #     else:
-    #         return not isIPAddress(value)
-    # else:
-    #     return False
 
 def print_dependency(dependency):
     print("*************************")
@@ -208,6 +202,19 @@ def apply_policy(conn, policy, inverse_image_tablename):
     # print("=====================policy end============================\n")
     return does_update
 
+
+def print_table(conn, intial_T_tablename='t_random'):
+    cursor = conn.cursor()
+    cursor.execute("select * from {} order by f, src, dst, n, x".format(intial_T_tablename))
+    print(f"\n*****************************************TABLE:{intial_T_tablename}*******************************************")
+    print('| {:<16} | {:<16} | {:<16} | {:<16} | {:<16} |'.format(*['F', 'S', 'D', 'N', 'X']))
+    print('| {:<16} | {:<16} | {:<16} | {:<16} | {:<16} |'.format(*['----------------', '----------------', '----------------','----------------','----------------',]))
+    for row in cursor.fetchall():
+        print('| {:<16} | {:<16} | {:<16} | {:<16} | {:<16} |'.format(*row))
+    print(f"\n***************************************************************************************************")
+
+    conn.commit()
+
 @timeit
 def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
     # print("\n=====================policy begin============================")
@@ -221,9 +228,10 @@ def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
         for dependency in policy:
             # print_dependency(dependency)
             temp_update = apply_dependency(conn, dependency, inverse_image_tablename)
+            # print_table(conn, inverse_image_tablename)
             count_application += 1
             does_update = (does_update or temp_update)
-    
+            # input()
     atomic_unit_update = False
     if iterations > 1:
         atomic_unit_update = True
@@ -619,7 +627,6 @@ def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
     upd_sql = "update {} set src = updated_src, dst = updated_dst from ( values %s) as updatedvalues (flowid, updated_src, updated_dst) where f = flowid".format(Z_tablename)
     return upd_sql, upd_tuples
 
-
 @timeit
 def applySourceDestPolicy(conn, Z_tablename):
     """
@@ -734,31 +741,63 @@ def applyRewritePolicy(conn, dependency, Z_tablename):
 
     return does_update
 
-@timeit
-def get_required_replacement_pg(conn, dependency, Z_tablename):
+def analyze_egd(dependency):
+    dependency_summary = dependency['dependency_summary']
+    dependency_tuples = dependency['dependency_tuples']
+
+    replaced_symbol_idxs = []  
+    replacing_symbol_idxs = []
+    replacing_constant = False
+    for summary in dependency_summary:
+        items = summary.split()
+        left_opd = items[0].strip()
+        opr = items[1].strip()
+        right_opd = items[2].strip()
+
+        for tup_idx, tup in enumerate(dependency_tuples):
+            for col_idx, item in enumerate(tup):
+                if left_opd == item:
+                    replaced_symbol_idxs.append(tup_idx*len(tup) + col_idx)
+                    break
+
+        if right_opd[0].isdigit() or isIPAddress(right_opd):
+            replacing_symbol_idxs.append("'{}'".format(right_opd))
+            replacing_constant = True
+        else:
+            for tup_idx, tup in enumerate(dependency_tuples):
+                for col_idx, item in enumerate(tup):
+                    if right_opd == item:
+                        replacing_symbol_idxs.append(tup_idx*len(tup) + col_idx)
+                        break
+    return replaced_symbol_idxs, replacing_symbol_idxs, replacing_constant
+
+def test(conn, dependency, Z_tablename):
+    dependency_sql = convert_dependency_to_sql(dependency, Z_tablename)
+    replaced_symbol_idxs, replacing_symbol_idxs, replacing_constant = analyze_egd(dependency)
+
+    cursor = conn.cursor()
+    cursor.execute(dependency_sql)
+
+    results = cursor.fetchall()
+    conn.commit()
+
+    len_tuple = len(dependency['dependency_tuples'][0])    
+
+    replaced_values = ['' for i in range(replaced_symbol_idxs)]
+    replacing_values = ['' for i in range(replaced_symbol_idxs)]
+    constrains = [[] for i in range(replaced_symbol_idxs)]
+    if replacing_constant:
+        replacing_values = replaced_symbol_idxs
+        for record in results:
+            for v_idx, value in enumerate(record):
+                if v_idx in replaced_symbol_idxs:
+                    r_idx = replaced_symbol_idxs.index(v_idx)
+                    
+
+def get_update_sqls_for_egd(conn, dependency, Z_tablename):
     """
-    given the pattern of dependency ,find the necessary replacement. 
-    For example, 
-    f       src     dst     n   x
-    -----------------------------
-    x_f 	10.2	10.3	1	2
-    y_f	    10.1	10.3	1	2
-    ----------------------------
-    x_f = y_f				
-    
-    1. find all x_f, y_f by given the pattern using SQL "select array[t0.f, t1.f] as f from <tables> where <pattern>"
-        array[t0.f, t1.f] is store the `x_f` and `y_f` into an array, the alias of this array is the attribute of `x_f`/`y_f`is.
-        select Array[t0.f, t1.f] as s0 
-        from Z_random t0, Z_random t1 
-        where t0.src = '10.2' and t0.dst = '10.3' 
-            and t1.dst = '10.3' and t0.n = '1' 
-            and t1.n = '1' and t0.x = '2' 
-            and t1.x = '1' and t1.src = '10.1' 
-            and t0.f != t1.f
-    2. the SQL returns tuples of such array, collect each array into a set. 
-    3. if the set is empty or only has 1 element, that means the pattern does not hold in the current inverse image.
-    4. otherwise, use the first element of the set as the target value, replace the remaining elements with the target value using a update SQL
-        update <table> set f = <target_value> where f in (<remaining_values>)
+    Generate update SQLs by given a egd dependency
+    #TODO: the update SQLs might be efficient enough, later it needs to be optimized
 
     Parameters:
     -----------
@@ -776,16 +815,21 @@ def get_required_replacement_pg(conn, dependency, Z_tablename):
             'dependency_type': 'tgd'/'egd'
         }
 
-    inverse_image_tablename: string
+    Z_tablename: string
         the table of inverse image
 
     Returns:
     ---------
-    does_updated: Boolean
-        does the application of the dependency change the inverse image
+    update_sqls: list
+        A list of update SQLs for the input egd dependency
+    
     """
+    dependency_tuples = dependency["dependency_tuples"]
+    dependency_attributes=dependency["dependency_attributes"]
+    dependency_summary = dependency["dependency_summary"]
     dependency_sql = convert_dependency_to_sql(dependency, Z_tablename)
-    # print("\ndependency_sql", dependency_sql)
+    print("\ndependency_sql", dependency_sql)
+    node_dict, _ = analyze_dependency(dependency_tuples, dependency_attributes, Z_tablename)
 
     cursor = conn.cursor()
     cursor.execute(dependency_sql)
@@ -795,143 +839,171 @@ def get_required_replacement_pg(conn, dependency, Z_tablename):
     results = cursor.fetchall()
     conn.commit()
 
-    idx_mapping = {}
-    for record in results:
-        for idx, l in enumerate(record):
-            if idx in idx_mapping.keys():
-                idx_mapping[idx] = idx_mapping[idx].union(set(l))
-            else:
-                idx_mapping[idx] = set(l)
-    
-    required_replacement = {}
-    for idx in idx_mapping.keys():
-        if len(idx_mapping[idx]) == 0 or len(idx_mapping[idx]) == 1:
-            continue
+    is_replacing_constant = False
+    replace_value = {}
+    care_attr_idxs = []
+    for idx, summary in enumerate(dependency_summary):
+        items = summary.split()
+        left_opd = items[0]
+        right_opd = items[2]
+
+        left_param = ''
+        right_param = ''
+
+        left_tup_idx = list(node_dict[left_opd].keys())[0]
+        left_attr_idx = node_dict[left_opd][left_tup_idx][0]
+        care_attr_idxs.append(left_attr_idx)
+
+        if right_opd.isdigit():
+            right_param = "'{}'".format(right_opd)  
+            is_replacing_constant = True
+            replace_value[left_attr_idx] = right_param
+            
         else:
-            param = columns[idx]
-            required_replacement[param] = list(idx_mapping[idx])
-    
-    return required_replacement
+            right_tup_idx = list(node_dict[right_opd].keys())[0]
+            right_attr_idx = node_dict[right_opd][right_tup_idx][0]
+            right_param = "t{}.{}".format(right_tup_idx, dependency_attributes[right_attr_idx])
 
-@timeit
-def replace_values_pg(conn, Z_tablename, required_replacement):
-    """
-    replace the value
+    if is_replacing_constant:  # if summary looks like s = 9; that is replacing a constant
+        update_list = []
+        variable_list = {}
+        for record in results:
+            add_to_upd_list = False
+            for attr_idx in care_attr_idxs:
+                if record[attr_idx].isdigit():
+                    if add_to_upd_list:
+                        continue
+                    update_list.append(record)
+                    add_to_upd_list = True
+                else:
+                    if attr_idx not in variable_list.keys():
+                        variable_list[attr_idx] = []
+                    variable_list[attr_idx].append("'{}'".format(record[attr_idx]))
+        
+        set_clause = []
+        for attr_idx in replace_value.keys():
+            set_clause.append("{} = {}".format(dependency_attributes[attr_idx], replace_value[attr_idx]))
+        
+        update_sqls = []
+        for constraint in update_list:
+            sql = "update {} set {} where ({}) = ({})".format(Z_tablename, ", ".join(set_clause), ", ".join(dependency_attributes), ", ".join(["'{}'".format(c) for c in constraint]))
+            update_sqls.append(sql)
+        
+        for attr_idx in variable_list.keys():
+            for attr in dependency_attributes:
+                if attr == 'f':
+                    continue
+                sql = ""
+                if len(variable_list[attr_idx]) == 1:
+                    sql = "update {} set {} = {} where {} = {}".format(Z_tablename, attr, replace_value[attr_idx], attr, variable_list[attr_idx][0])
+                else:
+                    sql = "update {} set {} = {} where {} in ({})".format(Z_tablename, attr, replace_value[attr_idx], attr, ', '.join(variable_list[attr_idx]))
+                update_sqls.append(sql)
+        return update_sqls
+                
+    else:  # if summary looks like s1 = s2; that is making two elements equal
+        commonattr_idx_mapping = {}
+        flowid_idx = 0 # assume flowid is a common attribute
+        for record_idx, record in enumerate(results):
+            print("record", record)
+            tuples = [record[0:len(dependency["dependency_attributes"])], record[len(dependency["dependency_attributes"]):]]
+            
+            commonattr = record[flowid_idx]
+            temp_idx_mapping = {} # idx: [(1, 3), (2, 4)]
 
-    Parameters:
-    -----------
-    conn: psycopg2.connect()
-        the instance of connection for Postgres
+            for attr_idx in care_attr_idxs:
+                set1 = set()
+                for tup in tuples:
+                    set1.add(tup[attr_idx])
+                temp_idx_mapping[attr_idx] = set1
 
-    Z_tablename: string
-        the table of inverse image
-    
-    required_replacement: dict
-        generated by `get_required_replacement_pg()`. 
-        format: {attribute_name:[required_replaced_values]}
+                # if attr_idx not in temp_idx_mapping.keys():
+                #     temp_idx_mapping[attr_idx] = []
+                
+                # for s_idx, s in enumerate(temp_idx_mapping[attr_idx]):
+                #     if s.isdisjoint(set1):
+                #         temp_idx_mapping[attr_idx].append(deepcopy(set1))
+                #     else:
+                #         temp_idx_mapping[attr_idx][s_idx].update(set1)
+            # print("temp_idx_mapping", temp_idx_mapping)
+            
+            if commonattr in commonattr_idx_mapping.keys():
+                for attr_idx in temp_idx_mapping.keys():
+                    l_set = set(temp_idx_mapping[attr_idx])
 
-    Returns:
-    ---------
-    does_updated: Boolean
-        does the application of the dependency change the inverse image
-    """
-    
-    does_update = False
+                    is_disjoint = True
+                    for s_idx, s in enumerate(commonattr_idx_mapping[commonattr][attr_idx]):
+                        if not l_set.isdisjoint(s):
+                            commonattr_idx_mapping[commonattr][attr_idx][s_idx].update(l_set)
+                            is_disjoint = False
+                            break
+                    if is_disjoint:
+                        commonattr_idx_mapping[commonattr][attr_idx].append(deepcopy(l_set))
+                # idx_mapping = commonattr_idx_mapping[commonattr]
+                # if idx in idx_mapping.keys():
+                #     l_set = set(temp_idx_mapping[idx])
+                #     for s_idx, subset in enumerate(idx_mapping[idx]):
+                #         if not l_set.isdisjoint(subset):
+                #             idx_mapping[idx][s_idx] = subset.union(l_set)
+                #             break
+                #     idx_mapping[idx].append(deepcopy(l_set))
+            
+            else:
+                commonattr_idx_mapping[commonattr] = {}
+                for idx in temp_idx_mapping.keys():
+                    commonattr_idx_mapping[commonattr][idx] = [set(temp_idx_mapping[idx])]
+            
+            print("commonattr_idx_mapping", commonattr_idx_mapping)
+        
+        print("commonattr_idx_mapping", commonattr_idx_mapping)
 
-    if len(required_replacement.keys()) != 0:
-        does_update = True
+        for commonattr in commonattr_idx_mapping:
+            idx_mapping = commonattr_idx_mapping[commonattr]
+            for idx in idx_mapping.keys():
+                if len(idx_mapping[idx]) <= 1:
+                    continue
 
-        cursor = conn.cursor()
-        for param in required_replacement:
-            target_value = required_replacement[param][0]
-            replaced_values = ["'{}'".format(v) for v in required_replacement[param][1:]]
+                removing_s_idxes = []
+                for s_idx1, subset1 in enumerate(idx_mapping[idx]):
+                    if s_idx1 in removing_s_idxes:
+                        continue
+                    for s_idx2, subset2 in enumerate(idx_mapping[idx]):
+                        if s_idx1 == s_idx2:
+                            continue
+                        if s_idx2 in removing_s_idxes:
+                            continue
+                        
+                        if not subset1.isdisjoint(subset2):
+                            removing_s_idxes.append(s_idx2)
+                            subset1.update(subset2)
+                for s_idx in removing_s_idxes:
+                    idx_mapping[idx].pop(s_idx)
+        
+        # print("commonattr_idx_mapping", commonattr_idx_mapping)    
+        
+        update_sqls = []
+        for commonattr in commonattr_idx_mapping.keys():
+            for attr_idx in commonattr_idx_mapping[commonattr].keys():
+                for group in commonattr_idx_mapping[commonattr][attr_idx]:
+                    group = list(group)
+                    target_value = "'{}'".format(group[0])
+                    replaced_vars = []
+                    for val in group:
+                        if val.isdigit():
+                            target_value = "'{}'".format(val)
+                        else:
+                            replaced_vars.append("'{}'".format(val))
 
-            upd_sql = "update {} set {} = '{}' where {} in ({})".format(Z_tablename, param, target_value, param, ", ".join(replaced_values))
-            # print("upd_sql", upd_sql)
-            cursor.execute(upd_sql)
-        conn.commit()
-
-    return does_update
-
-@timeit
-def get_flowids_required_replaced(conn, dependency, Z_tablename):
-    z_table = getCurrentTable(conn, Z_tablename)
-    pattern_source = dependency['dependency_tuples'][0][1]
-    pattern_dest = dependency['dependency_tuples'][0][2]
-    pattern_n = IPv4Address(dependency['dependency_tuples'][0][3])
-    pattern_x = IPv4Address(dependency['dependency_tuples'][0][4])
-    # pattern_condition = dependency['dependency_summary_condition'][0] # assuming it is always less than equal to policy
-    # pattern_condition_IP = IPv4Address(pattern_condition[7:-1])    
-
-    if (len(dependency['dependency_tuples']) < 2):
-        return False
-
-    replace_source = dependency['dependency_tuples'][1][1]
-    replace_dest = dependency['dependency_tuples'][1][2]
-    replace_n = IPv4Address(dependency['dependency_tuples'][1][3])
-    replace_x = IPv4Address(dependency['dependency_tuples'][1][4])
-    # replace_condition = dependency['dependency_summary_condition'][1] # assuming it is always less than equal to policy
-    # replace_condition_IP = IPv4Address(replace_condition[7:-1])
-
-    # extract flow id of pattern tuple
-    targetFlow = ""
-    for tuple in z_table:
-        flowid = tuple[0]
-        src = tuple[1]
-        dest = tuple[2]
-        n = IPv4Address(tuple[3])
-        x = IPv4Address(tuple[4])
-        if (src == pattern_source and dest == pattern_dest and n == pattern_n and x == pattern_x):
-            targetFlow = flowid
-            break
-    if targetFlow == "":
-        # print("No flow found. Hacky solution might not be working")
-        return False
-
-    flowids_required_replaced = []
-    for tuple in z_table:
-        flowid = tuple[0]
-        # if flow id is already in list, skip check the remaining attributes
-        if flowid in flowids_required_replaced:
-            continue
-
-        src = tuple[1]
-        dest = tuple[2]
-        n = IPv4Address(tuple[3])
-        x = IPv4Address(tuple[4])
-
-        if (src == replace_source and dest == replace_dest and n == replace_n and x == replace_x):
-            if flowid != targetFlow:
-                flowids_required_replaced.append(flowid)
-    
-    return targetFlow, flowids_required_replaced
-
-@timeit
-def replace_flowids(conn, Z_tablename, target_flowid, flowids_required_replaced):
-    """
-    # For rewrite policy (equalizing flow ids).
-    # Searches for the flow ID of the first tuple pattern. Then searches for all flow IDs of the second tuple pattern. Replaces the later flow IDs with the former. This is a tableau wide substitutions (all replace flow IDs are replaced)
-    # TODO: Unlike tgds, this is not general. It is specific to flow id equalization
-    """
-    
-    does_update = False
-
-    if len(flowids_required_replaced) != 0:
-        does_update = True
-
-        # flowids_required_replaced = ["'{}'".format(fid) for fid in flowids_required_replaced]
-        # cursor = conn.cursor()
-        # upd_sql = "update {} set f = '{}' where f in ({})".format(Z_tablename, target_flowid, ", ".join(flowids_required_replaced))
-        # cursor.execute(upd_sql)
-        # print("egd-affected rows number:", cursor.rowcount)
-        # conn.commit()
-        cursor = conn.cursor()
-        for flowid in flowids_required_replaced:
-            upd_sql = "update {} set f = '{}' where f = '{}'".format(Z_tablename, target_flowid, flowid)
-            cursor.execute(upd_sql)
-        conn.commit()
-
-    return does_update
+                    for attr in dependency_attributes:
+                        if attr == 'f':
+                            continue
+                        sql = ""
+                        if len(replaced_vars) == 1:
+                            sql = "update {} set {} = {} where {} = {}".format(Z_tablename, attr, target_value, attr, replaced_vars[0])
+                        else:
+                            sql = "update {} set {} = {} where {} in ({})".format(Z_tablename, attr, target_value, attr, ", ".join(replaced_vars))
+                        update_sqls.append(sql)
+        return update_sqls
 
 @timeit
 def apply_egd(conn, dependency, inverse_image_tablename):
@@ -961,12 +1033,16 @@ def apply_egd(conn, dependency, inverse_image_tablename):
     does_updated: Boolean
         does the application of the dependency change the inverse image
     """
-    # target_flowid, flowids_required_replaced = get_flowids_required_replaced(conn, dependency, inverse_image_tablename)
-    # return replace_flowids(conn, inverse_image_tablename, target_flowid, flowids_required_replaced)
+    update_sqls = get_update_sqls_for_egd(conn, dependency, inverse_image_tablename)
+    cursor = conn.cursor()
+    for sql in update_sqls:
+        print(sql)
+        cursor.execute(sql)
+    conn.commit()
 
-    required_replacement = get_required_replacement_pg(conn, dependency, inverse_image_tablename)
-    return replace_values_pg(conn, inverse_image_tablename, required_replacement)
-    # return applyRewritePolicy(conn, dependency, inverse_image_tablename)
+    if len(update_sqls) != 0:
+        return True
+    return False
 
 @timeit
 def analyze_dependency(dependency_tuples, dependency_attributes, Z):
@@ -1045,7 +1121,7 @@ def convert_dependency_to_sql(dependency, Z):
     for var in node_dict.keys():
         # print("\nnode_dict", node_dict)
         # print("var", var)
-        if type(var) is not int  and not var.strip('>').isdigit() and not isIPAddress(var.strip('>')):
+        if type(var) is not int and not var.strip('>').isdigit() and not isIPAddress(var.strip('>')):
             tup_idxs = list(node_dict[var].keys())
             # print("tup_idxs:", tup_idxs)
             for idx in range(len(tup_idxs)-1):
@@ -1095,7 +1171,10 @@ def convert_dependency_to_sql(dependency, Z):
     
     # print(conditions) 
     # add summary conditions
-    conditions += get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict)
+    summary_conditions = get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict)
+    print(summary_conditions)
+    if len(summary_conditions) != 0:
+        conditions.append( " and ".join(summary_conditions))
 
     sql = None
     '''
@@ -1119,25 +1198,62 @@ def convert_dependency_to_sql(dependency, Z):
         if len(dependency_summary) == 0:
             sql = "delete from {} where {}".format(", ".join(tables), " and ".join(conditions))
         else:
+
             # convert_summary_to_condition
             additional_condition = [] 
+            # select_clause.append("t0.f as f")
+            is_replacing_constant = False
             for idx, summary in enumerate(dependency_summary):
+                select_items = []
                 items = summary.split()
                 left_opd = items[0]
                 right_opd = items[2]
+
+                left_param = ''
+                right_param = ''
+                
                 left_tup_idx = list(node_dict[left_opd].keys())[0]
                 left_attr_idx = node_dict[left_opd][left_tup_idx][0]
-                right_tup_idx = list(node_dict[right_opd].keys())[0]
-                right_attr_idx = node_dict[right_opd][right_tup_idx][0]
-
                 left_param = "t{}.{}".format(left_tup_idx, dependency_attributes[left_attr_idx])
-                right_param = "t{}.{}".format(right_tup_idx, dependency_attributes[right_attr_idx])
-                additional_condition.append(("{} != {}").format(left_param, right_param))
-                select_clause.append("Array[{}, {}] as {}".format(left_param, right_param, dependency_attributes[left_attr_idx])) # for summary f1 = f2, store f1, f2 into an array, e.g., [f1, f2]
-            if len(additional_condition) == 1:
-                conditions += additional_condition
+                select_items.append(left_param)
+                
+                if right_opd.isdigit():
+                    right_param = "'{}'".format(right_opd)  
+                    is_replacing_constant = True
+                    # select_items.append(right_param)
+                else:
+                    right_tup_idx = list(node_dict[right_opd].keys())[0]
+                    right_attr_idx = node_dict[right_opd][right_tup_idx][0]
+                    right_param = "t{}.{}".format(right_tup_idx, dependency_attributes[right_attr_idx])
+                    select_items.append(right_param)
+                additional_condition.append(("{} = {}").format(left_param, right_param))
+                # select_clause.append("Array[{}] as {}".format(", ".join(select_items), replaced_value)) # for summary f1 = f2, store f1, f2 into an array, e.g., [f1, f2]
+            
+            conditions.append("not({})".format(" and ".join(additional_condition))) 
+
+            if not is_replacing_constant:
+                # common attributes for variable elements
+                # common_clause = []
+                # for var in node_dict.keys():
+                #     if is_variable(var):
+                #         if len(node_dict[var]) == len(dependency_tuples): # if the attribute of all tuples have the same variable, this is a common attribute
+                #             tup_idxs = list(node_dict[var].keys())
+                #             attr_idxs1 = set(node_dict[var][tup_idxs[0]])
+                #             for tup_idx in tup_idxs[1:]:
+                #                 attr_idxs2 = set(node_dict[var][tup_idx])
+
+                #                 attr_idxs1.intersection_update(attr_idxs2)
+
+                #             if len(attr_idxs1) != 0:
+                #                 tup_idx = 0
+                #                 attr_idx = list(attr_idxs1)[0] 
+                #                 common_clause.append("t{}.{} as {}".format(tup_idx, dependency_attributes[attr_idx], dependency_attributes[attr_idx]))
+                # select_clause += common_clause
+                for tup_idx in range(len(dependency_tuples)):
+                    select_clause += ["t{}.{}".format(tup_idx, attr, attr) for attr in dependency_attributes]
             else:
-                conditions.append("({})".format(" or ".join(additional_condition))) 
+                select_clause = ["t{}.{} as {}".format(range(len(dependency_tuples))[-1], attr, attr) for attr in dependency_attributes] # default the last tuple
+            
 
             # print("additional_condition", additional_condition)
             # select_clause.append("*")
@@ -1146,6 +1262,12 @@ def convert_dependency_to_sql(dependency, Z):
             #         if 'condition' in attr:
             #             continue
             #         select_clause.append("t{}.{}".format(idx, attr))
+            # sqls = []
+            
+                
+            #     sql = "select {} from {} where {}".format(", ".join(select_clause), ", ".join(tables), " and ".join(conditions))
+            #     sqls.append(sql)
+            # return sqls
             sql = "select {} from {} where {}".format(", ".join(select_clause), ", ".join(tables), " and ".join(conditions))
     else:
         print("Wrong dependency type!")
@@ -1323,40 +1445,61 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
     conditions = []
     if dependency_summary_conditions is not None:
         for smy_condition in dependency_summary_conditions:
-            items = smy_condition.split()
-            left_opd = items[0]
-            opr = items[1]
-            right_opd = items[2]
+            # print("smy_condition", smy_condition)
+            temp_condition = []
+            smy_conds = []
+            logic_opr = None
+            if ' and ' in smy_condition.lower():
+                logic_opr = ' and '
+                smy_conds = smy_condition.split(logic_opr)
+            elif ' or ' in smy_condition.lower():
+                logic_opr = ' or '
+                smy_conds = smy_condition.split(logic_opr)
+            else:
+                smy_conds[smy_condition]
+            
+            for smy_cond in smy_conds:
+                items = smy_cond.split()
+                left_opd = items[0]
+                opr = items[1]
+                right_opd = items[2]
 
-            left_items = []
-            if not left_opd.isdigit() and not isIPAddress(left_opd):
-                for tup_idx in node_dict[left_opd].keys():
-                    for col_idx in node_dict[left_opd][tup_idx]:
+                left_items = []
+                if not left_opd.isdigit() and not isIPAddress(left_opd):
+                    for tup_idx in node_dict[left_opd].keys():
+                        # for col_idx in node_dict[left_opd][tup_idx]:
+                        #     left_items.append("t{}.{}".format(tup_idx, dependency_attributes[col_idx]))
+                        col_idx = node_dict[left_opd][tup_idx][0]
                         left_items.append("t{}.{}".format(tup_idx, dependency_attributes[col_idx]))
-            else:
-                left_items.append(left_opd)
+                        break
+                else:
+                    left_items.append(left_opd)
 
-            right_items = []  
-            if not right_opd.isdigit() and not isIPAddress(right_opd):
-                for tup_idx in node_dict[right_opd].keys():
-                    for col_idx in node_dict[right_opd][tup_idx]:
+                right_items = []  
+                if not right_opd.isdigit() and not isIPAddress(right_opd):
+                    for tup_idx in node_dict[right_opd].keys():
+                        # for col_idx in node_dict[right_opd][tup_idx]:
+                        #     right_items.append("t{}.{}".format(tup_idx, dependency_attributes[col_idx]))
+                        col_idx = node_dict[right_opd][tup_idx][0]
                         right_items.append("t{}.{}".format(tup_idx, dependency_attributes[col_idx]))
-            else:
-                right_items.append(right_opd)
+                        break
+                else:
+                    right_items.append(right_opd)
 
-            for i in range(len(left_items)):
-                for j in range(len(right_items)):
-                    left = left_items[i]
-                    right = right_items[j]
+                for i in range(len(left_items)):
+                    for j in range(len(right_items)):
+                        left = left_items[i]
+                        right = right_items[j]
 
-                    if left_items[i].isdigit() or isIPAddress(left_items[i]):
-                        left = "'{}'".format(left_items[i])
-                    
-                    if right_items[j].isdigit() or isIPAddress(right_items[j]):
-                        right = "'{}'".format(right_items[j])
+                        if left_items[i].isdigit() or isIPAddress(left_items[i]):
+                            left = "'{}'".format(left_items[i])
                         
-                    conditions.append("{} {} {}".format(left, opr, right))
-    
+                        if right_items[j].isdigit() or isIPAddress(right_items[j]):
+                            right = "'{}'".format(right_items[j])
+                            
+                        temp_condition.append("{} {} {}".format(left, opr, right))
+            conditions.append("({})".format(logic_opr.join(temp_condition)))
+            # print("conditions", conditions)
     return conditions
 
 @timeit

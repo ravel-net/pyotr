@@ -487,6 +487,18 @@ def print_policy(policy):
     for dependency in policy:
         print_dependency(dependency)
 
+def print_table(conn, intial_T_tablename='t_random', intital_T_attributes=['F', 'S', 'D', 'N', 'X']):
+    cursor = conn.cursor()
+    cursor.execute("select * from {} order by {}".format(intial_T_tablename, ', '.join(intital_T_attributes)))
+    print(f"\n*****************************************TABLE:{intial_T_tablename}*******************************************")
+    print('| {:<16} | {:<16} | {:<16} | {:<16} | {:<16} |'.format(*intital_T_attributes))
+    print('| {:<16} | {:<16} | {:<16} | {:<16} | {:<16} |'.format(*['----------------' for i in range(len(intital_T_attributes))]))
+    for row in cursor.fetchall():
+        print('| {:<16} | {:<16} | {:<16} | {:<16} | {:<16} |'.format(*row))
+    print(f"\n***************************************************************************************************")
+
+    conn.commit()
+
 def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_nodes, symbolic_IP_mapping):
     tgd_tuples = []
     egd_tuples = []
@@ -519,6 +531,7 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
     tdg_dependency = {
         "dependency_tuples": tgd_tuples,
         "dependency_attributes": ['f', 'src', 'dst', 'n', 'x'],
+        # "dependency_attributes": ['c0', 'c1', 'c2', 'c3', 'c4'],
         "dependency_attributes_datatypes": ["text", "text", "text", "text", "text"], 
         "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
         "dependency_summary": tgd_summary,
@@ -539,6 +552,7 @@ def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_
     edg_dependency = {
         "dependency_tuples": egd_tuples,
         "dependency_attributes": ['f', 'src', 'dst', 'n', 'x'],
+        # "dependency_attributes": ['c0', 'c1', 'c2', 'c3', 'c4'],
         "dependency_attributes_datatypes": ["text", "text", "text", "text", "text"], 
         "dependency_cares_attributes": ['src', 'dst', 'n', 'x'],
         "dependency_summary": egd_summary,
@@ -714,6 +728,7 @@ def gen_firewall_dependency(block_list, loc, path_nodes, symbolic_IP_mapping):
     ]
 
     firewall_attributes = ['f', 'src', 'dst', 'n', 'x']
+    # firewall_attributes = ['c0', 'c1', 'c2', 'c3', 'c4'],
     firewall_datatypes = ['text', 'text', 'text', 'text', 'text']
     firewall_summary = []
     firewall_summary_condition = ["s = {}".format(block_list[0]), "d = {}".format(block_list[1])]
@@ -1470,410 +1485,220 @@ def run_chase_policy_atomic_per_policy(conn, E_tuples, E_attributes, E_summary, 
 
     return answer, count_application, count_iterations, count_E_query
 
+@timeit
+def the_chase(conn, initial_T, policies):
+    """
+    Parameters:
+    ------------
+    conn: psycopg2.connect()
+        instance of connention
+
+    initial_T_tablename: string
+        The tablename of input table (initial table)
+
+    initial_T_tuples: list
+        A list of tuples for `initial_T_tablename`
+
+    policies: list
+        A list of policies. A policy contains multiple dependencies. The format of dependency:
+        {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+    """
+    initial_T_tablename, initial_T_tuples, initial_T_attributes, initial_T_datatypes = initial_T['tablename'], initial_T['tuples'], initial_T['attributes'], initial_T['datatypes']
+    
+    chase.load_table(conn, initial_T_attributes, initial_T_datatypes, initial_T_tablename, initial_T_tuples)
+    dict_policies = {}
+    for idx in range(len(policies)):
+        dict_policies[idx] = policies[idx]
+    
+    does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
+    orderings = list(dict_policies.keys()) 
+    while does_updated:
+        random.shuffle(orderings)
+        # print_table(conn, initial_T_tablename)
+        # input()
+        temp_updated = False
+        for idx in orderings:
+            policy = dict_policies[idx]
+            # print_policy(policy)
+            whether_updated, counts = chase.apply_policy_as_atomic_unit(conn, policy, initial_T_tablename)
+            temp_updated = (temp_updated or whether_updated)
+            # print_table(conn, initial_T_tablename)
+            # input()
+        does_updated = temp_updated
+    print_table(conn, initial_T_tablename, initial_T_attributes)
+
 if __name__ == '__main__':
     # ============================test new \sigma_new: \sigma_fp and \sigma_bp=============================
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    ordering_strategy='random'
-    orderings=None
-    path_nodes = ['1', '2', '3']
-    block_list = ['10.0.0.2', '10.0.0.4']
-    ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    egress_hosts = ['10.0.0.3', '10.0.0.4', '10.0.0.5']
 
-    topo_tablename = "l"
-    topo_attributes = ['n', 'x', 'flag', 'condition']
-    topo_datatypes = ['text', 'text', 'text', 'text[]']
-    topo_tuples = [
-        ('10.0.0.1', '1', '0', '{}'), 
-        ('10.0.0.2', '1', '0', '{}'), 
-        ('1', '2', '1', '{}'), 
-        ('2', '3', '1', '{}'), 
-        ('3', '10.0.0.3', '0', '{}'),
-        ('3', '10.0.0.4', '0', '{}'),
-        ('3', '10.0.0.5', '0', '{}')
+    # replace A with 9, B with 10, C with 11, D with 12
+    initial_T_tuples = [
+        ('f2', '10', '11', '10', '2'),
+        ('f2', 's9', 'd9', '2', '3'),
+        ('f2', 's10', 'd10', '3', '4'),
+        ('f2', 's11', 'd11', '4', '5'),
+        ('f2', 's12', 'd12', '5', '6'),
+        ('f2', 's13', 'd13', '6', 'x13'),
+        ('f2', 's14', 'd14', 'x13', 'd14'),
     ]
-    chase.load_table(conn, topo_attributes, topo_datatypes, topo_tablename, topo_tuples)
-    # block_list = ['2', '4']
-    # ingress_hosts = ['1', '2']
-    # egress_hosts = ['3', '4']
 
-    # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
-    symbolic_IP_mapping = {'1': '1', '2':'2', '3':'3'}
-    inverse = False 
+    initial_T = {
+        'tablename': 'T',
+        'tuples': initial_T_tuples,
+        'attributes': ['f', 's', 'd', 'n', 'x'],
+        'datatypes': ['text', 'text', 'text', 'text', 'text']
+    }
 
-    E_tablename = 'E'
-    E_summary = ['f', 's', 'd']
-    E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
-
-    # E_tuples = [
-    #     ('f', 's', 'd0', 's', '1', '{}'), 
-    #     ('f', 's1', 'd1', '1', '2', '{}'), 
-    #     ('f', 's1', 'd1', '2', '3', '{}'),
-    #     ('f', 's2', 'd', '3', 'd', '{}')
-    # ]
-
-    E_tuples = [
-        ('f', 's', 'd0', 's', '1', '{}'), 
-        ('f', 's1', 'd1', '1', '2', '{}'), 
-        ('f', 's2', 'd2', '2', '3', '{}'),
-        ('f', 's3', 'd', '3', 'd', '{}')
+    policy_p1 = [
+        {
+            'dependency_tuples': [
+                ('f', '10', '11', '10', '2'),
+                ('f', 's', 'd', '2', '3')
+            ], 
+            'dependency_summary': ["s = 9", "d = 11"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }, 
+        {
+            'dependency_tuples': [
+                ('f', '9', '11', '9', '1'),
+                ('f', 's', 'd', '1', '3')
+            ], 
+            'dependency_summary': ["s = 9", "d = 11"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', '9', '12', '9', '1'),
+                ('f', 's', 'd', '1', '3')
+            ], 
+            'dependency_summary': ["s = 9", "d = 12"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }
     ]
-    
-    '''
-    get whitelist
-    '''
-    gamma_attributes = ['f', 'n', 'x', 'condition']
-    gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
-    gamma_summary = ['f', block_list[0], block_list[1]]
-    print("gamma_summary", gamma_summary)
-    gamma_tablename= "W_{}".format(ordering_strategy)
-    gen_empty_table(conn, gamma_tablename, gamma_attributes, gamma_attributes_datatypes)
-    gamma_tuples = [('f', '10.0.0.2', '10.0.0.3')]
-    update_table(conn, gamma_tuples, gamma_tablename)
 
-    
-    Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
-    Z_tablename = "Z_{}".format(ordering_strategy)
-    gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
-    # chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
-    # exit()
+    policy_p2 = [
+        {
+            'dependency_tuples': [
+                ('f', '9', '11', '5', '6'),
+                ('f', 's', 'd', '6', 'x')
+            ], 
+            'dependency_summary': ["s = 9", "d = 12"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }, 
+        {
+            'dependency_tuples': [
+                ('f', '9', '12', '5', '6'),
+                ('f', 's', 'd', '6', 'x')
+            ], 
+            'dependency_summary': ["s = 9", "d = 12"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', '10', '11', '5', '6'),
+                ('f', 's', 'd', '6', 'x')
+            ], 
+            'dependency_summary': ["s = 10", "d = 11"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }
+    ]
 
-    # rewrite_policy = convert_rewrite_policy_to_dependency('10.0.0.2', '10.0.0.3', {'source':None, 'dest':'10.0.0.5'}, 0, path_nodes, symbolic_IP_mapping) 
-    rewrite_policy1 = convert_rewrite_policy_to_dependency('10.0.0.2', '10.0.0.3', {'source':'10.0.0.1', 'dest':'10.0.0.3'}, 0, path_nodes, symbolic_IP_mapping) 
-    rewrite_policy2 = convert_rewrite_policy_to_dependency('10.0.0.1', '10.0.0.3', {'source':'10.0.0.1', 'dest':'10.0.0.4'}, 1, path_nodes, symbolic_IP_mapping) 
-    rewrite_policy3 = convert_rewrite_policy_to_dependency('10.0.0.1', '10.0.0.4', {'source':'10.0.0.1', 'dest':'10.0.0.5'}, 2, path_nodes, symbolic_IP_mapping) 
+    policy_p12 = [
+        {
+            'dependency_tuples': [
+                ('f', 's1', 'd1', 'n', '3'),
+                ('f', 's2', 'd2', '3', '4')
+            ], 
+            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', 's1', 'd1', '3', '4'),
+                ('f', 's2', 'd2', '4', '5')
+            ], 
+            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', 's1', 'd1', '4', '5'),
+                ('f', 's2', 'd2', '5', '6')
+            ], 
+            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', 's1', 'd1', '6', 'x1'),
+                ('f', 's2', 'd2', 'x1', 'x2')
+            ], 
+            'dependency_summary': ["s1 = s2", "d1 = d2"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }
+    ]
 
-    sigma_fp1_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.x = t1.n and t1.flag = '1'".format(Z_tablename)
-    sigma_fp2_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.x = t1.n and t0.dst = t1.x and t1.flag = '0'".format(Z_tablename)
+    additional_policy = [
+        {
+            'dependency_tuples': [
+                ('f', 's', 'd', 'n', '11'),
+            ], 
+            'dependency_summary': ["n = 7"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', 's', 'd', 'n', '12'),
+            ], 
+            'dependency_summary': ["n = 8"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }
+    ]
 
-    sigma_bp1_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.n = t1.x and t1.flag = '1'".format(Z_tablename)
-    sigma_bp2_sql = "select t0.f as f, t0.src as src, t0.dst as dst, t1.n as n, t1.x as x from {} t0, l t1 where t0.n = t1.x and t0.src = t1.n and t1.flag = '0'".format(Z_tablename)
+    policies = [policy_p1, policy_p2, policy_p12, additional_policy]
 
-    sigma_new = [sigma_fp1_sql, sigma_fp2_sql, sigma_bp1_sql, sigma_bp2_sql]
-
-
-    print("\n---------policy1------------")
-    print_policy(rewrite_policy1)
-    chase.apply_policy_as_atomic_unit(conn, rewrite_policy1, Z_tablename)
-    for sql in sigma_new:
-        chase.apply_sigma_new_atomically(conn, sql, Z_tablename)
-    # input()
-
-    print("---------policy2------------")
-    print_policy(rewrite_policy2)
-    chase.apply_policy_as_atomic_unit(conn, rewrite_policy2, Z_tablename)
-    for sql in sigma_new:
-        chase.apply_sigma_new_atomically(conn, sql, Z_tablename)
-    # input()
-
-    print("---------policy3------------")
-    print_policy(rewrite_policy3)
-    chase.apply_policy_as_atomic_unit(conn, rewrite_policy3, Z_tablename)
-    for sql in sigma_new:
-        chase.apply_sigma_new_atomically(conn, sql, Z_tablename)
-    # input()
-
-    E_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
-    answer = chase.apply_E(conn, E_sql)
-    print("answer", answer)
-    # #========================= toy example ========================
-    # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    # ordering_strategy='random'
-    # orderings=None
-    # mode='all'
-    # path_nodes = ['1', '2', '3']
-    # block_list = ['10.0.0.2', '10.0.0.4']
-    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    # egress_hosts = ['10.0.0.3', '10.0.0.4']
-    # # block_list = ['2', '4']
-    # # ingress_hosts = ['1', '2']
-    # # egress_hosts = ['3', '4']
-
-    # # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
-    # symbolic_IP_mapping = {'1': '1', '2':'2', '3':'3'}
-    # inverse = False 
-
-    # E_tablename = 'E'
-    # E_summary = ['f', 's', 'd']
-    # E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    # E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
-
-    # E_tuples = [
-    #     ('f', 's', 'd0', 's', '1', '{}'), 
-    #     ('f', 's1', 'd1', '1', '2', '{}'), 
-    #     ('f', 's1', 'd1', '2', '3', '{}'),
-    #     ('f', 's2', 'd', '3', 'd', '{}')
-    # ]
-    # # E_tuples = [
-    # #     ('f', 's', 'd', 's', '11.0.0.1', '{}'), 
-    # #     ('f', 's', 'd', '11.0.0.1', '11.0.0.2', '{}'), 
-    # #     ('f', 's', 'd', '11.0.0.2', 'd', '{}')
-    # # ]
-    
-    # # generate dependencies
-    # dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
-
-    # '''
-    # get whitelist
-    # '''
-    # gamma_attributes = ['f', 'n', 'x', 'condition']
-    # gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
-    # gamma_summary = None
-    # gamma_tablename= "W_{}".format(ordering_strategy)
-    # gamma_summary = gen_gamma_table(conn, block_list, ingress_hosts, egress_hosts, gamma_tablename, gamma_attributes, gamma_attributes_datatypes, mode)
-
-    
-    # Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    # Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
-    # Z_tablename = "Z_{}".format(ordering_strategy)
-    # Z_tuples = gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_datatypes)
-    # # print("block_list", block_list)
-    # #step2 and step3
-    # ans, count_application = run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
-    # print("ans", ans)
-
-    # #========================= inverse: toy example ========================
-    # path_nodes = ['1', '2']
-    # block_list = ['10.0.0.2', '10.0.0.4']
-    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    # egress_hosts = ['10.0.0.3', '10.0.0.4']
-
-    # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
-    # inverse = False
-    # rewrite_dependencies, relevant_ingress, relevant_egress =  gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping, inverse)
-
-    # for idx in rewrite_dependencies:
-    #     dependency = rewrite_dependencies[idx]
-    #     print(f"\n***************************{idx}************************************")
-    #     for tuple in dependency['dependency_tuples']:
-    #         print(tuple)
-    #     print("------------------------------------------------------------------")
-    #     print(dependency['dependency_summary'])
-    #     print("****************************************************************\n")
-    
-    # #========================= single gamma ========================
-    # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    # ordering_strategy='random'
-    # orderings=None
-    # path_nodes = ['1', '2', '3']
-    # block_list = ['10.0.0.2', '10.0.0.4']
-    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    # egress_hosts = ['10.0.0.3', '10.0.0.4']
-    # # block_list = ['2', '4']
-    # # ingress_hosts = ['1', '2']
-    # # egress_hosts = ['3', '4']
-
-    # # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
-    # symbolic_IP_mapping = {'1': '1', '2':'2', '3':'3'}
-    # inverse = False 
-
-    # E_tablename = 'E'
-    # E_summary = ['f', 's', 'd']
-    # E_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    # E_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
-
-    # E_tuples = [
-    #     ('f', 's', 'd0', 's', '1', '{}'), 
-    #     ('f', 's1', 'd1', '1', '2', '{}'), 
-    #     ('f', 's1', 'd1', '2', '3', '{}'),
-    #     ('f', 's2', 'd', '3', 'd', '{}')
-    # ]
-    
-    # # E_tuples = [
-    # #     ('f', 's', 'd', 's', '1', '{}'), 
-    # #     ('f', 's', 'd', '1', '2', '{}'), 
-    # #     ('f', 's', 'd', '2', 'd', '{}')
-    # # ]
-    # # E_tuples = [
-    # #     ('f', 's', 'd', 's', '11.0.0.1', '{}'), 
-    # #     ('f', 's', 'd', '11.0.0.1', '11.0.0.2', '{}'), 
-    # #     ('f', 's', 'd', '11.0.0.2', 'd', '{}')
-    # # ]
-    
-    # # generate dependencies
-    # dependencies, relevant_in_hosts, relevant_out_hosts, block_list = gen_dependencies_for_chase_distributed_invariants(ingress_hosts.copy(), egress_hosts.copy(), path_nodes, symbolic_IP_mapping, inverse)
-
-    # '''
-    # get whitelist
-    # '''
-    # gamma_attributes = ['f', 'n', 'x', 'condition']
-    # gamma_attributes_datatypes = ['text', 'text', 'text', 'text[]']
-    # gamma_summary = ['f', block_list[0], block_list[1]]
-    # print("gamma_summary", gamma_summary)
-    # gamma_tablename= "W_{}".format(ordering_strategy)
-    # gen_empty_table(conn, gamma_tablename, gamma_attributes, gamma_attributes_datatypes)
-
-    
-    # Z_attributes = ['f', 'src', 'dst', 'n', 'x']
-    # Z_datatypes = ['text', 'text', 'text', 'text', 'text'] # text is much faster than inet_faure?
-    # Z_tablename = "Z_{}".format(ordering_strategy)
-    # gen_empty_table(conn, Z_tablename, Z_attributes, Z_datatypes)
-    # # chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
-    # # exit()
-    # whitelists_flows = gen_whitelists(block_list, ingress_hosts, egress_hosts)
-
-    # for flow in whitelists_flows:
-        
-    #     flow_tuples = [('f', flow[0], flow[1])]
-    #     update_table(conn, flow_tuples, gamma_tablename)
-
-    #     Z_tuples = chase.gen_inverse_image_with_destbasedforwarding_applied(conn, E_tuples, gamma_tablename)
-    #     update_table(conn, Z_tuples, Z_tablename)
-
-    #     #step2 and step3
-    #     ans, count_application = run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy=ordering_strategy, orderings=orderings)
-    #     print("flow", flow)
-    #     print("ans", ans)
-    #     input()
-
-    # # =============================test summary condition=====================
-    # new_policy = gen_new_policy()
-    # sql = chase.convert_dependency_to_sql(new_policy[2], "z_specific")
-    # print(sql)
-
-
-    # # ============================test new \sigma_new: \sigma_fp and \sigma_bp=============================
-    # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
-    # ordering_strategy='random'
-
-    # path_nodes = ['1', '2', '3']
-    # security_hole = ['10.0.0.2', '10.0.0.4']
-    # ingress_hosts = ['10.0.0.1', '10.0.0.2']
-    # egress_hosts = ['10.0.0.3', '10.0.0.4', '10.0.0.5']
-    # symbolic_IP_mapping = {'1': '1', '2':'2', '3':'3'}
-
-    # topo_tablename = "l"
-    # topo_attributes = ['n', 'x', 'flag']
-    # topo_datatypes = ['text', 'text', 'text']
-    # topo_tuples = [
-    #     ('10.0.0.1', '>1', '0'), 
-    #     ('10.0.0.2', '>1', '0'), 
-    #     ('>1', '1>', '1'),
-    #     ('1>', '>2', '1'),
-    #     ('>2', '2>', '1'),
-    #     ('2>', '>3', '1'),
-    #     ('>3', '3>', '1'),
-    #     ('3>', '10.0.0.3', '0'),
-    #     ('3>', '10.0.0.4', '0'),
-    #     ('3>', '10.0.0.5', '0')
-    # ]
-    # chase.load_table(conn, topo_attributes, topo_datatypes, topo_tablename, topo_tuples)
-
-    # LP1_tablename = 'lp1'
-    # LP1_tuples = [
-    #     ('10.0.0.1', '>1', '0'), 
-    #     ('10.0.0.2', '>1', '0'), 
-    #     ('>1', '1>', '1')
-    # ]
-    # chase.load_table(conn, topo_attributes, topo_datatypes, LP1_tablename, LP1_tuples)
-
-    # LP2_tablename = 'lp2'
-    # LP2_tuples = [
-    #     ('1>', '>2', '1'),
-    #     ('>2', '2>', '1')
-    # ]
-    # chase.load_table(conn, topo_attributes, topo_datatypes, LP2_tablename, LP2_tuples)
-
-    # LP3_tablename = 'lp3'
-    # LP3_tuples = [
-    #     ('2>', '>3', '1'),
-    #     ('>3', '3>', '1')
-    # ]
-    # chase.load_table(conn, topo_attributes, topo_datatypes, LP3_tablename, LP3_tuples)
-
-    # LP4_tablename = 'lp4'
-    # LP4_tuples = [
-    #     ('3>', '10.0.0.3', '0'),
-    #     ('3>', '10.0.0.4', '0'),
-    #     ('3>', '10.0.0.5', '0')
-    # ]
-    # chase.load_table(conn, topo_attributes, topo_datatypes, LP4_tablename, LP4_tuples)
-
-    # # symbolic_IP_mapping = {'1': '11.0.0.1', '2':'11.0.0.2'}
-    
-
-    # E_tablename = 'E'
-    # E_summary = ['f', 's', 'd']
-    # E_attributes = ['f', 'src', 'dst', 'n', 'x']
-    # E_datatypes = ['text', 'text', 'text', 'text', 'text']
-    # E_tuples = [
-    #     ('f', 's', 'd0', 's', '>1'), 
-    #     ('f', 's', 'd0', '>1', '1>'), 
-    #     ('f', 's1', 'd1', '1>', '>2'), 
-    #     ('f', 's1', 'd1', '>2', '2>'), 
-    #     ('f', 's2', 'd2', '2>', '>3'),
-    #     ('f', 's2', 'd2', '>3', '3>'),
-    #     ('f', 's3', 'd', '3>', 'd')
-    # ]
-    
-    # '''
-    # get whitelist
-    # '''
-    # gamma_attributes = ['f', 'n', 'x']
-    # gamma_attributes_datatypes = ['text', 'text', 'text']
-    # gamma_summary = ['f', security_hole[0], security_hole[1]]
-    # print("gamma_summary", gamma_summary)
-    # gamma_tablename= "W_{}".format(ordering_strategy)
-    # chase_script.gen_empty_table(conn, gamma_tablename, gamma_attributes, gamma_attributes_datatypes)
-    # gamma_tuples = [('f', '10.0.0.2', '10.0.0.3')]
-    # chase_script.update_table(conn, gamma_tuples, gamma_tablename)
-
-    
-    # intial_T_attributes = ['f', 'src', 'dst', 'n', 'x']
-    # intial_T_datatypes = ['text', 'text', 'text', 'text', 'text'] 
-    # intial_T_tablename = "T_{}".format(ordering_strategy)
-
-    # intial_T_tuples = [
-    #     ('f', '10.0.0.2', '10.0.0.3', '10.0.0.2', '>1'), 
-    #     ('f', '10.0.0.2', '10.0.0.3', '>1', '1>'), 
-    #     ('f', 's1', 'd1', '1>', '>2'), 
-    #     ('f', 's1', 'd1', '>2', '2>'), 
-    #     ('f', 's2', 'd2', '2>', '>3'),
-    #     ('f', 's2', 'd2', '>3', '3>'),
-    #     ('f', 's3', '10.0.0.3', '3>', '10.0.0.3')
-    # ]
-    # chase.load_table(conn, intial_T_attributes, intial_T_datatypes, intial_T_tablename, intial_T_tuples)
-    # # chase.gen_E_query(E_tuples, E_attributes, E_summary, Z_tablename, gamma_summary)
-    # # exit()
-
-    # # rewrite_policy = convert_rewrite_policy_to_dependency('10.0.0.2', '10.0.0.3', {'source':None, 'dest':'10.0.0.5'}, 0, path_nodes, symbolic_IP_mapping) 
-    # rewrite_policy1 = chase_script.convert_rewrite_policy_to_dependency('10.0.0.2', '10.0.0.3', {'source':'10.0.0.1', 'dest':'10.0.0.3'}, 0, path_nodes, symbolic_IP_mapping) 
-    # rewrite_policy2 = chase_script.convert_rewrite_policy_to_dependency('10.0.0.1', '10.0.0.3', {'source':'10.0.0.1', 'dest':'10.0.0.4'}, 1, path_nodes, symbolic_IP_mapping) 
-    # rewrite_policy3 = chase_script.convert_rewrite_policy_to_dependency('10.0.0.1', '10.0.0.4', {'source':'10.0.0.1', 'dest':'10.0.0.5'}, 2, path_nodes, symbolic_IP_mapping) 
-
-    # print_table(conn)
-    # input()
-
-    # print("\n---------policy1------------")
-    # chase_script.print_policy(rewrite_policy1)
-    # # input()
-    # chase.apply_policy_as_atomic_unit(conn, rewrite_policy1, intial_T_tablename)
-    # chase.apply_sigma_new_atomically(conn, intial_T_tablename, LP2_tablename)
-    # print_table(conn)
-    # input()
-
-    # print("---------policy2------------")
-    # chase_script.print_policy(rewrite_policy2)
-    # # input()
-    # chase.apply_policy_as_atomic_unit(conn, rewrite_policy2, intial_T_tablename)
-    # chase.apply_sigma_new_atomically(conn, intial_T_tablename, LP3_tablename)
-    
-    # print_table(conn)
-    # input()
-
-    # print("---------policy3------------")
-    # chase_script.print_policy(rewrite_policy3)
-    # # input()
-    # chase.apply_policy_as_atomic_unit(conn, rewrite_policy3, intial_T_tablename)
-    # chase.apply_sigma_new_atomically(conn, intial_T_tablename, LP4_tablename)
-    
-    # print_table(conn)
-    # input()
-
-    # E_sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, intial_T_tablename, gamma_summary)
-    # answer = chase.apply_E(conn, E_sql)
-    # print("answer", answer)
-
-    # print_table(conn)
+    the_chase(conn, initial_T, policies)
