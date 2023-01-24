@@ -761,7 +761,7 @@ def analyze_egd(dependency):
                     break
 
         if right_opd[0].isdigit() or isIPAddress(right_opd):
-            replacing_symbol_idxs.append("'{}'".format(right_opd))
+            replacing_symbol_idxs.append(right_opd)
             replacing_constant = True
         else:
             for tup_idx, tup in enumerate(dependency_tuples):
@@ -771,10 +771,11 @@ def analyze_egd(dependency):
                         break
     return replaced_symbol_idxs, replacing_symbol_idxs, replacing_constant
 
-def test(conn, dependency, Z_tablename):
+def get_update_sqls_for_egd(conn, dependency, Z_tablename):
     dependency_sql = convert_dependency_to_sql(dependency, Z_tablename)
+    # print("dependency_sql", dependency_sql)
     replaced_symbol_idxs, replacing_symbol_idxs, replacing_constant = analyze_egd(dependency)
-
+    dependency_attributes = dependency['dependency_attributes']
     cursor = conn.cursor()
     cursor.execute(dependency_sql)
 
@@ -783,18 +784,76 @@ def test(conn, dependency, Z_tablename):
 
     len_tuple = len(dependency['dependency_tuples'][0])    
 
-    replaced_values = ['' for i in range(replaced_symbol_idxs)]
-    replacing_values = ['' for i in range(replaced_symbol_idxs)]
-    constrains = [[] for i in range(replaced_symbol_idxs)]
-    if replacing_constant:
-        replacing_values = replaced_symbol_idxs
-        for record in results:
-            for v_idx, value in enumerate(record):
-                if v_idx in replaced_symbol_idxs:
-                    r_idx = replaced_symbol_idxs.index(v_idx)
-                    
+    update_sqls = []
+    for record in results:
+        print("\nrecord", record)
+        replaced_values = ['' for i in range(len(replaced_symbol_idxs))]
+        replacing_values = ['' for i in range(len(replaced_symbol_idxs))]
+        constrains = None
 
-def get_update_sqls_for_egd(conn, dependency, Z_tablename):
+        if replacing_constant:
+            replacing_values = replacing_symbol_idxs
+
+        for p_idx, item_idx in enumerate(replaced_symbol_idxs):
+            replacing_v_idx = replacing_symbol_idxs[p_idx]
+
+            if record[item_idx].isdigit() or isIPAddress(record[item_idx]):
+                begin_idx = (item_idx // len_tuple) * len_tuple 
+                end_idx = begin_idx + len_tuple
+                constrains = record[begin_idx:end_idx]
+
+            replaced_values[p_idx] = record[item_idx]
+            if not replacing_constant:
+                replacing_values[p_idx] = record[replacing_v_idx]
+
+        print("replaced_values", replaced_values)
+        print("replacing_values", replacing_values)
+        print("constrains", constrains)
+        sqls = []           
+        if constrains is None: # replace all variables with constants
+            for i in range(len(replacing_values)):
+                replacing_v = replacing_values[i]
+                replaced_v = replaced_values[i]
+                # col_idx = get_col_idx_from_item_idx_in_record(replacing_symbol_idxs[i], len_tuple)
+                for attr in dependency_attributes:
+                    if attr  == 'f':
+                        continue
+
+                    sql = "update {} set {} = '{}' where {} = '{}'".format(Z_tablename, attr, replacing_v, attr, replaced_v)
+                    sqls.append(sql)
+        else:  # some replaced values are constants, some are not
+            set_clause = []
+            variable_idx_lists = []
+            for i in range(len(replaced_values)):
+                replacing_v = replacing_values[i]
+                replaced_v = replaced_values[i]
+
+                col_idx = replaced_symbol_idxs[i] % len_tuple # get_col_idx_from_item_idx_in_record
+                set_clause.append("{} = '{}'".format(dependency_attributes[col_idx], replacing_v))
+
+                if not replaced_v.isdigit() and not isIPAddress(replaced_v):
+                    variable_idx_lists.append(i)
+            
+            sql = "update {} set {} where ({}) = ({})".format(Z_tablename, ", ".join(set_clause), ", ".join(dependency_attributes), ", ".join(["'{}'".format(c) for c in constrains]))
+            sqls.append(sql)
+
+            for var_idx in variable_idx_lists:
+                replacing_v = replacing_values[var_idx]
+                replaced_v = replaced_values[var_idx]
+                for attr in dependency_attributes:
+                    if attr  == 'f':
+                        continue
+
+                    sql = "update {} set {} = {} where {} = '{}'".format(Z_tablename, attr, replacing_v, attr, replaced_v)
+                    sqls.append(sql)   
+        print("sqls", "\n".join(sqls))
+        update_sqls += sqls
+    return update_sqls
+
+def get_col_idx_from_item_idx_in_record(item_idx, len_tuple):
+    return item_idx % len_tuple     
+
+def get_update_sqls_for_egd_old(conn, dependency, Z_tablename):
     """
     Generate update SQLs by given a egd dependency
     #TODO: the update SQLs might be efficient enough, later it needs to be optimized
@@ -1036,7 +1095,7 @@ def apply_egd(conn, dependency, inverse_image_tablename):
     update_sqls = get_update_sqls_for_egd(conn, dependency, inverse_image_tablename)
     cursor = conn.cursor()
     for sql in update_sqls:
-        print(sql)
+        # print(sql)
         cursor.execute(sql)
     conn.commit()
 
@@ -1231,28 +1290,30 @@ def convert_dependency_to_sql(dependency, Z):
             
             conditions.append("not({})".format(" and ".join(additional_condition))) 
 
-            if not is_replacing_constant:
-                # common attributes for variable elements
-                # common_clause = []
-                # for var in node_dict.keys():
-                #     if is_variable(var):
-                #         if len(node_dict[var]) == len(dependency_tuples): # if the attribute of all tuples have the same variable, this is a common attribute
-                #             tup_idxs = list(node_dict[var].keys())
-                #             attr_idxs1 = set(node_dict[var][tup_idxs[0]])
-                #             for tup_idx in tup_idxs[1:]:
-                #                 attr_idxs2 = set(node_dict[var][tup_idx])
+            # if not is_replacing_constant:
+            #     # common attributes for variable elements
+            #     # common_clause = []
+            #     # for var in node_dict.keys():
+            #     #     if is_variable(var):
+            #     #         if len(node_dict[var]) == len(dependency_tuples): # if the attribute of all tuples have the same variable, this is a common attribute
+            #     #             tup_idxs = list(node_dict[var].keys())
+            #     #             attr_idxs1 = set(node_dict[var][tup_idxs[0]])
+            #     #             for tup_idx in tup_idxs[1:]:
+            #     #                 attr_idxs2 = set(node_dict[var][tup_idx])
 
-                #                 attr_idxs1.intersection_update(attr_idxs2)
+            #     #                 attr_idxs1.intersection_update(attr_idxs2)
 
-                #             if len(attr_idxs1) != 0:
-                #                 tup_idx = 0
-                #                 attr_idx = list(attr_idxs1)[0] 
-                #                 common_clause.append("t{}.{} as {}".format(tup_idx, dependency_attributes[attr_idx], dependency_attributes[attr_idx]))
-                # select_clause += common_clause
-                for tup_idx in range(len(dependency_tuples)):
-                    select_clause += ["t{}.{}".format(tup_idx, attr, attr) for attr in dependency_attributes]
-            else:
-                select_clause = ["t{}.{} as {}".format(range(len(dependency_tuples))[-1], attr, attr) for attr in dependency_attributes] # default the last tuple
+            #     #             if len(attr_idxs1) != 0:
+            #     #                 tup_idx = 0
+            #     #                 attr_idx = list(attr_idxs1)[0] 
+            #     #                 common_clause.append("t{}.{} as {}".format(tup_idx, dependency_attributes[attr_idx], dependency_attributes[attr_idx]))
+            #     # select_clause += common_clause
+            #     for tup_idx in range(len(dependency_tuples)):
+            #         select_clause += ["t{}.{}".format(tup_idx, attr, attr) for attr in dependency_attributes]
+            # else:
+            #     select_clause = ["t{}.{} as {}".format(range(len(dependency_tuples))[-1], attr, attr) for attr in dependency_attributes] # default the last tuple
+            for tup_idx in range(len(dependency_tuples)):
+                select_clause += ["t{}.{}".format(tup_idx, attr, attr) for attr in dependency_attributes]
             
 
             # print("additional_condition", additional_condition)
