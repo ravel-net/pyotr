@@ -1,8 +1,21 @@
 Name: 2548-1-3549
+==================================
 numLinksBefore: 35
 numLinksAfter: 15
+percentageLinkReduction: 57.142857142857146
+==================================
 numNodesBefore: 16
 numNodesAfter: 9
+percentageNodeReduction: 43.75
+==================================
+numRulesBefore: 50
+numRulesAfter: 5
+percentageRuleReduction: 90.0
+==================================
+numAtomsBefore: 376
+numAtomsAfter: 35
+percentageAtomReduction: 90.69148936170212
+==================================
 Average Minimization Time: 16.1242315530777 1.3884198465075386
 Average EqualityClasses Time: 15.157860684394837 2.08327782247862
 Average Combination Time: 0.7396583795547486 0.09684299870773626

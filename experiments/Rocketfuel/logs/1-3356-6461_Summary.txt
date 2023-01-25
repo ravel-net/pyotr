@@ -1,0 +1,22 @@
+Name: 1-3356-6461
+==================================
+numLinksBefore: 38
+numLinksAfter: 8
+percentageLinkReduction: 78.94736842105263
+==================================
+numNodesBefore: 10
+numNodesAfter: 4
+percentageNodeReduction: 60.0
+==================================
+numRulesBefore: 139
+numRulesAfter: 3
+percentageRuleReduction: 97.84172661870504
+==================================
+numAtomsBefore: 767
+numAtomsAfter: 15
+percentageAtomReduction: 98.04432855280312
+==================================
+Average Minimization Time: 11.914245891571046 0.7688057176306106
+Average EqualityClasses Time: 17.610076999664308 2.266283948470794
+Average Combination Time: 0.25868840217590333 0.01649613927490373
+Average Total Time: 29.783011293411256 2.858360648705334

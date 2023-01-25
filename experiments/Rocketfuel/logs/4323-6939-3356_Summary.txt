@@ -1,8 +1,21 @@
 Name: 4323-6939-3356
+==================================
 numLinksBefore: 13
 numLinksAfter: 5
+percentageLinkReduction: 61.53846153846154
+==================================
 numNodesBefore: 6
 numNodesAfter: 3
+percentageNodeReduction: 50.0
+==================================
+numRulesBefore: 9
+numRulesAfter: 2
+percentageRuleReduction: 77.77777777777777
+==================================
+numAtomsBefore: 41
+numAtomsAfter: 9
+percentageAtomReduction: 78.04878048780488
+==================================
 Average Minimization Time: 0.45725235939025877 0.07908761638058641
 Average EqualityClasses Time: 0.9669119675954183 0.15816870784780945
 Average Combination Time: 0.013076519966125489 0.010628521374582296

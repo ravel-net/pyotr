@@ -475,10 +475,23 @@ def avgVarianceSummary(logFilePath):
         for line in lines[1:]:
             cols = line.split("|")
             name = cols[0].replace(",","-")[1:-1] 
-            numNodesBefore = cols[9]
-            numNodesAfter = cols[10]
-            numLinksBefore = cols[11]
-            numLinksAfter = cols[12]
+            numRulesBefore = int(cols[1]) 
+            numRulesAfter = int(cols[2])
+            numAtomsBefore = int(cols[3])
+            numAtomsAfter = int(cols[4])
+            numingressBefore = int(cols[5])
+            numingressAfter = int(cols[6])
+            numegressBefore = int(cols[7])
+            numegressAfter = int(cols[8])
+            numNodesBefore = int(cols[9])
+            numNodesAfter = int(cols[10])
+            numLinksBefore = int(cols[11])
+            numLinksAfter = int(cols[12])
+            percentageLinkReduction = 100*(numLinksBefore-numLinksAfter)/numLinksBefore
+            percentageNodeReduction = 100*(numNodesBefore-numNodesAfter)/numNodesBefore
+            percentageRuleReduction = 100*(numRulesBefore-numRulesAfter)/numRulesBefore
+            percentageAtomReduction = 100*(numAtomsBefore-numAtomsAfter)/numAtomsBefore
+
             totalTime = float((cols[-1].strip()))
             totalTimes.append(totalTime)
             combTime = float(cols[-2])
@@ -489,10 +502,23 @@ def avgVarianceSummary(logFilePath):
             minTimes.append(minTime)
         with open(name+"_Summary.txt","w+") as f2:
             f2.write("Name: {}\n".format(name))
+            f2.write("==================================\n")
             f2.write("numLinksBefore: {}\n".format(numLinksBefore))
             f2.write("numLinksAfter: {}\n".format(numLinksAfter))
+            f2.write("percentageLinkReduction: {}\n".format(percentageLinkReduction))
+            f2.write("==================================\n")
             f2.write("numNodesBefore: {}\n".format(numNodesBefore))
             f2.write("numNodesAfter: {}\n".format(numNodesAfter))
+            f2.write("percentageNodeReduction: {}\n".format(percentageNodeReduction))
+            f2.write("==================================\n")            
+            f2.write("numRulesBefore: {}\n".format(numRulesBefore))
+            f2.write("numRulesAfter: {}\n".format(numRulesAfter))
+            f2.write("percentageRuleReduction: {}\n".format(percentageRuleReduction))
+            f2.write("==================================\n")            
+            f2.write("numAtomsBefore: {}\n".format(numAtomsBefore))
+            f2.write("numAtomsAfter: {}\n".format(numAtomsAfter))
+            f2.write("percentageAtomReduction: {}\n".format(percentageAtomReduction))
+            f2.write("==================================\n")
             f2.write("Average Minimization Time: {} {}\n".format(mean(minTimes), stdev(minTimes)))
             f2.write("Average EqualityClasses Time: {} {}\n".format(mean(eqTimes), stdev(eqTimes)))
             f2.write("Average Combination Time: {} {}\n".format(mean(combTimes), stdev(combTimes)))
@@ -507,9 +533,9 @@ if __name__ == "__main__":
     # ASNum = "9942"
     # egressAS = "4323"
 
-    # ingressAS = "4323"
-    # ASNum = "6939"
-    # egressAS = "3356"
+    ingressAS = "4323"
+    ASNum = "6939"
+    egressAS = "3356"
 
     # ingressAS = "2548"
     # ASNum = "1"
@@ -519,14 +545,18 @@ if __name__ == "__main__":
     # ASNum = "7911"
     # egressAS = "7018"    
 
-    ingressAS = "1"
-    ASNum = "6467"
-    egressAS = "701"
+    # ingressAS = "1"
+    # ASNum = "6467"
+    # egressAS = "701"
 
     # ingressAS = "4323"
     # ASNum = "7018"
-    # egressAS = "1"
+    # egressAS = "1"    
+
+    # ingressAS = "1"
+    # ASNum = "3356"
+    # egressAS = "6461"
 
     case = [(ingressAS,ASNum,egressAS)]
-    topologyMinimization(case,30,"AS6467.txt")
-    avgVarianceSummary("AS6467.txt")
+    topologyMinimization(case,1,"AS1.txt")
+    # avgVarianceSummary("AS6467.txt")

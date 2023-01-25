@@ -1,8 +1,21 @@
 Name: 1-6467-701
+==================================
 numLinksBefore: 23
 numLinksAfter: 8
+percentageLinkReduction: 65.21739130434783
+==================================
 numNodesBefore: 11
 numNodesAfter: 5
+percentageNodeReduction: 54.54545454545455
+==================================
+numRulesBefore: 16
+numRulesAfter: 3
+percentageRuleReduction: 81.25
+==================================
+numAtomsBefore: 89
+numAtomsAfter: 15
+percentageAtomReduction: 83.14606741573034
+==================================
 Average Minimization Time: 0.98384108543396 0.13098752467249827
 Average EqualityClasses Time: 2.588584073384603 0.23218532088065774
 Average Combination Time: 0.03203472296396891 0.019756446270252057

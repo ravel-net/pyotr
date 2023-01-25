@@ -1,0 +1,22 @@
+Name: 4323-7018-1
+==================================
+numLinksBefore: 35
+numLinksAfter: 9
+percentageLinkReduction: 74.28571428571429
+==================================
+numNodesBefore: 12
+numNodesAfter: 5
+percentageNodeReduction: 58.333333333333336
+==================================
+numRulesBefore: 69
+numRulesAfter: 4
+percentageRuleReduction: 94.20289855072464
+==================================
+numAtomsBefore: 363
+numAtomsAfter: 22
+percentageAtomReduction: 93.93939393939394
+==================================
+Average Minimization Time: 4.22460412979126 0.28066743125933175
+Average EqualityClasses Time: 10.045516538619996 0.4509178977509144
+Average Combination Time: 0.7720151901245117 0.03827232225180082
+Average Total Time: 15.042135858535767 0.49703474847424006
