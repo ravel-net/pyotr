@@ -57,6 +57,7 @@ class DT_Program:
         self._simplification_on = simplification_on
         self._c_tables = c_tables
         self._pg_native_recursion = pg_native_recursion
+        self._recursive_rules = recursive_rules
 
         if self._reasoning_engine == 'z3':
             self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
@@ -84,7 +85,7 @@ class DT_Program:
                 return False
         return True
 
-    @timeit
+    # @timeit
     def execute(self, conn):
         if self._pg_native_recursion and len(self._c_variables) == 0: # pg_recursion is only used to Datalog
             program_sqls = RecursiveConverter(self).recursion_converter()
@@ -100,7 +101,19 @@ class DT_Program:
                 DB_changes = rule.execute(conn)
                 changed = changed or DB_changes
             conn.commit()
-            return changed
+            return changed    
+
+    # @timeit
+    def execute_and_check_containment(self, conn, rule2):
+        changedLocal = False
+        for rule in self._rules:
+            DB_changes = rule.execute(conn)
+            changedLocal = changedLocal or DB_changes
+            if rule2.isHeadContained(conn):
+                return False
+        return changedLocal
+        # conn.commit()
+        # return changed
 
     def stats(self):
         print("Number of rules: ", len(self._rules))
@@ -147,12 +160,16 @@ class DT_Program:
         # conn.commit()
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
-            changed = self.execute(conn)
+            if self._recursive_rules:
+                changed = self.execute(conn)
+            else:
+                changed = self.execute_and_check_containment(conn, rule2)
+
             if self._simplification_on and self._reasoning_engine == 'z3':
                 self.reasoning_tool.simplification(rule2._head.db["name"], conn)
-        conn.commit()
         if rule2.isHeadContained(conn):
             return True
+        conn.commit()
         return False
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
@@ -165,7 +182,8 @@ class DT_Program:
         self._rules[ruleNum] = newRule
 
     def deleteRule(self, ruleNum):
-        self._rules.pop(ruleNum)
+        if ruleNum < len(self._rules):
+            self._rules.pop(ruleNum)
 
     def copyWithDeletedRule(self, ruleNum):
         newProgram = deepcopy(self)

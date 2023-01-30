@@ -10,7 +10,8 @@ import time
 from copy import deepcopy
 import itertools
 from statistics import mean, stdev
-    
+import random 
+
 class RocketfuelPoPTopo:
     """
     A class used to represent a rocketfuel AS PoP-level topology.
@@ -49,8 +50,10 @@ class RocketfuelPoPTopo:
         self.reverseNodeMappingsPOP = {}
         self.directedPOPGraph = Graph()
         self.directed_links = []
+        self.hasNodes = True
         self.add_POP_links()
-        self.populatePOPGraph()
+        if self.hasNodes:
+            self.populatePOPGraph()
         
 
     def add_access_links(self):
@@ -148,6 +151,9 @@ class RocketfuelPoPTopo:
         path = os.path.join(os.getcwd(), "AS-links")
         path = os.path.join(path, "{}:{}".format(self.AS, self.AS))
         path = os.path.join(path, "edges")
+        if not os.path.isfile(path):
+            self.hasNodes = False
+            return
         with open(path) as file:
             edges = file.readlines()
             for edge in edges:
@@ -226,6 +232,8 @@ class RocketfuelPoPTopo:
                 dst = self.nodesAllPOP.index(eggressNode)
                 # directed = self.accessGraph.as_directed()
                 paths = self.POPGraph.get_all_shortest_paths(src, dst)
+                if len(paths) == 0:
+                    continue
                 if src not in ingressNodePathSizes:
                     ingressNodePathSizes[src] = []
                 ingressNodePathSizes[src].append(len(paths[0]))
@@ -257,6 +265,8 @@ class RocketfuelPoPTopo:
         self.populateNodeMapping(True)
         self.reverseNodeMappingsPOP[egressAS] = egressAS
         allPaths = self.getShortestPaths()
+        if len(allPaths) == 0: # can't do any computation if AS has no paths
+            return []
         allLinks = []
         print(allPaths)
         for path in allPaths:
@@ -355,21 +365,27 @@ class RocketfuelPoPTopo:
         program1 = DT_Program(rule1, recursive_rules=False)
         if not program1.contains_rule(rule2):
             return False
-        program2 = DT_Program(rule2, recursive_rules=False)
-        if not program2.contains_rule(rule1):
-            return False
+        # program2 = DT_Program(rule2, recursive_rules=False)
+        # if not program2.contains_rule(rule1):
+        #     return False
         return True
 
     def getEquivalenceClasses(self, minimizedProgram, program):
         equivalentClasses = [] # stores the equivalent classes
+        rulesToDelete = []
         for minRule in minimizedProgram._rules:
             currentRuleMatches = [minRule]
-            for rule in program._rules:
+            for ruleNum, rule in enumerate(program._rules):
                 if str(minRule) == str(rule): # same rule will be equivalent, no need to check
                     continue
                 if self.isEquivalentRule(rule, minRule):
+                    rulesToDelete.append(ruleNum)
                     currentRuleMatches.append(rule)
             equivalentClasses.append(currentRuleMatches)
+        # if rulesToDelete:
+        #     rulesToDelete.reverse()
+        #     for rule in rulesToDelete:
+        #         program.deleteRule(rule)
         return equivalentClasses
 
     # equivalent classes is an array of array and we want to select one from each array
@@ -388,10 +404,112 @@ class RocketfuelPoPTopo:
         minProgram = DT_Program("\n".join(strRules), recursive_rules=False) 
         return minProgram
 
+    # gets all ingress or egress nodes by looking at the ISP maps 
+    def getAllgress(self,isIngress=True):
+        rootpath = os.path.join(os.getcwd(), "AS-links")
+        # loop over all directories
+        # if directory matches selfPOP
+        gressList = []
+        for directory in os.listdir(rootpath):
+            src,dst = directory.split(":")
+            if src == dst:
+                continue
+            if isIngress and src != self.AS:
+                continue
+            elif not isIngress and dst != self.AS:
+                continue
+            path = os.path.join(rootpath, directory)
+            path = os.path.join(path, "edges")
+            atLeastOneGress = False
+            with open(path) as f:
+                edges = f.readlines()
+                for edge in edges:
+                    edgeSplit = edge.strip("\n").split(" -> ")
+                    selfPOP = edgeSplit[0].strip()
+                    secondSplit = edgeSplit[1].split(",")
+                    dstPOP = ""
+                    if (len(secondSplit) > 1):
+                        dstPOP = secondSplit[0]+", "+secondSplit[1][:3].strip()
+                    else: # corner case of hongkong
+                        dstPOP = secondSplit[0].split()[0]+" "+secondSplit[0].split()[1]
 
-def topologyMinimization(cases, runs, logFilePath):
-    with open(logFilePath,"w+") as f:
-        f.write("(ingressAS,ASNum,egressAS)|numRulesBefore|numRulesAfter|numAtomsBefore|numAtomsAfter|numIngressNodesBefore|numIngressNodesAfter|numEgressNodesBefore|numEgressNodesAfter|numNodesBefore|numNodesAfter|numLinksBefore|numLinksAfter|minTime|eqTime|combTime|totalTime\n")
+                    if not isIngress:
+                        tmp = selfPOP
+                        selfPOP = dstPOP
+                        dstPOP = tmp
+
+                    # weight = int(secondSplit[1][4:])
+                    if selfPOP not in self.nodesSelfPOP or selfPOP not in self.nodesAllPOP:
+                        print("Unknown node {} found in AS {}".format(selfPOP, self.AS))
+                        continue
+                    else:
+                        atLeastOneGress = True
+                        break
+            if atLeastOneGress:
+                if isIngress:
+                    gressList.append(dst)
+                elif not isIngress:
+                    gressList.append(src)
+        return gressList
+
+
+    def getAllCustomerPairs(self):
+        ingressASes = self.getAllgress(isIngress=True)
+        egressASes = self.getAllgress(isIngress=False)
+        return ingressASes, egressASes
+
+def getAllReductionNodes(filename, ASNum):
+    with open(filename) as f:
+        lines = f.readlines()
+        for line in lines:
+            cols = line.split("|")
+            percentageNodeReduction = float(cols[13])
+            with open("AS{}_reductions_all_pairs_nodes".format(ASNum), "a+") as f2:
+                f2.write("{}\n".format(percentageNodeReduction))
+
+def getAllReductionLinks(filename, ASNum):
+    with open(filename) as f:
+        lines = f.readlines()
+        for line in lines:
+            cols = line.split("|")
+            percentageLinkReduction = float(cols[16])
+            with open("AS{}_reductions_all_pairs_links".format(ASNum), "a+") as f2:
+                f2.write("{}\n".format(percentageLinkReduction))
+
+def getAllReductionRules(filename, ASNum):
+    with open(filename) as f:
+        lines = f.readlines()
+        for line in lines:
+            cols = line.split("|")
+            percentageRuleReduction = float(cols[3])
+            with open("AS{}_reductions_all_pairs_rules".format(ASNum), "a+") as f2:
+                f2.write("{}\n".format(percentageRuleReduction))
+
+def getAllMinimizationTime(filename, ASNum):
+    with open(filename) as f:
+        lines = f.readlines()
+        for line in lines:
+            cols = line.split("|")
+            totalMinTime = float(cols[-1])
+            with open("AS{}_minTime_all_pairs".format(ASNum), "a+") as f2:
+                f2.write("{}\n".format(totalMinTime))
+
+def topologyMinimizationAllPairs(ingressASes, egressASes, ASNum, runs = 1):
+    name = "AS_{}_all_pairs".format(str(ASNum))
+    # for ingress in ingressASes:
+    #     for egress in egressASes:
+    #         if ingress != egress:
+    #             cases = [(ingress, ASNum, egress)]
+    #             topologyMinimization(cases, runs, name, "a+")
+    getAllReductionRules(name, ASNum)
+    getAllReductionNodes(name, ASNum)
+    getAllReductionLinks(name, ASNum)
+    getAllMinimizationTime(name, ASNum)
+
+def topologyMinimization(cases, runs, logFilePath, mode = "w+"):
+    with open(logFilePath,mode) as f:
+        if "w" in mode:
+            f.write("(ingressAS,ASNum,egressAS)|numRulesBefore|numRulesAfter|percentageRuleReduction|numAtomsBefore|numAtomsAfter|percentageAtomReduction|numIngressNodesBefore|numIngressNodesAfter|numEgressNodesBefore|numEgressNodesAfter|numNodesBefore|numNodesAfter|percentageNodeReduction|numLinksBefore|numLinksAfter|percentageLinkReduction|minTime|eqTime|combTime|totalTime\n")
         for ASes in cases:
             ingressAS = ASes[0]
             ASNum = ASes[1]
@@ -402,19 +520,17 @@ def topologyMinimization(cases, runs, logFilePath):
                 AS.addGressNodes(egressAS, False)
                 if len(AS.ingressNodes) == 0:
                     print("No ingress nodes")
-                    exit()
+                    return False
                 if len(AS.egressNodes) == 0:
                     print("No egress nodes")
-                    exit()
+                    return False
                 numIngressNodesBefore = len(AS.ingressNodes)
                 numEgressNodesBefore = len(AS.egressNodes)
-                # print("Number of ingress nodes:", len(AS.ingressNodes))
-                # print("Number of egress nodes:", len(AS.egressNodes))
-                # AS.drawPoPGraph()
                 allRules = AS.convertToDatalog(ingressAS,egressAS) # only have ingress nodes 
+                if len(allRules) == 0:
+                    return
                 program = AS.convertToProgram(allRules) 
-                program.stats()
-                # exit()
+                rules, atoms = program.stats()
                 # program = AS.convertToProgram(allRulesDict[1])
 
                 start = time.time()
@@ -430,7 +546,7 @@ def topologyMinimization(cases, runs, logFilePath):
                 start = time.time()
                 selectedLinksProgram = AS.getMinNodes(equivalentClasses)
                 end = time.time()
-                combTime = end-start
+                combTime = 0
 
                 # print(program)
                 # print("===============")
@@ -440,6 +556,7 @@ def topologyMinimization(cases, runs, logFilePath):
                 # actualProgram = AS.convertToConstants(str(minimizedProgram))
                 # print(actualProgram)
                 nodes, links = AS.getLinksNodes(program._rules)
+                # nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
                 nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
                 numNodesBefore = len(nodes)
                 numNodesAfter = len(nodes2)
@@ -457,13 +574,19 @@ def topologyMinimization(cases, runs, logFilePath):
                 numIngressNodesAfter = len(ingressNodesAfterMinimizaion)
                 numEgressNodesAfter = len(egressNodesAfterMinimizaion)
                 numRulesBefore, numAtomsBefore = program.stats()
-                numRulesAfter, numAtomsAfter = selectedLinksProgram.stats()
+                numRulesAfter, numAtomsAfter = minimizedProgram.stats()
                 print(program)
                 print("==================")
                 print(selectedLinksProgram)
 
+                percentageRuleReduction = 100*(numRulesBefore-numRulesAfter)/numRulesBefore
+                percentageAtomReduction = 100*(numAtomsBefore-numAtomsAfter)/numAtomsBefore
+                percentageNodeReduction = 100*(numNodesBefore-numNodesAfter)/numNodesBefore
+                percentageLinkReduction = 100*(numLinksBefore-numLinksAfter)/numLinksBefore
+
                 totalTime = minTime+eqTime+combTime
-                f.write("({ingressAS},{ASNum},{egressAS})|{numRulesBefore}|{numRulesAfter}|{numAtomsBefore}|{numAtomsAfter}|{numIngressNodesBefore}|{numIngressNodesAfter}|{numEgressNodesBefore}|{numEgressNodesAfter}|{numNodesBefore}|{numNodesAfter}|{numLinksBefore}|{numLinksAfter}|{minTime}|{eqTime}|{combTime}|{totalTime}\n".format(ingressAS=ingressAS,ASNum=ASNum,egressAS=egressAS,numRulesBefore=numRulesBefore,numRulesAfter=numRulesAfter,numAtomsBefore=numAtomsBefore, numAtomsAfter=numAtomsAfter,numIngressNodesBefore=numIngressNodesBefore,numIngressNodesAfter=numIngressNodesAfter,numEgressNodesBefore=numEgressNodesBefore,numEgressNodesAfter=numEgressNodesAfter,numNodesBefore=numNodesBefore,numNodesAfter=numNodesAfter,numLinksBefore=numLinksBefore,numLinksAfter=numLinksAfter,minTime=minTime,eqTime=eqTime,combTime=combTime,totalTime=totalTime))
+                f.write("({ingressAS},{ASNum},{egressAS})|{numRulesBefore}|{numRulesAfter}|{percentageRuleReduction}|{numAtomsBefore}|{numAtomsAfter}|{percentageAtomReduction}|{numIngressNodesBefore}|{numIngressNodesAfter}|{numEgressNodesBefore}|{numEgressNodesAfter}|{numNodesBefore}|{numNodesAfter}|{percentageNodeReduction}|{numLinksBefore}|{numLinksAfter}|{percentageLinkReduction}|{minTime}|{eqTime}|{combTime}|{totalTime}\n".format(ingressAS=ingressAS,ASNum=ASNum,egressAS=egressAS,numRulesBefore=numRulesBefore,numRulesAfter=numRulesAfter,percentageRuleReduction=percentageRuleReduction,numAtomsBefore=numAtomsBefore, numAtomsAfter=numAtomsAfter,percentageAtomReduction=percentageAtomReduction,numIngressNodesBefore=numIngressNodesBefore,numIngressNodesAfter=numIngressNodesAfter,numEgressNodesBefore=numEgressNodesBefore,numEgressNodesAfter=numEgressNodesAfter,numNodesBefore=numNodesBefore,numNodesAfter=numNodesAfter,percentageNodeReduction=percentageNodeReduction,numLinksBefore=numLinksBefore,numLinksAfter=numLinksAfter,percentageLinkReduction=percentageLinkReduction,minTime=minTime,eqTime=eqTime,combTime=combTime,totalTime=totalTime))
+    return True
 
 def avgVarianceSummary(logFilePath):
     with open(logFilePath) as f:
@@ -477,20 +600,20 @@ def avgVarianceSummary(logFilePath):
             name = cols[0].replace(",","-")[1:-1] 
             numRulesBefore = int(cols[1]) 
             numRulesAfter = int(cols[2])
-            numAtomsBefore = int(cols[3])
-            numAtomsAfter = int(cols[4])
-            numingressBefore = int(cols[5])
-            numingressAfter = int(cols[6])
-            numegressBefore = int(cols[7])
-            numegressAfter = int(cols[8])
-            numNodesBefore = int(cols[9])
-            numNodesAfter = int(cols[10])
-            numLinksBefore = int(cols[11])
-            numLinksAfter = int(cols[12])
-            percentageLinkReduction = 100*(numLinksBefore-numLinksAfter)/numLinksBefore
-            percentageNodeReduction = 100*(numNodesBefore-numNodesAfter)/numNodesBefore
-            percentageRuleReduction = 100*(numRulesBefore-numRulesAfter)/numRulesBefore
-            percentageAtomReduction = 100*(numAtomsBefore-numAtomsAfter)/numAtomsBefore
+            percentageRuleReduction = double(cols[3])
+            numAtomsBefore = int(cols[4])
+            numAtomsAfter = int(cols[5])
+            percentageAtomReduction = double(cols[6])
+            numingressBefore = int(cols[7])
+            numingressAfter = int(cols[8])
+            numegressBefore = int(cols[9])
+            numegressAfter = int(cols[10])
+            numNodesBefore = int(cols[11])
+            numNodesAfter = int(cols[12])
+            percentageNodeReduction = double(cols[13])
+            numLinksBefore = int(cols[14])
+            numLinksAfter = int(cols[15])
+            percentageLinkReduction = double(cols[16])
 
             totalTime = float((cols[-1].strip()))
             totalTimes.append(totalTime)
@@ -525,17 +648,50 @@ def avgVarianceSummary(logFilePath):
             f2.write("Average Total Time: {} {}\n".format(mean(totalTimes), stdev(totalTimes)))
 
 
+def topologyMinimizationRandomPair(ASes, runs = 1, numRandomRuns = 1, logFileName = "all_pairs_minimization"):
+    for currRun in range(numRandomRuns): 
+        for ASNum in ASes:
+            AS = RocketfuelPoPTopo(ASNum)
+            if not AS.hasNodes:
+                continue
+            ingressASes, egressASes = AS.getAllCustomerPairs()
+            rand_ingress = random.choice(egressASes)
+            rand_egress = random.choice(ingressASes)
+            successful = True
+            if rand_ingress == rand_egress:
+                successful  = False
+            else:
+                successful = topologyMinimization([(rand_ingress, ASNum, rand_egress)], runs, logFileName, mode = "a+")
+            tries = 0
+            while not successful and tries < 10:
+                tries += 1
+                rand_ingress = random.choice(egressASes)
+                rand_egress = random.choice(ingressASes)
+                successful = True
+                if rand_ingress == rand_egress:
+                    successful  = False
+                else:
+                    successful = topologyMinimization([(rand_ingress, ASNum, rand_egress)], runs, logFileName, mode = "a+")
 
-
+def getAllASes():
+    rootpath = os.path.join(os.getcwd(), "AS-links")
+    ASes = []
+    for directory in os.listdir(rootpath):
+        src, dst = directory.split(":")
+        if src not in ASes:
+            ASes.append(src)
+        if dst not in ASes:
+            ASes.append(dst)
+    return ASes
 
 if __name__ == "__main__":
     # ingressAS = "4565"
     # ASNum = "9942"
     # egressAS = "4323"
 
-    ingressAS = "4323"
-    ASNum = "6939"
-    egressAS = "3356"
+    # ingressAS = "4323"
+    # ASNum = "6939"
+    # egressAS = "3356"
 
     # ingressAS = "2548"
     # ASNum = "1"
@@ -555,8 +711,32 @@ if __name__ == "__main__":
 
     # ingressAS = "1"
     # ASNum = "3356"
-    # egressAS = "6461"
+    # egressAS = "6461"    
 
-    case = [(ingressAS,ASNum,egressAS)]
-    topologyMinimization(case,1,"AS1.txt")
-    # avgVarianceSummary("AS6467.txt")
+    # ingressAS = "4006"
+    # ASNum = "1"
+    # egressAS = "1239"
+
+    # case = [(ingressAS,ASNum,egressAS)]
+    # topologyMinimization(case,1,"AS852.txt")
+    # avgVarianceSummary("AS852.txt")
+
+    # testASes = ["6467","6939", "7911", "1"]
+    testASes = ["6467","6939", "7911"]
+    # testASes = ["7911"]
+    for ASNum in testASes:
+        AS = RocketfuelPoPTopo(ASNum)
+        print(len(AS.nodesAllPOP))
+        print(len(AS.POP_links))
+        ingressASes, egressASes = AS.getAllCustomerPairs()
+        print(len(ingressASes))
+        print(len(egressASes))
+        print(ingressASes)
+        print(egressASes)
+        # ingressASes = ingressASes[ingressASes.index("3549"):]
+        # print(ingressASes)
+        topologyMinimizationAllPairs(ingressASes, egressASes, ASNum)
+
+    # ASes = getAllASes()
+    # print(ASes)
+    # topologyMinimizationRandomPair(ASes=ASes, runs=1, numRandomRuns = 1)

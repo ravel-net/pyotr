@@ -388,7 +388,7 @@ class DT_Rule:
             start = time.time()
             cursor.execute(except_sql)
             affectedRows = 0
-            if (not self._recursive_rules):
+            if (self._recursive_rules):
                 affectedRows = cursor.rowcount
             end = time.time()
             total_time = end-start
@@ -442,8 +442,9 @@ class DT_Rule:
         cursor = conn.cursor()
         cursor.execute(sql)
         result = cursor.fetchall()
-        #conn.commit()
+        conn.commit()
         contained = (len(result) > 0)
+        # print("contained", contained)
         return contained
     
     # Check if two variables/constants/c_variables are the same
