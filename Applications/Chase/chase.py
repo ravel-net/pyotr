@@ -188,7 +188,7 @@ def print_dependency(dependency):
     print(dependency['dependency_summary_condition'])
     print("*************************")
 
-@timeit
+# @timeit
 def apply_policy(conn, policy, inverse_image_tablename):
     # print("\n=====================policy begin============================")
 
@@ -202,7 +202,6 @@ def apply_policy(conn, policy, inverse_image_tablename):
     # print("=====================policy end============================\n")
     return does_update
 
-
 def print_table(conn, intial_T_tablename='t_random'):
     cursor = conn.cursor()
     cursor.execute("select * from {} order by f, src, dst, n, x".format(intial_T_tablename))
@@ -215,7 +214,7 @@ def print_table(conn, intial_T_tablename='t_random'):
 
     conn.commit()
 
-@timeit
+# @timeit
 def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
     # print("\n=====================policy begin============================")
 
@@ -238,7 +237,7 @@ def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
     # print("=====================policy end============================\n")
     return atomic_unit_update, count_application
 
-@timeit
+# @timeit
 def apply_dependency(conn, dependency, inverse_image_tablename):
     """
     Main function of chase to apply dependencies. Calls apply_tgd and apply_egd.
@@ -266,24 +265,65 @@ def apply_dependency(conn, dependency, inverse_image_tablename):
 
     """
     type = dependency['dependency_type']
-    dependency_summary = dependency['dependency_summary']
 
     does_updated = True
-    
     if type.lower() == 'tgd':
         does_updated= apply_tgd(conn, dependency, inverse_image_tablename)
     elif type.lower() == 'egd':
-        # if dependency_summary is empty, it is a deletion for firewall policy
-        if len(dependency_summary) == 0: # if dependency summary is empty, the matched tuples are deleted
-            does_updated = apply_edg_for_firewall(conn, dependency, inverse_image_tablename)
-        else:
-            does_updated = apply_egd(conn, dependency, inverse_image_tablename)
+        does_updated = apply_egd(conn, dependency, inverse_image_tablename)
     else:
         does_updated = False
-        print("wrong type!")
+        print("wrong type! -- apply_dependency()")
         exit()
 
     return does_updated
+
+def apply_dependency_as_atomic(conn, dependency, inverse_image_tablename):
+    """
+    Main function of chase to apply dependencies. Calls apply_tgd and apply_egd.
+    
+    Parameters:
+    -----------
+    dependency: dict
+        format: {
+            'dependency_tuples': list,
+            'dependency_attributes': list
+            'dependency_attributes_datatypes': list,
+            'dependency_cares_attributes': list,
+            'dependency_summary': list,
+            'dependency_summary_condition': list[string]
+            'dependency_type': 'tgd'/'egd'
+        }
+
+    inverse_image_tablename: string
+        the table of inverse image
+
+    Returns:
+    ---------
+    does_updated: Boolean
+        does the application of the dependency change the inverse image
+
+    """
+    type = dependency['dependency_type']
+
+    count_applications = 0
+    does_updated = True
+    while does_updated:
+        if type.lower() == 'tgd':
+            does_updated= apply_tgd(conn, dependency, inverse_image_tablename)
+        elif type.lower() == 'egd':
+            does_updated = apply_egd(conn, dependency, inverse_image_tablename)
+        else:
+            does_updated = False
+            print("wrong type! -- apply_dependency()")
+            exit()
+        count_applications += 1
+
+    atomic_unit_updated = False
+    if count_applications > 1:
+        atomic_unit_updated = True
+
+    return atomic_unit_updated, count_applications
 
 @timeit
 def apply_edg_for_firewall(conn, dependency, inverse_image_tablename):
@@ -428,7 +468,7 @@ def apply_sigma_new_atomically(conn, inverse_image_tablename, subpath_tablename)
     conn.commit()
     return does_updated
 
-@timeit
+# @timeit
 def apply_tgd(conn, dependency, inverse_image_tablename):
     """
     Apply tgd dependency, calls by apply_dependency()
@@ -741,6 +781,7 @@ def applyRewritePolicy(conn, dependency, Z_tablename):
 
     return does_update
 
+# @timeit
 def analyze_egd(dependency):
     dependency_summary = dependency['dependency_summary']
     dependency_tuples = dependency['dependency_tuples']
@@ -771,6 +812,7 @@ def analyze_egd(dependency):
                         break
     return replaced_symbol_idxs, replacing_symbol_idxs, replacing_constant
 
+# @timeit
 def get_update_sqls_for_egd(conn, dependency, Z_tablename):
     dependency_sql = convert_dependency_to_sql(dependency, Z_tablename)
     # print("dependency_sql", dependency_sql)
@@ -849,9 +891,6 @@ def get_update_sqls_for_egd(conn, dependency, Z_tablename):
         # print("sqls", "\n".join(sqls))
         update_sqls += sqls
     return update_sqls
-
-def get_col_idx_from_item_idx_in_record(item_idx, len_tuple):
-    return item_idx % len_tuple     
 
 def get_update_sqls_for_egd_old(conn, dependency, Z_tablename):
     """
@@ -1064,7 +1103,7 @@ def get_update_sqls_for_egd_old(conn, dependency, Z_tablename):
                         update_sqls.append(sql)
         return update_sqls
 
-@timeit
+# @timeit
 def apply_egd(conn, dependency, inverse_image_tablename):
     """
     Apply egd dependency, calls by apply_dependency()
@@ -1103,7 +1142,7 @@ def apply_egd(conn, dependency, inverse_image_tablename):
         return True
     return False
 
-@timeit
+# @timeit
 def analyze_dependency(dependency_tuples, dependency_attributes, Z):
     """
     Returns the position of each variable/constant in the dependency. Useful to check for equivalent variables/constants when converting to sql
@@ -1142,7 +1181,7 @@ def analyze_dependency(dependency_tuples, dependency_attributes, Z):
                     node_dict[var][idx].append(i)
     return node_dict, tables
 
-@timeit
+# @timeit
 def convert_dependency_to_sql(dependency, Z):
     """
     Convert dependency to SQL 
@@ -1275,7 +1314,7 @@ def convert_dependency_to_sql(dependency, Z):
                 left_param = "t{}.{}".format(left_tup_idx, dependency_attributes[left_attr_idx])
                 select_items.append(left_param)
                 
-                if right_opd.isdigit():
+                if right_opd.isdigit() or isIPAddress(right_opd):
                     right_param = "'{}'".format(right_opd)  
                     is_replacing_constant = True
                     # select_items.append(right_param)
@@ -1481,7 +1520,7 @@ def convert_dependency_to_sql_old(dependency, Z):
     
     return sql
 
-@timeit
+# @timeit
 def get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict):
     """
     generate summary condition
@@ -1562,7 +1601,7 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
             # print("conditions", conditions)
     return conditions
 
-@timeit
+# @timeit
 def apply_E(conn, sql):
     """
     sql query is the tableau E in query form. 
@@ -1644,7 +1683,7 @@ def apply_E(conn, sql):
     
     return answer
 
-@timeit
+# @timeit
 def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
     """
     generate SQL of end-to-end connectivity view(tableau query of topology)

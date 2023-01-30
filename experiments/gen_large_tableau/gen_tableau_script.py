@@ -345,7 +345,7 @@ def gen_tableau_for_distributed_invariants(file_dir, filename, as_tablename, top
     print("source", source)
     print("dest", dest)
     print("path nodes", path_nodes)
-    print("lenght of path:", len(path_links))
+    print("lenght of path:", len(path_nodes))
 
     # # load spanning tree into db (without backup and filters)
     # func_linkfail.load_tree_in_f(path_links, fwd_tablename)
@@ -366,7 +366,68 @@ def gen_tableau_for_distributed_invariants(file_dir, filename, as_tablename, top
 
     return IP_tuples, symbolic_IP_mapping[source], symbolic_IP_mapping[dest], path_nodes, symbolic_IP_mapping
 
+def gen_a_chain(file_dir, filename, as_tablename, topo_tablename):
+    """
+    Script for generating a chain from Rocketfuel topology
 
+    Parameters:
+    ------------
+    file_dir: string. 
+        The file path for the edges of Rocketfuel topology file.
+
+    filename: string. 
+        The file name for the edges of Rocketfuel topology file.
+
+    as_tablename: string. 
+        The database table name. This table stores the original Rocketfuel topology.
+
+    topo_tablename: string. 
+        The database table name. This table stores the largest component of a Rocketfuel topology and using this component as the topology to add backup links and ACLs.
+
+    Returns:
+    --------
+    path_nodes: list
+        a list of nodes forms the path. symbolic.
+    
+    source: integer
+        the integer source
+    
+    dest: integer
+        the integer destination
+    """
+
+    func_linkfail.load_topo(file_dir+filename, as_tablename)
+
+    conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
+    cursor = conn.cursor()
+
+    # calculate the largest component of topology graph (here is the whole topology)
+    cursor.execute("select * from {}".format(as_tablename))
+    all_links = cursor.fetchall()
+    print("all links:", len(all_links))
+    connected_links, connected_nodes = func_linkfail.get_largest_connected_network(all_links)
+    print("largest component: edges:", len(connected_links), "nodes:", len(connected_nodes))
+
+    # Store the largest component into db and use it as the experimental topology
+    cursor.execute("drop table if exists {}".format(topo_tablename))
+    cursor.execute("create table {}(n1 integer, n2 integer)".format(topo_tablename))
+    cursor.executemany("insert into {} values(%s, %s)".format(topo_tablename), connected_links)
+    conn.commit()
+    conn.close()
+
+    
+    # calculate the shortest path, ransomly select source and dest
+    path_links, path_nodes, source, dest  = func_linkfail.gen_shortest_path(connected_links)
+    # source = 4
+    # dest = 1
+    # path_nodes = [4, 2, 1]
+    # path_links = [(4, 2), (2, 1)]
+    print("source", source)
+    print("dest", dest)
+    print("path nodes", path_nodes)
+    print("lenght of path:", len(path_nodes))
+
+    return path_nodes, source, dest
 
 if __name__ == '__main__':
     AS_num = 7018

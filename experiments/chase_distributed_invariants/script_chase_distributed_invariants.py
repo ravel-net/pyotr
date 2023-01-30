@@ -13,463 +13,13 @@ import Applications.Chase.chase as chase
 import databaseconfig as cfg
 import experiments.gen_large_tableau.gen_tableau_script as gen_tableau_script
 import experiments.gen_large_tableau.func_gen_tableau as func_gen_tableau
+from ipaddress import IPv4Address
 from utils.logging import timeit
 import math
 from copy import deepcopy
 
 # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 # cursor = conn.cursor()
-
-@timeit
-def gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping, inverse=False):
-    """
-    generate rewrite dependencies. A rewrite policy includes two dependencies, one is tgd, another one is egd.
-
-    Parameters:
-    -----------
-    path_nodes: list
-        the list of nodes who forms the path
-
-    block_list: tuple
-        the block list
-
-    ingress_hosts: list
-        A list of IP addresses that corresponding to a list of hosts connected to the begin of the path.
-    
-    egress_hosts: list
-        A list of IP addresses that corresponding to a list of hosts connected to the end of the path.
-
-    symbolic_IP_mapping: dict
-        the mapping between symbolic integers and real IP addresses.
-    
-    inverse: Boolean
-        default False. If True, inverse location of two rewrite policy
-    
-    Returns:
-    --------
-    rewrite_dependencies: dict[index:dependency]
-        a list of rewrite dependencies.
-    
-    relevant_in_hosts: list
-        a list of IP address related to the block list
-    
-    relevant_out_hosts: list
-        a list of IP address related to the block list
-    """
-
-    
-    #random set rewrite location
-    # picked_nodes = random.sample(path_nodes, 2)
-    # node1 = picked_nodes[0]
-    # node2 = picked_nodes[1]
-    # idx_node1 = path_nodes.index(picked_nodes[0])
-    # idx_node2 = path_nodes.index(picked_nodes[1])
-
-    # if idx_node1 > idx_node2:
-    #     temp = idx_node1 
-    #     idx_node1 = idx_node2
-    #     idx_node2 = temp
-
-    #     temp = node1
-    #     node1 = node2
-    #     node2 = temp
-
-    '''
-    # idx_node1 for rewriting src
-    # idx_node2 for rewriting dst
-    '''
-    # set rewrite location at first node and last node
-    idx_node1 = 0
-    idx_node2 = len(path_nodes)-1
-
-    relevant_in_hosts = []
-    relevant_out_hosts = []
-    rewrite_dependencies = {}
-
-    '''
-    rewrite src policy
-    '''
-    s_IP1 = block_list[0]
-    relevant_in_hosts.append(s_IP1)
-    # print("egress_hosts", egress_hosts)
-    egress_hosts.remove(block_list[1]) 
-    # print("after deleting egress", egress_hosts)
-    d_IP1 = random.sample(egress_hosts, 1)[0]
-    relevant_out_hosts.append(d_IP1)
-
-    ingress_hosts.remove(block_list[0])
-    # print("after deleting ingress", ingress_hosts)
-    # rewrite src to random ingress host
-    rewrite_src = random.sample(ingress_hosts, 1)[0]
-    rewrite_value1 = {"source": rewrite_src, 'dest':None}
-
-    relevant_in_hosts.append(rewrite_src)
-
-    '''
-    rewrite dst policy
-    '''
-    # rewrite dest to second node of block_list
-    rewrite_value2 = {"source": None, 'dest':block_list[1]}
-    s_IP2 = rewrite_src
-    d_IP2 = d_IP1
-    relevant_out_hosts.append(block_list[1])
-    
-    '''
-    convert to dependencies
-    '''
-    tgd1, tgd2 = None, None
-    egd1, egd2 = None, None
-    if not inverse:
-        tgd1, egd1 = convert_rewrite_policy_to_dependency(s_IP1, d_IP1, rewrite_value1, idx_node1, path_nodes, symbolic_IP_mapping)
-        tgd2, egd2 = convert_rewrite_policy_to_dependency(s_IP2, d_IP2, rewrite_value2, idx_node2, path_nodes, symbolic_IP_mapping)
-    else:
-        tgd1, egd1 = convert_rewrite_policy_to_dependency(s_IP2, d_IP2, rewrite_value2, idx_node1, path_nodes, symbolic_IP_mapping)
-        tgd2, egd2 = convert_rewrite_policy_to_dependency(s_IP1, d_IP1, rewrite_value1, idx_node2, path_nodes, symbolic_IP_mapping)
-        
-    rewrite_dependencies[1] = tgd1
-    rewrite_dependencies[2] = egd1
-    rewrite_dependencies[3] = tgd2
-    rewrite_dependencies[4] = egd2
-
-    return rewrite_dependencies, relevant_in_hosts, relevant_out_hosts
-
-def gen_random_policies(num_policies, ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping, num_related_policies=4, exists_security_hole=True):
-    policies = {}
-    block_lists = []
-
-    # the block list for the first and the last rewrite nodes
-    key_block_src = random.sample(ingress_hosts, 1)[0]
-    key_block_dst = random.sample(egress_hosts, 1)[0]
-
-    
-    ingress_hosts.remove(key_block_src)
-    egress_hosts.remove(key_block_dst)
-    key_block_for_end_rewrites = (key_block_src, key_block_dst)
-    # print("block_list", key_block_for_end_rewrites)
-    block_lists.append(key_block_for_end_rewrites)
-
-    policies, suspicious_flow, ingress_hosts, egress_hosts = gen_cascading_rewrite_policies(key_block_for_end_rewrites, ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping, num_related_policies, exists_security_hole)
-
-    '''
-    # additional new policy
-    '''
-    middle = math.floor(num_related_policies/2)
-    new_policy = gen_new_policy()
-    policies[middle] = new_policy
-
-    # print("===================================")
-    # print_dependency(new_dependency)
-
-    '''
-    filter policy for key block
-    '''
-    key_filter1 = gen_firewall_dependency(key_block_for_end_rewrites, 0, path_nodes, symbolic_IP_mapping)
-    policies[num_related_policies+1] = [key_filter1]
-
-    key_filter2 = gen_firewall_dependency(key_block_for_end_rewrites, -1, path_nodes, symbolic_IP_mapping)
-    policies[num_related_policies+1+1] = [key_filter2]
-
-    # print("================key_filter1===================")
-    # print_dependency(key_filter1)
-    # print("================key_filter2===================")
-    # print_dependency(key_filter2)
-
-    '''
-    rest of policies
-    half is filter policies
-    half is rewriting policies
-    '''
-    num_policies = num_policies - (num_related_policies+1+1+1)
-    num_rewrite_policies = math.ceil(num_policies / 2)
-    num_filter_policies = num_policies - num_rewrite_policies
-
-    for i in range(num_rewrite_policies):
-        loc = i % (len(path_nodes)-2) + 1
-        if i % 2 == 0:
-            # policy for rewriting source
-            src = random.sample(ingress_hosts, 1)[0]
-            dst = random.sample(egress_hosts, 1)[0]
-            ingress_hosts.remove(src)
-            egress_hosts.remove(dst)
-
-            rewrite_src = random.sample(ingress_hosts, 1)[0]
-            ingress_hosts.remove(rewrite_src)
-            rewrite_value = {'source': rewrite_src, 'dest':None}
-            tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, loc, path_nodes, symbolic_IP_mapping)
-            policies[i+7] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-
-            # print(f'===============node {loc}====================')
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-        else:
-            # policy for rewriting dest
-            src = random.sample(ingress_hosts, 1)[0]
-            dst = random.sample(egress_hosts, 1)[0]
-            ingress_hosts.remove(src)
-            egress_hosts.remove(dst)
-
-            rewrite_dst = random.sample(egress_hosts, 1)[0]
-            egress_hosts.remove(rewrite_dst)
-            rewrite_value = {'source': None, 'dest':rewrite_dst}
-            tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, loc, path_nodes, symbolic_IP_mapping)
-            policies[i+7] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-
-            # print(f'===============node {loc}====================')
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-    
-    for j in range(num_filter_policies):
-        block_src = random.sample(ingress_hosts, 1)[0]
-        block_dst = random.sample(egress_hosts, 1)[0]
-        ingress_hosts.remove(block_src)
-        egress_hosts.remove(block_dst)
-
-        block_list = (block_src, block_dst)
-        block_lists.append(block_list)
-
-        loc = random.sample(range(len(path_nodes)), 1)[0]
-        fw_dependency = gen_firewall_dependency(block_list, loc, path_nodes, symbolic_IP_mapping)
-        policies[j+num_rewrite_policies+7] = [fw_dependency]
-
-        # print(f'===================================')
-        # print_dependency(fw_dependency)
-
-    # for idx in sorted(list(policies.keys())):
-    #     print(idx)
-    #     policy = policies[idx]
-    #     print_policy(policy)
-    #     print('\n')
-
-    return policies, suspicious_flow, block_lists
-
-def gen_random_policies_old(num_policies, ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping):
-    policies = {}
-    block_lists = []
-
-    # the block list for the first and the last rewrite nodes
-    key_block_src = random.sample(ingress_hosts, 1)[0]
-    key_block_dst = random.sample(egress_hosts, 1)[0]
-    ingress_hosts.remove(key_block_src)
-    egress_hosts.remove(key_block_dst)
-    key_block_for_end_rewrites = (key_block_src, key_block_dst)
-    # print(key_block_for_end_rewrites)
-    block_lists.append(key_block_for_end_rewrites)
-
-    '''
-    # rewrite policy at the first node
-    '''
-    dst = random.sample(egress_hosts, 1)[0]
-    egress_hosts.remove(dst)
-    suspicious_flow = (key_block_src, dst)
-
-    rewrite_src = random.sample(ingress_hosts, 1)[0]
-    ingress_hosts.remove(rewrite_src)
-    rewrite_value = {'source':rewrite_src, 'dest':None}
-
-    tdg_dependency0, edg_dependency0 = convert_rewrite_policy_to_dependency(key_block_src, dst, rewrite_value, 0, path_nodes, symbolic_IP_mapping)
-    policies[0] = [tdg_dependency0, edg_dependency0]
-    
-    # print("===============node 0====================")
-    # print_dependency(tdg_dependency0)
-    # print_dependency(edg_dependency0)
-    
-    '''
-    #rewrite at the last node
-    '''
-    rewrite_value = {'source':None, 'dest':key_block_dst}
-    tdg_dependency1, edg_dependency1 = convert_rewrite_policy_to_dependency(rewrite_src, dst, rewrite_value, len(path_nodes)-1, path_nodes, symbolic_IP_mapping)
-    policies[2] = [tdg_dependency1, edg_dependency1]
-    
-    # print("=================node -1==================")
-    # print_dependency(tdg_dependency1)
-    # print_dependency(edg_dependency1)
-
-    '''
-    # additional new policy
-    '''
-    new_dependency = gen_new_dependency(path_nodes, symbolic_IP_mapping)
-    policies[1] = [new_dependency]
-
-    # print("===================================")
-    # print_dependency(new_dependency)
-
-    '''
-    filter policy for key block
-    '''
-    key_filter1 = gen_firewall_dependency(key_block_for_end_rewrites, 0, path_nodes, symbolic_IP_mapping)
-    policies[3] = [key_filter1]
-
-    key_filter2 = gen_firewall_dependency(key_block_for_end_rewrites, -1, path_nodes, symbolic_IP_mapping)
-    policies[4] = [key_filter2]
-
-    # print("================key_filter1===================")
-    # print_dependency(key_filter1)
-    # print("================key_filter2===================")
-    # print_dependency(key_filter2)
-
-    '''
-    rest of policies
-    half is filter policies
-    half is rewriting policies
-    '''
-    num_rewrite_policies = math.ceil((num_policies-5)/2)
-    num_filter_policies = num_policies-5-num_rewrite_policies
-
-    for i in range(num_rewrite_policies):
-        loc = i % (len(path_nodes)-2) + 1
-        if i % 2 == 0:
-            # policy for rewriting source
-            src = random.sample(ingress_hosts, 1)[0]
-            dst = random.sample(egress_hosts, 1)[0]
-            ingress_hosts.remove(src)
-            egress_hosts.remove(dst)
-
-            rewrite_src = random.sample(ingress_hosts, 1)[0]
-            ingress_hosts.remove(rewrite_src)
-            rewrite_value = {'source': rewrite_src, 'dest':None}
-            tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, loc, path_nodes, symbolic_IP_mapping)
-            policies[i+5] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-
-            # print(f'===============node {loc}====================')
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-        else:
-            # policy for rewriting dest
-            src = random.sample(ingress_hosts, 1)[0]
-            dst = random.sample(egress_hosts, 1)[0]
-            ingress_hosts.remove(src)
-            egress_hosts.remove(dst)
-
-            rewrite_dst = random.sample(egress_hosts, 1)[0]
-            egress_hosts.remove(rewrite_dst)
-            rewrite_value = {'source': None, 'dest':rewrite_dst}
-            tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, loc, path_nodes, symbolic_IP_mapping)
-            policies[i+5] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-
-            # print(f'===============node {loc}====================')
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-    
-    for j in range(num_filter_policies):
-        block_src = random.sample(ingress_hosts, 1)[0]
-        block_dst = random.sample(egress_hosts, 1)[0]
-        ingress_hosts.remove(block_src)
-        egress_hosts.remove(block_dst)
-
-        block_list = (block_src, block_dst)
-        block_lists.append(block_list)
-
-        loc = random.sample(range(len(path_nodes)), 1)[0]
-        fw_dependency = gen_firewall_dependency(block_list, loc, path_nodes, symbolic_IP_mapping)
-        policies[j+num_rewrite_policies+5] = [fw_dependency]
-
-        # print(f'===================================')
-        # print_dependency(fw_dependency)
-
-    return policies, suspicious_flow, block_lists
-
-def gen_cascading_rewrite_policies(block_list, ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping, num_policies=4, exists_security_hole=True):
-    """
-    Assume a security hole appear after applying a half number of policies
-    """
-    policies = {}
-    # ingress_hosts.remove(block_list[0])
-    # egress_hosts.remove(block_list[1])
-
-    node_interval = math.floor(len(path_nodes) / num_policies)
-
-    middle = math.floor(num_policies/2)
-    node_location = 0
-
-    src = block_list[0]
-    dst = random.sample(egress_hosts, 1)[0]
-    egress_hosts.remove(dst)
-    suspicious_flow = (src, dst)
-    # print("suspicious_flow", suspicious_flow)
-    for i in range(middle):
-        if i // 2 == 0:
-            """
-            rewrite src
-            """
-            rewrite_src = random.sample(ingress_hosts, 1)[0]
-            ingress_hosts.remove(rewrite_src)
-            rewrite_value = {'source':rewrite_src, 'dest':None}
-
-            tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, node_location, path_nodes, symbolic_IP_mapping)
-            policies[i] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-            
-            src = rewrite_src
-            
-            # print(f"===============node {i}====================")
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-        else:
-            '''
-            #rewrite dst
-            '''
-            rewrite_dst = random.sample(egress_hosts, 1)[0]
-            egress_hosts.remove(rewrite_dst)
-
-            rewrite_value = {'source':None, 'dest':rewrite_dst}
-            tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, node_location, path_nodes, symbolic_IP_mapping)
-            policies[i] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-
-            dst = rewrite_dst
-
-            # print(f"===============node {i}====================")
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-
-        node_location += node_interval
-
-    for i in range(middle, num_policies):
-        if i == middle:
-            '''
-            #rewrite dst
-            '''
-            rewrite_dst = None
-            if exists_security_hole: # if exits security hole, rewrite dst to the dst of block_list
-                rewrite_dst = block_list[1]
-            else:
-                rewrite_dst = random.sample(egress_hosts, 1)[0]
-                egress_hosts.remove(rewrite_dst)
-            rewrite_value = {'source':None, 'dest':rewrite_dst}
-
-            if middle == num_policies-1:
-                tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, -1, path_nodes, symbolic_IP_mapping)
-                policies[i+1] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-            else:
-                tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, node_location, path_nodes, symbolic_IP_mapping)
-                policies[i+1] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-
-            dst = rewrite_dst
-
-            # print(f"===============node {i}====================")
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-
-        else:
-            """
-            rewrite src
-            """
-            rewrite_src = random.sample(ingress_hosts, 1)[0]
-            ingress_hosts.remove(rewrite_src)
-            rewrite_value = {'source':rewrite_src, 'dest':None}
-            if i == num_policies-1:
-                tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, -1, path_nodes, symbolic_IP_mapping)
-                policies[i+1] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-            else:
-                tdg_dependency, edg_dependency = convert_rewrite_policy_to_dependency(src, dst, rewrite_value, node_location, path_nodes, symbolic_IP_mapping)
-                policies[i+1] = [deepcopy(tdg_dependency), deepcopy(edg_dependency)]
-            
-            src = rewrite_src
-
-            # print(f"===============node {i}====================")
-            # print_dependency(tdg_dependency)
-            # print_dependency(edg_dependency)
-        node_location += node_interval
-    
-    return policies, suspicious_flow, ingress_hosts, egress_hosts
 
 def print_dependency(dependency):
     print("***************************************************************************************************")
@@ -498,395 +48,6 @@ def print_table(conn, intial_T_tablename='t_random', intital_T_attributes=['F', 
     print(f"\n***************************************************************************************************")
 
     conn.commit()
-
-def convert_rewrite_policy_to_dependency(source, dest, rewrite_value, loc, path_nodes, symbolic_IP_mapping):
-    tgd_tuples = []
-    egd_tuples = []
-    node = path_nodes[loc]
-    # x_IP = symbolic_IP_mapping[node]
-    n_IP = symbolic_IP_mapping[node]
-
-    # tgd_tuples.append(('f', source, dest, prev_node, x_IP, '{}'))
-    tgd_tuples.append(('f', source, dest, ">{}".format(node), "{}>".format(node)))
-    # egd_tuples.append(('f1', source, dest, 'n1', '{}'))
-    egd_tuples.append(('f1', source, dest, ">{}".format(node), "{}>".format(node)))
-
-    tgd_summary = None
-    rewrite_src = rewrite_value['source']
-    rewrite_dst = rewrite_value['dest']
-
-    if rewrite_src is not None and rewrite_dst is None:
-        tgd_summary = ['f', rewrite_src, dest, ">{}".format(node), "{}>".format(node)]
-        egd_tuples.append(('f2', rewrite_src, dest, ">{}".format(node), "{}>".format(node)))
-    elif rewrite_src is None and rewrite_dst is not None:
-        egd_tuples.append(('f2', source, rewrite_dst, ">{}".format(node), "{}>".format(node)))
-        tgd_summary = ['f', source, rewrite_dst, ">{}".format(node), "{}>".format(node)]
-    elif rewrite_src is not None and rewrite_dst is not None:
-        egd_tuples.append(('f2', rewrite_src, rewrite_dst, ">{}".format(node), "{}>".format(node)))
-        tgd_summary = ['f', rewrite_src, rewrite_dst, ">{}".format(node), "{}>".format(node)]
-
-    tgd_summary_condition = None
-    tgd_type = 'tgd'
-
-    tdg_dependency = {
-        "dependency_tuples": tgd_tuples,
-        "dependency_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        # "dependency_attributes": ['c0', 'c1', 'c2', 'c3', 'c4'],
-        "dependency_attributes_datatypes": ["text", "text", "text", "text", "text"], 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": tgd_summary,
-        "dependency_summary_condition": tgd_summary_condition,
-        "dependency_type": tgd_type
-    }
-
-    egd_summary = ['f1 = f2']
-    # egd_summary_condition = ["n1 <= '{}'".format(x_IP), "n2 <= '{}'".format(x_IP)]
-    # egd_summary_condition = ["n1 <= '{}'".format(n_IP), "n2 <= '{}'".format(n_IP)]
-    # if loc == 0:
-    #     egd_summary_condition = None
-    # if pre_rewrite_loc is not None:
-    #     pre_rewite_node_IP = symbolic_IP_mapping[path_nodes[pre_rewrite_loc]]
-    #     egd_summary_condition += ["n1 >= '{}'".format(pre_rewite_node_IP), "n2 >= '{}'".format(pre_rewite_node_IP)]
-
-    egd_type = 'egd'
-    edg_dependency = {
-        "dependency_tuples": egd_tuples,
-        "dependency_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        # "dependency_attributes": ['c0', 'c1', 'c2', 'c3', 'c4'],
-        "dependency_attributes_datatypes": ["text", "text", "text", "text", "text"], 
-        "dependency_cares_attributes": ['src', 'dst', 'n', 'x'],
-        "dependency_summary": egd_summary,
-        "dependency_summary_condition": None,
-        "dependency_type": egd_type
-    }
-
-    return tdg_dependency, edg_dependency
-
-def convert_rewrite_policy_to_dependency_old(source, dest, rewrite_value, loc, path_nodes, symbolic_IP_mapping):
-    tgd_tuples = []
-    egd_tuples = []
-    node = path_nodes[loc]
-    # x_IP = symbolic_IP_mapping[node]
-    n_IP = symbolic_IP_mapping[node]
-
-    # prev_node = None
-    # if loc == 0:
-    #     prev_node = source
-    # else:
-    #     prev_node = symbolic_IP_mapping[path_nodes[loc-1]]
-    
-    next_node = None
-    if loc == len(path_nodes)-1 or loc == -1:
-        next_node = dest
-    else:
-        next_node = symbolic_IP_mapping[path_nodes[loc+1]]
-
-    # tgd_tuples.append(('f', source, dest, prev_node, x_IP, '{}'))
-    tgd_tuples.append(('f', source, dest, n_IP, next_node, '{}'))
-    # egd_tuples.append(('f1', source, dest, 'n1', '{}'))
-    egd_tuples.append(('f1', source, dest, n_IP, next_node, '{}'))
-
-    tgd_summary = None
-    rewrite_src = rewrite_value['source']
-    rewrite_dst = rewrite_value['dest']
-
-    if rewrite_src is not None and rewrite_dst is None:
-        tgd_summary = ['f', rewrite_src, dest, n_IP, next_node]
-        egd_tuples.append(('f2', rewrite_src, dest, n_IP, next_node, '{}'))
-    elif rewrite_src is None and rewrite_dst is not None:
-        if loc == len(path_nodes) - 1 or loc == -1: # if loc is at the last node, rewrite dest will affect final dest
-            egd_tuples.append(('f2', source, rewrite_dst, n_IP, rewrite_dst, '{}'))
-            tgd_summary = ['f', source, rewrite_dst, n_IP, rewrite_dst]
-        else:
-            egd_tuples.append(('f2', source, rewrite_dst, n_IP, next_node, '{}'))
-            tgd_summary = ['f', source, rewrite_dst, n_IP, next_node]
-    elif rewrite_src is not None and rewrite_dst is not None:
-        if loc == len(path_nodes) - 1 or loc == -1: # if loc is at the last node, rewrite dest will affect final dest
-            egd_tuples.append(('f2', rewrite_src, rewrite_dst, n_IP, rewrite_dst, '{}'))
-            tgd_summary = ['f', rewrite_src, rewrite_dst, n_IP, rewrite_dst]
-        else:
-            egd_tuples.append(('f2', rewrite_src, rewrite_dst, n_IP, next_node, '{}'))
-            tgd_summary = ['f', rewrite_src, rewrite_dst, n_IP, next_node]
-    # for key in rewrite_value.keys():
-    #     if key == 'source' and rewrite_value[key] is not None:
-    #         rewrite_source = rewrite_value[key]
-    #         tgd_summary = ['f', rewrite_source, dest, n_IP, next_node]
-    #         egd_tuples.append(('f2', rewrite_source, dest, n_IP, next_node, '{}'))
-    #     elif key == 'dest' and rewrite_value[key] is not None:
-    #         rewrite_dest = rewrite_value[key]
-            
-
-    #         # print("rewrite_dest", rewrite_dest)
-    #         # print("next_node", next_node)
-    #         if loc == len(path_nodes) - 1 or loc == -1: # if loc is at the last node, rewrite dest will affect final dest
-    #             egd_tuples.append(('f2', source, rewrite_dest, n_IP, rewrite_dest, '{}'))
-    #             tgd_summary = ['f', source, rewrite_dest, n_IP, rewrite_dest]
-    #         else:
-    #             egd_tuples.append(('f2', source, rewrite_dest, n_IP, next_node, '{}'))
-    #             tgd_summary = ['f', source, rewrite_dest, n_IP, next_node]
-            # print("egd_tuples", egd_tuples)
-
-    # tgd_summary = ['f', source, dest, prev_node, x_IP]
-    # tgd_summary = ['f', source, dest, n_IP, next_node]
-    # egd_tuples.append(('f2', source, dest, 'n2', '{}'))
-
-    # egd_tuples.append(('f2', source, dest, n_IP, next_node, '{}'))
-
-    tgd_summary_condition = None
-    tgd_type = 'tgd'
-
-    tdg_dependency = {
-        "dependency_tuples": tgd_tuples,
-        "dependency_attributes": ['f', 'src', 'dst', 'n', 'x', 'condition'],
-        "dependency_attributes_datatypes": ["inet_faure", "inet_faure", "inet_faure", "inet_faure", "inet_faure", "text[]"], 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": tgd_summary,
-        "dependency_summary_condition": tgd_summary_condition,
-        "dependency_type": tgd_type
-    }
-
-    egd_summary = ['f1 = f2']
-    # egd_summary_condition = ["n1 <= '{}'".format(x_IP), "n2 <= '{}'".format(x_IP)]
-    # egd_summary_condition = ["n1 <= '{}'".format(n_IP), "n2 <= '{}'".format(n_IP)]
-    # if loc == 0:
-    #     egd_summary_condition = None
-    # if pre_rewrite_loc is not None:
-    #     pre_rewite_node_IP = symbolic_IP_mapping[path_nodes[pre_rewrite_loc]]
-    #     egd_summary_condition += ["n1 >= '{}'".format(pre_rewite_node_IP), "n2 >= '{}'".format(pre_rewite_node_IP)]
-
-    egd_type = 'egd'
-    edg_dependency = {
-        "dependency_tuples": egd_tuples,
-        "dependency_attributes": ['f', 'src', 'dst', 'n', 'x', 'condition'],
-        "dependency_attributes_datatypes": ["inet_faure", "inet_faure", "inet_faure", "text[]"], 
-        "dependency_cares_attributes": ['src', 'dst', 'n', 'x'],
-        "dependency_summary": egd_summary,
-        "dependency_summary_condition": None,
-        "dependency_type": egd_type
-    }
-
-    return tdg_dependency, edg_dependency
-
-@timeit
-def gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes):
-    """
-    Generate forwarding dependency
-
-    Parameters:
-    -----------
-    forwarding_attributes: list
-        the attributes of forwarding dependency
-    
-    forwarding_datatypes: list
-        the datatypes of attributes of forwarding dependency
-
-    Returns:
-    --------
-    egd_dependency: dict
-        the forwarding dependency
-    
-    """
-    forwarding_tuples = [
-        ('f', 's1', 'd1', 'n1', 'x1', '{}'),
-        ('f', 's2', 'd2', 'n2', 'x2', '{}')
-    ]
-
-    forwarding_summary = ['s1 = s2', 'd1 = d2']
-    edg_dependency = {
-        "dependency_tuples": forwarding_tuples,
-        "dependency_attributes": forwarding_attributes,
-        "dependency_attributes_datatypes": forwarding_datatypes, 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": forwarding_summary,
-        "dependency_summary_condition": None,
-        "dependency_type": 'egd'
-    }
-
-    return edg_dependency
-
-@timeit
-def gen_firewall_dependency(block_list, loc, path_nodes, symbolic_IP_mapping):
-    """
-    generate firewall dependency
-
-    Parameters:
-    -----------
-    block_list: tuple
-        the blocklist. block source to dest.
-
-    Returns:
-    --------
-    egd_dependency: dict
-        the firewall dependency
-    
-    """
-    n_node = path_nodes[loc]
-    n_IP = symbolic_IP_mapping[n_node]
-
-    firewall_tuples = [
-        ('f', 's', 'd', ">{}".format(n_node), '{}>'.format(n_node), '{}')
-    ]
-
-    firewall_attributes = ['f', 'src', 'dst', 'n', 'x']
-    # firewall_attributes = ['c0', 'c1', 'c2', 'c3', 'c4'],
-    firewall_datatypes = ['text', 'text', 'text', 'text', 'text']
-    firewall_summary = []
-    firewall_summary_condition = ["s = {}".format(block_list[0]), "d = {}".format(block_list[1])]
-    edg_dependency = {
-        "dependency_tuples": firewall_tuples,
-        "dependency_attributes": firewall_attributes,
-        "dependency_attributes_datatypes": firewall_datatypes, 
-        "dependency_cares_attributes": ['src', 'dst'],
-        "dependency_summary": firewall_summary,
-        "dependency_summary_condition": firewall_summary_condition,
-        "dependency_type": 'egd'
-    }
-
-    return edg_dependency
-
-def gen_firewall_dependency_old(block_list, loc, path_nodes, symbolic_IP_mapping):
-    """
-    generate firewall dependency
-
-    Parameters:
-    -----------
-    block_list: tuple
-        the blocklist. block source to dest.
-
-    Returns:
-    --------
-    egd_dependency: dict
-        the firewall dependency
-    
-    """
-    n_node = path_nodes[loc]
-    n_IP = symbolic_IP_mapping[n_node]
-
-    firewall_tuples = [
-        ('f', 's', 'd', n_IP, 'x', '{}')
-    ]
-
-    firewall_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    firewall_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
-    firewall_summary = []
-    firewall_summary_condition = ["s = {}".format(block_list[0]), "d = {}".format(block_list[1])]
-    edg_dependency = {
-        "dependency_tuples": firewall_tuples,
-        "dependency_attributes": firewall_attributes,
-        "dependency_attributes_datatypes": firewall_datatypes, 
-        "dependency_cares_attributes": ['src', 'dst'],
-        "dependency_summary": firewall_summary,
-        "dependency_summary_condition": firewall_summary_condition,
-        "dependency_type": 'egd'
-    }
-
-    return edg_dependency
-
-@timeit
-def gen_new_dependency(path_nodes, symbolic_IP_mapping):
-    """
-    x_f  x_s  x_d 1 2
-    x_f       x_d 2 x_n
-    ---------------------------
-    x_f  x_s  x_d 2 x_n
-    """
-
-    # the first and the last node of the path are the rewriting node
-    idx_node1 = 0
-    idx_node2 = -1
-
-    n1 = symbolic_IP_mapping[path_nodes[idx_node1]]
-    n1_next = symbolic_IP_mapping[path_nodes[idx_node1+1]]
-
-    n2 = symbolic_IP_mapping[path_nodes[idx_node2]]
-
-    # new_dependency_tuples = [
-    #     ('x_f', 'x_s1', 'x_d', n1, n1_next, '{}'),
-    #     ('x_f', 'x_s2', 'x_d', n2, 'x_n', '{}')
-    # ]
-    new_dependency_tuples = [
-        ('x_f', 'x_s1', 'x_d', 'x_n', 'x_x', '{}'),
-        ('x_f', 'x_s2', 'x_d', 'x_x', 'x_next', '{}')
-    ]
-    new_dependency_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    new_dependency_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
-
-    # new_dependency_summary = ['x_f', 'x_s1', 'x_d', n2, 'x_n']
-    new_dependency_summary = ['x_f', 'x_s1', 'x_d', 'x_x', 'x_next']
-
-    tgd_dependency = {
-        "dependency_tuples": new_dependency_tuples,
-        "dependency_attributes": new_dependency_attributes,
-        "dependency_attributes_datatypes": new_dependency_datatypes, 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": new_dependency_summary,
-        "dependency_summary_condition": None,
-        "dependency_type": 'tgd'
-    }
-
-    return tgd_dependency
-
-@timeit
-def gen_new_policy_old():
-    """
-    x_f  x_s  x_d 1 2
-    x_f       x_d 2 x_n
-    ---------------------------
-    x_f  x_s  x_d 2 x_n
-    """
-    new_dependency_d_tuples = [
-        ('x_f', 'x_s1', 'x_d', 'x_n', 'x_x', '{}'),
-        ('x_f', 'x_s2', 'x_d', 'x_x', 'x_next', '{}')
-    ]
-    new_dependency_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    new_dependency_datatypes = ['inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'inet_faure', 'text[]']
-
-    # new_dependency_summary = ['x_f', 'x_s1', 'x_d', n2, 'x_n']
-    new_dependency_d_summary = ['x_f', 'x_s1', 'x_d', 'x_x', 'x_next']
-
-    tgd_dependency1 = {
-        "dependency_tuples": new_dependency_d_tuples,
-        "dependency_attributes": new_dependency_attributes,
-        "dependency_attributes_datatypes": new_dependency_datatypes, 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": new_dependency_d_summary,
-        "dependency_summary_condition": None,
-        "dependency_type": 'tgd'
-    }
-
-    new_dependency_s1_tuples = [
-        ('x_f', 'x_s', 'x_d1', 'x_n', 'x_x', '{}'),
-        ('x_f', 'x_s', 'x_d2', 'x_x', 'x_next', '{}')
-    ]
-    new_dependency_s1_summary = ['x_f', 'x_s', 'x_d1', 'x_x', 'x_next']
-
-    tgd_dependency2 = {
-        "dependency_tuples": new_dependency_s1_tuples,
-        "dependency_attributes": new_dependency_attributes,
-        "dependency_attributes_datatypes": new_dependency_datatypes, 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": new_dependency_s1_summary,
-        "dependency_summary_condition": ["x_d2 != x_next"],
-        "dependency_type": 'tgd'
-    }
-
-    new_dependency_s2_tuples = [
-        ('x_f', 'x_s', 'x_d1', 'x_n', 'x_x', '{}'),
-        ('x_f', 'x_s', 'x_d2', 'x_x', 'x_d2', '{}')
-    ]
-    new_dependency_s2_summary = ['x_f', 'x_s', 'x_d1', 'x_x', 'x_d1']
-
-    tgd_dependency3 = {
-        "dependency_tuples": new_dependency_s2_tuples,
-        "dependency_attributes": new_dependency_attributes,
-        "dependency_attributes_datatypes": new_dependency_datatypes, 
-        "dependency_cares_attributes": ['f', 'src', 'dst', 'n', 'x'],
-        "dependency_summary": new_dependency_s2_summary,
-        "dependency_summary_condition": None,
-        "dependency_type": 'tgd'
-    }
-
-    return [tgd_dependency1, tgd_dependency2, tgd_dependency3]
 
 @timeit
 def gen_gamma_table(conn, block_list, in_hosts, out_hosts, gamma_tablename, gamma_attributes, gamma_datatypes, case):
@@ -931,126 +92,6 @@ def gen_gamma_table(conn, block_list, in_hosts, out_hosts, gamma_tablename, gamm
     return gamma_summary
 
 @timeit
-def gen_empty_table(conn, tablename, attributes, datatypes):
-    """ 
-    generate whitelists for 'relevant' case
-
-    Parameters:
-    -----------
-    tablename: string
-        the tablename of gamma table
-
-    attributes: list
-        a list of attributes for gamma table
-    
-    datatypes: list
-        a list of datatypes corresponding to the attributes of gamma table
-
-    """
-    cursor = conn.cursor()
-
-    attr_datatype = []
-    for idx, attr in enumerate(attributes):
-        attr_datatype.append("{} {}".format(attr, datatypes[idx]))
-    
-    cursor.execute("drop table if exists {}".format(tablename))
-    cursor.execute("create table {} ({})".format(tablename, ", ".join(attr_datatype)))
-    conn.commit()
-
-@timeit
-def gen_topology(conn, ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping, tablename, table_attributes, table_datatypes):
-    """
-    generate Table L for topology or Table Lp for sub-path
-
-    Parameters:
-    -----------
-    conn: Psycopg2.connect()
-        An instance of Postgres connection
-    
-    ingress_hosts: list
-        A list of IP prefixes of ingress hosts
-    
-    egress_hosts: list
-        A list of IP prefixes of egress hosts
-    
-    path_nodes: list
-        A list of integer nodes with forwarding ordering 
-    
-    symbolic_IP_mapping: dict
-        The mapping between integer node and corresponding IP prefixes
-
-    tablename: string
-        the tablename of topology in Postgres
-    
-    table_attributes: list
-        the schema of the tablename
-    
-    table_datatypes: list
-        the datatypes of the attributes
-    """
-    tuples = []
-
-    ingress_node = path_nodes[0]
-    ingress_IP = symbolic_IP_mapping[ingress_node]
-    for host in ingress_hosts:
-        tuples.append((host, ">{}".format(ingress_IP), '0'))
-    
-    for idx in range(len(path_nodes)):
-        n = path_nodes[idx]
-        n_IP = symbolic_IP_mapping[n]
-        tuples.append(( ">{}".format(n_IP),  "{}>".format(n_IP), '1'))
-
-        if idx != len(path_nodes) - 1:
-            x = path_nodes[idx]
-            x_IP = symbolic_IP_mapping[x]
-            tuples.append(("{}>".format(n_IP),  ">{}".format(x_IP), '1'))
-    
-    egress_node = path_nodes[-1]
-    egress_IP = symbolic_IP_mapping[egress_node]
-    for host in egress_hosts:
-        tuples.append(("{}>".format(egress_IP), host, '0'))
-
-    attr_type = ["{} {}".format(table_attributes[idx], table_datatypes[idx]) for idx in range(len(table_attributes))]
-    cursor = conn.cursor()
-    cursor.execute("Drop table if exists {}".format(tablename))
-    cursor.execute("create table {} ({})".format(tablename, ', '.join(attr_type)))
-    execute_values(cursor, "insert into {} values %s".format(tablename), tuples)
-
-    conn.commit()
-
-@timeit
-def gen_whitelists(block_list, in_hosts, out_hosts):
-    """ 
-    generate whitelists for 'relevant' case
-
-    Parameters:
-    -----------
-    block_list: tuple
-        the block list
-
-    in_hosts: list
-        a list of IP address of ingress hosts
-    
-    out_hosts: list
-        a list of IP address of egress hosts
-
-    Returns:
-    --------
-    whitelists_flows: list
-        a list of whitelists of flows
-
-    """
-    whitelists_flows = []
-    for in_h in in_hosts:
-        for out_h in out_hosts:
-            if in_h == block_list[0] and out_h == block_list[1]:
-                continue
-            else:
-                whitelists_flows.append([in_h, out_h])
-
-    return whitelists_flows
-
-@timeit
 def update_table(conn, tuples, tablename):
     """
     change the data instance of table `tablename`
@@ -1072,91 +113,523 @@ def update_table(conn, tuples, tablename):
     execute_values(cursor, "insert into {} values %s".format(tablename), tuples)
     conn.commit()
 
+# @timeit
+def gen_distributed_invariants_information(file_dir, filename, as_tablename, topo_tablename, num_hosts):
+    path_nodes, source, dest = gen_tableau_script.gen_a_chain(file_dir, filename, as_tablename, topo_tablename)
+    symbolic_IP_mapping, sourceHosts_interface_mapping, destHosts_interface_mapping, source_hosts, dest_hosts = assign_IPAddresses_to_interface_of_path_nodes(path_nodes, num_hosts)
+    # print("symbolic_IP_mapping", symbolic_IP_mapping)
+    # print("sourceHosts_interface_mapping", sourceHosts_interface_mapping)
+    # print("destHosts_interface_mapping", destHosts_interface_mapping)
+    E_tuples = gen_E_tuples(path_nodes, symbolic_IP_mapping)
+    # print('E_tuples\n', "\n".join([str(t) for t in E_tuples]))
+    # chase.load_table(conn, E_attributes, E_datatypes, E_tablename, E_tuples)
+
+    nodeIdx_policies_mapping, security_hole, related_policies_position, gamma_headers = random_pick(2, 2, path_nodes, source_hosts.copy(), dest_hosts.copy())
+    policies = gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, source_hosts.copy(), dest_hosts.copy(), sourceHosts_interface_mapping)
+
+    policy_p12 = gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping)
+    policies[20] = policy_p12
+
+    additional_policy = gen_additional_policy(destHosts_interface_mapping)
+    policies[21] = additional_policy
+
+    return E_tuples, policies, security_hole, related_policies_position, gamma_headers
+
+# @timeit
+def assign_IPAddresses_to_interface_of_path_nodes(path_nodes, num_hosts, IP_address_begin='11.0.0.1'):
+    symbolic_IP_mapping = {}
+    interface_sourceHosts_mapping = {}
+    interface_destHosts_mapping = {}
+    sourceHosts_interface_mapping = {}
+    destHosts_interface_mapping = {}
+
+    source_hosts = []
+    dest_hosts = []
+    source_IP_address_begin = '10.0.0.1'
+    dest_IP_address_begin = '12.0.0.1'
+    sourceAddr = int(IPv4Address(source_IP_address_begin))
+    destAddr = int(IPv4Address(dest_IP_address_begin))
+
+    IPaddr = int(IPv4Address(IP_address_begin)) 
+    for idx, node in enumerate(path_nodes):
+        symbolic_IP_mapping[node] = {'in':[], 'out':[]}
+        if idx == 0:
+            for i in range(num_hosts):
+                symbolic_IP_mapping[node]['in'].append(str(IPv4Address(IPaddr))) 
+                interface_sourceHosts_mapping[str(IPv4Address(IPaddr))] = str(IPv4Address(sourceAddr))
+                sourceHosts_interface_mapping[str(IPv4Address(sourceAddr))] = str(IPv4Address(IPaddr))
+                source_hosts.append(str(IPv4Address(sourceAddr)))
+                IPaddr += 1
+                sourceAddr += 1
+
+            symbolic_IP_mapping[node]['out'].append(str(IPv4Address(IPaddr))) 
+            IPaddr += 1
+        elif idx == len(path_nodes) - 1:
+            symbolic_IP_mapping[node]['in'].append(str(IPv4Address(IPaddr))) 
+            IPaddr += 1
+            for i in range(num_hosts):
+                symbolic_IP_mapping[node]['out'].append(str(IPv4Address(IPaddr))) 
+                interface_destHosts_mapping[str(IPv4Address(IPaddr))] = str(IPv4Address(destAddr))
+                destHosts_interface_mapping[str(IPv4Address(destAddr))] = str(IPv4Address(IPaddr))
+                dest_hosts.append(str(IPv4Address(destAddr)))
+                IPaddr += 1
+                destAddr += 1
+
+        else:
+            symbolic_IP_mapping[node]['in'].append(str(IPv4Address(IPaddr)))
+            IPaddr += 1
+            symbolic_IP_mapping[node]['out'].append(str(IPv4Address(IPaddr)))
+            IPaddr += 1
+
+    return symbolic_IP_mapping, sourceHosts_interface_mapping, destHosts_interface_mapping, source_hosts, dest_hosts
+
+# @timeit
+def gen_E_tuples(path_nodes, symbolic_IP_mapping):
+    E_tuples = []
+    j = 0
+    E_summary = ['f']
+    for idx, node in enumerate(path_nodes):
+        if idx == 0:
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            j += 1
+            tup = ('f', s, d, s, 'x0')
+            E_tuples.append(tup)
+            E_summary.append(s)
+
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            j += 1
+            tup = ('f', s, d, 'x0', symbolic_IP_mapping[node]['out'][0])
+            E_tuples.append(tup)
+
+        elif idx == len(path_nodes) - 1:
+            
+            pre_node = path_nodes[idx-1]
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            j += 1
+
+            tup = ('f', s, d, symbolic_IP_mapping[pre_node]['out'][0], symbolic_IP_mapping[node]['in'][0])
+            E_tuples.append(tup)
+
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            
+            tup = ('f', s, d, symbolic_IP_mapping[node]['in'][0], 'x{}'.format(j))
+            E_tuples.append(tup)
+            j += 1
+
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            tup = ('f', s, d, 'x{}'.format(j-1), d)
+            E_tuples.append(tup)
+            j += 1
+            E_summary.append(d)
+            
+        else:
+            pre_node = path_nodes[idx-1]
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            j += 1
+
+            tup = ('f', s, d, symbolic_IP_mapping[pre_node]['out'][0], symbolic_IP_mapping[node]['in'][0])
+            E_tuples.append(tup)
+
+            s = 's{}'.format(j)
+            d = 'd{}'.format(j)
+            j += 1
+
+            tup = ('f', s, d, symbolic_IP_mapping[node]['in'][0], symbolic_IP_mapping[node]['out'][0])
+            E_tuples.append(tup)
+        
+    return E_tuples, E_summary
+
+# @timeit
+def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, dest_hosts):
+    nodeIdx_policies_mapping = {}
+
+    interval_num = len(path_nodes) / num_related_policies
+    begin_idx = 0
+    related_position = []
+    last_header = None
+    security_hole = []
+    gamma_headers = []
+    for idx in range(num_related_policies):
+        if begin_idx not in nodeIdx_policies_mapping.keys():
+            nodeIdx_policies_mapping[begin_idx] = []
+
+        header = None
+        rw_header = None
+        if last_header is None:
+            source = random.sample(source_hosts, 1)[0]
+            dest = random.sample(dest_hosts, 1)[0]
+            source_hosts.remove(source)
+            dest_hosts.remove(dest)
+            security_hole.append(source)
+            header = (source, dest)
+            gamma_headers.append(header)
+        else:
+            header = last_header
+        # print("header", header)
+        if idx % 2 == 0:
+            rw_source = random.sample(source_hosts, 1)[0]
+            source_hosts.remove(rw_source)
+            rw_header = (rw_source, header[1])
+            # print("rw_header1", rw_header)
+        else:
+            rw_dest = random.sample(dest_hosts, 1)[0]
+            dest_hosts.remove(rw_dest)
+            rw_header = (header[0], rw_dest)
+            # print("rw_header2", rw_header)
+        
+        if idx == num_related_policies-1:
+            security_hole.append(rw_header[1])
+
+        nodeIdx_policies_mapping[begin_idx].append({'type':'rw', 'header': header, 'rw_header': rw_header})
+
+        related_position.append(begin_idx)
+
+        last_header = rw_header
+
+        begin_idx = math.floor(begin_idx + interval_num)
+
+    gamma_headers.append(last_header)
+    # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
+    # print("related_position", related_position)
+    # print("security hole", security_hole)
+
+    if 0 in nodeIdx_policies_mapping.keys():
+        nodeIdx_policies_mapping[0].append({'type':'fw', 'hole':tuple(security_hole)})
+    else:
+        nodeIdx_policies_mapping[0]= [{'type':'fw', 'hole':tuple(security_hole)}]
+    
+    # if 0 not in related_position:
+    #     related_position.insert(0, 0)
+    
+    if len(path_nodes)-1 in nodeIdx_policies_mapping.keys():
+        nodeIdx_policies_mapping[len(path_nodes)-1].append({'type':'fw', 'hole':tuple(security_hole)})
+    else:
+        nodeIdx_policies_mapping[len(path_nodes)-1]= [{'type':'fw', 'hole':tuple(security_hole)}]
+
+    # if len(path_nodes)-1 not in related_position:
+    #     related_position.append(len(path_nodes)-1)
+
+    # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
+    # print("related_position", related_position)
+    # print("security hole", security_hole)
+
+    num_unrelated_policies = total_policies - num_related_policies
+
+    # num_rw_policies = num_unrelated_policies
+    # num_fw_policies = 0
+    num_rw_policies = num_unrelated_policies // 2
+    num_fw_policies = num_unrelated_policies - num_rw_policies
+
+    for idx in range(num_rw_policies):
+        p_idx = random.sample(range(len(path_nodes)), 1)[0]
+        # p_idx = random.sample(related_position, 1)[0]
+
+        source = random.sample(source_hosts, 1)[0]
+        dest = random.sample(dest_hosts, 1)[0]
+        header = (source, dest)
+
+        if idx % 2 == 0:
+            rw_source = random.sample(source_hosts, 1)[0]
+            # while rw_source == source:
+            #     rw_source = random.sample(source_hosts, 1)[0]
+            rw_header = (rw_source, header[1])
+        else:
+            rw_dest = random.sample(dest_hosts, 1)[0]
+            # while rw_dest == dest:
+            #     rw_dest = random.sample(dest_hosts, 1)[0]
+            rw_header = (header[0], rw_dest)
+
+        if p_idx in nodeIdx_policies_mapping.keys():
+            nodeIdx_policies_mapping[p_idx].append({'type':'rw', 'header': header, 'rw_header': rw_header})
+        else:
+            nodeIdx_policies_mapping[p_idx] = [{'type':'rw', 'header': header, 'rw_header': rw_header}]
+
+    for idx in range(num_fw_policies):
+        p_idx = random.sample(range(len(path_nodes)), 1)[0]
+        # p_idx = random.sample(related_position, 1)[0]
+
+        source = random.sample(source_hosts, 1)[0]
+        dest = random.sample(dest_hosts, 1)[0]
+        hole = (source, dest)
+
+        if p_idx in nodeIdx_policies_mapping.keys():
+            nodeIdx_policies_mapping[p_idx].append({'type':'fw', 'hole': hole})
+        else:
+            nodeIdx_policies_mapping[p_idx] = [{'type':'fw', 'hole': hole}]
+
+    # print("\n")
+    # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
+    return nodeIdx_policies_mapping, security_hole, related_position, gamma_headers
+
+# @timeit
+def gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, source_hosts, dest_hosts, sourceHosts_interface_mapping):
+    policies = {}
+    nodeIdxs = sorted(list(nodeIdx_policies_mapping.keys()))
+    # print("nodeIdxs", nodeIdxs)
+    policy_idx = 0
+    related_policy_idxs = []
+    for nodeIdx in nodeIdxs:
+        dependencies  = []
+        filters = []
+        header_rwheader_mapping = {}
+        # print("policies", nodeIdx_policies_mapping[nodeIdx])
+        for policy in nodeIdx_policies_mapping[nodeIdx]:
+            if policy['type'] == 'fw':
+                filters.append(policy['hole'])
+            elif policy['type'] == 'rw':
+                header_rwheader_mapping[policy['header']] = policy['rw_header']
+        
+        for header in header_rwheader_mapping.keys():
+            dependency = convert_to_rwfw_dependency(header, header_rwheader_mapping[header], nodeIdx, path_nodes, symbolic_IP_mapping, sourceHosts_interface_mapping)
+            dependencies.append(deepcopy(dependency))
+
+        for source in source_hosts:
+            for dest in dest_hosts:
+                temp_header = (source, dest)
+
+                if temp_header not in filters and temp_header not in header_rwheader_mapping.keys():
+                    dependency = convert_to_rwfw_dependency(temp_header, temp_header, nodeIdx, path_nodes, symbolic_IP_mapping, sourceHosts_interface_mapping)
+                    dependencies.append(deepcopy(dependency))
+        
+        # for dependency in dependencies:
+        #     print_dependency(dependency)
+        # input()
+        
+        related_policy_idxs.append(policy_idx)
+        for i in range(len(nodeIdx_policies_mapping[nodeIdx])):
+            policies[policy_idx] = deepcopy(dependencies)
+            policy_idx += 1
+        
+        # related_policy_idxs.append(nodeIdx)
+        # policies[nodeIdx] = deepcopy(dependencies)
+
+    return policies, related_policy_idxs
+
+# @timeit
+def convert_to_rwfw_dependency(header, rw_header, loc, path_nodes, symbolic_IP_mapping, sourceHosts_interface_mapping):
+    tuples = None
+    
+    node = path_nodes[loc]
+    if loc == 0:
+        tuples = [
+            ('f', header[0], header[1], header[0], sourceHosts_interface_mapping[header[0]]),
+            ('f', 's', 'd', sourceHosts_interface_mapping[header[0]], symbolic_IP_mapping[node]['out'][0])
+        ]
+    elif loc == len(path_nodes) - 1:
+        pre_node = path_nodes[loc-1]
+        tuples = [
+            ('f', header[0], header[1], symbolic_IP_mapping[pre_node]['out'][0], symbolic_IP_mapping[node]['in'][0]),
+            ('f', 's', 'd', symbolic_IP_mapping[node]['in'][0], 'x')
+        ]
+    else:
+        pre_node = path_nodes[loc-1]
+        tuples = [
+            ('f', header[0], header[1], symbolic_IP_mapping[pre_node]['out'][0], symbolic_IP_mapping[node]['in'][0]),
+            ('f', 's', 'd', symbolic_IP_mapping[node]['in'][0], symbolic_IP_mapping[node]['out'][0])
+        ]
+    summary = ["s = {}".format(rw_header[0]), "d = {}".format(rw_header[1])]
+    edg_dependency = {
+        "dependency_tuples": tuples,
+        "dependency_attributes": ['f', 'src', 'dst', 'n', 'x'],
+        # "dependency_attributes": ['c0', 'c1', 'c2', 'c3', 'c4'],
+        "dependency_attributes_datatypes": ["text", "text", "text", "text", "text"], 
+        "dependency_summary": summary,
+        "dependency_summary_condition": None,
+        "dependency_type": 'egd'
+    }
+
+    return edg_dependency
+
+# @timeit
+def gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping):
+    nodeIdxs = sorted(list(nodeIdx_policies_mapping.keys()))
+
+    policy = []
+    for idx in range(len(nodeIdxs)-1):
+        fromIdx = nodeIdxs[idx]
+        toIdx = nodeIdxs[idx+1]
+
+        for nodeIdx in range(fromIdx, toIdx):
+            tuples = None
+            node = path_nodes[nodeIdx]
+            next_node = path_nodes[nodeIdx+1]
+            if nodeIdx != fromIdx:
+                tuples = [
+                    ('f', 's1', 'd1', 'n', symbolic_IP_mapping[node]['in'][0]),
+                    ('f', 's2', 'd2', symbolic_IP_mapping[node]['in'][0], symbolic_IP_mapping[node]['out'][0])  
+                ]
+                egd_dependency = {
+                    'dependency_tuples': tuples, 
+                    'dependency_summary': ["s2 = s1", "d2 = d1"], 
+                    'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+                    'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+                    'dependency_summary_condition': None, 
+                    'dependency_type': 'egd'
+                }
+                policy.append(deepcopy(egd_dependency))
+
+            tuples = [
+                ('f', 's1', 'd1', 'n', symbolic_IP_mapping[node]['out'][0]),
+                ('f', 's2', 'd2', symbolic_IP_mapping[node]['out'][0], symbolic_IP_mapping[next_node]['in'][0])  
+            ]
+            egd_dependency = {
+                'dependency_tuples': tuples, 
+                'dependency_summary': ["s2 = s1", "d2 = d1"], 
+                'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+                'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+                'dependency_summary_condition': None, 
+                'dependency_type': 'egd'
+            }
+            policy.append(deepcopy(egd_dependency))
+    
+    tuples = [
+        ('f', 's1', 'd1', 'n', 'x'),
+        ('f', 's2', 'd2', 'x', 'd2')  
+    ]
+    egd_dependency = {
+        'dependency_tuples': tuples, 
+        'dependency_summary': ["s2 = s1", "d2 = d1"], 
+        'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+        'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+        'dependency_summary_condition': None, 
+        'dependency_type': 'egd'
+    }
+    policy.append(deepcopy(egd_dependency))
+
+    # print("idxs", nodeIdxs) 
+    # for dependency in policy:
+    #     print_dependency(dependency)
+    return policy
+
+# @timeit
+def gen_additional_policy(destHosts_interface_mapping):
+
+    policy = []
+    for dest in destHosts_interface_mapping.keys():
+
+        egd_dependency = {
+            'dependency_tuples': [
+                ('f', 's', 'd', 'n', dest),
+            ], 
+            'dependency_summary': ["n = {}".format(destHosts_interface_mapping[dest])], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }
+
+        policy.append(deepcopy(egd_dependency))
+    
+    return policy
+
 @timeit
-def gen_E_for_chase_distributed_invariants(conn, file_dir, filename, as_tablename, topo_tablename, E_tablename, E_attributes, E_datatypes):
-    E_tuples, source, dest, path_nodes, symbolic_IP_mapping = gen_tableau_script.gen_tableau_for_distributed_invariants(file_dir, filename, as_tablename, topo_tablename)
-    chase.load_table(conn, E_attributes, E_datatypes, E_tablename, E_tuples)
+def chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strategy="random", orderings=None):
+    count_application = 0 # count the number of the application of the chase
+    count_iterations = 0 # count the number of iterations
+    does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
 
-    return E_tuples, path_nodes, symbolic_IP_mapping
+    ordered_indexs = list(dependencies.keys())
+    while does_updated:
+        if order_strategy.lower() == 'random':
+            random.shuffle(ordered_indexs)
+        elif order_strategy.lower() == 'specific':
+            ordered_indexs = orderings
+        else:
+            print("wrong ordering strategy,", order_strategy, "please choose from 'random_permutation', 'fixed_permutation', 'specific'")
+            exit()
+        
+        temp_updated = False
+        for idx in ordered_indexs:
+            # print("policy index", idx)
+            dependency = dependencies[idx]
+            
+            # print_policy(policy)
+            # input()
+            whether_updated, counts = chase.apply_dependency_as_atomic(conn, dependency, chasing_tablename)
+            count_application += counts
+            temp_updated = (temp_updated or whether_updated)
+            # print("whether_updated", whether_updated)
+            # input()
+        does_updated = temp_updated
+        count_iterations += 1
 
-@timeit
-def gen_dependencies_for_chase_distributed_invariants(ingress_hosts, egress_hosts, path_nodes, symbolic_IP_mapping, inverse):
-    '''
-    generate block list
-    randomly pick one host from ingress hosts and one host from egress hosts
-
-    Parameters:
-    -----------
-    ingress_hosts: list
-        list of ingress hosts with IP prefix
-    
-    egress_hosts: list
-        list of egress hosts with IP prefix
-
-    path_nodes: list
-        list of nodes(symbolic) in the chain
-
-    symbolic_IP_mapping: dict
-        mapping between the symbolic node and the assigned IP prefix
-
-    location: list
-        a pair of locations applied rewriting policy. 
-        The first location is applying rewrite source, the second location is applying rewrite dest.
-
-    Returns:
-    ---------
-    dependencies: list[dict]
-        list of dependencies
-    
-    relevant_in_hosts: list
-        a list of IP address related to the block list
-    
-    relevant_out_hosts: list
-        a list of IP address related to the block list
-    
-    block_list: 
-        forbidden IP addresses
-    '''
-    in_block_node = random.sample(ingress_hosts, 1)[0]
-    out_block_node = random.sample(egress_hosts, 1)[0]
-    block_list = (in_block_node, out_block_node)
-    # print("block_list", block_list)
-    # block_list = ['10.0.0.2', '10.0.0.4']
-    # block_list = ['2', '4']
-    '''
-    generate rewrite policies
-    '''
-    dependencies,relevant_in_hosts, relevant_out_hosts = gen_rewrite_dependencies(path_nodes, block_list, ingress_hosts, egress_hosts, symbolic_IP_mapping, inverse)
-    # print("rewrite_dependencies", dependencies)
-
-    # gen forwarding dependency
-    forwarding_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    forwarding_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
-    forwarding_dependency = gen_forwarding_dependency(forwarding_attributes, forwarding_datatypes)
-    # print("forwarding_dependency", forwarding_dependency)
-
-    dependencies[0] = forwarding_dependency
-
-    # gen firewall dependency
-    # firewall_attributes = ['f', 'src', 'dst', 'n', 'x', 'condition']
-    # firewall_datatypes = ['text', 'text', 'text', 'text', 'text', 'text[]']
-    firewall_dependency1 = gen_firewall_dependency(block_list, 0, path_nodes, symbolic_IP_mapping)
-    firewall_dependency2 = gen_firewall_dependency(block_list, -1, path_nodes, symbolic_IP_mapping)
-    # print("firewall_dependency", firewall_dependency)
-
-    dependencies[5] = firewall_dependency1
-    dependencies[6] = firewall_dependency2
-
-    dependencies[7] = gen_new_dependency(path_nodes, symbolic_IP_mapping)
-
-    return dependencies, relevant_in_hosts, relevant_out_hosts, block_list
+        # print("iteration", count_iterations)
+        # print("#applications", count_application)
+    return count_application, count_iterations
 
 @timeit
-def gen_Z_for_chase_distributed_invariants(conn, E_tuples, gamma_tablename, Z_tablename, Z_attributes, Z_attributes_datatypes):
-    Z_tuples = chase.gen_inverse_image_with_destbasedforwarding_applied(conn, E_tuples, gamma_tablename)
-    chase.load_table(conn, Z_attributes, Z_attributes_datatypes, Z_tablename, Z_tuples)
+def chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy="random", orderings=None):
+    count_application = 0 # count the number of the application of the chase
+    count_iterations = 0 # count the number of iterations
+    does_updated = True # flag for whether the Z table changes after applying all kinds of dependencies 
 
-    return Z_tuples
+    ordered_indexs = list(policies.keys())
+    # print_table(conn, chasing_tablename, ['f', 'src', 'dst', 'n', 'x'])
+    # input()
+    while does_updated:
+        if order_strategy.lower() == 'random':
+            random.shuffle(ordered_indexs)
+        elif order_strategy.lower() == 'specific':
+            ordered_indexs = orderings
+        else:
+            print("wrong ordering strategy,", order_strategy, "please choose from 'random_permutation', 'fixed_permutation', 'specific'")
+            exit()
+        
+        temp_updated = False
+        for idx in ordered_indexs:
+            # print("policy index", idx)
+            policy = policies[idx]
+            
+            # print_policy(policy)
+            # input()
+            whether_updated, counts = chase.apply_policy_as_atomic_unit(conn, policy, chasing_tablename)
+            # print("counts", counts, "#dep in policy", len(policy))
+            # print_policy(policy)
+            # print_table(conn, chasing_tablename, ['f', 'src', 'dst', 'n', 'x'])
+            # input()
+            count_application += counts
+            temp_updated = (temp_updated or whether_updated)
+        
+        does_updated = temp_updated
+        count_iterations += 1
+        # print("iteration", count_iterations)
+        # print("#applications", count_application)
+        # print_table(conn, chasing_tablename, ['f', 'src', 'dst', 'n', 'x'])
+        # print("count_iterations", count_iterations)
+        # input()
+    return count_application, count_iterations
+
+# @timeit
+def gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping):
+    inverse_image_tuples = []
+    for g_idx, gamma_tup in enumerate(gamma_tuples):
+        for tup in E_tuples:
+            t = []
+            for item in tup:
+                if item == 'f':
+                    t.append(gamma_tup[0])
+                elif item == 's0':
+                    t.append(gamma_tup[1])
+                elif item == 'd0':
+                    t.append(gamma_tup[2])
+                elif item == 'x0':
+                    t.append(sourceHosts_interface_mapping[gamma_tup[1]])
+                elif item.startswith('s') or item.startswith('d') or item.startswith('x'):
+                    t.append("{}_{}".format(item, g_idx))
+                else:
+                    t.append(item)
+            inverse_image_tuples.append(t)
+        
+    # print("\n".join([str(t) for t in inverse_image_tuples]))
+
+    return inverse_image_tuples
+
 
 @timeit
 def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy='random', orderings=None):
@@ -1539,166 +1012,181 @@ if __name__ == '__main__':
     # ============================test new \sigma_new: \sigma_fp and \sigma_bp=============================
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 
-    # replace A with 9, B with 10, C with 11, D with 12
-    initial_T_tuples = [
-        ('f2', '10', '11', '10', '2'),
-        ('f2', 's9', 'd9', '2', '3'),
-        ('f2', 's10', 'd10', '3', '4'),
-        ('f2', 's11', 'd11', '4', '5'),
-        ('f2', 's12', 'd12', '5', '6'),
-        ('f2', 's13', 'd13', '6', 'x13'),
-        ('f2', 's14', 'd14', 'x13', 'd14'),
-    ]
+    AS_num = 7018
 
-    initial_T = {
-        'tablename': 'T',
-        'tuples': initial_T_tuples,
-        'attributes': ['f', 'src', 'dst', 'n', 'x'],
-        'datatypes': ['text', 'text', 'text', 'text', 'text']
-    }
+    file_dir  = '/../../topo/ISP_topo/'
+    filename = "{}_edges.txt".format(AS_num)
 
-    policy_p1 = [
-        {
-            'dependency_tuples': [
-                ('f', '9', '11', '9', '1'),
-                ('f', 's', 'd', '1', '3')
-            ], 
-            'dependency_summary': ["s = 9", "d = 12"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        }, 
-        {
-            'dependency_tuples': [
-                ('f', '9', '12', '9', '1'),
-                ('f', 's', 'd', '1', '3')
-            ], 
-            'dependency_summary': ["s = 9", "d = 12"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
-        {
-            'dependency_tuples': [
-                ('f', '10', '11', '10', '2'),
-                ('f', 's', 'd', '2', '3')
-            ], 
-            'dependency_summary': ["s = 10", "d = 11"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        }
-    ]
+    as_tablename = 'as_{}'.format(AS_num)
+    topo_tablename = "topo_{}".format(AS_num)
+    E_tablename = 'E'
+    E_attributes = ['f', 'src', 'dst', 'n', 'x']
+    E_datatypes = ['text', 'text', 'text', 'text', 'text']
+    num_hosts = 3
+    gen_distributed_invariants_information(file_dir, filename, as_tablename, topo_tablename, num_hosts)    
+    # # replace A with 9, B with 10, C with 11, D with 12
+    # initial_T_tuples = [
+    #     ('f2', '10', '11', '10', '2'),
+    #     ('f2', 's9', 'd9', '2', '3'),
+    #     ('f2', 's10', 'd10', '3', '4'),
+    #     ('f2', 's11', 'd11', '4', '5'),
+    #     ('f2', 's12', 'd12', '5', '6'),
+    #     ('f2', 's13', 'd13', '6', 'x13'),
+    #     ('f2', 's14', 'd14', 'x13', 'd14'),
+    # ]
 
-    policy_p2 = [
-        {
-            'dependency_tuples': [
-                ('f', '10', '11', '5', '6'),
-                ('f', 's', 'd', '6', 'x')
-            ], 
-            'dependency_summary': ["s = 9", "d = 11"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        }, 
-        {
-            'dependency_tuples': [
-                ('f', '9', '11', '5', '6'),
-                ('f', 's', 'd', '6', 'x')
-            ], 
-            'dependency_summary': ["s = 9", "d = 11"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
-        {
-            'dependency_tuples': [
-                ('f', '9', '12', '5', '6'),
-                ('f', 's', 'd', '6', 'x')
-            ], 
-            'dependency_summary': ["s = 9", "d = 12"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        }
-    ]
+    # initial_T = {
+    #     'tablename': 'T',
+    #     'tuples': initial_T_tuples,
+    #     'attributes': ['f', 'src', 'dst', 'n', 'x'],
+    #     'datatypes': ['text', 'text', 'text', 'text', 'text']
+    # }
 
-    policy_p12 = [
-        {
-            'dependency_tuples': [
-                ('f', 's1', 'd1', 'n', '3'),
-                ('f', 's2', 'd2', '3', '4')
-            ], 
-            'dependency_summary': ["s2 = s1", "d2 = d1"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
-        {
-            'dependency_tuples': [
-                ('f', 's1', 'd1', '3', '4'),
-                ('f', 's2', 'd2', '4', '5')
-            ], 
-            'dependency_summary': ["s2 = s1", "d2 = d1"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
-        {
-            'dependency_tuples': [
-                ('f', 's1', 'd1', '4', '5'),
-                ('f', 's2', 'd2', '5', '6')
-            ], 
-            'dependency_summary': ["s2 = s1", "d2 = d1"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
-        {
-            'dependency_tuples': [
-                ('f', 's1', 'd1', '6', 'x1'),
-                ('f', 's2', 'd2', 'x1', 'x2')
-            ], 
-            'dependency_summary': ["s2 = s1", "d2 = d1"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        }
-    ]
+    # policy_p1 = [
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', '10', '11', '10', '2'),
+    #             ('f', 's', 'd', '2', '3')
+    #         ], 
+    #         'dependency_summary': ["s = 9", "d = 11"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     }, 
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', '9', '11', '9', '1'),
+    #             ('f', 's', 'd', '1', '3')
+    #         ], 
+    #         'dependency_summary': ["s = 9", "d = 11"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     },
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', '9', '12', '9', '1'),
+    #             ('f', 's', 'd', '1', '3')
+    #         ], 
+    #         'dependency_summary': ["s = 9", "d = 12"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     }
+    # ]
 
-    additional_policy = [
-        {
-            'dependency_tuples': [
-                ('f', 's', 'd', 'n', '11'),
-            ], 
-            'dependency_summary': ["n = 7"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        },
-        {
-            'dependency_tuples': [
-                ('f', 's', 'd', 'n', '12'),
-            ], 
-            'dependency_summary': ["n = 8"], 
-            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-            'dependency_summary_condition': None, 
-            'dependency_type': 'egd'
-        }
-    ]
+    # policy_p2 = [
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', '9', '11', '5', '6'),
+    #             ('f', 's', 'd', '6', 'x')
+    #         ], 
+    #         'dependency_summary': ["s = 9", "d = 12"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     }, 
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', '9', '12', '5', '6'),
+    #             ('f', 's', 'd', '6', 'x')
+    #         ], 
+    #         'dependency_summary': ["s = 9", "d = 12"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     },
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', '10', '11', '5', '6'),
+    #             ('f', 's', 'd', '6', 'x')
+    #         ], 
+    #         'dependency_summary': ["s = 10", "d = 11"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     }
+    # ]
 
-    policies = [policy_p1, policy_p2, policy_p12, additional_policy]
+    # policy_p12 = [
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', 's1', 'd1', 'n', '3'),
+    #             ('f', 's2', 'd2', '3', '4')
+    #         ], 
+    #         'dependency_summary': ["s2 = s1", "d2 = d1"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     },
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', 's1', 'd1', 'n', '4'),
+    #             ('f', 's2', 'd2', '4', '5')
+    #         ], 
+    #         'dependency_summary': ["s2 = s1", "d2 = d1"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     },
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', 's1', 'd1', 'n', '5'),
+    #             ('f', 's2', 'd2', '5', '6')
+    #         ], 
+    #         'dependency_summary': ["s2 = s1", "d2 = d1"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     },
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', 's1', 'd1', 'n', 'x1'),
+    #             ('f', 's2', 'd2', 'x1', 'd2')
+    #         ], 
+    #         'dependency_summary': ["s2 = s1", "d2 = d1"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     }
+    # ]
 
-    the_chase(conn, initial_T, policies)
+    # additional_policy = [
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', 's', 'd', 'n', '11'),
+    #         ], 
+    #         'dependency_summary': ["n = 7"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     },
+    #     {
+    #         'dependency_tuples': [
+    #             ('f', 's', 'd', 'n', '12'),
+    #         ], 
+    #         'dependency_summary': ["n = 8"], 
+    #         'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+    #         'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+    #         'dependency_summary_condition': None, 
+    #         'dependency_type': 'egd'
+    #     }
+    # ]
+
+    # policies = [policy_p1, policy_p2, policy_p12, additional_policy]
+
+    # start_time = time.time()
+    # the_chase(conn, initial_T, policies)
+    # end_time = time.time()
+    # print("running time", end_time- start_time)

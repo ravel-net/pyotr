@@ -2,14 +2,17 @@
 
 ## code for test idea 
 
-`run_toy.py`
+`script_chase_distributed_invariants.py`
 
-- run_the_chase_sqls(conn, initial_T_tablename, initial_T_tuples, policies, sigma_new_sqls, E_tuples, security_hole)
+- the_chase(conn, initial_T_tablename, initial_T_tuples, initial_T_attributes, initial_datatypes, policies)
   - conn: a instance of Postgres connection
-  - initial_T_tablename: tablename of input table T
-  - initial_T_tuples: the tuples of input table T
-  - policies: a list of policies. A policy contains multiple dependencies.
-  - sigma_new_sqls: a list of SQLs corresponding to the datalog rules of \sigma_new
+  - initial_T: A python dictionary. Including `tablename`, `tuples`, `attributes`, `datatypes`.
+    - `tablename`:  tablename of input table T
+    - `tuples`: the tuples of input table T
+    - `attributes`: a list of attributes for initial T table
+    - `datatypes`: a list of datatypes for each attributes in initial T table
+    - format:`{'tablename': xxx, 'tuples':[(...), (...),...], 'attributes': [...], 'datatypes':[...]}`
+  - policies: a list of policies. A policy contains multiple dependencies. The format of a policy see below.
 
 - database configuration, modify [`databaseconfig.py`](../../databaseconfig.py)
   ```python
@@ -25,84 +28,49 @@
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
   ```
 
-- rewriting policy format
+- Policy format
 
   ```python
-  # rewrite src from 10.0.0.2 to 10.0.0.1 at node 1
-  rewrite_policy1 = [
-      {  # \sigma_1: inserting entry
-          'dependency_tuples': [
-              ('f', '10.0.0.2', '10.0.0.3', '1', '2')   # the body of dependency
-          ], 
-          'dependency_summary': ['f', '10.0.0.1', '10.0.0.3', '1', '2'],  # the summary of dependency
-          'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'],   # the schema of dependency
-          'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-          'dependency_summary_condition': None, 
-          'dependency_type': 'tgd'  # tgd for inserting tuple in rewriting policy
-      },  # This is a dependency
-      {   # \sigma_1': the flow id should be the same before and after rewriting 
-          'dependency_tuples': [
-              ('f1', '10.0.0.2', '10.0.0.3', '1', '2'),  # the body of dependency
-              ('f2', '10.0.0.1', '10.0.0.3', '1', '2')
-          ], 
-          'dependency_summary': ['f1 = f2'],  # the summary of dependency
-          'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'],   # the schema of dependency
-          'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-          'dependency_summary_condition': None, 
-          'dependency_type': 'egd'  
-      } # This is a dependency
-  ] # This is a policy containing two dependencies
+  # rewrite (src:B, dst:C) to (src:A, dst:C) at first node
+  policy_p1 = [ 
+        { # rewriting policy at first node
+            'dependency_tuples': [
+                ('f', '10', '11', '10', '2'), # the body of dependency
+                ('f', 's', 'd', '2', '3')
+            ], 
+            'dependency_summary': ["s = 9", "d = 11"],  # the summary of dependency
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'],  # the schema of dependency
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'  # the type of dependency, tgd or egd
+        }, # This is a dependency
+        { 
+            'dependency_tuples': [
+                ('f', '9', '11', '9', '1'),
+                ('f', 's', 'd', '1', '3')
+            ], 
+            'dependency_summary': ["s = 9", "d = 11"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        },
+        {
+            'dependency_tuples': [
+                ('f', '9', '12', '9', '1'),
+                ('f', 's', 'd', '1', '3')
+            ], 
+            'dependency_summary': ["s = 9", "d = 12"], 
+            'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
+            'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
+            'dependency_summary_condition': None, 
+            'dependency_type': 'egd'
+        }
+    ]  # This is a policy containing three dependencies
   ```
-
-- firewall policy format
-  ```python
-  # block flow with source=10.0.0.2 and dest=10.0.0.4
-  firewall_policy1 = [
-      {
-          'dependency_tuples': [
-              ('f', 's', 'd', '1', 'x_x') # the body of dependency
-          ], 
-          'dependency_attributes': ['f', 'src', 'dst', 'n', 'x'], 
-          'dependency_attributes_datatypes': ['text', 'text', 'text', 'text', 'text'], 
-          'dependency_summary': [],  # summary is empty for firewall dependency, means it's a deletion
-          'dependency_summary_condition': ["s = 10.0.0.2", "d = 10.0.0.4"], # using '=' is easy for query encoding 
-          'dependency_type': 'egd'
-      } # this dependency means deleting the entry with source = 10.0.0.2 and dest=10.0.0.4 at node 1
-  ] # This is a policy containing one dependency
-  ```
-
-- \sigma_new 
-  - We haven't decided the final version of the \sigma_new, so we use SQLs corresponding to the datalog rules to encode \sigma_new.
-
-- initial_table_T
-  ```python
-  initial_T_tablename = "T"  # assgin a namt for input table T
-  initial_T_tuples = [  # the tuples in input table T
-          ('f', '10.0.0.2', '10.0.0.3', '10.0.0.2', '1')
-      ]
-  ```
-
-- Mapping E
-  - The mapping E is not decided yet, so we should input the tuples of mapping E.
-  ```python 
-  E_tupls = [
-          ('f', 's', 'd0', 's', '1'), 
-          ('f', 's1', 'd1', '1', '2'), 
-          ('f', 's2', 'd2', '2', '3'),
-          ('f', 's3', 'd', '3', 'd')
-      ]
-  ```
-- security_hole
-  - we should detemine the checking security hole
-  ```python
-  security_hole = ['10.0.0.2', '10.0.0.4'] # block [source, dest]
-  ```
-
-
-
 **Note1: we use etheir integer or IP prefix for nodes and hosts. '10.2' is invalid encoding**
 
-**Note2: we call `run_the_chase_sqls()` to completely run the chase. For the complete example, see `__main__` in [`run_toy.py`](run_toy.py). The ordering strategy is that chasing policies by given a certain ordering then checking security hole until run to converge**
+**Note2: we call `the_chase()` to completely run the chase. For the complete example, see `__main__` in [`script_chase_distributed_invariants.py`](script_chase_distributed_invariants.py). The ordering strategy is random permutation.**
 
 ****
 ## experiment code
