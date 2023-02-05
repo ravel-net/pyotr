@@ -205,15 +205,29 @@ class RocketfuelPoPTopo:
         head = "R({},{},{}) :- ".format(ingressAS, destination, egressAS)
         for path in allPaths:
             links = []
+            middleBoxes = {}
             for i,vertex in enumerate(path[:-1]):
                 secondVertex = path[i+1]
                 if vertex == ingressNode:
                     links.append("l({},{})".format(ingressAS, self.nodeMappingsPOP[secondVertex]))
                 else:
                     links.append("l({},{})".format(self.nodeMappingsPOP[vertex], self.nodeMappingsPOP[secondVertex]))
+                if vertex in self.deployedMiddleBoxes: # if the path includes a node with a middle box in it
+                    middleBoxType =  self.deployedMiddleBoxes[vertex]
+                    if middleBoxType not in middleBoxes:
+                        middleBoxes[middleBoxType] = []
+                    middleBoxes[middleBoxType].append(str(middleBoxType) + "(" + str(self.nodeMappingsPOP[vertex]) + ")")    
             newRule = head + "l({},{}), A({},{})".format(self.nodeMappingsPOP[path[-1]], egressAS, destination,egressAS)
             if len(links) > 0:
                 newRule = head + ",".join(links) + ", l({},{}), A({}, {})".format(self.nodeMappingsPOP[path[-1]],egressAS, destination,egressAS)
+
+            for middleBoxType in self.middleBoxTypes:
+                newRule += ", "
+                if middleBoxType in middleBoxes:
+                    newRule += ",".join(middleBoxes[middleBoxType])
+                else:
+                    newRule += "{}(0)".format(middleBoxType)
+            print(newRule)
             rules.append(newRule)
         return rules
 
@@ -458,6 +472,20 @@ class RocketfuelPoPTopo:
         egressASes = self.getAllgress(isIngress=False)
         return ingressASes, egressASes
 
+    # Adds percentMiddleBoxes % of middle boxes to the AS. Among the nodes selected for middle boxes, the probability of the selecting each type of middle box is uniform (e.g. for two middle boxes the proability is half for each)
+    def addMiddleBoxes(self, middleBoxes, percentMiddleBoxes):
+        self.percentMiddleBoxes = percentMiddleBoxes
+        self.middleBoxTypes = middleBoxes
+        numNodes = len(self.nodesSelfPOP)
+        n = (int) (numNodes * percentMiddleBoxes/100)
+        selectedNodes = random.sample(self.nodesSelfPOP, n)
+        self.deployedMiddleBoxes = {}
+        for node in selectedNodes:
+            middleBox = random.sample(middleBoxes, 1)[0]
+            nodeIndex = self.nodesAllPOP.index(node)
+            self.deployedMiddleBoxes[nodeIndex] = middleBox
+        print(self.deployedMiddleBoxes)
+
 def getAllReductionNodes(filename, ASNum):
     with open(filename) as f:
         lines = f.readlines()
@@ -496,17 +524,19 @@ def getAllMinimizationTime(filename, ASNum):
 
 def topologyMinimizationAllPairs(ingressASes, egressASes, ASNum, runs = 1):
     name = "AS_{}_all_pairs".format(str(ASNum))
-    # for ingress in ingressASes:
-    #     for egress in egressASes:
-    #         if ingress != egress:
-    #             cases = [(ingress, ASNum, egress)]
-    #             topologyMinimization(cases, runs, name, "a+")
+    for ingress in ingressASes:
+        for egress in egressASes:
+            if ingress != egress:
+                cases = [(ingress, ASNum, egress)]
+                topologyMinimization(cases, runs, name, "a+")
     getAllReductionRules(name, ASNum)
     getAllReductionNodes(name, ASNum)
     getAllReductionLinks(name, ASNum)
     getAllMinimizationTime(name, ASNum)
 
-def topologyMinimization(cases, runs, logFilePath, mode = "w+"):
+
+
+def topologyMinimization(cases, runs, logFilePath, mode = "w+", middleBoxes = [], percentMiddleBoxes = 0):
     with open(logFilePath,mode) as f:
         if "w" in mode:
             f.write("(ingressAS,ASNum,egressAS)|numRulesBefore|numRulesAfter|percentageRuleReduction|numAtomsBefore|numAtomsAfter|percentageAtomReduction|numIngressNodesBefore|numIngressNodesAfter|numEgressNodesBefore|numEgressNodesAfter|numNodesBefore|numNodesAfter|percentageNodeReduction|numLinksBefore|numLinksAfter|percentageLinkReduction|minTime|eqTime|combTime|totalTime\n")
@@ -526,6 +556,8 @@ def topologyMinimization(cases, runs, logFilePath, mode = "w+"):
                     return False
                 numIngressNodesBefore = len(AS.ingressNodes)
                 numEgressNodesBefore = len(AS.egressNodes)
+                if percentMiddleBoxes > 0:
+                    AS.addMiddleBoxes(middleBoxes, percentMiddleBoxes)
                 allRules = AS.convertToDatalog(ingressAS,egressAS) # only have ingress nodes 
                 if len(allRules) == 0:
                     return
@@ -689,9 +721,9 @@ if __name__ == "__main__":
     # ASNum = "9942"
     # egressAS = "4323"
 
-    # ingressAS = "4323"
-    # ASNum = "6939"
-    # egressAS = "3356"
+    ingressAS = "4323"
+    ASNum = "6939"
+    egressAS = "3356"
 
     # ingressAS = "2548"
     # ASNum = "1"
@@ -717,25 +749,26 @@ if __name__ == "__main__":
     # ASNum = "1"
     # egressAS = "1239"
 
-    # case = [(ingressAS,ASNum,egressAS)]
-    # topologyMinimization(case,1,"AS852.txt")
+    case = [(ingressAS,ASNum,egressAS)]
+    # topologyMinimization(case,1,"AS852.txt", ["M","F"], 25)
+    topologyMinimization(cases = case, runs = 1, logFilePath="AS6467.txt", mode = "w+", middleBoxes=["M","F"],percentMiddleBoxes=20)
     # avgVarianceSummary("AS852.txt")
 
     # testASes = ["6467","6939", "7911", "1"]
-    testASes = ["6467","6939", "7911"]
-    # testASes = ["7911"]
-    for ASNum in testASes:
-        AS = RocketfuelPoPTopo(ASNum)
-        print(len(AS.nodesAllPOP))
-        print(len(AS.POP_links))
-        ingressASes, egressASes = AS.getAllCustomerPairs()
-        print(len(ingressASes))
-        print(len(egressASes))
-        print(ingressASes)
-        print(egressASes)
-        # ingressASes = ingressASes[ingressASes.index("3549"):]
-        # print(ingressASes)
-        topologyMinimizationAllPairs(ingressASes, egressASes, ASNum)
+    # testASes = ["6467","6939", "7911"]
+    # # testASes = ["7911"]
+    # for ASNum in testASes:
+    #     AS = RocketfuelPoPTopo(ASNum)
+    #     print(len(AS.nodesAllPOP))
+    #     print(len(AS.POP_links))
+    #     ingressASes, egressASes = AS.getAllCustomerPairs()
+    #     print(len(ingressASes))
+    #     print(len(egressASes))
+    #     print(ingressASes)
+    #     print(egressASes)
+    #     # ingressASes = ingressASes[ingressASes.index("3549"):]
+    #     # print(ingressASes)
+    #     topologyMinimizationAllPairs(ingressASes, egressASes, ASNum)
 
     # ASes = getAllASes()
     # print(ASes)
