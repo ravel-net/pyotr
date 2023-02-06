@@ -255,6 +255,11 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
     last_header = None
     security_hole = []
     gamma_headers = []
+    related_source_hosts = []
+    related_dest_hosts = []
+
+    # related policies
+    print("num_related_policies", num_related_policies)
     for idx in range(num_related_policies):
         if begin_idx not in nodeIdx_policies_mapping.keys():
             nodeIdx_policies_mapping[begin_idx] = []
@@ -266,6 +271,9 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
             dest = random.sample(dest_hosts, 1)[0]
             source_hosts.remove(source)
             dest_hosts.remove(dest)
+
+            related_source_hosts.append(source)
+            related_dest_hosts.append(dest)
             security_hole.append(source)
             header = (source, dest)
             gamma_headers.append(header)
@@ -275,11 +283,15 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
         if idx % 2 == 0:
             rw_source = random.sample(source_hosts, 1)[0]
             source_hosts.remove(rw_source)
+            if rw_source not in related_source_hosts:
+                related_source_hosts.append(rw_source)
             rw_header = (rw_source, header[1])
             # print("rw_header1", rw_header)
         else:
             rw_dest = random.sample(dest_hosts, 1)[0]
             dest_hosts.remove(rw_dest)
+            if rw_dest not in related_dest_hosts:
+                related_dest_hosts.append(rw_dest)
             rw_header = (header[0], rw_dest)
             # print("rw_header2", rw_header)
         
@@ -298,7 +310,8 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
     # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
     # print("related_position", related_position)
     # print("security hole", security_hole)
-
+    
+    # two firewalls related to security hole
     if 0 in nodeIdx_policies_mapping.keys():
         nodeIdx_policies_mapping[0].append({'type':'fw', 'hole':tuple(security_hole)})
     else:
@@ -306,11 +319,11 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
     
     # if 0 not in related_position:
     #     related_position.insert(0, 0)
-    
-    if len(path_nodes)-1 in nodeIdx_policies_mapping.keys():
-        nodeIdx_policies_mapping[len(path_nodes)-1].append({'type':'fw', 'hole':tuple(security_hole)})
+    begin_idx = math.floor(begin_idx - interval_num)
+    if begin_idx in nodeIdx_policies_mapping.keys():
+        nodeIdx_policies_mapping[begin_idx].append({'type':'fw', 'hole':tuple(security_hole)})
     else:
-        nodeIdx_policies_mapping[len(path_nodes)-1]= [{'type':'fw', 'hole':tuple(security_hole)}]
+        nodeIdx_policies_mapping[begin_idx]= [{'type':'fw', 'hole':tuple(security_hole)}]
 
     # if len(path_nodes)-1 not in related_position:
     #     related_position.append(len(path_nodes)-1)
@@ -319,8 +332,9 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
     # print("related_position", related_position)
     # print("security hole", security_hole)
 
+    # unrelated policies
     num_unrelated_policies = total_policies - num_related_policies
-
+    print("num_unrelated_policies", num_unrelated_policies)
     # num_rw_policies = num_unrelated_policies
     # num_fw_policies = 0
     num_rw_policies = num_unrelated_policies // 2
@@ -350,6 +364,7 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
         else:
             nodeIdx_policies_mapping[p_idx] = [{'type':'rw', 'header': header, 'rw_header': rw_header}]
 
+    # unrelated firewalls 
     for idx in range(num_fw_policies):
         p_idx = random.sample(range(len(path_nodes)), 1)[0]
         # p_idx = random.sample(related_position, 1)[0]
@@ -365,7 +380,7 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
 
     # print("\n")
     # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
-    return nodeIdx_policies_mapping, security_hole, related_position, gamma_headers
+    return nodeIdx_policies_mapping, security_hole, related_position, gamma_headers, related_source_hosts, related_dest_hosts
 
 # @timeit
 def gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, source_hosts, dest_hosts, sourceHosts_interface_mapping):
@@ -396,7 +411,7 @@ def gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, sy
                 if temp_header not in filters and temp_header not in header_rwheader_mapping.keys():
                     dependency = convert_to_rwfw_dependency(temp_header, temp_header, nodeIdx, path_nodes, symbolic_IP_mapping, sourceHosts_interface_mapping)
                     dependencies.append(deepcopy(dependency))
-        
+        print("num_dependencies", len(dependencies))
         # for dependency in dependencies:
         #     print_dependency(dependency)
         # input()
@@ -414,7 +429,7 @@ def gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, sy
 # @timeit
 def convert_to_rwfw_dependency(header, rw_header, loc, path_nodes, symbolic_IP_mapping, sourceHosts_interface_mapping):
     tuples = None
-    
+
     node = path_nodes[loc]
     if loc == 0:
         tuples = [
@@ -505,13 +520,14 @@ def gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping):
     # print("idxs", nodeIdxs) 
     # for dependency in policy:
     #     print_dependency(dependency)
+    print("num_dependency", len(policy))
     return policy
 
 # @timeit
-def gen_additional_policy(destHosts_interface_mapping):
+def gen_additional_policy(destHosts_interface_mapping, related_dest_hosts):
 
     policy = []
-    for dest in destHosts_interface_mapping.keys():
+    for dest in related_dest_hosts:
 
         egd_dependency = {
             'dependency_tuples': [
@@ -525,7 +541,7 @@ def gen_additional_policy(destHosts_interface_mapping):
         }
 
         policy.append(deepcopy(egd_dependency))
-    
+    print("num_dependency", len(policy))
     return policy
 
 @timeit

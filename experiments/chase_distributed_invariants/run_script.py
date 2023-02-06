@@ -423,15 +423,17 @@ def run_experiments(conn, runs=1, num_hosts=3, random_path=True, unit="policy", 
 
             # print("symbolic_IP_mapping", symbolic_IP_mapping)
             # generate policies
-            nodeIdx_policies_mapping, security_hole, related_policies_position, gamma_headers = chase_scripts.random_pick(num_policies, num_related_policies, path_nodes, source_hosts.copy(), dest_hosts.copy())
+            nodeIdx_policies_mapping, security_hole, related_policies_position, gamma_headers, related_source_hosts, related_dest_hosts = chase_scripts.random_pick(num_policies, num_related_policies, path_nodes, source_hosts.copy(), dest_hosts.copy())
             # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
-            policies, related_policy_idxes = chase_scripts.gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, source_hosts.copy(), dest_hosts.copy(), sourceHosts_interface_mapping)
+            policies, related_policy_idxes = chase_scripts.gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, related_source_hosts, related_dest_hosts, sourceHosts_interface_mapping)
+
+            orderings = sorted(list(policies.keys()))
 
             policy_p12 = chase_scripts.gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping)
             policy_p12_idx = max(policies.keys())+1
             policies[policy_p12_idx] = policy_p12
 
-            additional_policy = chase_scripts.gen_additional_policy(destHosts_interface_mapping)
+            additional_policy = chase_scripts.gen_additional_policy(destHosts_interface_mapping, related_dest_hosts)
             additional_policy_idx = policy_p12_idx + 1
             policies[additional_policy_idx] = additional_policy
 
@@ -454,24 +456,10 @@ def run_experiments(conn, runs=1, num_hosts=3, random_path=True, unit="policy", 
             for idx in policies.keys():
                 count_dependencies += len(policies[idx])
 
-            orderings = []
+            
             start = time.time()
             if order_strategy == 'specific':
-                policy_idxes = sorted(list(policies.keys()))
-                orderings.append(policy_p12_idx)
-                orderings += policy_idxes
-                # print("policy_idxes", policy_idxes)
-                # print("related_policy_idxes", related_policy_idxes)
-                # print("nodeIdxs", nodeIdx_policies_mapping.keys())
-                # for i in range(len(related_policy_idxes)-1):
-                #     begin = related_policy_idxes[i]
-                #     end = related_policy_idxes[i+1]
-                #     orderings += policy_idxes[begin:end]
-                #     orderings.append(policy_p12_idx)
-
-                # if len(policy_idxes[related_policy_idxes[-1]:]) != 0:
-                #     orderings += policy_idxes[related_policy_idxes[-1]:]
-                #     orderings.append(policy_p12_idx)
+                orderings.insert(0, policy_p12_idx)
                 orderings.append(additional_policy_idx)
                 # print("policy_p12_idx", policy_p12_idx)
                 # print("additional_policy_idx", additional_policy_idx)
@@ -561,17 +549,27 @@ def test(conn, runs=1, num_hosts=3, random_path=True, order_strategy="random", n
 
             # print("symbolic_IP_mapping", symbolic_IP_mapping)
             # generate policies
-            nodeIdx_policies_mapping, security_hole, related_policies_position, gamma_headers = chase_scripts.random_pick(num_policies, num_related_policies, path_nodes, source_hosts.copy(), dest_hosts.copy())
+            nodeIdx_policies_mapping, security_hole, related_policies_position, gamma_headers, related_source_hosts, related_dest_hosts = chase_scripts.random_pick(num_policies, num_related_policies, path_nodes, source_hosts.copy(), dest_hosts.copy())
+            # print("source hosts", source_hosts)
+            # print("dest_hosts", dest_hosts)
+            # print("related_source_hosts", related_source_hosts)
+            # print("related_dest_hosts", related_dest_hosts)
             # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
-            policies, related_policy_idxes = chase_scripts.gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, source_hosts.copy(), dest_hosts.copy(), sourceHosts_interface_mapping)
+            policies, related_policy_idxes = chase_scripts.gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, related_source_hosts, related_dest_hosts, sourceHosts_interface_mapping)
+
+            orderings = sorted(list(policies.keys()))
+            # print("rw idxs", orderings)
 
             policy_p12 = chase_scripts.gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping)
             policy_p12_idx = max(policies.keys())+1
             policies[policy_p12_idx] = policy_p12
 
-            additional_policy = chase_scripts.gen_additional_policy(destHosts_interface_mapping)
+            additional_policy = chase_scripts.gen_additional_policy(destHosts_interface_mapping, related_dest_hosts)
             additional_policy_idx = policy_p12_idx + 1
             policies[additional_policy_idx] = additional_policy
+
+            # print("policy_p12_idx", policy_p12_idx)
+            # print("additional_policy_idx", additional_policy_idx)
 
             # gamma table
             gamma_tablename = "gamma"
@@ -582,10 +580,7 @@ def test(conn, runs=1, num_hosts=3, random_path=True, order_strategy="random", n
             for idx, header in enumerate(gamma_headers):
                 gamma_tuples.append(('f{}'.format(idx), header[0], header[1]))
 
-
-            
-
-            count_application, count_iterations = 0, 0, 
+            count_application, count_iterations = 0, 0
 
             count_policies, count_dependencies = len(policies.keys()), 0
             for idx in policies.keys():
@@ -593,72 +588,71 @@ def test(conn, runs=1, num_hosts=3, random_path=True, order_strategy="random", n
 
             sql = chase.gen_E_query(E_tuples, E_attributes, E_summary, chasing_tablename, gamma_summary)
 
-            orderings = []
+            # orderings = []
             start = time.time()
-            if order_strategy == 'specific':
-                policy_idxes = sorted(list(policies.keys()))
-                orderings.append(policy_p12_idx)
-                orderings += policy_idxes
-                orderings.append(additional_policy_idx)
 
-                # policy
-                inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
-                chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
+            # if order_strategy == 'specific':
+            orderings.insert(0, policy_p12_idx)
+            orderings.append(additional_policy_idx)
+            # print("orderings", orderings)
+            # policy
+            inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
+            chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
 
-                start = time.time()
-                count_application, count_iterations = chase_scripts.chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy=order_strategy, orderings=orderings)
-                end = time.time()
-                answer = chase.apply_E(conn, sql)
-                count_E_query = 1
-                print('policy:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
+            start = time.time()
+            count_application, count_iterations = chase_scripts.chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy="specific", orderings=orderings)
+            end = time.time()
+            answer = chase.apply_E(conn, sql)
+            count_E_query = 1
+            print('specific policy:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
 
-                # dependency
-                inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
-                chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
+            # dependency
+            inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
+            chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
 
-                dependencies = {}
-                idx = 0
-                for o in orderings:
-                    for dependency in policies[o]:
-                        dependencies[idx] = deepcopy(dependency)
-                        idx += 1
-                orderings = list(dependencies.keys())
-                start = time.time()
-                count_application, count_iterations = chase_scripts.chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strategy=order_strategy, orderings=orderings)
-                end = time.time()
-                answer = chase.apply_E(conn, sql)
-                count_E_query = 1
-                print('Dependency:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
+            dependencies = {}
+            idx = 0
+            for o in orderings:
+                for dependency in policies[o]:
+                    dependencies[idx] = deepcopy(dependency)
+                    idx += 1
+            orderings = list(dependencies.keys())
+            start = time.time()
+            count_application, count_iterations = chase_scripts.chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strategy="specific", orderings=orderings)
+            end = time.time()
+            answer = chase.apply_E(conn, sql)
+            count_E_query = 1
+            print('specific Dependency:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
         
-            elif order_strategy == 'random':
-                # policy
-                inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
-                chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
+            # elif order_strategy == 'random':
+            # policy
+            inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
+            chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
 
-                start = time.time()
-                count_application, count_iterations = chase_scripts.chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy=order_strategy, orderings=None)
-                end = time.time()
-                answer = chase.apply_E(conn, sql)
-                count_E_query = 1
-                print('policy:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
-                
-                # dependency
-                inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
-                chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
+            start = time.time()
+            count_application, count_iterations = chase_scripts.chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy="random", orderings=None)
+            end = time.time()
+            answer = chase.apply_E(conn, sql)
+            count_E_query = 1
+            print('random policy:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
+            
+            # dependency
+            inverse_images_tuples = chase_scripts.gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping)
+            chase.load_table(conn, E_attributes, E_datatypes, chasing_tablename, inverse_images_tuples)
 
-                dependencies = {}
-                idx = 0
-                for o in policies.keys():
-                    for dependency in policies[o]:
-                        dependencies[idx] = deepcopy(dependency)
-                        idx += 1
-                orderings = list(dependencies.keys())
-                start = time.time()
-                count_application, count_iterations = chase_scripts.chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strategy=order_strategy, orderings=None)
-                end = time.time()
-                answer = chase.apply_E(conn, sql)
-                count_E_query = 1
-                print('Dependency:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
+            dependencies = {}
+            idx = 0
+            for o in policies.keys():
+                for dependency in policies[o]:
+                    dependencies[idx] = deepcopy(dependency)
+                    idx += 1
+            orderings = list(dependencies.keys())
+            start = time.time()
+            count_application, count_iterations = chase_scripts.chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strategy="random", orderings=None)
+            end = time.time()
+            answer = chase.apply_E(conn, sql)
+            count_E_query = 1
+            print('random Dependency:{}, LenPath:{}, Runs:{}, Count_policies:{}, Count_dependencies:{}, Count_application:{}, Count_iterations:{}, Count_Equery:{}, Answer:{}, TimeForRun:{:.4f}'.format(security_hole, len(path_nodes), r, count_policies, count_dependencies, count_application, count_iterations, count_E_query, answer, end-start))
 
                 
 
@@ -666,7 +660,7 @@ def test(conn, runs=1, num_hosts=3, random_path=True, order_strategy="random", n
 if __name__ == '__main__':
     conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 
-    runs=100
+    runs=200
 
     num_hosts = int(sys.argv[1])
     num_policies = int(sys.argv[2])
@@ -676,7 +670,7 @@ if __name__ == '__main__':
 
     run_experiments(conn, runs=runs, num_hosts=num_hosts, random_path=False, unit=unit, order_strategy=ordering_strategy, num_policies_list=[num_policies], num_related_policies=num_related_policies)
 
-    # run_experiments(conn, runs=1, num_hosts=3, random_path=False, unit="policy", order_strategy="random", num_policies_list=[4], num_related_policies=2)
-    # test(conn, runs=1, num_hosts=3, random_path=False, order_strategy="random", num_policies_list=[4], num_related_policies=2)
+    # run_experiments(conn, runs=1, num_hosts=3, random_path=False, unit="dependency", order_strategy="specific", num_policies_list=[2], num_related_policies=2)
+    # test(conn, runs=1, num_hosts=10, random_path=False, order_strategy="specific", num_policies_list=[2], num_related_policies=2)
 
     

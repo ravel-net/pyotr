@@ -1,6 +1,0 @@
-policies avg	std	item
-10 2421.4970	547.4978	NumPolicies10_Hosts20ReH4_Orderrandom_Unitpolicy_20230130123103.log 
-20 3856.4570	857.0584	NumPolicies20_Hosts20ReH4_Orderrandom_Unitpolicy_20230130123744.log 
-40 5721.1380	1157.5920	NumPolicies40_Hosts20ReH4_Orderrandom_Unitpolicy_20230130133822.log 
-80 8441.5250	1644.0971	NumPolicies80_Hosts20ReH4_Orderrandom_Unitpolicy_20230130125231.log 
-160 14143.2720	2727.9138	NumPolicies160_Hosts20ReH4_Orderrandom_Unitpolicy_20230130131723.log 

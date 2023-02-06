@@ -2,17 +2,25 @@ conda activate exp
 # num_hosts num_policies num_related_policies strategy unit
 
 # for different strategies
-# python run_script.py 20 40 4 specific dependency
-# python run_script.py 20 40 4 specific policy
-# python run_script.py 20 40 4 random dependency
-# python run_script.py 20 40 4 random policy
+# python run_script.py 20 2 2 specific policy
+# python run_script.py 20 2 2 random policy
+# python run_script.py 20 2 2 random dependency
+
+python run_script.py 20 8 2 specific policy
+python run_script.py 20 8 2 random policy
+python run_script.py 20 8 2 random dependency
+
+# python run_script.py 20 15 2 specific policy
+# python run_script.py 20 15 2 random policy
+# python run_script.py 20 15 2 random dependency
+
 
 # # for different number of policies
-# python run_script.py 20 10 4 random policy
 # python run_script.py 20 20 4 random policy
-python run_script.py 20 40 4 random policy
+# # python run_script.py 20 20 4 random policy
 # python run_script.py 20 80 4 random policy
-# python run_script.py 20 160 4 random policy
+# # python run_script.py 20 80 4 random policy
+# python run_script.py 20 320 4 random policy
 
 # # for different strategies
 # python run_script.py 15 40 4 specific dependency
