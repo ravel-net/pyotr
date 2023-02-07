@@ -44,7 +44,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False, recursive_rules=True):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False, recursive_rules=True, faure_evaluation_mode='contradiction'):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -63,13 +63,15 @@ class DT_Program:
             self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
         else:
             self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+        
+        self._faure_evaluation_mode = faure_evaluation_mode
 
         if isinstance(program_str, DT_Rule):
             self._rules.append(program_str)
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule_str=rule, databaseTypes=databaseTypes, operators=self.__OPERATORS, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=recursive_rules))
+                self._rules.append(DT_Rule(rule_str=rule, databaseTypes=databaseTypes, operators=self.__OPERATORS, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=recursive_rules, faure_evaluation_mode=faure_evaluation_mode))
     
     def __str__(self):
         DT_Program_str = ""
@@ -157,6 +159,7 @@ class DT_Program:
         rule2.initiateDB(conn)
         rule2.addConstants(conn)
         iterations = 0
+        input()
         # conn.commit()
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1

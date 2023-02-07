@@ -64,8 +64,9 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
     @timeit
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, recursive_rules=True, headAtom="", bodyAtoms=[], additional_constraints=[]):
+    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, recursive_rules=True, headAtom="", bodyAtoms=[], additional_constraints=[], faure_evaluation_mode='contradiction'):
         self._additional_constraints = []
+        self._faure_evaluation_mode = faure_evaluation_mode
         if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
             self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
@@ -397,7 +398,9 @@ class DT_Rule:
             if (not self._recursive_rules):
                 changed = False
         else:
+            print(self.sql)
             return self.run_with_faure(conn, self.sql)
+            input()
         return changed
 
     @timeit
@@ -659,9 +662,10 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False)
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False, faure_evaluation_mode=self._faure_evaluation_mode)
                 
         changed = self.insertTuplesToHead(conn)
+        input()
         return changed
 
     @timeit

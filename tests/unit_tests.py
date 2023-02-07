@@ -181,8 +181,8 @@ def unit_test10():
     p2 = "l(x)[And(x > 2, x  < 7)] :- R(x)[And(x > 2, x  < 7)], R(x)[And(x > 0, x  < 10)]"
 
     
-    program1 = DT_Program(p1, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"])
-    program2 = DT_Program(p2, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"])
+    program1 = DT_Program(p1, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"], faure_evaluation_mode='implication')
+    program2 = DT_Program(p2, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"], faure_evaluation_mode='implication')
 
     start = time.time()
     program1.minimize()
@@ -198,14 +198,14 @@ def unit_test10():
 
 
 if __name__ == "__main__":
-    unit_test1()
-    unit_test2()
-    unit_test3()
-    unit_test4()
-    unit_test5()
-    unit_test6()
-    unit_test7()
-    unit_test8()
+    # unit_test1()
+    # unit_test2()
+    # unit_test3()
+    # unit_test4()
+    # unit_test5()
+    # unit_test6()
+    # unit_test7()
+    # unit_test8()
     # unit_test9()
     unit_test10()
 

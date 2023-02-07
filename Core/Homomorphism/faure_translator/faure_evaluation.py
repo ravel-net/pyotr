@@ -48,7 +48,7 @@ class FaureEvaluation:
         convert a c-table with text condition to a c-table with BDD reference
     """
     @timeit
-    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False) -> None:
+    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False, faure_evaluation_mode='contradiction') -> None:
         """
         Parameters:
         ------------
@@ -103,6 +103,7 @@ class FaureEvaluation:
         self._additional_condition = additional_condition
         self._domains = domains
         self._databases = databases
+        self._faure_evaluation_mode = faure_evaluation_mode
 
         self.data_time = 0.0 # record time for step 1: data
         self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
@@ -121,7 +122,10 @@ class FaureEvaluation:
                 self._reasoning_tool.simplification(self.output_table)
         else:
             start = time.time()
-            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+            if self._faure_evaluation_mode == 'implication': # using the same pattern of sql as that when reasoning engine is bdd
+                self._SQL_parser = SQL_Parser(conn, self._SQL, True, 'bdd', databases)
+            else:
+                self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
             end = time.time()
             logging.info("Time: parser took {}".format(end-start))
             self._additional_condition = additional_condition
@@ -129,7 +133,15 @@ class FaureEvaluation:
             
             if self._reasoning_engine.lower() == 'z3':
                 # integration of step 1 and step 2
-                self._integration()
+                if self._faure_evaluation_mode == 'contradiction':
+                    self._integration()
+                    
+                elif self._faure_evaluation_mode == 'implication':
+                    self._integration()
+
+                    self._reserve_tuples_by_checking_implication_z3()
+                else:
+                    print("Please input correct mode! 'contradiction' or 'implication'")
 
                 if self._additional_condition:
                     self._append_additional_condition()
@@ -139,15 +151,6 @@ class FaureEvaluation:
                     self._reasoning_tool.simplification(self.output_table, self._conn)
 
             elif self._reasoning_engine.lower() == 'bdd':
-                # self.bddTool = BDDTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
-
-                # processed_tables = []
-                # for workingtable in self._SQL_parser.working_tables:
-                #     if workingtable.TableName not in processed_tables:
-                #         print("process", workingtable.TableName)
-                #         self._process_condition_on_ctable(workingtable.TableName)
-                #         processed_tables.append(workingtable.TableName)
-                
                 # step 1: data
                 self._integration()
 
@@ -259,7 +262,7 @@ class FaureEvaluation:
         if self._information_on:
             print("\ncombined executing time: ", self.data_time)
         # start = time.time()
-        # self._conn.commit()
+        self._conn.commit()
         # end = time.time()
         # logging.info("Time: Commit took {}".format(end-start))
 
@@ -353,7 +356,62 @@ class FaureEvaluation:
         sql = "alter table if exists {} drop column if exists id".format(self.output_table)
         cursor.execute(sql)
         #self._conn.commit()
+    
+    @timeit
+    def _reserve_tuples_by_checking_implication_z3(self):
+        if self._information_on:
+            print("\n************************Step 2: reserve tuples by checking implication****************************")
+        cursor = self._conn.cursor()
+
+        # if 'id' not in self.column_datatype_mapping:
+        cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
+        #self._conn.commit()
+
+        select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
+        if self._information_on:
+            print(select_sql)
         
+        cursor.execute(select_sql)
+
+        count_num = cursor.rowcount
+        data_tuples = cursor.fetchall()
+        #self._conn.commit()
+
+        
+        update_tuples = []
+        for i in range(count_num):
+            
+            (old_conditions, conjunctin_conditions, id) = data_tuples[i]
+            
+            old_cond = None
+            old_conditions = [item for subconditions in old_conditions for item in subconditions]
+            if len(old_conditions) == 0:
+                old_cond = "True"
+            elif len(old_conditions) == 1:
+                old_cond = old_conditions[0]
+            else:
+                old_cond = "And({})".format(", ".join(old_conditions))
+
+            if self._reasoning_tool.is_implication(old_cond, conjunctin_conditions): # all possible instances are matched the program
+                update_tuples.append((id, [old_cond, conjunctin_conditions]))
+            
+        
+        cursor.execute("create temp table if not exists temp_update(uid integer, condition text[])")
+        cursor.execute("truncate temp_update") # if exists, truncate temp_update table
+        execute_values(cursor, "insert into temp_update values %s", update_tuples)
+
+        
+        sql = "SELECT column_name FROM information_schema.columns where table_name = '{}';".format(self.output_table.lower())
+        cursor.execute(sql)
+        columns_without_condition = [name for (name, ) in cursor.fetchall() if 'condition' not in name and 'id' not in name]
+
+        sql = "create table temp_{} as select {}, t2.condition as condition from {} t1, temp_update t2 where t1.id = t2.uid".format(self.output_table, ", ".join(columns_without_condition), self.output_table)
+        cursor.execute(sql)
+
+        cursor.execute("drop table if exists {}".format(self.output_table))
+        cursor.execute("alter table temp_{output} rename to {output}".format(output=self.output_table))
+        self._conn.commit()
+
     @timeit
     def _process_condition_on_ctable(self, tablename):
         """
@@ -463,7 +521,7 @@ if __name__ == '__main__':
     # # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and t1.a2 = '10.0.0.1'"
     # sql = "select t3.a1 as a1, t1.a2 as a2 from R t1, R t2, L t3, L t4 where t1.a1 = t3.a2 and t2.a1 = t4.a2 and t3.a1 = t4.a1 and (t1.a2 = '1' or t1.a2 = '2');"
     # FaureEvaluation(conn, sql, additional_condition="d != 2", databases={}, domains=domains, reasoning_engine='z3', reasoning_sort='Int', simplication_on=False, information_on=True)
-    z3smt = z3SMTTools(variables=['x', 'y', 'z', 'w'], domains={}, reasoning_type={})
+    z3smt = z3SMTTools(variables=['x'], domains={}, reasoning_type={})
     conn = psycopg2.connect(
         host=cfg.postgres["host"], 
         database=cfg.postgres["db"], 
@@ -471,9 +529,10 @@ if __name__ == '__main__':
         password=cfg.postgres["password"])
 
     # sql = "SELECT t1.n1 as n1, t2.n2 as n2 FROM R t1, L t2 WHERE t1.n2 = t2.n1"
-    sql = "select t1.c0 as c0, t2.c1 as c1, t3.c1 as c2 from G t1, A t2, A t3, A t4, A t5 where t1.c1 = t2.c0 and t2.c0 = t3.c0 and t1.c2 = t3.c1 and t3.c1 = t4.c0 and t4.c0 = t4.c1 and t4.c1 = t5.c0 and t2.c1 = t5.c1"
-    additional_condition = "And(y == 1, x == 2)"
-    FaureEvaluation(conn, sql, reasoning_tool=z3smt, additional_condition=additional_condition, databases={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=True)
+    sql = "select t0.c0 as c0 from R t0, R t1 where t0.c0 = t1.c0 and (t0.c0 > 2 And (t0.c0 > 2 And (t0.c0 < 7 And t0.c0 < 7))) and (t0.c0 > 0 And (t0.c0 > 0 And t0.c0 < 10))"
+    # additional_condition = "And(y == 1, x == 2)"
+    additional_condition = None
+    FaureEvaluation(conn, sql, reasoning_tool=z3smt, additional_condition=additional_condition, databases={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=False, information_on=True, mode='implication')
 
 
     # bddmm.initialize(1, 2**32-1)
