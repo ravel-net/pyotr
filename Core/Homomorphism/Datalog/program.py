@@ -159,7 +159,6 @@ class DT_Program:
         rule2.initiateDB(conn)
         rule2.addConstants(conn)
         iterations = 0
-        input()
         # conn.commit()
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1

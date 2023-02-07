@@ -91,6 +91,13 @@ class FaureEvaluation:
         
         information_on: Boolean
             It is a siwtch for printing progress information such as the steps, running sqls.
+
+        faure_evaluation_mode: string
+            the value is chosen from "contradiction" and "implication". 
+            "contradiction" means the valuation function is checking if the condition is contradictory
+            "implication" means the valuation function is checking if the old condition implies the join condition
+
+            
         """
         self._conn = conn
         self._SQL = SQL.strip().rstrip(";")

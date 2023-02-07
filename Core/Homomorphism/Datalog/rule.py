@@ -398,9 +398,7 @@ class DT_Rule:
             if (not self._recursive_rules):
                 changed = False
         else:
-            print(self.sql)
             return self.run_with_faure(conn, self.sql)
-            input()
         return changed
 
     @timeit
@@ -665,7 +663,6 @@ class DT_Rule:
         FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False, faure_evaluation_mode=self._faure_evaluation_mode)
                 
         changed = self.insertTuplesToHead(conn)
-        input()
         return changed
 
     @timeit
