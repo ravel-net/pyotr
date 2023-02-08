@@ -784,6 +784,8 @@ class z3SMTTools:
         elif not left_opd[0].isalpha():
             constraints = self._getRange(right_opd, conditionSplit[1], left_opd, "")
         conditionFinal = "And("
+        if conditionSplit[1].strip() == '!=':
+            conditionFinal = "Or("
         for i, constraint in enumerate(constraints):
             c_list = constraint.split()
             if c_list[0][0].isalpha():

@@ -129,10 +129,11 @@ class FaureEvaluation:
                 self._reasoning_tool.simplification(self.output_table)
         else:
             start = time.time()
-            if self._faure_evaluation_mode == 'implication': # using the same pattern of sql as that when reasoning engine is bdd
-                self._SQL_parser = SQL_Parser(conn, self._SQL, True, 'bdd', databases)
-            else:
-                self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
+            # if self._faure_evaluation_mode == 'implication': # using the same pattern of sql as that when reasoning engine is bdd
+            #     self._SQL_parser = SQL_Parser(conn, self._SQL, True, 'bdd', databases)
+            # else:
+            #     self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
             end = time.time()
             logging.info("Time: parser took {}".format(end-start))
             self._additional_condition = additional_condition
@@ -144,7 +145,7 @@ class FaureEvaluation:
                     self._integration()
                     
                 elif self._faure_evaluation_mode == 'implication':
-                    self._integration()
+                    self._integration_implication_mode()
 
                     self._reserve_tuples_by_checking_implication_z3()
                 else:
@@ -256,6 +257,31 @@ class FaureEvaluation:
         cursor = self._conn.cursor()
         cursor.execute("drop table if exists {}".format(self.output_table))
         data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.combined_sql)
+
+        if self._information_on:
+            print(data_sql)
+        
+        begin_data = time.time()
+        cursor.execute(data_sql)
+        end_data = time.time()
+
+        self.data_time = end_data - begin_data
+
+        if self._information_on:
+            print("\ncombined executing time: ", self.data_time)
+        # start = time.time()
+        self._conn.commit()
+        # end = time.time()
+        # logging.info("Time: Commit took {}".format(end-start))
+    
+    @timeit
+    def _integration_implication_mode(self):
+        if self._information_on:
+            print("\n************************Step 1: data with complete condition****************************")
+        
+        cursor = self._conn.cursor()
+        cursor.execute("drop table if exists {}".format(self.output_table))
+        data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.implication_mode_sql)
 
         if self._information_on:
             print(data_sql)
@@ -391,7 +417,7 @@ class FaureEvaluation:
             (old_conditions, conjunctin_conditions, id) = data_tuples[i]
             
             old_cond = None
-            old_conditions = [item for subconditions in old_conditions for item in subconditions]
+            # old_conditions = [item for subconditions in old_conditions for item in subconditions]
             if len(old_conditions) == 0:
                 old_cond = "1 == 1"
             elif len(old_conditions) == 1:

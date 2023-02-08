@@ -237,13 +237,13 @@ def unit_test11():
 def unit_test12():
     p1 = "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,c,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(c,e,D),l(e,3356,D)\nR(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,d,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(d,e,D),l(e,3356,D)"
     
-    program1 = DT_Program(p1, {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "L"], faure_evaluation_mode='implication')
+    program1 = DT_Program(p1, {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "l"], faure_evaluation_mode='implication')
 
     start = time.time()
     program1.minimize(False, True)
     print("Program 1 after minimization:")
     print(program1)
-    if (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,c,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(c,e,D),l(e,3356,D)"):
+    if (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,c,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(c,e,D),l(e,3356,D)") and (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,d,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(d,e,D),l(e,3356,D)"):
         print("Text 12.1 failed")
         exit()
     else:

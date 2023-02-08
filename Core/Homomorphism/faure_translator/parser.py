@@ -166,18 +166,18 @@ class SQL_Parser:
                         attr_strs = []
                         for attr in self._all_attributes[key]:
                             attr_strs.append(str(attr))
-
+                        
                         if self._reasoning_engine == 'z3':
                             if self.additional_conditions_SQL_format:
-                                attributes_strs.append("{} || Array[{}]::text[] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                                attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
                             else:
                                 attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
 
                         elif self._reasoning_engine.lower() == 'bdd':
                             if self.additional_conditions_SQL_format:
-                                attributes_strs.append("Array[{}]::text[] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
+                                attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
                             else:
-                                attributes_strs.append("Array[{}]::text[] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
+                                attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
                     else:
                         for attr in self._all_attributes[key]:
@@ -192,14 +192,63 @@ class SQL_Parser:
 
                 if self._reasoning_engine == 'z3':
                     if self.additional_conditions_SQL_format:
-                        attributes_strs.append("{} || Array[{}]::text[] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                        attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
                     else:
                         attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
                 elif self._reasoning_engine.lower() == 'bdd':
                     if self.additional_conditions_SQL_format:
-                        attributes_strs.append("Array[{}]::text[] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
+                        attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
                     else:
-                        attributes_strs.append("Array[{}]::text[] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
+                        attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
+
+            table_strs = []
+            for table in self.working_tables:
+                table_strs.append(str(table))
+
+            sql = ""
+            if len(self._position_subclause_mapping_dict) == 0:
+                sql = "select {} from {}".format(", ".join(attributes_strs), ", ".join(table_strs))
+            else:
+                root_clause = self._position_subclause_mapping_dict['root']
+                where_str = self._convert_subclause_to_SQL(root_clause)
+                if where_str.startswith('(') and where_str.endswith(')'):
+                    where_str = where_str[1:-1]
+                sql = "select {} from {} where {}".format(", ".join(attributes_strs), ", ".join(table_strs), where_str)
+            return sql
+        else:
+            return None
+
+    @property
+    def implication_mode_sql(self):
+        if self.type == 1:
+            attributes_strs = []
+            if self._selected_attributes['is_star']:
+                for key in self._all_attributes:
+                    if key == 'condition':
+                        attr_strs = []
+                        for attr in self._all_attributes[key]:
+                            attr_strs.append(str(attr))
+
+                        if self.additional_conditions_SQL_format:
+                            attributes_strs.append("{}::text[] as old_conditions, {}::text as conjunction_condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                        else:
+                            attributes_strs.append("{}::text[] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
+
+                    else:
+                        for attr in self._all_attributes[key]:
+                            attributes_strs.append(str(attr))
+            else:
+                for key in self._selected_attributes['attributes']:
+                    attributes_strs.append(str(key))
+                    
+                attr_strs = []
+                for attr in self._all_attributes['condition']:
+                    attr_strs.append(str(attr))
+                
+                if self.additional_conditions_SQL_format:
+                    attributes_strs.append("{}::text[] as old_conditions, {}::text as conjunction_condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                else:
+                    attributes_strs.append("{}::text[] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
             table_strs = []
             for table in self.working_tables:
@@ -281,6 +330,10 @@ class SQL_Parser:
             if workingtable.table in self.databases:
                 column_names = self.databases[workingtable.table]['names']
                 column_datatypes = self.databases[workingtable.table]['types']
+                if 'condition' not in column_names:
+                    column_names.append('condition')
+                    column_datatypes.append('text[]')
+                
             else:
                 self.databases[workingtable.table] = {'types':[], 'names':[]}
                 cursor = self._conn.cursor()
