@@ -766,7 +766,7 @@ class z3SMTTools:
             if op == "==" or op == "=":
                 return [var + " >= " + sep + str(net[0]) + sep, var + " <= " + sep + str(net[-1]) + sep]
             elif op == "!=":
-                return [var + " <= " + sep + str(net[0]) + sep, var + " >= " + sep + str(net[-1]) + sep]
+                return [var + " < " + sep + str(net[0]) + sep, var + " > " + sep + str(net[-1]) + sep]
             else:
                 print("Error, illegal operation", op)
                 exit()
