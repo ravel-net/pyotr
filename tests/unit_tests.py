@@ -243,7 +243,7 @@ def unit_test12():
     program1.minimize(False, True)
     print("Program 1 after minimization:")
     print(program1)
-    if (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,c,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(c,e,D),l(e,3356,D)") and (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,d,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(d,e,D),l(e,3356,D)"):
+    if (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,d,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(d,e,D),l(e,3356,D)"):
         print("Text 12.1 failed")
         exit()
     else:

@@ -623,35 +623,42 @@ class DT_Rule:
         cursor = conn.cursor()
         header_table = self._head.db["name"]
 
-        select_gen_sql = "select distinct {} from {}".format(", ".join(self.selectColumns), fromTable)
-        if self._reasoning_engine == 'bdd': # replace condition datatype from text[] to integer 
-            select_gen_sql = select_gen_sql.replace('text[]', 'integer')  
-        cursor.execute(select_gen_sql)
-        generatedHead = cursor.fetchall()
-        if not generatedHead:
-            return False
-
-        select_head_table_sql = "select * from {}".format(header_table)
-        cursor.execute(select_head_table_sql)
-        head_table = cursor.fetchall()
-
-        # Check if any of the generated head is new
-        newTuples = []
-        for generatedTuple in generatedHead:
-            alreadExists = False
-            for tuple in head_table:
-                if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
-                    alreadExists = True
-            if not alreadExists:
-                newTuples.append(generatedTuple)
-
-        if len(newTuples) > 0:
-            execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
+        if (not self._recursive_rules):
+            sql = "insert into {header_table} select * from {fromTable}".format(header_table=header_table, fromTable=fromTable)
+            cursor.execute(sql)
             conn.commit()
-            return True
+            return False
         else:
-            conn.commit()
-            return False
+            select_gen_sql = "select distinct {} from {}".format(", ".join(self.selectColumns), fromTable)
+            if self._reasoning_engine == 'bdd': # replace condition datatype from text[] to integer 
+                select_gen_sql = select_gen_sql.replace('text[]', 'integer')  
+            cursor.execute(select_gen_sql)
+            generatedHead = cursor.fetchall()
+            if not generatedHead:
+                return False
+
+            select_head_table_sql = "select * from {}".format(header_table)
+
+            cursor.execute(select_head_table_sql)
+            head_table = cursor.fetchall()
+
+            # Check if any of the generated head is new
+            newTuples = []
+            for generatedTuple in generatedHead:
+                alreadExists = False
+                for tuple in head_table:
+                    if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
+                        alreadExists = True
+                if not alreadExists:
+                    newTuples.append(generatedTuple)
+
+            if len(newTuples) > 0:
+                execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
+                conn.commit()
+                return True
+            else:
+                conn.commit()
+                return False
 
     @timeit
     def run_with_faure(self, conn, program_sql):

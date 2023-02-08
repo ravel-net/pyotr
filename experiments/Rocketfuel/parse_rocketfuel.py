@@ -10,6 +10,7 @@ import time
 from copy import deepcopy
 import itertools
 from statistics import mean, stdev
+from experiments.Rocketfuel.parsePrefixesRouteView import getPrefixes, storePrefixes
 import random 
 
 class RocketfuelPoPTopo:
@@ -51,6 +52,10 @@ class RocketfuelPoPTopo:
         self.directedPOPGraph = Graph()
         self.directed_links = []
         self.hasNodes = True
+        self.deployedMiddleBoxes = []
+        self.middleBoxTypes = []
+        self.deployedFirewall = {}
+
         self.add_POP_links()
         if self.hasNodes:
             self.populatePOPGraph()
@@ -206,6 +211,7 @@ class RocketfuelPoPTopo:
         for path in allPaths:
             links = []
             middleBoxes = {}
+            non_middleboxes = []
             for i,vertex in enumerate(path[:-1]):
                 secondVertex = path[i+1]
                 if vertex == ingressNode:
@@ -217,16 +223,59 @@ class RocketfuelPoPTopo:
                     if middleBoxType not in middleBoxes:
                         middleBoxes[middleBoxType] = []
                     middleBoxes[middleBoxType].append(str(middleBoxType) + "(" + str(self.nodeMappingsPOP[vertex]) + ")")    
+                elif vertex != ingressNode and len(self.deployedMiddleBoxes) > 0:
+                    non_middleboxes.append("D({})".format(str(self.nodeMappingsPOP[vertex])))
+
+            if path[-1] in self.deployedMiddleBoxes:
+                middleBoxType =  self.deployedMiddleBoxes[path[-1]]
+                if middleBoxType not in middleBoxes:
+                    middleBoxes[middleBoxType] = []
+                middleBoxes[middleBoxType].append(str(middleBoxType) + "(" + str(self.nodeMappingsPOP[path[-1]]) + ")")    
+            elif len(self.deployedMiddleBoxes) > 0:
+                non_middleboxes.append("D({})".format(str(self.nodeMappingsPOP[path[-1]])))
+
             newRule = head + "l({},{}), A({},{})".format(self.nodeMappingsPOP[path[-1]], egressAS, destination,egressAS)
             if len(links) > 0:
                 newRule = head + ",".join(links) + ", l({},{}), A({}, {})".format(self.nodeMappingsPOP[path[-1]],egressAS, destination,egressAS)
-
             for middleBoxType in self.middleBoxTypes:
-                newRule += ", "
                 if middleBoxType in middleBoxes:
+                    newRule += ","
                     newRule += ",".join(middleBoxes[middleBoxType])
+            if len(non_middleboxes) > 0:
+                newRule += ","
+                newRule += ",".join(non_middleboxes)
+            print(newRule)
+            rules.append(newRule)
+        return rules
+
+    def getDatalogRuleFirewall(self, allPaths, destination, ingressNode, ingressAS, egressAS):
+        rules = []
+        for path in allPaths:
+            firewallConditions = [] # need to keep track of all firewall conditions to add to head
+            links = []
+            for i,vertex in enumerate(path):
+                secondVertex = egressAS
+                if i < len(path)-1:
+                    secondVertex = path[i+1]
+                if secondVertex == egressAS:
+                    links.append("l({},{},{})".format(self.nodeMappingsPOP[vertex], secondVertex, destination))
+                elif vertex == ingressNode:
+                    links.append("l({},{},{})".format(ingressAS, self.nodeMappingsPOP[secondVertex], destination))
                 else:
-                    newRule += "{}(0)".format(middleBoxType)
+                    print("checking vertex", vertex)
+                    if vertex in self.deployedFirewall: # if the path includes a node with a firewall in it
+                        firewallCondition =  self.deployedFirewall[vertex]
+                        firewallConditions.append(firewallCondition)
+                        links.append("l({},{},{})[{}]".format(self.nodeMappingsPOP[vertex], self.nodeMappingsPOP[secondVertex], destination, firewallCondition))
+                    else:
+                        links.append("l({},{},{})".format(self.nodeMappingsPOP[vertex], self.nodeMappingsPOP[secondVertex],destination))
+
+            head = "R({},{},{}) :- ".format(ingressAS, destination, egressAS)
+            if len(firewallConditions) > 0:
+                head = "R({},{},{})[And({})] :- ".format(ingressAS, destination, egressAS, ",".join(firewallConditions))
+
+            newRule = head + ",".join(links) + ", A({}, {})".format(destination,egressAS)
+            
             print(newRule)
             rules.append(newRule)
         return rules
@@ -275,7 +324,7 @@ class RocketfuelPoPTopo:
                 finalPaths.append(path)
         return finalPaths
 
-    def convertToDatalog(self, ingressAS, egressAS):
+    def convertToDatalog(self, ingressAS, egressAS, firewall = False):
         self.populateNodeMapping(True)
         self.reverseNodeMappingsPOP[egressAS] = egressAS
         allPaths = self.getShortestPaths()
@@ -285,7 +334,12 @@ class RocketfuelPoPTopo:
         print(allPaths)
         for path in allPaths:
             path.insert(0, -1)
-        allRules = self.getDatalogRule(allPaths=allPaths, destination="D", ingressNode=-1, ingressAS=ingressAS, egressAS=egressAS)
+        allRules = []
+        if firewall:
+            allRules = self.getDatalogRuleFirewall(allPaths=allPaths, destination="D", ingressNode=-1, ingressAS=ingressAS, egressAS=egressAS)
+        else:
+            allRules = self.getDatalogRule(allPaths=allPaths, destination="D", ingressNode=-1, ingressAS=ingressAS, egressAS=egressAS)
+
         return allRules
 
     def addGressNodes(self, targetAS, isIngress):
@@ -331,7 +385,10 @@ class RocketfuelPoPTopo:
         self.populatePOPGraph()
 
     def convertToProgram(self, rulesArr):
-        return DT_Program("\n".join(rulesArr), recursive_rules=False)
+        return DT_Program("\n".join(rulesArr), recursive_rules=False)    
+
+    def convertToFirewallProgram(self, rulesArr):
+        return DT_Program("\n".join(rulesArr), {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"], "A":["inet_faure", "integer"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "l", "A"], faure_evaluation_mode='implication', recursive_rules=False)
 
     def minimize(self, program):
         minimizedProgram = deepcopy(program)
@@ -466,6 +523,91 @@ class RocketfuelPoPTopo:
                     gressList.append(src)
         return gressList
 
+    def getASPrefixes(self, AllASPrefixes, egressAS):
+        return AllASPrefixes[egressAS]
+        # ASPrefixes = {}
+        # for AS in egressASes:
+        #     if AS in AllASPrefixes:
+        #         ASPrefixes[AS] = AllASPrefixes[AS]
+        # return ASPrefixes
+
+
+    def getShortestPrefix(self, prefixes):
+        minimumLength = 32
+        for prefix in prefixes:
+            length = int(prefix.split("/")[-1])
+            if length < minimumLength:
+                minimumLength = length
+        minLengthPrefixes = []
+        for prefix in prefixes:
+            length = int(prefix.split("/")[-1])
+            if length == minimumLength and prefix not in minLengthPrefixes:
+                minLengthPrefixes.append(prefix)
+        return minLengthPrefixes
+
+    # takes a list of prefixes as input and converts them to a blocking firewall
+    def convertListToFirewall(self, prefixesList):
+        firewall = ""
+        if len(prefixesList) > 0:
+            prefixBlockingStrings = []
+            for prefix in prefixesList:
+                prefixBlockingStrings.append("D != {}".format(prefix))
+            firewall = "And({})".format(",".join(prefixBlockingStrings))
+        return firewall
+
+    # This function gets all prefixes advertised by a particular eggress AS. Then, it selects the shortest length prefixes (which are likely to include most other advertised prefixes). Finally, it picks percentageNodes number of nodes from the current AS to deploy a firewall on. For each node, it either blocks all the shortest prefixes or selects numSinglePrefixesToPick from the list of all advertised prefixes and blocks those. The probability of picking the shortest path prefix vs from all prefixes is currently 50% (e.g. roughly 50% of the nodes block all shortest length prefixes while the other 50% block some randomly chosen prefixes.)
+    # numSinglePrefixesToPick is the number of prefixes picked from the list of advertised prefixes to block as a firewall.
+    def addFirewallsSingleAS(self, inputFile="rib.txt", target="prefixes2003.txt", percentageNodes = 75, egressAS = "1", numSinglePrefixesToPick = 2, shortestLengthPickProb = 0.5):
+        if not(storePrefixes(inputFile=inputFile, target=target)):
+            print("There was an error importing prefixes. Exiting.")
+            exit()
+        AllASPrefixes = getPrefixes(target)
+        egressPrefixes = self.getASPrefixes(AllASPrefixes, egressAS)
+        shortestPrefixes = self.getShortestPrefix(egressPrefixes)
+        shortestFirewall = self.convertListToFirewall(shortestPrefixes)
+
+        self.percentFirewalls = percentageNodes
+        numNodes = len(self.nodesSelfPOP)
+        n = (int) (numNodes * percentageNodes/100)
+        selectedNodes = random.sample(self.nodesSelfPOP, n)
+        self.deployedFirewall = {}
+        for node in selectedNodes:
+            firewall = ""
+            random_choice = random.uniform(0, 1)
+            if random_choice < shortestLengthPickProb:
+                firewall = shortestFirewall
+            else:
+                randomPrefixes = random.sample(egressPrefixes, numSinglePrefixesToPick)
+                firewall = self.convertListToFirewall(randomPrefixes)
+            nodeIndex = self.nodesAllPOP.index(node)
+            self.deployedFirewall[nodeIndex] = firewall
+        print(self.deployedFirewall)
+        return # do nothing
+
+    def addFirewalls(self, inputFile="rib.txt", target="prefixes2003.txt", percentageNodes = 25):
+        if not(storePrefixes(inputFile=inputFile, target=target)):
+            print("There was an error importing prefixes. Exiting.")
+            exit()
+        AllASPrefixes = getPrefixes(target)
+        _, egressASes = self.getAllCustomerPairs()
+        egressPrefixes = self.getASPrefixes(AllASPrefixes, egressASes)
+        shortestPrefixes = []
+        for AS in egressPrefixes:
+            shortestPrefixes += self.getShortestPrefix(egressPrefixes[AS])
+        self.deployedFirewall[11] = "D != 192.168.1.1"
+        self.deployedFirewall[6] = "D != 192.168.1.1"
+
+        # self.percentFirewalls = percentageNodes
+        # numNodes = len(self.nodesSelfPOP)
+        # n = (int) (numNodes * percentageNodes/100)
+        # selectedNodes = random.sample(self.nodesSelfPOP, n)
+        # self.deployedFirewall = {}
+        # for node in selectedNodes:
+        #     firewall = random.sample(middleBoxes, 1)[0]
+        #     nodeIndex = self.nodesAllPOP.index(node)
+        #     self.deployedFirewall[nodeIndex] = firewall
+
+        return # do nothing
 
     def getAllCustomerPairs(self):
         ingressASes = self.getAllgress(isIngress=True)
@@ -522,102 +664,107 @@ def getAllMinimizationTime(filename, ASNum):
             with open("AS{}_minTime_all_pairs".format(ASNum), "a+") as f2:
                 f2.write("{}\n".format(totalMinTime))
 
-def topologyMinimizationAllPairs(ingressASes, egressASes, ASNum, runs = 1):
+def topologyMinimizationAllPairs(ingressASes, egressASes, ASNum, runs = 1,  middleBoxes=[],percentMiddleBoxes=0, firewall=False):
     name = "AS_{}_all_pairs".format(str(ASNum))
     for ingress in ingressASes:
         for egress in egressASes:
             if ingress != egress:
-                cases = [(ingress, ASNum, egress)]
-                topologyMinimization(cases, runs, name, "a+")
+                case = (ingress, ASNum, egress)
+                topologyMinimization(case = case, runs = runs, logFilePath=name, mode="a+", middleBoxes=middleBoxes, percentMiddleBoxes=percentMiddleBoxes, firewall=firewall)
     getAllReductionRules(name, ASNum)
     getAllReductionNodes(name, ASNum)
-    getAllReductionLinks(name, ASNum)
-    getAllMinimizationTime(name, ASNum)
+    # getAllReductionLinks(name, ASNum)
+    # getAllMinimizationTime(name, ASNum)
 
 
 
-def topologyMinimization(cases, runs, logFilePath, mode = "w+", middleBoxes = [], percentMiddleBoxes = 0):
+def topologyMinimization(case, runs, logFilePath, mode = "w+", middleBoxes = [], percentMiddleBoxes = 0, firewall = False, percentageNodesFirewall = 25):
     with open(logFilePath,mode) as f:
         if "w" in mode:
             f.write("(ingressAS,ASNum,egressAS)|numRulesBefore|numRulesAfter|percentageRuleReduction|numAtomsBefore|numAtomsAfter|percentageAtomReduction|numIngressNodesBefore|numIngressNodesAfter|numEgressNodesBefore|numEgressNodesAfter|numNodesBefore|numNodesAfter|percentageNodeReduction|numLinksBefore|numLinksAfter|percentageLinkReduction|minTime|eqTime|combTime|totalTime\n")
-        for ASes in cases:
-            ingressAS = ASes[0]
-            ASNum = ASes[1]
-            egressAS = ASes[2]
-            for run in range(runs):
-                AS = RocketfuelPoPTopo(ASNum)
-                AS.addGressNodes(ingressAS, True)
-                AS.addGressNodes(egressAS, False)
-                if len(AS.ingressNodes) == 0:
-                    print("No ingress nodes")
-                    return False
-                if len(AS.egressNodes) == 0:
-                    print("No egress nodes")
-                    return False
-                numIngressNodesBefore = len(AS.ingressNodes)
-                numEgressNodesBefore = len(AS.egressNodes)
-                if percentMiddleBoxes > 0:
-                    AS.addMiddleBoxes(middleBoxes, percentMiddleBoxes)
-                allRules = AS.convertToDatalog(ingressAS,egressAS) # only have ingress nodes 
-                if len(allRules) == 0:
-                    return
+        ingressAS = case[0]
+        ASNum = case[1]
+        egressAS = case[2]
+        for run in range(runs):
+            AS = RocketfuelPoPTopo(ASNum)
+            AS.addGressNodes(ingressAS, True)
+            AS.addGressNodes(egressAS, False)
+            if len(AS.ingressNodes) == 0:
+                print("No ingress nodes")
+                return False
+            if len(AS.egressNodes) == 0:
+                print("No egress nodes")
+                return False
+            numIngressNodesBefore = len(AS.ingressNodes)
+            numEgressNodesBefore = len(AS.egressNodes)
+            if percentMiddleBoxes > 0:
+                AS.addMiddleBoxes(middleBoxes, percentMiddleBoxes)
+            if firewall:
+                # AS.addFirewalls(inputFile="rib.txt", target="prefixes2003.txt", percentageNodes = 25)
+                AS.addFirewallsSingleAS(inputFile="rib.txt", target="prefixes2003.txt", percentageNodes = percentageNodesFirewall, egressAS = egressAS)
+            allRules = AS.convertToDatalog(ingressAS,egressAS, firewall) # only have ingress nodes 
+            if len(allRules) == 0:
+                return
+
+            if firewall:
+                program = AS.convertToFirewallProgram(allRules) 
+            else:
                 program = AS.convertToProgram(allRules) 
-                rules, atoms = program.stats()
-                # program = AS.convertToProgram(allRulesDict[1])
+            rules, atoms = program.stats()
+            # program = AS.convertToProgram(allRulesDict[1])
 
-                start = time.time()
-                minimizedProgram = AS.minimize(program)
-                end = time.time()
-                minTime = end-start
+            start = time.time()
+            minimizedProgram = AS.minimize(program)
+            end = time.time()
+            minTime = end-start
 
-                start = time.time()
-                equivalentClasses = AS.getEquivalenceClasses(minimizedProgram, program)
-                end = time.time()
-                eqTime = end-start
-                # possibleLinks = getMinLinks(equivalenceClasses)
-                start = time.time()
-                selectedLinksProgram = AS.getMinNodes(equivalentClasses)
-                end = time.time()
-                combTime = 0
+            start = time.time()
+            equivalentClasses = AS.getEquivalenceClasses(minimizedProgram, program)
+            end = time.time()
+            eqTime = end-start
+            # possibleLinks = getMinLinks(equivalenceClasses)
+            start = time.time()
+            selectedLinksProgram = AS.getMinNodes(equivalentClasses)
+            end = time.time()
+            combTime = end-start
+            # print(program)
+            # print("===============")
+            # print(selectedLinksProgram)
 
-                # print(program)
-                # print("===============")
-                # print(selectedLinksProgram)
 
+            # actualProgram = AS.convertToConstants(str(minimizedProgram))
+            # print(actualProgram)
+            nodes, links = AS.getLinksNodes(program._rules)
+            # nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
+            nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
+            numNodesBefore = len(nodes)
+            numNodesAfter = len(nodes2)
+            numLinksBefore = len(links)
+            numLinksAfter = len(links2)
 
-                # actualProgram = AS.convertToConstants(str(minimizedProgram))
-                # print(actualProgram)
-                nodes, links = AS.getLinksNodes(program._rules)
-                # nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
-                nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
-                numNodesBefore = len(nodes)
-                numNodesAfter = len(nodes2)
-                numLinksBefore = len(links)
-                numLinksAfter = len(links2)
+            ingressNodesAfterMinimizaion = []
+            for node in AS.ingressNodes:
+                if AS.nodesAllPOP.index(node) in nodes2:
+                    ingressNodesAfterMinimizaion.append(node)
+            egressNodesAfterMinimizaion = []
+            for node in AS.egressNodes:
+                if AS.nodesAllPOP.index(node) in nodes2:
+                    egressNodesAfterMinimizaion.append(node)
+            numIngressNodesAfter = len(ingressNodesAfterMinimizaion)
+            numEgressNodesAfter = len(egressNodesAfterMinimizaion)
+            numRulesBefore, numAtomsBefore = program.stats()
+            numRulesAfter, numAtomsAfter = minimizedProgram.stats()
+            print(program)
+            print("==================")
+            print(selectedLinksProgram)
 
-                ingressNodesAfterMinimizaion = []
-                for node in AS.ingressNodes:
-                    if AS.nodesAllPOP.index(node) in nodes2:
-                        ingressNodesAfterMinimizaion.append(node)
-                egressNodesAfterMinimizaion = []
-                for node in AS.egressNodes:
-                    if AS.nodesAllPOP.index(node) in nodes2:
-                        egressNodesAfterMinimizaion.append(node)
-                numIngressNodesAfter = len(ingressNodesAfterMinimizaion)
-                numEgressNodesAfter = len(egressNodesAfterMinimizaion)
-                numRulesBefore, numAtomsBefore = program.stats()
-                numRulesAfter, numAtomsAfter = minimizedProgram.stats()
-                print(program)
-                print("==================")
-                print(selectedLinksProgram)
+            percentageRuleReduction = 100*(numRulesBefore-numRulesAfter)/numRulesBefore
+            percentageAtomReduction = 100*(numAtomsBefore-numAtomsAfter)/numAtomsBefore
+            percentageNodeReduction = 100*(numNodesBefore-numNodesAfter)/numNodesBefore
+            percentageLinkReduction = 100*(numLinksBefore-numLinksAfter)/numLinksBefore
 
-                percentageRuleReduction = 100*(numRulesBefore-numRulesAfter)/numRulesBefore
-                percentageAtomReduction = 100*(numAtomsBefore-numAtomsAfter)/numAtomsBefore
-                percentageNodeReduction = 100*(numNodesBefore-numNodesAfter)/numNodesBefore
-                percentageLinkReduction = 100*(numLinksBefore-numLinksAfter)/numLinksBefore
-
-                totalTime = minTime+eqTime+combTime
-                f.write("({ingressAS},{ASNum},{egressAS})|{numRulesBefore}|{numRulesAfter}|{percentageRuleReduction}|{numAtomsBefore}|{numAtomsAfter}|{percentageAtomReduction}|{numIngressNodesBefore}|{numIngressNodesAfter}|{numEgressNodesBefore}|{numEgressNodesAfter}|{numNodesBefore}|{numNodesAfter}|{percentageNodeReduction}|{numLinksBefore}|{numLinksAfter}|{percentageLinkReduction}|{minTime}|{eqTime}|{combTime}|{totalTime}\n".format(ingressAS=ingressAS,ASNum=ASNum,egressAS=egressAS,numRulesBefore=numRulesBefore,numRulesAfter=numRulesAfter,percentageRuleReduction=percentageRuleReduction,numAtomsBefore=numAtomsBefore, numAtomsAfter=numAtomsAfter,percentageAtomReduction=percentageAtomReduction,numIngressNodesBefore=numIngressNodesBefore,numIngressNodesAfter=numIngressNodesAfter,numEgressNodesBefore=numEgressNodesBefore,numEgressNodesAfter=numEgressNodesAfter,numNodesBefore=numNodesBefore,numNodesAfter=numNodesAfter,percentageNodeReduction=percentageNodeReduction,numLinksBefore=numLinksBefore,numLinksAfter=numLinksAfter,percentageLinkReduction=percentageLinkReduction,minTime=minTime,eqTime=eqTime,combTime=combTime,totalTime=totalTime))
+            totalTime = minTime+eqTime+combTime
+            f.write("({ingressAS},{ASNum},{egressAS})|{numRulesBefore}|{numRulesAfter}|{percentageRuleReduction}|{numAtomsBefore}|{numAtomsAfter}|{percentageAtomReduction}|{numIngressNodesBefore}|{numIngressNodesAfter}|{numEgressNodesBefore}|{numEgressNodesAfter}|{numNodesBefore}|{numNodesAfter}|{percentageNodeReduction}|{numLinksBefore}|{numLinksAfter}|{percentageLinkReduction}|{minTime}|{eqTime}|{combTime}|{totalTime}\n".format(ingressAS=ingressAS,ASNum=ASNum,egressAS=egressAS,numRulesBefore=numRulesBefore,numRulesAfter=numRulesAfter,percentageRuleReduction=percentageRuleReduction,numAtomsBefore=numAtomsBefore, numAtomsAfter=numAtomsAfter,percentageAtomReduction=percentageAtomReduction,numIngressNodesBefore=numIngressNodesBefore,numIngressNodesAfter=numIngressNodesAfter,numEgressNodesBefore=numEgressNodesBefore,numEgressNodesAfter=numEgressNodesAfter,numNodesBefore=numNodesBefore,numNodesAfter=numNodesAfter,percentageNodeReduction=percentageNodeReduction,numLinksBefore=numLinksBefore,numLinksAfter=numLinksAfter,percentageLinkReduction=percentageLinkReduction,minTime=minTime,eqTime=eqTime,combTime=combTime,totalTime=totalTime))
     return True
 
 def avgVarianceSummary(logFilePath):
@@ -716,26 +863,46 @@ def getAllASes():
             ASes.append(dst)
     return ASes
 
-if __name__ == "__main__":
-    # ingressAS = "4565"
-    # ASNum = "9942"
-    # egressAS = "4323"
+def getMeanVariance(filename):
+    totalTimes = []
+    with open(filename) as f:
+        lines = f.readlines()
+        for line in lines[1:]:
+            totalTime = float(line.split("|")[-1].strip())
+            totalTimes.append(totalTime)
+    return mean(totalTimes), stdev(totalTimes)
+
+def timingExperiments(cases, runs = 1, middleBoxes=[], percentMiddleBoxes=0, firewall = True, outputFileName = "experiments.dat", percentageNodesFirewall=25):
+    with open(outputFileName, "w+") as outputFile:
+        outputFile.write("AS\tseconds\tstddev\n")
+        for case in cases:
+            filename = "AS{}.txt".format(case[1])
+            topologyMinimization(case = case, runs = runs, logFilePath=filename, mode = "w+", middleBoxes=middleBoxes, percentMiddleBoxes=percentMiddleBoxes, firewall = firewall, percentageNodesFirewall = percentageNodesFirewall)
+            meanTime, varianceTime = getMeanVariance(filename)
+            outputFile.write("{}\t{}\t{}\n".format(case[1], meanTime, varianceTime))
+
+def sigcommTimingExperiments(runs = 1, firewall = False, percentageNodesFirewall=25):
+    cases = []
 
     ingressAS = "4323"
     ASNum = "6939"
     egressAS = "3356"
+    cases.append((ingressAS,ASNum,egressAS))
 
-    # ingressAS = "2548"
-    # ASNum = "1"
-    # egressAS = "3549"        
+    ingressAS = "1"
+    ASNum = "6467"
+    egressAS = "701"
+    cases.append((ingressAS,ASNum,egressAS))
+    
+    ingressAS = "4565"
+    ASNum = "7911"
+    egressAS = "7018"    
+    cases.append((ingressAS,ASNum,egressAS))
 
-    # ingressAS = "4565"
-    # ASNum = "7911"
-    # egressAS = "7018"    
-
-    # ingressAS = "1"
-    # ASNum = "6467"
-    # egressAS = "701"
+    ingressAS = "2548"
+    ASNum = "1"
+    egressAS = "3549"        
+    cases.append((ingressAS,ASNum,egressAS))
 
     # ingressAS = "4323"
     # ASNum = "7018"
@@ -749,26 +916,27 @@ if __name__ == "__main__":
     # ASNum = "1"
     # egressAS = "1239"
 
-    case = [(ingressAS,ASNum,egressAS)]
-    # topologyMinimization(case,1,"AS852.txt", ["M","F"], 25)
-    topologyMinimization(cases = case, runs = 1, logFilePath="AS6467.txt", mode = "w+", middleBoxes=["M","F"],percentMiddleBoxes=20)
-    # avgVarianceSummary("AS852.txt")
+    timingExperiments(cases = cases, runs = runs, middleBoxes=[],percentMiddleBoxes=0, firewall = firewall)
 
+if __name__ == "__main__":
+    sigcommTimingExperiments(runs = 2, firewall = True, percentageNodesFirewall=25)
+    exit()
     # testASes = ["6467","6939", "7911", "1"]
     # testASes = ["6467","6939", "7911"]
-    # # testASes = ["7911"]
-    # for ASNum in testASes:
-    #     AS = RocketfuelPoPTopo(ASNum)
-    #     print(len(AS.nodesAllPOP))
-    #     print(len(AS.POP_links))
-    #     ingressASes, egressASes = AS.getAllCustomerPairs()
-    #     print(len(ingressASes))
-    #     print(len(egressASes))
-    #     print(ingressASes)
-    #     print(egressASes)
-    #     # ingressASes = ingressASes[ingressASes.index("3549"):]
-    #     # print(ingressASes)
-    #     topologyMinimizationAllPairs(ingressASes, egressASes, ASNum)
+    testASes = ["6939"]
+    for ASNum in testASes:
+        AS = RocketfuelPoPTopo(ASNum)
+        print(len(AS.nodesAllPOP))
+        print(len(AS.POP_links))
+        ingressASes, egressASes = AS.getAllCustomerPairs()
+        print(len(ingressASes))
+        print(len(egressASes))
+        print(ingressASes)
+        print(egressASes)
+        # ingressASes = ingressASes[ingressASes.index("3549"):]
+        # print(ingressASes)
+        topologyMinimizationAllPairs(ingressASes = ingressASes, egressASes= egressASes, runs = 10, ASNum=ASNum, firewall = True)
+        # topologyMinimizationAllPairs(ingressASes = ingressASes, egressASes= egressASes, runs = 10, ASNum=ASNum, middleBoxes=["M","F"], percentMiddleBoxes=75, firewall = True)
 
     # ASes = getAllASes()
     # print(ASes)
