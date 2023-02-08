@@ -196,6 +196,60 @@ def unit_test10():
         end = time.time()
         print("Test 10 passed in {} seconds".format(end-start))
 
+def unit_test11():
+    p1 = "l(x)[And(x != 2, x != 3)] :- R(x)[x != 2], R(x)[x != 3]\nl(x)[x != 2] :- R(x)[x != 2], R(x)"
+    program1 = DT_Program(p1, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"], faure_evaluation_mode='implication')
+    start = time.time()
+    program1.minimize(False, True)
+    print("Program 1 after minimization:", program1)
+    if (str(program1) != "l(x)[x != 2] :- R(x)[x != 2],R(x)"):
+        print("Text 11.1 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 11.1 passed in {} seconds".format(end-start))
+
+    p2 = "l(x)[x != 2] :- R(x)[x != 2], R(x)[x != 2]\nl(x)[x != 2] :- R(x)[x != 2], R(x)"
+    program2 = DT_Program(p2, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"], faure_evaluation_mode='implication')
+    start = time.time()
+    program2.minimize(False, True)
+    print("Program 2 after minimization:", program2)
+    if (str(program2) != "l(x)[x != 2] :- R(x)[x != 2],R(x)"):
+        print("Text 11.2 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 11.2 passed in {} seconds".format(end-start))
+
+    p3 = "l(x)[And(x != 2, x != 3)] :- R(x)[x != 2], R(x)[x != 3]\nl(x)[And(x != 2, x != 4)] :- R(x)[x != 2], R(x)[x != 4]"
+    program3 = DT_Program(p3, {"l":["int4_faure"], "R":["int4_faure"]}, domains={}, c_variables=['x'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["l","R"], faure_evaluation_mode='implication')
+    program3_orig = str(program3)
+    start = time.time()
+    program3.minimize(False, True)
+    print("Program 3 after minimization:", program3)
+    if (str(program3) != program3_orig):
+        print("Text 11.3 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 11.3 passed in {} seconds".format(end-start))
+
+def unit_test12():
+    p1 = "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,c,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(c,e,D),l(e,3356,D)\nR(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,d,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(d,e,D),l(e,3356,D)"
+    
+    program1 = DT_Program(p1, {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "L"], faure_evaluation_mode='implication')
+
+    start = time.time()
+    program1.minimize(False, True)
+    print("Program 1 after minimization:")
+    print(program1)
+    if (str(program1) != "R(4323,D,3356)[And(And(D != 216.186.192.0/22,D != 64.153.32.0/20))] :- l(4323,b,D),l(b,c,D)[And(D != 216.186.192.0/22,D != 64.153.32.0/20)],l(c,e,D),l(e,3356,D)"):
+        print("Text 12.1 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 12.1 passed in {} seconds".format(end-start))
+
 
 if __name__ == "__main__":
     # unit_test1()
@@ -207,7 +261,9 @@ if __name__ == "__main__":
     # unit_test7()
     # unit_test8()
     # unit_test9()
-    unit_test10()
+    # unit_test10()
+    # unit_test11()
+    unit_test12()
 
 
 

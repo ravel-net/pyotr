@@ -119,13 +119,13 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName, constan
 					elif "inet" not in datatype and int(listVal) in r2_without_faure._reverseMapping:
 						variable = r2_without_faure._reverseMapping[int(listVal)]
 						replacements[variable] = c_var_param[i]
-						if "True" not in conditions:
-							conditions.append("True")
+						if "0.0.0.0 == 0.0.0.0" not in conditions:
+							conditions.append("0.0.0.0 == 0.0.0.0")
 					elif "inet" in datatype and listVal in r2_without_faure._reverseMapping:
 						variable = r2_without_faure._reverseMapping[listVal]
 						replacements[variable] = c_var_param[i]
-						if "True" not in conditions:
-							conditions.append("True")
+						if "0.0.0.0 == 0.0.0.0" not in conditions:
+							conditions.append("0.0.0.0 == 0.0.0.0")
 					elif listVal in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 						replacements[listVal] = c_var_param[i]
 			elif isConstant(val):
@@ -135,13 +135,13 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName, constan
 			elif "inet" not in datatype and int(val) in r2_without_faure._reverseMapping: # variables
 				variable = r2_without_faure._reverseMapping[int(val)]
 				replacements[variable] = c_var_param
-				if "True" not in conditions:
-					conditions.append("True")
+				if "0.0.0.0 == 0.0.0.0" not in conditions:
+					conditions.append("0.0.0.0 == 0.0.0.0")
 			elif "inet" in datatype and val in r2_without_faure._reverseMapping: # variables
 				variable = r2_without_faure._reverseMapping[val]
 				replacements[variable] = c_var_param
-				if "True" not in conditions:
-					conditions.append("True")
+				if "0.0.0.0 == 0.0.0.0" not in conditions:
+					conditions.append("0.0.0.0 == 0.0.0.0")
 			elif val in r2_without_faure._c_variables: # if val is a c_variables, we have to make sure that it is the same as the one used in the generalize rule
 				replacements[val] = c_var_param
 			parameterNum += 1

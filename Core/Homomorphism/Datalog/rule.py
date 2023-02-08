@@ -274,7 +274,7 @@ class DT_Rule:
             table_creation_query = table_creation_query[:-1]
             table_creation_query += ");"
             cursor.execute(table_creation_query)
-        #conn.commit()
+        # conn.commit()
 
     @timeit
     def getRuleWithoutFaure(self): # returns the same rule but without any c-variables and conditions
@@ -501,7 +501,7 @@ class DT_Rule:
             sql = sql.replace('text[]', 'integer')
         cursor.execute(sql)
         resulting_tuples = cursor.fetchall()
-        #conn.commit()
+        conn.commit()
         
         # add constants to header data portion
         header_data_portion = []
@@ -647,10 +647,10 @@ class DT_Rule:
 
         if len(newTuples) > 0:
             execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
-            #conn.commit()
+            conn.commit()
             return True
         else:
-            #conn.commit()
+            conn.commit()
             return False
 
     @timeit

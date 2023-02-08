@@ -169,15 +169,15 @@ class SQL_Parser:
 
                         if self._reasoning_engine == 'z3':
                             if self.additional_conditions_SQL_format:
-                                attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                                attributes_strs.append("{} || Array[{}]::text[] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
                             else:
                                 attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
 
                         elif self._reasoning_engine.lower() == 'bdd':
                             if self.additional_conditions_SQL_format:
-                                attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
+                                attributes_strs.append("Array[{}]::text[] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
                             else:
-                                attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
+                                attributes_strs.append("Array[{}]::text[] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
                     else:
                         for attr in self._all_attributes[key]:
@@ -192,14 +192,14 @@ class SQL_Parser:
 
                 if self._reasoning_engine == 'z3':
                     if self.additional_conditions_SQL_format:
-                        attributes_strs.append("{} || Array[{}] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
+                        attributes_strs.append("{} || Array[{}]::text[] as condition".format(" || ".join(attr_strs), self.additional_conditions_SQL_format))
                     else:
                         attributes_strs.append("{} as condition".format(" || ".join(attr_strs)))
                 elif self._reasoning_engine.lower() == 'bdd':
                     if self.additional_conditions_SQL_format:
-                        attributes_strs.append("Array[{}] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
+                        attributes_strs.append("Array[{}]::text[] as old_conditions, {} as conjunction_condition".format(", ".join(attr_strs), self.additional_conditions_SQL_format))
                     else:
-                        attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
+                        attributes_strs.append("Array[{}]::text[] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
             table_strs = []
             for table in self.working_tables:

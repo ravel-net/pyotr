@@ -393,7 +393,7 @@ class FaureEvaluation:
             old_cond = None
             old_conditions = [item for subconditions in old_conditions for item in subconditions]
             if len(old_conditions) == 0:
-                old_cond = "True"
+                old_cond = "1 == 1"
             elif len(old_conditions) == 1:
                 old_cond = old_conditions[0]
             else:
