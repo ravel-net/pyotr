@@ -55,6 +55,7 @@ class RocketfuelPoPTopo:
         self.deployedMiddleBoxes = []
         self.middleBoxTypes = []
         self.deployedFirewall = {}
+        self._nodesRule = {}
 
         self.add_POP_links()
         if self.hasNodes:
@@ -205,7 +206,7 @@ class RocketfuelPoPTopo:
                 all_paths.extend(find_all_paths_aux(adjlist, s, e, [], maxlen))
         return all_paths
 
-    def getDatalogRule(self, allPaths, destination, ingressNode, ingressAS, egressAS):
+    def getDatalogRuleOld(self, allPaths, destination, ingressNode, ingressAS, egressAS):
         rules = []
         head = "R({},{},{}) :- ".format(ingressAS, destination, egressAS)
         for path in allPaths:
@@ -244,6 +245,38 @@ class RocketfuelPoPTopo:
             if len(non_middleboxes) > 0:
                 newRule += ","
                 newRule += ",".join(non_middleboxes)
+            print(newRule)
+            rules.append(newRule)
+        return rules    
+
+    def getDatalogRule(self, allPaths, destination, ingressNode, ingressAS, egressAS):
+        rules = []
+        for path in allPaths:
+            firewallConditions = [] # need to keep track of all firewall conditions to add to head
+            links = []
+            for i,vertex in enumerate(path):
+                secondVertex = egressAS
+                if i < len(path)-1:
+                    secondVertex = path[i+1]
+                if secondVertex == egressAS:
+                    links.append("l({},{},0)".format(self.nodeMappingsPOP[vertex], secondVertex))
+                elif vertex == ingressNode:
+                    links.append("l({},{},0)".format(ingressAS, self.nodeMappingsPOP[secondVertex]))
+                else:
+                    # print("checking vertex", vertex)
+                    if vertex in self.deployedMiddleBoxes: # if the path includes a node with a firewall in it
+                        middleBoxName =  self.deployedMiddleBoxes[vertex]
+                        middleBoxNum = self.middleBoxTypes.index(middleBoxName)+1
+                        links.append("l({},{},{})".format(self.nodeMappingsPOP[vertex], self.nodeMappingsPOP[secondVertex], middleBoxNum))
+                    else:
+                        links.append("l({},{},0)".format(self.nodeMappingsPOP[vertex], self.nodeMappingsPOP[secondVertex]))
+
+            head = "R({},{},{}) :- ".format(ingressAS, destination, egressAS)
+            # if len(firewallConditions) > 0:
+            #     head = "R({},{},{})[And({})] :- ".format(ingressAS, destination, egressAS, ",".join(firewallConditions))
+
+            newRule = head + ",".join(links) + ", A({}, {})".format(destination,egressAS)
+            
             print(newRule)
             rules.append(newRule)
         return rules
@@ -384,11 +417,31 @@ class RocketfuelPoPTopo:
                     self.POP_links.append(newLink)
         self.populatePOPGraph()
 
+    def setNodes(self, rule):
+        if rule not in self._nodesRule:
+            self._nodesRule[rule] = []
+        for atom in rule._body:
+            if atom.db["name"] == "l":
+                node1 = atom.parameters[0]
+                node2 = atom.parameters[1]
+                # if node1.isdigit() or node2.isdigit():
+                #     continue
+                if not node1.isdigit():
+                    self._nodesRule[rule].append(node1)
+                if not node2.isdigit():
+                    self._nodesRule[rule].append(node2)
+
     def convertToProgram(self, rulesArr):
-        return DT_Program("\n".join(rulesArr), recursive_rules=False)    
+        program = DT_Program("\n".join(rulesArr), recursive_rules=False)    
+        for rule in program._rules:
+            self.setNodes(rule)
+        return program
 
     def convertToFirewallProgram(self, rulesArr):
-        return DT_Program("\n".join(rulesArr), {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"], "A":["inet_faure", "integer"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "l", "A"], faure_evaluation_mode='implication', recursive_rules=False)
+        program = DT_Program("\n".join(rulesArr), {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"], "A":["inet_faure", "integer"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "l", "A"], faure_evaluation_mode='implication', recursive_rules=False)
+        for rule in program._rules:
+            self.setNodes(rule)
+        return program
 
     def minimize(self, program):
         minimizedProgram = deepcopy(program)
@@ -398,6 +451,16 @@ class RocketfuelPoPTopo:
         end = time.time()
         numRulesAfter = len(minimizedProgram._rules)
         return minimizedProgram
+
+    def getNodes(self, rulesArr):
+        nodes = {}
+        for rule in rulesArr:
+            ruleNodes = self._nodesRule[rule]
+            # ruleNodes = ["a","b","c"]
+            for node in ruleNodes:
+                if node not in nodes:
+                    nodes[node] = 0
+        return len(nodes)
 
     def getLinksNodes(self, rulesArray):
         links = []
@@ -431,44 +494,62 @@ class RocketfuelPoPTopo:
             program = program.replace(var, str(node))
         return program
 
-    # returns if rule1 is equivalent to rule2
-    def isEquivalentRule(self, rule1, rule2):
-        program1 = DT_Program(rule1, recursive_rules=False)
-        if not program1.contains_rule(rule2):
+    def isEquivalentRule(self, rule1, rule2, firewall):
+        program1 = ""
+        if not firewall:
+            program1 = DT_Program(rule2, recursive_rules=False)
+        else:
+            program1 = self.convertToFirewallProgram([str(rule2)])
+        if not program1.contains_rule(rule1):
             return False
-        # program2 = DT_Program(rule2, recursive_rules=False)
-        # if not program2.contains_rule(rule1):
-        #     return False
+        if firewall:
+            program2 = self.convertToFirewallProgram([str(rule1)])
+            if not program2.contains_rule(rule2):
+                return False
         return True
 
-    def getEquivalenceClasses(self, minimizedProgram, program):
+    def getEquivalenceClasses(self, minimizedProgram, program, firewall):
         equivalentClasses = [] # stores the equivalent classes
         rulesToDelete = []
+        numProgramRules = len(program._rules)
         for minRule in minimizedProgram._rules:
-            currentRuleMatches = [minRule]
+            rulesToDelete = []
+            currentRuleMatches = []
             for ruleNum, rule in enumerate(program._rules):
-                if str(minRule) == str(rule): # same rule will be equivalent, no need to check
-                    continue
-                if self.isEquivalentRule(rule, minRule):
-                    rulesToDelete.append(ruleNum)
+                #if str(minRule) == str(rule): # same rule will be equivalent, no need to check
+                #    continue
+                if self.isEquivalentRule(rule, minRule, firewall):
                     currentRuleMatches.append(rule)
+                    rulesToDelete.append(ruleNum)
+            rulesToDelete.reverse()
+            for ruleNum in rulesToDelete:
+                program.deleteRule(ruleNum)
             equivalentClasses.append(currentRuleMatches)
-        # if rulesToDelete:
-        #     rulesToDelete.reverse()
-        #     for rule in rulesToDelete:
-        #         program.deleteRule(rule)
+        totalRules = 0
+        for eqclass in equivalentClasses:
+            totalRules += len(eqclass)
+        if totalRules != numProgramRules:
+            print("Not all rules were considered for equivalence. Total Rules considered were {} while the original program had {} rules".format(totalRules, numProgramRules))
+            if not firewall:
+                exit()
         return equivalentClasses
 
     # equivalent classes is an array of array and we want to select one from each array
     # take cartesian product of lists
-    def getMinNodes(self, equivalentClasses):
+    def getMinNodes(self, equivalentClasses, firewall):
         minNodes = 1000000
         minCombination = []
+        i = 0
+        print(equivalentClasses)
         for combination in itertools.product(*equivalentClasses):
-            nodes, _ = self.getLinksNodes(combination) 
-            if len(nodes) < minNodes:
+            i += 1
+            numNodes = self.getNodes(combination) 
+            if numNodes < minNodes:
                 minCombination = deepcopy(combination)
-                minNodes = len(nodes)
+                minNodes = numNodes
+        print("\n\n==============================NUM COMB ========================")
+        print("num comb: ", i)
+        print("\n============================================================\n")
         strRules = []
         for rule in minCombination:
             strRules.append(str(rule))
@@ -717,14 +798,15 @@ def topologyMinimization(case, runs, logFilePath, mode = "w+", middleBoxes = [],
             minimizedProgram = AS.minimize(program)
             end = time.time()
             minTime = end-start
-
+            
+            programCopy = deepcopy(program)
             start = time.time()
-            equivalentClasses = AS.getEquivalenceClasses(minimizedProgram, program)
+            equivalentClasses = AS.getEquivalenceClasses(minimizedProgram, program, firewall)
             end = time.time()
             eqTime = end-start
             # possibleLinks = getMinLinks(equivalenceClasses)
             start = time.time()
-            selectedLinksProgram = AS.getMinNodes(equivalentClasses)
+            selectedLinksProgram = AS.getMinNodes(equivalentClasses, firewall)
             end = time.time()
             combTime = end-start
             # print(program)
@@ -734,7 +816,7 @@ def topologyMinimization(case, runs, logFilePath, mode = "w+", middleBoxes = [],
 
             # actualProgram = AS.convertToConstants(str(minimizedProgram))
             # print(actualProgram)
-            nodes, links = AS.getLinksNodes(program._rules)
+            nodes, links = AS.getLinksNodes(programCopy._rules)
             # nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
             nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
             numNodesBefore = len(nodes)
@@ -752,7 +834,7 @@ def topologyMinimization(case, runs, logFilePath, mode = "w+", middleBoxes = [],
                     egressNodesAfterMinimizaion.append(node)
             numIngressNodesAfter = len(ingressNodesAfterMinimizaion)
             numEgressNodesAfter = len(egressNodesAfterMinimizaion)
-            numRulesBefore, numAtomsBefore = program.stats()
+            numRulesBefore, numAtomsBefore = programCopy.stats()
             numRulesAfter, numAtomsAfter = minimizedProgram.stats()
             print(program)
             print("==================")
@@ -779,20 +861,20 @@ def avgVarianceSummary(logFilePath):
             name = cols[0].replace(",","-")[1:-1] 
             numRulesBefore = int(cols[1]) 
             numRulesAfter = int(cols[2])
-            percentageRuleReduction = double(cols[3])
+            percentageRuleReduction = float(cols[3])
             numAtomsBefore = int(cols[4])
             numAtomsAfter = int(cols[5])
-            percentageAtomReduction = double(cols[6])
+            percentageAtomReduction = float(cols[6])
             numingressBefore = int(cols[7])
             numingressAfter = int(cols[8])
             numegressBefore = int(cols[9])
             numegressAfter = int(cols[10])
             numNodesBefore = int(cols[11])
             numNodesAfter = int(cols[12])
-            percentageNodeReduction = double(cols[13])
+            percentageNodeReduction = float(cols[13])
             numLinksBefore = int(cols[14])
             numLinksAfter = int(cols[15])
-            percentageLinkReduction = double(cols[16])
+            percentageLinkReduction = float(cols[16])
 
             totalTime = float((cols[-1].strip()))
             totalTimes.append(totalTime)
@@ -880,8 +962,9 @@ def timingExperiments(cases, runs = 1, middleBoxes=[], percentMiddleBoxes=0, fir
             topologyMinimization(case = case, runs = runs, logFilePath=filename, mode = "w+", middleBoxes=middleBoxes, percentMiddleBoxes=percentMiddleBoxes, firewall = firewall, percentageNodesFirewall = percentageNodesFirewall)
             meanTime, varianceTime = getMeanVariance(filename)
             outputFile.write("{}\t{}\t{}\n".format(case[1], meanTime, varianceTime))
+            avgVarianceSummary(filename)
 
-def sigcommTimingExperiments(runs = 1, firewall = False, percentageNodesFirewall=25):
+def sigcommTimingExperiments(runs = 1, firewall = False, middleBoxes=[],percentMiddleBoxes=0, percentageNodesFirewall=25):
     cases = []
 
     ingressAS = "4323"
@@ -916,10 +999,26 @@ def sigcommTimingExperiments(runs = 1, firewall = False, percentageNodesFirewall
     # ASNum = "1"
     # egressAS = "1239"
 
-    timingExperiments(cases = cases, runs = runs, middleBoxes=[],percentMiddleBoxes=0, firewall = firewall)
+    timingExperiments(cases = cases, runs = runs, middleBoxes=middleBoxes,percentMiddleBoxes=percentMiddleBoxes, firewall = firewall, percentageNodesFirewall=percentageNodesFirewall)
+
+def sigcommReductionExperimentsFirewall(runs = 1, firewall = True, percentageNodesFirewall=100, ASNum="6467"):
+    AS = RocketfuelPoPTopo(ASNum)
+    print(len(AS.nodesAllPOP))
+    print(len(AS.POP_links))
+    ingressASes, egressASes = AS.getAllCustomerPairs()
+    print(len(ingressASes))
+    print(len(egressASes))
+    print(ingressASes)
+    print(egressASes)
+    # ingressASes = ingressASes[ingressASes.index("3549"):]
+    # print(ingressASes)
+    topologyMinimizationAllPairs(ingressASes = ingressASes, egressASes= egressASes, runs = 10, ASNum=ASNum, firewall = True)
 
 if __name__ == "__main__":
-    sigcommTimingExperiments(runs = 2, firewall = True, percentageNodesFirewall=25)
+    #sigcommTimingExperiments(runs = 10, firewall = False, middleBoxes=["M","F"],percentMiddleBoxes=25, percentageNodesFirewall=0)
+    #sigcommTimingExperiments(runs = 10, firewall = False, middleBoxes=[],percentMiddleBoxes=0, percentageNodesFirewall=0)
+    # sigcommReductionExperimentsFirewall(runs = 1, firewall = True, percentageNodesFirewall=25, ASNum="6467")
+    sigcommTimingExperiments(runs = 10, firewall = True, middleBoxes=[],percentMiddleBoxes=0, percentageNodesFirewall=25)
     exit()
     # testASes = ["6467","6939", "7911", "1"]
     # testASes = ["6467","6939", "7911"]
@@ -941,3 +1040,5 @@ if __name__ == "__main__":
     # ASes = getAllASes()
     # print(ASes)
     # topologyMinimizationRandomPair(ASes=ASes, runs=1, numRandomRuns = 1)
+
+

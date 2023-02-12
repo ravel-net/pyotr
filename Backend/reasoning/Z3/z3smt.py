@@ -754,6 +754,8 @@ class z3SMTTools:
         bitValue = 0
         i = bits-8
         for rangeVals in IP_stripped:
+            if "\\" in rangeVals:
+                rangeVals = rangeVals.split("\\")[0]
             bitValue += (int(rangeVals) << i)
             i -= 8 
         return (bitValue)
