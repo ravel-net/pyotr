@@ -1,0 +1,1 @@
+This folder contains code for updating an Inverse Model using simple condition propagation in c-tables.
