@@ -1,0 +1,10 @@
+pip3 install psycopg2-binary
+pip3  install z3-solver
+pip3 install tqdm
+sudo apt-get install python3-tk
+pip3 install tk
+# install CUDD and follow BDD Manager instructions
+create database test
+install int4 faure
+pip3 install python-igraph
+
