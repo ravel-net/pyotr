@@ -6,6 +6,8 @@ root = dirname(dirname(abspath(__file__)))
 print(root)
 sys.path.append(root)
 from Core.Homomorphism.Datalog.program import DT_Program
+import psycopg2 
+import databaseconfig as cfg
 
 # ====================================== Example 6 - Containment ========================================
 def unit_test1():
@@ -45,7 +47,8 @@ def unit_test2():
 
 # ======================================== ACL Example ========================================
 def unit_test3():
-    p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a3,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    p1 = "R(a3, h3, a || [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
     program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure[]", "integer"], "l":["int4_faure", "int4_faure"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["R", "l"])
     start = time.time()
     program1.minimize()
@@ -250,6 +253,23 @@ def unit_test12():
         end = time.time()
         print("Test 12.1 passed in {} seconds".format(end-start))
 
+# execution with array concatination
+def unit_test13():
+    p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != n2], F(10, n2, n)"
+    program1 = DT_Program(p1, {"R":["int4_faure", "int4_faure","int4_faure", "int4_faure[]"], "F":["int4_faure", "int4_faure", "int4_faure"]}, domains={}, c_variables=['x1','x2','x3','x4','x5','y1','y2','y3','y4','y5'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"])
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    program1.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+    sql = "insert into F values ('x1', 100, 'y1', '{\"Or(y1 == 1, y1 == 2)\"}'), ('x2', 1, 'y2', '{\"Or(y2 == 100, y2 == 3)\"}'), ('x3', 2, 'y3', '{\"Or(y3 == 100, y3 == 3)\"}'), ('10', 3, 400, '{}'), ('10', 400, 401, '{}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+
+    # manually checking for answer by running query twice. The query does not finish otherwise because of loops
+    changed = program1.execute(conn)
+    changed = program1.execute(conn)
 
 if __name__ == "__main__":
     # unit_test1()
@@ -263,7 +283,8 @@ if __name__ == "__main__":
     # unit_test9()
     # unit_test10()
     # unit_test11()
-    unit_test12()
+    # unit_test12()
+    unit_test13()
 
 
 

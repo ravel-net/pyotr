@@ -53,7 +53,9 @@ class DT_Atom:
         in_sqr_parenth = False
         vars_in_sqr_parenth = []
         for var in parameter_str.split(','):
-            if '[' in var and ']' in var: # special case, parameter_str = 'a1, xd, [a1]'
+            if '[' in var and ']' in var and '||' in var: # special case, parameter_str = 'a1, xd, a || [a1]'
+                self.parameters.append(var.strip())
+            elif '[' in var and ']' in var: # special case, parameter_str = 'a1, xd, [a1]'
                 value_in_array = re.findall(r'\[(.*?)\]', var)
                 self.parameters.append(copy(value_in_array))
             elif '[' in var:
@@ -84,7 +86,8 @@ class DT_Atom:
 
             if type(var) == list:
                 for v in var:
-                    if not v[0].isdigit() and v not in self.variables and v not in c_variables:
+                    isDigit = v[0].isdigit() or (v[0] == "'" and v[1].isdigit)
+                    if not isDigit and v not in self.variables and v not in c_variables: # hacky fix
                         self.variables.append(v)
             else:
                 hasOperator = False
@@ -94,7 +97,12 @@ class DT_Atom:
                         concatinatingVars = var.split(op)
                         for concatinatingVar in concatinatingVars:
                             concatinatingVar = concatinatingVar.strip()
-                            if not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
+                            if '[' in concatinatingVar and ']' in concatinatingVar:
+                                concatinatingVar = concatinatingVar.replace("[",'').replace("]",'').split(",")
+                                for v in concatinatingVar:
+                                    if not v[0].isdigit() and v not in self.variables and v not in c_variables:
+                                        self.variables.append(v)
+                            elif not concatinatingVar[0].isdigit() and concatinatingVar not in self.variables:
                                 self.variables.append(concatinatingVar)
                 if not hasOperator and not var[0].isdigit():
                     if var not in self.c_variables and var not in self.variables:
