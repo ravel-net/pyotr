@@ -1,6 +1,15 @@
+import sys
+from os.path import dirname, abspath, join
+root = dirname(dirname(dirname(abspath(__file__))))
+print(root)
+sys.path.append(root)
 import psycopg2
 from psycopg2.extras import execute_values
 import databaseconfig as dbconfig
+from utils.logging import timeit
+import time
+from Backend.reasoning.Z3.z3smt import z3SMTTools
+
 
 def create_db_connection():
     host = dbconfig.postgres['host']
@@ -14,7 +23,6 @@ def create_db_connection():
 
 def shut_down_db(conn):
     conn.close()
-
 
 def merge_sorted(conn, existing_tablename, delta_tablename):
     """
@@ -179,7 +187,7 @@ def aggregate_condition_wrt_action(conn, transformed_tuples, tablename):
     headervariables_mappings = {}
     always_true_action = []
     for tp in transformed_tuples:
-        print("\ntp", tp)
+        # print("\ntp", tp)
         tp_header = tp[1]
         tp_action = tp[2]
 
@@ -200,8 +208,8 @@ def aggregate_condition_wrt_action(conn, transformed_tuples, tablename):
             #     headervariables_mappings[header_var] = [tp_header]
             #     to_be_replaced_vars.append(tp_header)
             
-            print("target var", target_header_var)
-            print("to_be_replaced_vars", headervariables_mappings)
+            # print("target var", target_header_var)
+            # print("to_be_replaced_vars", headervariables_mappings)
 
             if len(tp_condition) > 1:
                 cond = "And({})".format(", ".join(tp_condition))
@@ -228,14 +236,17 @@ def aggregate_condition_wrt_action(conn, transformed_tuples, tablename):
             res_tuples.append((header, action, []))
         else:
             cond = action_conditions_mapping[action]
+            processed_cond = None
             if len(cond) == 0:
-                res_tuples.append((header, action, []))
+                processed_cond = cond
             elif len(cond) == 1:
-                replaced_cond = replace_vars(cond[0], headervariables_mappings)
-                res_tuples.append((header, action, [replaced_cond]))
+                processed_cond = cond
+                processed_cond = [replace_vars(processed_cond[0], headervariables_mappings)]
             else:
-                replaced_cond = replace_vars("Or({})".format(", ".join(cond)), headervariables_mappings)
-                res_tuples.append((header, action, [replaced_cond]))
+                processed_cond = ["Or({})".format(", ".join(cond))]
+                processed_cond = [replace_vars(processed_cond[0], headervariables_mappings)]
+            res_tuples.append((header, action, processed_cond))
+            
 
     
     cursor = conn.cursor()
@@ -248,11 +259,56 @@ def aggregate_condition_wrt_action(conn, transformed_tuples, tablename):
 
     conn.commit()
 
-def replace_vars(condition, headervariables_mappings):
+def replace_vars_naive(condition, headervariables_mappings):
     for var in headervariables_mappings.keys():
         target_var = headervariables_mappings[var]
         condition = condition.replace(var, target_var)
     return condition
+
+def replace_vars(condition, headervariables_mappings):
+    # for target_var in headervariables_mappings.keys():
+    #     tobe_replaced_var_list = headervariables_mappings[target_var]
+
+    replaced_condition = ""
+    ptr = 0
+    scanned_position = 0
+    while ptr < len(condition):
+        if condition[ptr: ptr+2] == "==":  # assume currently operator only is ==
+            back_ptr = ptr
+            # print("ptr", ptr)
+            while back_ptr > 0 and condition[back_ptr] != '(' and condition[back_ptr] != ",":
+                back_ptr -= 1
+            # print("back_ptr", back_ptr)
+
+            var = None
+            if back_ptr == 0:
+                replaced_condition += condition[scanned_position: back_ptr]
+                var = condition[back_ptr: ptr].strip()
+            else:
+                replaced_condition += condition[scanned_position: back_ptr + 1]
+                var = condition[back_ptr+1: ptr].strip()
+
+            # print("var", var)
+            # print("replaced_condition", replaced_condition)
+            if var in headervariables_mappings.keys():
+                target_var = headervariables_mappings[var]
+                replaced_condition += target_var
+            else:
+                replaced_condition += var
+            replaced_condition += " "
+            replaced_condition += condition[ptr: ptr+2]
+            ptr += 2
+            scanned_position = ptr
+            # print("replaced_condition", replaced_condition)
+            
+            # print("scanned_position", scanned_position)
+        else:
+            ptr += 1
+    
+    if scanned_position < len(condition):
+        replaced_condition += condition[scanned_position:]
+    return replaced_condition
+
 
 
 def update_storms(conn, existing_tablename, delta_tablename, output_tablename):
@@ -261,5 +317,5 @@ def update_storms(conn, existing_tablename, delta_tablename, output_tablename):
 
     transformed_tuples = transform_conditions(sorted_tuples)
 
-    input()
+    # input()
     aggregate_condition_wrt_action(conn, transformed_tuples, output_tablename)
