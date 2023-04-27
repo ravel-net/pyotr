@@ -334,12 +334,18 @@ class DT_Rule:
                         concatinatingVars = param.split(op)
                         for concatinatingVar in concatinatingVars:
                             concatinatingVar = concatinatingVar.strip()
-                            if not concatinatingVar[0].isdigit():
+                            if '[' in concatinatingVar and ']' in concatinatingVar:
+                                concatList = []
+                                concatinatingVar = concatinatingVar.replace("[",'').replace("]",'').split(",")
+                                for v in concatinatingVar:
+                                    concatList.append(variableList[v][0])
+                                concatinatingValues.append("ARRAY[" + ", ".join(concatList) + "]")
+                            elif not concatinatingVar[0].isdigit():
                                 concatinatingValues.append(variableList[concatinatingVar][0])
-                    opString = " " + op + " "
-                    summary = opString.join(concatinatingValues)
-                    if summary:
-                        summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
+                        opString = " " + op + " "
+                        summary = opString.join(concatinatingValues)
+                        if summary:
+                            summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
                 if not hasOperator:
                     if param[0].isdigit(): # constant parameter
                         summary_nodes.append("{} as {}".format(param, self._head.db['column_names'][idx]))
@@ -651,7 +657,6 @@ class DT_Rule:
                         alreadExists = True
                 if not alreadExists:
                     newTuples.append(generatedTuple)
-
             if len(newTuples) > 0:
                 execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
                 conn.commit()
@@ -667,7 +672,7 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=False, information_on=False, faure_evaluation_mode=self._faure_evaluation_mode)
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=False, faure_evaluation_mode=self._faure_evaluation_mode)
                 
         changed = self.insertTuplesToHead(conn)
         return changed

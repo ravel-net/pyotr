@@ -1,7 +1,7 @@
 import re
 
 class SelectedAttribute:
-    def __init__(self, attribute_str, databases={}, array_operators=[], arithmatic_operators=[]):
+    def __init__(self, attribute_str, databases={}, array_operators=["||"], arithmatic_operators=[]):
         self._databases = databases
         self._array_operators = array_operators
         self._arithmatic_operators = arithmatic_operators
@@ -63,7 +63,8 @@ class SelectedAttribute:
         elif self._attribute['type'] == 2:
             return str(self._attribute['array'])
         elif self._attribute['type'] == 3:
-            return str(self._attribute['operator']).join(self._attribute['operands'])
+            op = " " + str(self._attribute['operator']) + " "
+            return op.join(self._attribute['operands'])
         elif self._attribute['type'] == 4:
             return str(self._attribute['function'])
         elif self._attribute['type'] == 5:
@@ -87,7 +88,7 @@ class SelectedAttribute:
         for array_op in self._array_operators:
             if array_op in attribute_part:
                 self._attribute['type'] = 3
-                self._process_array_operator_attribute(attribute_part)
+                self._process_array_operator_attribute(attribute_part, array_op)
                 return
         
         # for arithmatic operation attribute
@@ -115,13 +116,14 @@ class SelectedAttribute:
         self._attribute['operator'] = operator
         self._attribute['operands'] = []
         items = attribute_part.split(operator)
-
         for item in items:
             item = item.strip()
             if item.startswith('array'):
-                self._attribute['operands'].append(ArrayAttribute(item))
+                # self._attribute['operands'].append(ArrayAttribute(item))
+                self._attribute['operands'].append(str(ArrayAttribute(item)))
             else:
-                self._attribute['operands'].append(NormalAttribute(item))
+                # self._attribute['operands'].append(NormalAttribute(item))
+                self._attribute['operands'].append(str(NormalAttribute(item)))
 
     # def _concatenation_opr(self, attribute_part):
     #     self._attribute['operator'] = '||'
