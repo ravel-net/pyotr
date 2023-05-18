@@ -271,10 +271,52 @@ def unit_test13():
     changed = program1.execute(conn)
     changed = program1.execute(conn)
 
+# execution with array concatination (Faure hack)
+def unit_test14():
+    p1 = "R(10, 100, n, [100, n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != n2], F(10, n2, n)"
+    program1 = DT_Program(p1, {"R":["integer", "integer","integer", "integer[]"], "F":["integer", "integer", "integer"]}, domains={}, c_variables=['x1','x2','x3','y1','y2','y3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"])
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    program1.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+    sql = "insert into F values (-1, 100, -10, '{\"Or(y1 == 1, y1 == 2)\"}'), (-2, 1, -20, '{\"Or(y2 == 100, y2 == 3)\"}'), (-3, 2, -30, '{\"Or(y3 == 100, y3 == 3)\"}'), (10, 3, 400, '{}'), (10, 400, 401, '{}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+
+    # manually checking for answer by running query twice. The query does not finish otherwise because of loops
+    changed = program1.execute(conn)
+    changed = program1.execute(conn)    
+
+def unit_test15():
+    p1 = "R(x1,x4) :- P(x1,x2),P(x2,x3),P(x3,x4),P(u,u)\nP(x,y) :- P(x,z), P(z,y)"
+    p2 = "R(y1,y2) :- P(y1,y2),P(u,u)\nP(x,y) :- P(x,z), P(z,y)"
+
+    
+    program1 = DT_Program(p1)
+    program2 = DT_Program(p2)
+
+    start = time.time()
+    if (not program2.contains(program1)):
+        print("Text 15.1 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 15.1 passed in {} seconds".format(end-start))
+
+    start = time.time()
+    if (not program1.contains(program2)):
+        print("Text 15.2 failed")
+        exit()
+    else:
+        end = time.time()
+        print("Test 15.2 passed in {} seconds".format(end-start))
+
 if __name__ == "__main__":
     # unit_test1()
     # unit_test2()
-    # unit_test3()
+    # # unit_test3()
     # unit_test4()
     # unit_test5()
     # unit_test6()
@@ -284,7 +326,9 @@ if __name__ == "__main__":
     # unit_test10()
     # unit_test11()
     # unit_test12()
-    unit_test13()
+    # unit_test13()
+    # unit_test14()
+    unit_test15()
 
 
 
