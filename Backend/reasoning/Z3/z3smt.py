@@ -12,6 +12,17 @@ import time
 from tqdm import tqdm
 from utils.logging import timeit
 
+# Input: Condition
+# Processing: Replace negative integers by c-vars
+# Output: String in z3 format
+@timeit
+def replaceCVars(condition, mapping):
+    replacedConditions = []
+    for c in condition:
+        for var in mapping:
+            c = c.replace(var, mapping[var])
+        replacedConditions.append(c)
+    return replacedConditions
 
 class z3SMTTools:
     """
@@ -57,7 +68,7 @@ class z3SMTTools:
         A tool to get IP data with z3 BitVec
     """
     @timeit
-    def __init__(self, variables, domains={}, reasoning_type={}) -> None:
+    def __init__(self, variables, domains={}, reasoning_type={}, mapping={}) -> None:
         """
         Parameters:
         -----------
@@ -77,6 +88,7 @@ class z3SMTTools:
         self._variables = variables
         self._domains = domains # {variable: []}
         self._reasoning_type = reasoning_type
+        self._mapping = mapping
         self.solver = z3.Solver()
         self.simplication_time = {}
 
@@ -96,12 +108,12 @@ class z3SMTTools:
         --------
         True or False
         """
-
         if len(conditions) == 0:
             return 
 
         self.solver.push()
         for c in conditions:
+            print("contra", c)
             prcd_cond = self.condition_parser(c)
             self.solver.add(eval(prcd_cond))
 
@@ -133,7 +145,8 @@ class z3SMTTools:
             and_condition = conditions[0]
         else:
             and_condition = "And({})".format(", ".join(conditions))
-        # print("and_condition", and_condition)
+        print("and_condition", and_condition)
+        print("prcd_cond", prcd_cond)
         prcd_cond = self.condition_parser(and_condition)
         self.solver.push()
         self.solver.add(eval("Not({})".format(prcd_cond)))
@@ -314,7 +327,7 @@ class z3SMTTools:
         simplified_conditions = []
         # print("redundant conditions", conditions)
         for c in conditions:
-            # print("c", c)
+            print("c", c)
             expr_c = self.condition_parser(c)
             if expr_c == 'True':
                 expr_c = "z3.Bool('True')"
@@ -571,7 +584,7 @@ class z3SMTTools:
             # else:
             #     print(len(row[1][0]))
 
-            is_contrad = self.iscontradiction(row[1])
+            is_contrad = self.iscontradiction(replaceCVars(row[1], self._mapping))
 
             if is_contrad:
                 del_tuple.append(row[0])
@@ -600,7 +613,7 @@ class z3SMTTools:
         for i in tqdm(range(redun_count)):
             row = cursor.fetchone()
             # print("check redun")
-            has_redun, result = self.has_redundancy(row[1])
+            has_redun, result = self.has_redundancy(replaceCVars(row[1], self._mapping))
             if has_redun:
                 if result != '{}':
                     result = ['"{}"'.format(r) for r in result]

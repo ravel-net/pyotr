@@ -4,8 +4,8 @@ root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 import psycopg2 
 from copy import deepcopy
-from Core.Homomorphism.Datalog.rule import DT_Rule
-from Core.Homomorphism.Datalog.DL_minimization import minimizeAtoms, minimizeRules, enhancedMinimization
+from Core.Datalog.rule import DT_Rule
+from Core.Datalog.DL_minimization import minimizeAtoms, minimizeRules, enhancedMinimization
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils.converter.recursion_converter import RecursiveConverter
@@ -44,7 +44,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False, recursive_rules=True, faure_evaluation_mode='contradiction'):
+    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False, recursive_rules=True, faure_evaluation_mode='contradiction', cVarMapping={}):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -60,7 +60,7 @@ class DT_Program:
         self._recursive_rules = recursive_rules
 
         if self._reasoning_engine == 'z3':
-            self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+            self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type, mapping=cVarMapping)
         else:
             self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
         

@@ -2,8 +2,8 @@ import sys
 from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
-from Core.Homomorphism.Datalog.atom import DT_Atom
-from Core.Homomorphism.Datalog.rule import DT_Rule
+from Core.Datalog.atom import DT_Atom
+from Core.Datalog.rule import DT_Rule
 from utils.logging import timeit
 import psycopg2 
 import databaseconfig as cfg

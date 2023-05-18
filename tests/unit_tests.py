@@ -5,7 +5,7 @@ from os.path import dirname, abspath
 root = dirname(dirname(abspath(__file__)))
 print(root)
 sys.path.append(root)
-from Core.Homomorphism.Datalog.program import DT_Program
+from Core.Datalog.program import DT_Program
 import psycopg2 
 import databaseconfig as cfg
 
@@ -327,8 +327,8 @@ if __name__ == "__main__":
     # unit_test11()
     # unit_test12()
     # unit_test13()
-    # unit_test14()
-    unit_test15()
+    unit_test14()
+    # unit_test15()
 
 
 

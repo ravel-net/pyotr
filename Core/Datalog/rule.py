@@ -17,8 +17,8 @@ sys.path.append(root)
 import re
 from copy import deepcopy
 from psycopg2.extras import execute_values
-from Core.Homomorphism.Datalog.atom import DT_Atom
-from Core.Homomorphism.faure_translator.faure_evaluation import FaureEvaluation
+from Core.Datalog.atom import DT_Atom
+from Core.Faure.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
 from utils.parsing_utils import z3ToSQL
 from Backend.reasoning.CUDD.BDDTools import BDDTools

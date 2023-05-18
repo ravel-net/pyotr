@@ -2,7 +2,7 @@ import sys
 from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
-from Core.Homomorphism.Datalog.unify import unify
+from Core.Datalog.unify import unify
 from utils.logging import timeit
 
 @timeit
