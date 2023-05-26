@@ -2,6 +2,96 @@ from collections import deque
 
 logicalOpsConversion = {"^":"Or", "&":"And"}
 
+# Input: Conditions as conjunctive array (e.g. ['t0.c0 == t1.c0', 't1.c0 == t2.c0', 't2.c0 == t3.c0', ['t0.c0 == 2', 'And(Or(t0.c0 == 1, t0.c0 == 2), t0.c0 == 5)']])
+# Output Example: Array['And(' || t0.c0 || ' == ' || t1.c0 || ', ' || t1.c0 || ' == ' || t2.c0 || ', ' || t2.c0 || ' == ' || t3.c0 || ', ' || t0.c0 || ' == ' || 2 || ', ' || 'And(' || 'Or(' || t0.c0 || ' == ' || 1 || ', ' || t0.c0 || ' == ' || 2 || ')' || ', ' || t0.c0 || ' == ' || 5 || ')' || ')']
+def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
+	if len(conditions) > 0:
+		conditionSQL = "And(" + ", ".join(conditions)+")"
+		conditionComponents = []
+		conditionSQLSplit = conditionSQL.split(" ")
+		for item in conditionSQLSplit:
+			i = 0
+			j = 0
+			while i < len(item):
+				if item[i:i+4] == "And(":
+					conditionComponents.append("'And('")
+					i += 4
+					j = i
+				elif item[i:i+3] == "Or(":
+					conditionComponents.append("'Or('")
+					i += 3
+					j = i
+				elif item[i] == ")":
+					if (j != i and item[j:i] != ')'):
+						conditionComponents.append(item[j:i])
+					conditionComponents.append("')'")
+					i += 1
+					j = i
+				elif item[i] == ",":
+					if (j != i):
+						conditionComponents.append(item[j:i])
+					conditionComponents.append("', '")
+					i += 1
+					j = i
+				# elif item[i] == " ":
+				# 	if (j != i):
+				# 		conditionComponents.append(conditionSQL[j:i])
+				# 		print(conditionSQL[j:i])
+				# 	conditionComponents.append("')'")
+				# 	print(')')
+				# 	i += 1
+				# 	j = i
+				elif item[i:i+2].strip() in operators:
+					op = item[i:i+2].strip()
+					conditionComponents.append(" ' " + op + " ' ")
+					i += 2
+					j = i
+				elif i == len(item)-1:
+					if (j != i):
+						conditionComponents.append(item[j:i+1])
+					# conditionComponents.append(conditionSQL[i])
+					i += 2
+					j = i
+				else:
+					i+=1
+		return " || ".join(conditionComponents)
+	elif len(conditions) <= 0:
+		# print("array length is zero")
+		return ""
+
+# Input: Tables for joining (e.g. ['C t0', 'C t1', 'C t2', 'B t3'])
+# Output Example: t0.condition || t1.condition || t2.condition || t3.condition
+def getTablesAsConditions(tables = [], colmName = "condition"):
+	tableRefs = []
+	for table in tables:
+		print(table)
+		tableReference = table.split()[1]
+		tableRefs.append(tableReference + "." + colmName)
+	return " || ".join(tableRefs)
+
+
+# Input: Condition
+# Processing: Replace negative integers by c-vars
+# Output: String in z3 format
+def replaceCVarsNegative(condition, mapping):
+    replacedConditions = []
+    for c in condition:
+        for var in mapping:
+            c = c.replace(var, mapping[var])
+        replacedConditions.append(c)
+    return replacedConditions
+
+# Input: Condition
+# Processing: Replace cvariables by sql locations
+# Output: Return processed condition
+def replaceCVars(condition, mapping):
+    replacedConditions = []
+    for c in condition:
+        for var in mapping:
+            c = c.replace(var, mapping[var][0])
+        replacedConditions.append(c)
+    return replacedConditions
+
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
 def popUntilLogicalOP(stack):
 	elem = stack.pop()
@@ -51,13 +141,19 @@ def processCon(var1, var2, op, replacements, is_ip=False):
 		condition += replacements[var2]
 	else:
 		condition += var2
-	return condition
+
+	# to support negative integers as c-variables
+	if var1 in replacements:
+		finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "0)"  
+	else:
+		finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
+
+	return finalCondition
 
 # Converts a z3 condition into a SQL where clause
 def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, is_ip=False):
-	print(condition)
 	if (len(condition) <= 1): # Empty condition
-		return TRUE, [] 
+		return TRUE, []
 	stack = deque()
 	i = 0
 	while i < len(condition):
@@ -92,7 +188,7 @@ def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replaceme
 		exit()
 	sqlFormCond = stack.pop()
 
-	return sqlFormCond	
+	return sqlFormCond
 
 print(z3ToSQL("And(y == 10, y < 20)"))
 # print(z3ToSQL("And(Or(Or(Or(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1))), x3 == 1, x2 == 1, x1 == 1), x3 == 1, x2 == 1, Or(And(x3 == 1, 1 == x1), And(x2 == 1, 1 == x1), 1 == x1, x1 == 1)), x2 == 1, x3 == 1, x1 == 1), 1 == x2, x2 == 2)"))

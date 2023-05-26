@@ -10,13 +10,14 @@ import BDD_managerModule as bddmm
 import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 
-from Core.Homomorphism.faure_translator.parser import SQL_Parser
+from Core.Faure.parser import SQL_Parser
 from tqdm import tqdm
 import databaseconfig as cfg
 import psycopg2 
 from psycopg2.extras import execute_values
 from utils.logging import timeit
 import logging
+from utils import parsing_utils
 logging.basicConfig(filename='program.log', level=logging.DEBUG)
 logging.debug('[Datalog] Start Logging ...')
 # conn = psycopg2.connect(
@@ -48,7 +49,7 @@ class FaureEvaluation:
         convert a c-table with text condition to a c-table with BDD reference
     """
     @timeit
-    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False, faure_evaluation_mode='contradiction') -> None:
+    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False, faure_evaluation_mode='contradiction', sqlPartitioned={}) -> None:
         """
         Parameters:
         ------------
@@ -111,6 +112,10 @@ class FaureEvaluation:
         self._domains = domains
         self._databases = databases
         self._faure_evaluation_mode = faure_evaluation_mode
+        self._summary_nodes = sqlPartitioned["summary_nodes"]
+        self._tables = sqlPartitioned["tables"]
+        self._constraints = sqlPartitioned["constraints"]
+        self._constraintsZ3Format = sqlPartitioned["constraintsZ3Format"]
 
         self.data_time = 0.0 # record time for step 1: data
         self.update_condition_time = {} # record time for step 2, format: {'update_condition': 0, 'instantiation': 0, 'drop':0}. 
@@ -119,7 +124,6 @@ class FaureEvaluation:
         # self._z3Smt = z3SMTTools(list(self._domains.keys()), self._domains, self._reasoning_sort)
         self._reasoning_tool = reasoning_tool
 
-        # self._SQL_parser = SQL_Parser(conn, self._SQL, True, self._reasoning_engine, self._databases) # A parser to parse SQL, return SQL_Parser instance
         if self._SQL.lower().startswith('with'):
             cursor = conn.cursor()
             cursor.execute(self._SQL)
@@ -128,14 +132,7 @@ class FaureEvaluation:
             if simplication_on:
                 self._reasoning_tool.simplification(self.output_table)
         else:
-            start = time.time()
-            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
-            # if self._faure_evaluation_mode == 'implication': # using the same pattern of sql as that when reasoning engine is bdd
-            #     self._SQL_parser = SQL_Parser(conn, self._SQL, True, 'bdd', databases)
-            # else:
-            #     self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases) # A parser to parse SQL, return SQL_Parser instance
-            end = time.time()
-            logging.info("Time: parser took {}".format(end-start))
+            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases)
             self._additional_condition = additional_condition
             self._empty_condition_idx = None # the reference of the empty condition with BDD
             
@@ -170,84 +167,29 @@ class FaureEvaluation:
                 exit()
 
     @timeit
-    def _data(self):
-        if self._information_on:
-            print("\n************************Step 1: create data content****************************")
-        
-        cursor = self._conn.cursor()
-        cursor.execute("drop table if exists {}".format(self.output_table))
-        data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.execution_sql)
-
-        if self._information_on:
-            print(data_sql)
-        
-        begin_data = time.time()
-        cursor.execute(data_sql)
-        end_data = time.time()
-
-        self.data_time = end_data - begin_data
-
-        if self._information_on:
-            print("\ndata executing time: ", self.data_time)
-        #self._conn.commit()
-
-    @timeit
-    def _upd_condition_z3(self):
-        if self._information_on:
-            print("\n************************Step 2: update condition****************************")
-        
-        cursor = self._conn.cursor()
-
-        '''
-        Update conjunction constraints into conditional column
-        '''
-        conjunction_condition = self._SQL_parser.additional_conditions_SQL_format
-        if conjunction_condition is None:
-            print("No additional conditions for c-variables!")
-            self.update_condition_time['update_condition'] = 0
-        else:
-            upd_sql = "update {} set condition = condition".format(self.output_table)
-            if (conjunction_condition):
-                upd_sql = "update {} set condition = condition || Array[{}]".format(self.output_table, conjunction_condition)
-
-            if self._additional_condition is not None: # append additional conditions to output table
-                upd_sql = "{} || Array['{}']".format(upd_sql, self._additional_condition)
-            
-            if self._information_on:
-                print(upd_sql)
-                
-            begin_upd = time.time()
-            cursor.execute(upd_sql)
-            end_upd = time.time()
-            self.update_condition_time['update_condition'] = end_upd - begin_upd
-            #self._conn.commit()
-
-        '''
-        Check the selected columns
-        if select *, drop duplicated columns,
-        else only keep selected columns
-        '''
-        if self._SQL_parser.type == 1: # selection
-            drop_columns = self._SQL_parser.drop_columns
-
-            if len(drop_columns) == 0:
-                self.update_condition_time['drop'] = 0
+    def getSelectSQL(self, mode = "contradiction"):
+        arrayPart = parsing_utils.getArrayPart(self._constraintsZ3Format)
+        tablesAsConditions = parsing_utils.getTablesAsConditions(self._tables)
+        if mode == "contradiction":
+            if arrayPart:
+                conditionPart = tablesAsConditions + " || Array[" + arrayPart + "]::text[] as condition"
             else:
-                drop_sql = "ALTER TABLE {} drop column ".format(self.output_table) + ", drop column ".join(drop_columns)
-                if self._information_on:
-                    print(drop_sql)
-                
-                begin_drop = time.time()
-                cursor.execute(drop_sql)
-                end_drop = time.time()
-                self.update_condition_time['drop'] = end_drop-begin_drop
-
-            #self._conn.commit()
-
+                conditionPart = tablesAsConditions + "::text[] as condition"
+            selectPart = self._summary_nodes+[conditionPart]
+            sql = "select " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
+            if (self._constraints):
+                sql += " where " + "(" + " and ".join(self._constraints) + ")"
+            return sql  
+        elif mode == "implication":
+            conditionPart = tablesAsConditions + "::text[] as old_conditions, " + arrayPart + "::text as conjunction_condition"
+            selectPart = self._summary_nodes+[conditionPart]
+            sql = "select " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
+            if (self._constraints):
+                sql += " where " + " and ".join(self._constraints)
+            return sql        
         else:
-            #self._conn.commit()
-            print("Coming soon!")
-            exit()
+            print("implication mode not supported yet", mode)
+            exit()    
 
     @timeit
     def _integration(self):
@@ -256,8 +198,8 @@ class FaureEvaluation:
         
         cursor = self._conn.cursor()
         cursor.execute("drop table if exists {}".format(self.output_table))
-        data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.combined_sql)
-
+        select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode)
+        data_sql = "create table {} as {}".format(self.output_table, select_sql)
         if self._information_on:
             print(data_sql)
         
@@ -281,8 +223,9 @@ class FaureEvaluation:
         
         cursor = self._conn.cursor()
         cursor.execute("drop table if exists {}".format(self.output_table))
-        data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.implication_mode_sql)
-
+        select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode)
+        # data_sql = "create table {} as {}".format(self.output_table, self._SQL_parser.implication_mode_sql)
+        data_sql = "create table {} as {}".format(self.output_table, select_sql)
         if self._information_on:
             print(data_sql)
         
@@ -425,7 +368,9 @@ class FaureEvaluation:
             else:
                 old_cond = "And({})".format(", ".join(old_conditions))
 
+            print("Checking implication", old_cond, conjunctin_conditions)
             if self._reasoning_tool.is_implication(old_cond, conjunctin_conditions): # all possible instances are matched the program
+                print("Implication success", old_cond, conjunctin_conditions)
                 update_tuples.append((id, [old_cond, conjunctin_conditions]))
             
         
@@ -444,81 +389,6 @@ class FaureEvaluation:
         cursor.execute("drop table if exists {}".format(self.output_table))
         cursor.execute("alter table temp_{output} rename to {output}".format(output=self.output_table))
         self._conn.commit()
-
-    @timeit
-    def _process_condition_on_ctable(self, tablename):
-        """
-        convert text condition to BDD reference in a c-table
-
-        Parameters:
-        -----------
-        tablename: string
-            the tablename of c-table
-        
-        variables: list
-            A list of c-variables
-        
-        domains: list
-            A list of values for c-variables. All c-varaibles have the same domain. 
-        """
-        cursor = self._conn.cursor()
-
-        sql = "select {} from {}".format(", ".join(self._SQL_parser.databases[tablename]['names']), tablename)
-        cursor.execute(sql)
-
-        count_num = cursor.rowcount
-        
-        '''
-        locate condition
-        '''
-        cond_idx = -1
-
-        new_tuples = []
-        for i in tqdm(range(count_num)):
-            row = cursor.fetchone()
-            list_row = list(row)
-            if type(list_row[cond_idx]) == int: # if the condition is int datatype, return
-                return
-            if len(list_row[cond_idx]) == 0:
-                # list_row[cond_idx] = None
-                if self._empty_condition_idx is None:
-                    condition = ""
-                    begin_process = time.time()
-                    empty_condition_idx = self._reasoning_tool.str_to_BDD(condition)
-                    end_process_strToBDD = time.time()
-                    if self._information_on:
-                        print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-begin_process))
-                    self._empty_condition_idx = empty_condition_idx
-                list_row[cond_idx] = self._empty_condition_idx
-            else:
-                condition = ", ".join(list_row[cond_idx])
-
-                # Call BDD module 
-                begin_process = time.time()
-                bdd_idx = self._reasoning_tool.str_to_BDD(condition)
-                end_process_strToBDD = time.time()
-                if self._information_on:
-                    print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-begin_process))
-                list_row[cond_idx] = bdd_idx
-
-            row = tuple(list_row)
-            new_tuples.append(deepcopy(row))
-        
-        # truncate content in target table
-        sql = "truncate table {tablename}".format(tablename=tablename)
-        cursor.execute(sql)
-
-        # alter table condition column's datatype from text[] to integer
-        sql = "alter table if exists {tablename} drop column if exists condition".format(tablename=tablename)
-        cursor.execute(sql)
-
-        sql = "alter table if exists {tablename} add column IF NOT EXISTS condition integer".format(tablename=tablename)
-        cursor.execute(sql)
-
-        sql = "insert into {tablename} values %s".format(tablename=tablename)
-        execute_values(cursor, sql, new_tuples)
-        # cursor.executemany(new_tuples)
-        #self._conn.commit()
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"

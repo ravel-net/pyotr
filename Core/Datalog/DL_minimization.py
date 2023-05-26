@@ -18,7 +18,7 @@ def minimizeAtoms(P):
             if not rule_with_deleted_atom.safe():
                 atomNum += 1 
                 continue
-            contained = P.contains_rule(rule_with_deleted_atom)
+            contained = P.contains_rule(rule_with_deleted_atom, P._cVarMappingReverse)
             if contained:
                 P.replaceRule(ruleNum, rule_with_deleted_atom) 
                 rule = rule_with_deleted_atom
@@ -33,7 +33,7 @@ def minimizeRules(P):
             return
         rule = P.getRule(ruleNum)
         newProgram = P.copyWithDeletedRule(ruleNum)
-        if newProgram.contains_rule(rule):
+        if newProgram.contains_rule(rule, P._cVarMappingReverse):
             P.deleteRule(ruleNum)
         else:
             ruleNum += 1   

@@ -156,14 +156,14 @@ class DT_Atom:
     def replaceCondition(self, condition):
         self.constraints = condition
 
-    def addConstants(self, conn, mapping):
+    def addConstants(self, conn, mapping, cVarMappingReverse):
         variableConstants = []
         for i, var in enumerate(self.parameters):
             if type(var) == list:
                 mapping_constants = []
                 for v in var:
-                    if self.db["column_types"][i] == "int4_faure[]":
-                        mapping_constants.append('"' + str(mapping[v]) + '"')
+                    if v in cVarMappingReverse:
+                        mapping_constants.append(cVarMappingReverse[v])
                     else:
                         mapping_constants.append(str(mapping[v]))
                 variableConstants.append("'{" + ", ".join( mapping_constants) + "}'")
@@ -175,7 +175,7 @@ class DT_Atom:
                 variableConstants.append(str(var))
                 continue
             if var in self.c_variables:
-                variableConstants.append("'{}'".format(var))
+                variableConstants.append("{}".format(cVarMappingReverse[var]))
                 continue
             if self.db["column_types"][i] == "integer":
                 variableConstants.append(str(mapping[var]))

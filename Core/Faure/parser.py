@@ -7,7 +7,7 @@ from turtle import right
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 
-from Core.Homomorphism.faure_translator.attribute import SelectedAttribute
+from Core.Faure.attribute import SelectedAttribute
 import databaseconfig as cfg
 import psycopg2 
 
@@ -201,6 +201,8 @@ class SQL_Parser:
                     else:
                         attributes_strs.append("Array[{}] as old_conditions, '' as conjunction_condition".format(" || ".join(attr_strs)))
 
+            print("attributes_strs", attributes_strs)
+            input()
             table_strs = []
             for table in self.working_tables:
                 table_strs.append(str(table))

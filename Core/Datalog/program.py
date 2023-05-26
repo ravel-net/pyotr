@@ -58,6 +58,9 @@ class DT_Program:
         self._c_tables = c_tables
         self._pg_native_recursion = pg_native_recursion
         self._recursive_rules = recursive_rules
+        self._cVarMappingReverse = {} # convert to e.g. {"x":"-1"}
+        for negInt in cVarMapping:
+            self._cVarMappingReverse[cVarMapping[negInt]] = negInt
 
         if self._reasoning_engine == 'z3':
             self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type, mapping=cVarMapping)
@@ -71,7 +74,7 @@ class DT_Program:
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule_str=rule, databaseTypes=databaseTypes, operators=self.__OPERATORS, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=recursive_rules, faure_evaluation_mode=faure_evaluation_mode))
+                self._rules.append(DT_Rule(rule_str=rule, databaseTypes=databaseTypes, operators=self.__OPERATORS, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=recursive_rules, faure_evaluation_mode=faure_evaluation_mode, cVarMappingReverse = self._cVarMappingReverse))
     
     def __str__(self):
         DT_Program_str = ""
@@ -83,7 +86,7 @@ class DT_Program:
     def contains(self, dt_program2):
         # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
         for rule in dt_program2._rules:
-            if not self.contains_rule(rule):
+            if not self.contains_rule(rule, self._cVarMappingReverse):
                 return False
         return True
 
@@ -150,14 +153,14 @@ class DT_Program:
 
     # Uniform containment. 
     # self contains one rule of dt_program2
-    def contains_rule(self, rule2):
+    def contains_rule(self, rule2, cVarMappingReverse2):
         conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
         # conn.set_session()
         conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
         changed = True
         self.initiateDB(conn)
         rule2.initiateDB(conn)
-        rule2.addConstants(conn)
+        rule2.addConstants(conn, cVarMappingReverse2)
         iterations = 0
         # conn.commit()
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
