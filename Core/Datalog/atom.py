@@ -197,13 +197,13 @@ class DT_Atom:
                 #     continue
 
                 # For supporting ||
-                variableConstants.append("'{" + str(mapping[var]) + "}'")
+                variableConstants.append("'{" + str(mapping[var]).replace("'","") + "}'")
             else:
                 variableConstants.append("'{}'".format(mapping[var]))
 
         # if self.c_variables:
         if self._isCTable:
-            variableConstants.append("'{" + ", ".join(['"{}"'.format(c) for c in self.constraints]) + "}'") 
+            variableConstants.append("'{" + ", ".join(['"{}"'.format(c.replace("'","")) for c in self.constraints]) + "}'") 
             # variableConstants.append("'{}'") 
 
         sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"

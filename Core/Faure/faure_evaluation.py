@@ -181,7 +181,10 @@ class FaureEvaluation:
                 sql += " where " + "(" + " and ".join(self._constraints) + ")"
             return sql  
         elif mode == "implication":
-            conditionPart = tablesAsConditions + "::text[] as old_conditions, " + arrayPart + "::text as conjunction_condition"
+            if arrayPart:
+                conditionPart = tablesAsConditions + "::text[] as old_conditions, " + arrayPart + "::text as conjunction_condition"
+            else:
+                conditionPart = tablesAsConditions + "::text[] as old_conditions, " + "'' as conjunction_condition"
             selectPart = self._summary_nodes+[conditionPart]
             sql = "select " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
             if (self._constraints):

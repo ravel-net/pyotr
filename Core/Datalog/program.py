@@ -5,6 +5,7 @@ sys.path.append(root)
 import psycopg2 
 from copy import deepcopy
 from Core.Datalog.rule import DT_Rule
+from Core.Datalog.database import DT_Database
 from Core.Datalog.DL_minimization import minimizeAtoms, minimizeRules, enhancedMinimization
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 from Backend.reasoning.CUDD.BDDTools import BDDTools
@@ -43,38 +44,54 @@ class DT_Program:
     __MAX_ITERATIONS = 10
     __OPERATORS = ["||"]
     
-    # databaseTypes is a dictionary {"database name":[ordered list of column types]}. By default, all column types are integers. If we need some other datatype, we need to specify using this parameter
-    def __init__(self, program_str, databaseTypes={}, domains=[], c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Integer', simplification_on=False, c_tables=[], pg_native_recursion=False, recursive_rules=True, faure_evaluation_mode='contradiction', cVarMapping={}):
+    # Default values: "simplification_on"=False, "pg_native_recursion"=False, "recursive_rules"=True
+    def __init__(self, program_str, database="", reasoning_engine='z3', optimizations={}):
         self._rules = []
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
-        self._databaseTypes = databaseTypes
-        self._domains = domains
-        self._c_variables = c_variables
-        self._reasoning_engine = reasoning_engine
-        self._reasoning_type = reasoning_type
-        self._datatype = datatype
-        self._simplification_on = simplification_on
-        self._c_tables = c_tables
-        self._pg_native_recursion = pg_native_recursion
-        self._recursive_rules = recursive_rules
-        self._cVarMappingReverse = {} # convert to e.g. {"x":"-1"}
-        for negInt in cVarMapping:
-            self._cVarMappingReverse[cVarMapping[negInt]] = negInt
+        self._db = database
+        self.isFaureEval = False
+        self._c_tables = []
+        self._optimizations = optimizations
+        if self._db:
+            self._c_tables = self._db.c_tables
+        self._cVarMappingReverse = {} # TODO: REMOVE
+        self._simplification_on = False # TODO: Need to be defined only if faure
+        if len(self._c_tables) > 0: # when faureeval is required
+            self.isFaureEval = True
+            self._c_variables = self._db.c_variables
+            self._domains = self._db.cvar_domain
+            self._reasoning_engine = reasoning_engine
+            self._reasoning_types = self._db.reasoning_types
+            self._databaseTypes = self._db.databaseTypes
+            if "simplification_on" in optimizations:
+                self._simplification_on = optimizations["simplification_on"]
+            self._cVarMapping = self._db.cVarMapping
+            self._cVarMappingReverse = self._db.cVarMappingReverse # convert to e.g. {"x":"-1"}
+            if self._reasoning_engine == 'z3':
+                self.reasoning_tool = z3SMTTools(variables=self._c_variables, domains=self._domains, reasoning_type=self._reasoning_types, mapping=self._cVarMapping)
+            else:
+                self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_types)
 
-        if self._reasoning_engine == 'z3':
-            self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type, mapping=cVarMapping)
-        else:
-            self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
+        self._pg_native_recursion = False # default value
+        self._recursive_rules = True # default value
+        if "pg_native_recursion" in optimizations:
+            self._pg_native_recursion = optimizations["pg_native_recursion"]
+        if "recursive_rules" in optimizations:
+            self._recursive_rules = optimizations["recursive_rules"]
         
-        self._faure_evaluation_mode = faure_evaluation_mode
+        self._faure_evaluation_mode = "implication" # TODO: Remove
 
         if isinstance(program_str, DT_Rule):
             self._rules.append(program_str)
         else:
             rules_str = program_str.split("\n")
             for rule in rules_str:
-                self._rules.append(DT_Rule(rule_str=rule, databaseTypes=databaseTypes, operators=self.__OPERATORS, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=recursive_rules, faure_evaluation_mode=faure_evaluation_mode, cVarMappingReverse = self._cVarMappingReverse))
+                if self.isFaureEval:
+                    self._rules.append(DT_Rule(rule_str=rule, databaseTypes=self._databaseTypes, operators=self.__OPERATORS, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_types, datatype="Int", simplification_on=self._simplification_on, c_tables=self._c_tables, reasoning_tool=self.reasoning_tool, recursive_rules=self._recursive_rules, faure_evaluation_mode=self._faure_evaluation_mode, cVarMappingReverse = self._cVarMappingReverse, database=self._db))
+                else:
+                    self._rules.append(DT_Rule(rule_str=rule, operators=self.__OPERATORS, recursive_rules=self._recursive_rules, faure_evaluation_mode=self._faure_evaluation_mode, database=self._db))
+
     
     def __str__(self):
         DT_Program_str = ""
@@ -86,7 +103,7 @@ class DT_Program:
     def contains(self, dt_program2):
         # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
         for rule in dt_program2._rules:
-            if not self.contains_rule(rule, self._cVarMappingReverse):
+            if not self.contains_rule(rule, dt_program2._cVarMappingReverse):
                 return False
         return True
 
@@ -179,7 +196,7 @@ class DT_Program:
 
     # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
     def replaceProgram(self, newRules):
-        newProgram = DT_Program(program_str="\n".join(newRules), databaseTypes=self._databaseTypes, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplification_on, c_tables=self._c_tables)
+        newProgram = DT_Program(program_str="\n".join(newRules), database=self._db, reasoning_engine=self._reasoning_engine, optimizations=self._optimizations)
         # newObj = func(newProgram)
         self.__dict__.update(newProgram.__dict__)
 

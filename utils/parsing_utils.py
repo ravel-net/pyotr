@@ -88,7 +88,7 @@ def replaceCVars(condition, mapping):
     replacedConditions = []
     for c in condition:
         for var in mapping:
-            c = c.replace(var, mapping[var][0])
+            c = c.replace(var+" ", mapping[var][0]+" ")
         replacedConditions.append(c)
     return replacedConditions
 
@@ -144,9 +144,9 @@ def processCon(var1, var2, op, replacements, is_ip=False):
 
 	# to support negative integers as c-variables
 	if var1 in replacements:
-		finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "0)"  
+		finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "'1.0.0.0')"  
 	else:
-		finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
+		finalCondition = "(" + condition + " or " + var1 + " < " + "'1.0.0.0')"  	
 
 	return finalCondition
 

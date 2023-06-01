@@ -5,7 +5,9 @@ root = dirname(dirname(dirname(abspath(__file__))))
 print(root)
 sys.path.append(root)
 from igraph import *
-from Core.Homomorphism.Datalog.program import DT_Program
+from Core.Datalog.program import DT_Program
+from Core.Datalog.database import DT_Database
+from Core.Datalog.table import DT_Table
 import time
 from copy import deepcopy
 import itertools
@@ -432,13 +434,18 @@ class RocketfuelPoPTopo:
                     self._nodesRule[rule].append(node2)
 
     def convertToProgram(self, rulesArr):
-        program = DT_Program("\n".join(rulesArr), recursive_rules=False)    
+        program = DT_Program("\n".join(rulesArr), optimizations={"recursive_rules":False})    
         for rule in program._rules:
             self.setNodes(rule)
         return program
 
     def convertToFirewallProgram(self, rulesArr):
-        program = DT_Program("\n".join(rulesArr), {"R":["integer", "inet_faure", "integer"], "l":["integer", "integer", "inet_faure"], "A":["inet_faure", "integer"]}, domains={}, c_variables=['D'], reasoning_engine='z3', reasoning_type={'D':'BitVec'}, datatype='inet_faure', simplification_on=False, c_tables=["R", "l", "A"], faure_evaluation_mode='implication', recursive_rules=False)
+        R = DT_Table(name="R", columns={"c0":"integer", "c1":"inet", "c2":"integer"}, cvars={"D":"c1"})
+        l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer", "c2":"inet"}, cvars={"D":"c2"})
+        A = DT_Table(name="A", columns={"c0":"inet", "c1":"integer"}, cvars={"D":"c0"})
+        database = DT_Database(tables=[R,l, A], cVarMapping={"'0.0.0.1'":"D"})
+
+        program = DT_Program("\n".join(rulesArr), database, optimizations={"recursive_rules":False})
         for rule in program._rules:
             self.setNodes(rule)
         return program
@@ -500,11 +507,11 @@ class RocketfuelPoPTopo:
             program1 = DT_Program(rule2, recursive_rules=False)
         else:
             program1 = self.convertToFirewallProgram([str(rule2)])
-        if not program1.contains_rule(rule1):
+        if not program1.contains_rule(rule1, program1._cVarMappingReverse):
             return False
         if firewall:
             program2 = self.convertToFirewallProgram([str(rule1)])
-            if not program2.contains_rule(rule2):
+            if not program2.contains_rule(rule2, program2._cVarMappingReverse):
                 return False
         return True
 
@@ -553,7 +560,7 @@ class RocketfuelPoPTopo:
         strRules = []
         for rule in minCombination:
             strRules.append(str(rule))
-        minProgram = DT_Program("\n".join(strRules), recursive_rules=False) 
+        minProgram = DT_Program("\n".join(strRules), optimizations={"recursive_rules":False}) 
         return minProgram
 
     # gets all ingress or egress nodes by looking at the ISP maps 
@@ -632,7 +639,7 @@ class RocketfuelPoPTopo:
         if len(prefixesList) > 0:
             prefixBlockingStrings = []
             for prefix in prefixesList:
-                prefixBlockingStrings.append("D != {}".format(prefix))
+                prefixBlockingStrings.append("D != '{}'".format(prefix))
             firewall = "And({})".format(",".join(prefixBlockingStrings))
         return firewall
 
@@ -1018,7 +1025,7 @@ if __name__ == "__main__":
     #sigcommTimingExperiments(runs = 10, firewall = False, middleBoxes=["M","F"],percentMiddleBoxes=25, percentageNodesFirewall=0)
     #sigcommTimingExperiments(runs = 10, firewall = False, middleBoxes=[],percentMiddleBoxes=0, percentageNodesFirewall=0)
     # sigcommReductionExperimentsFirewall(runs = 1, firewall = True, percentageNodesFirewall=25, ASNum="6467")
-    sigcommTimingExperiments(runs = 10, firewall = True, middleBoxes=[],percentMiddleBoxes=0, percentageNodesFirewall=25)
+    sigcommTimingExperiments(runs = 2, firewall = True, middleBoxes=[],percentMiddleBoxes=0, percentageNodesFirewall=25)
     exit()
     # testASes = ["6467","6939", "7911", "1"]
     # testASes = ["6467","6939", "7911"]

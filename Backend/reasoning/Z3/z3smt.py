@@ -751,6 +751,8 @@ class z3SMTTools:
 
     @timeit
     def _convertIPToBits(self, IP, bits):
+        if "/" in IP:
+            IP = IP.split("/")[0]
         IP_stripped = IP.split(".")
         bitValue = 0
         i = bits-8
