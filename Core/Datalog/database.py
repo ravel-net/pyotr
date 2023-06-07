@@ -35,6 +35,12 @@ class DT_Database:
         self.reasoning_types = self.getReasoningType()
         self.databaseTypes = self.getDatabaseTypes()
         self.c_tables = self.getCTables()
+        self.cVarTypes = self.getCVarType()
+
+    # creates an empty DB
+    def initiateDB(self, conn):
+        for table in self.tables:
+            table.initiateTable(conn)
 
     def getTable(self, name):
         for table in self.tables:
@@ -86,6 +92,20 @@ class DT_Database:
                 elif cvar not in reasoning_types:
                     reasoning_types[cvar] = colm_type
         return reasoning_types
+
+    def getCVarType(self):
+        cVarTypes = {}
+        for table in self.tables:
+            for cvar in self.c_variables:
+                if cvar not in table.cVarTypes:
+                    continue
+                colm_type = table.cVarTypes[cvar]
+                if cvar in cVarTypes and cVarTypes[cvar] != colm_type: # When a cvariable has different column types
+                        print("Error while getting reasoning types for database. Two different reasoning types defined for cvar {}: {} and {}. Exiting".format(cvar, colm_type, reasoning_types[cvar]))
+                        exit()
+                elif cvar not in cVarTypes:
+                    cVarTypes[cvar] = colm_type
+        return cVarTypes
 
 
     

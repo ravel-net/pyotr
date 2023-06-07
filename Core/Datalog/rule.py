@@ -64,16 +64,16 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
     @timeit
-    def __init__(self, rule_str, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], reasoning_tool=None, recursive_rules=True, headAtom="", bodyAtoms=[], additional_constraints=[], faure_evaluation_mode='contradiction', cVarMappingReverse = {}, database=None):
+    def __init__(self, rule_str, operators=[], reasoning_tool=None, headAtom="", bodyAtoms=[], additional_constraints=[], database=None, optimizations={}):
         self._additional_constraints = []
-        self.database = database
-        self._faure_evaluation_mode = faure_evaluation_mode
+        self.db = database
         if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
             self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
-        self._cVarMappingReverse = cVarMappingReverse
+        self._cVarMappingReverse = database.cVarMappingReverse
+        self.optimizations = optimizations
         if headAtom and bodyAtoms:
-            self.generateRule(head=headAtom, body=bodyAtoms, databaseTypes=databaseTypes, operators=operators, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, recursive_rules=recursive_rules)
+            self.generateRule(head=headAtom, body=bodyAtoms, operators=operators, optimizations=self.optimizations, database=self.db)
         else:
             head_str = rule_str.split(":-")[0].strip()
             additional_constraint_split = rule_str.split(":-")[1].strip().split(",(")
@@ -81,7 +81,7 @@ class DT_Rule:
             if len(additional_constraint_split) > 1:
                 additional_constraint_split[1] = additional_constraint_split[1][:-1]
                 self._additional_constraints += additional_constraint_split[1:]
-            head = DT_Atom(head_str, databaseTypes, operators, c_variables, c_tables)
+            head = DT_Atom(head_str, database=self.db, operators=operators)
             body = []
             # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
             atom_strs = self.split_atoms(body_str)
@@ -90,9 +90,9 @@ class DT_Rule:
                 # if atom_str[0] == '(': # additional constraint
                 #     self._additional_constraints.append(atom_str[1:-1])
                 #     continue
-                currAtom = DT_Atom(atom_str, databaseTypes, operators, c_variables, c_tables)
+                currAtom = DT_Atom(atom_str, database=self.db, operators=operators)
                 body.append(currAtom)
-            self.generateRule(head=head, body=body, databaseTypes=databaseTypes, operators=operators, domains=domains, c_variables=c_variables, reasoning_engine=reasoning_engine, reasoning_type=reasoning_type, datatype=datatype, simplification_on=simplification_on, c_tables=c_tables, recursive_rules=recursive_rules)
+            self.generateRule(head=head, body=body, operators=operators, optimizations=self.optimizations, database=self.db)
 
     def safe(self):
         headVars = self._head.variables
@@ -102,29 +102,21 @@ class DT_Rule:
         return True
 
     @timeit
-    def generateRule(self, head, body, databaseTypes={}, operators=[], domains={}, c_variables=[], reasoning_engine='z3', reasoning_type={}, datatype='Int', simplification_on=True, c_tables=[], recursive_rules=True):
+    def generateRule(self, head, body, operators=[], optimizations={}, database=None):
         self._variables = [] 
         self._c_variables = [] 
         self._head = head
         self._body = body
-        self._DBs = []
         self._mapping = {}
         self._operators = operators
-        self._domains = domains
-        self._reasoning_engine = reasoning_engine
-        self._reasoning_type = reasoning_type
-        self._datatype = datatype
-        self._simplication_on = simplification_on
-        self._databaseTypes = databaseTypes
-        self._c_tables = c_tables
+        self._reasoning_engine = "z3" # TODO: Change this to have a member of reasoning tool that identifies the engine
+        self._simplication_on = self.optimizations["simplification_on"]
+        self._c_tables = self.db.c_tables
         self._reverseMapping = {}
-        self._recursive_rules = recursive_rules
-        db_names = []
-        # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
+        self._recursive_rules = self.optimizations["recursive_rules"]
+        
+        #TODO: Function to add c-vars and vars 
         for currAtom in self._body:
-            if currAtom.db["name"] not in db_names:
-                self._DBs.append(currAtom.db)
-                db_names.append(currAtom.db["name"])
             atomVars = currAtom.variables
             for var in atomVars:
                 if var not in self._variables:
@@ -136,11 +128,12 @@ class DT_Rule:
                     self._c_variables.append(var)
                             
         # corner case, relation of atom in head does not appear in the body, e.g.,  R(n1, n2): link(n1, n2)
-        if self._head.db['name'] not in db_names:
-            self._DBs.append(self._head.db)
-            db_names.append(self._head.db["name"])
+        # if self._head.table.name not in db_names:
+        #     self._DBs.append(self._head.db)
+        #     db_names.append(self._head.table.name)
 
         # TODO: Make sure that the mapping does not overlap with any other constant in the body
+        # TODO: Add a Function to create mapping
         i = 0
         for atom in self._body:
             for paramNum, var in enumerate(atom.parameters):
@@ -150,20 +143,22 @@ class DT_Rule:
                             continue
                         paramDatatype = paramDatatype[:-2]
                         if "inet" in paramDatatype:
-                            IPaddr = str(IPv4Address(int(IPv4Address('0.0.0.1')) + i))
+                            #TODO: Document that IPs from 0.0.0.1 to 0.0.255.0 are reserved for c-variables. IPs from 0.1.0.0 to 0.1.0.255 are reserved for variables. Need a check on rules to ensure that there is no overlapping constant
+                            IPaddr = str(IPv4Address(int(IPv4Address('0.1.0.0')) + i))
                             self._mapping[listVar] = IPaddr
                             self._reverseMapping[IPaddr] = listVar
                             i += 1
                         else: # Int data type
+                            # Document that integers above 100000 are reserved for variables and negative integers are reserved for c-variables. Include a check that no integers should overlap
                             self._mapping[listVar] = 100000+i
                             self._reverseMapping[100000+i] = listVar
                             i += 1
                     continue    
                 if var not in self._variables:
                     continue
-                paramDatatype = atom.db["column_types"][paramNum]
+                paramDatatype = atom.table.getColmType(paramNum)
                 if "inet" in paramDatatype:
-                    IPaddr = str(IPv4Address(int(IPv4Address('0.0.0.1')) + i))
+                    IPaddr = str(IPv4Address(int(IPv4Address('0.1.0.0')) + i))
                     self._mapping[var] = IPaddr
                     self._reverseMapping[IPaddr] = var
                     i += 1
@@ -176,7 +171,6 @@ class DT_Rule:
         if self.safe():
             self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
             self.sql = self.convertRuleToSQL()
-
         # else:
         #     print("\n------------------------")
         #     print("Unsafe rule: {}!".format(self)) 
@@ -184,18 +178,12 @@ class DT_Rule:
 
         self.selectColumns = self.calculateSelect() 
 
-        # if len(c_tables) > 0:
-        #     if self._reasoning_engine == 'z3':
-        #         self.reasoning_tool = z3SMTTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
-        #     else:
-        #         self.reasoning_tool = BDDTools(variables=self._c_variables,domains=self._domains, reasoning_type=self._reasoning_type)
-
     @timeit
     # Includes the select part of query including datatype
     def calculateSelect(self):
         selectColumns = []
-        for i, col in enumerate(self._head.db["column_names"]):
-            selectColumns.append("CAST({} as {})".format(col, self._head.db["column_types"][i]))
+        for i, colName in enumerate(self._head.table.columns):
+            selectColumns.append("CAST({} as {})".format(colName, self._head.table.getColmType(i)))
         return selectColumns
 
     @property
@@ -209,11 +197,11 @@ class DT_Rule:
     # returns the signature of a rule
     @timeit
     def getSignature(self):
-        signature = self._head.db["name"]+":-"
+        signature = self._head.table.name+":-"
         bodyTables = []
 
         for atom in self._body:
-            table = atom.db["name"]
+            table = atom.table.name
             bodyTables.append(table)
         bodyTables.sort()
         signature += ",".join(bodyTables)
@@ -237,11 +225,12 @@ class DT_Rule:
             else:
                 newRule_body.append(atom)
 
-        newRule = DT_Rule(rule_str="", databaseTypes=self._databaseTypes, operators=self._operators, domains=self._domains, c_variables=self._c_variables, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, c_tables = self._c_tables, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints, cVarMappingReverse=self._cVarMappingReverse, database=self.database)
+        newRule = DT_Rule(rule_str="", database=self.db, operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints, optimizations=self.optimizations)
         return newRule
 
     @timeit
     def addConstants(self, conn, cVarMappingReverse):
+        self.initiateDB(conn)
         for atom in self._body:
             atom.addConstants(conn, self._mapping, cVarMappingReverse)
 
@@ -260,24 +249,8 @@ class DT_Rule:
     # initiates database of rule
     @timeit
     def initiateDB(self, conn):
-        databases = []
-        db_names = []
-        for db in self.getDBs:
-            if db["name"] not in db_names:
-                db_names.append(db["name"])
-                databases.append(db)
-
-        for db in databases:
-            cursor = conn.cursor()
-            cursor.execute("DROP TABLE IF EXISTS {};".format(db["name"]))
-            table_creation_query = "CREATE TABLE {}(".format(db["name"])
-            num_cols = len(db["column_names"]) # assuming that last column is always condition
-            for col in range(num_cols): 
-                table_creation_query += '{} {},'.format(db["column_names"][col], db["column_types"][col])
-            table_creation_query = table_creation_query[:-1]
-            table_creation_query += ");"
-            cursor.execute(table_creation_query)
-        # conn.commit()
+        for atom in self._body:
+            atom.table.initiateTable(conn)
 
     @timeit
     def getRuleWithoutFaure(self): # returns the same rule but without any c-variables and conditions
@@ -285,7 +258,7 @@ class DT_Rule:
         for bodyAtom in self._body:
             newRuleStr += bodyAtom.strAtomWithoutConditions() + ", "
         newRuleStr = newRuleStr[:-2]
-        newRule = DT_Rule(newRuleStr, databaseTypes=self._databaseTypes, reasoning_engine=self._reasoning_engine, reasoning_type=self._reasoning_type, datatype=self._datatype, simplification_on=self._simplication_on, database=self.database) # assuming that the default is without faure
+        newRule = DT_Rule(newRuleStr, database=self.db, operators=self.operators, reasoning_tool=self.reasoning_tool, optimizations=self.optimizations) # assuming that the default is without faure
         return newRule
 
     @timeit
@@ -299,30 +272,30 @@ class DT_Rule:
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
         variables_idx_in_array = {} # format {'var': list[location], e.g., {'a1':['t1.n3','t4.n1']}}
         for i, atom in enumerate(self._body):
-            tables.append("{} t{}".format(atom.db["name"], i))
-            # currentTableName = atom.db["name"]
+            tables.append("{} t{}".format(atom.table.name, i))
+            # currentTableName = atom.table.name
             columns = {}
-            if self.database:
-                currentTable = self.database.getTable(atom.db["name"])
+            if self.db:
+                currentTable = self.db.getTable(atom.table.name)
                 columns = currentTable.columns
             for col, val in enumerate(atom.parameters):
                 if type(val) == list:
-                    loc = "t{}.{}".format(i, atom.db["column_names"][col])
+                    loc = "t{}.{}".format(i, atom.table.getColmName(col))
                     constraints_for_array[loc] = val
                     for idx, var in enumerate(val):
                         if var not in variableList and var not in variables_idx_in_array:
                             variables_idx_in_array[var] = {'location': loc}
                             variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
-                    if len(columns) > 0 and "inet" in columns[atom.db["column_names"][col]]:
-                        constraints.append("(t{}.{} = {} or t{}.{} < '1.0.0.0')".format(i, atom.db["column_names"][col], val, i, atom.db["column_names"][col]))
+                    if len(columns) > 0 and "inet" in columns[atom.table.getColmName(col)]:
+                        constraints.append("(t{}.{} = {} or t{}.{} < '0.0.255.0')".format(i, atom.table.getColmName(col), val, i, atom.table.getColmName(col)))
                     else:
-                        constraints.append("(t{}.{} = {} or t{}.{} < 0)".format(i, atom.db["column_names"][col], val, i, atom.db["column_names"][col]))
-                    constraintsZ3Format.append("t{}.{} == {}".format(i, atom.db["column_names"][col], val))
+                        constraints.append("(t{}.{} = {} or t{}.{} < 0)".format(i, atom.table.getColmName(col), val, i, atom.table.getColmName(col)))
+                    constraintsZ3Format.append("t{}.{} == {}".format(i, atom.table.getColmName(col), val))
                 else: # variable or c_variable
                     if val not in variableList:
                         variableList[val] = []
-                    variableList[val].append("t{}.{}".format(i, atom.db["column_names"][col]))
+                    variableList[val].append("t{}.{}".format(i, atom.table.getColmName(col)))
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
                 replace_var2attr = []
@@ -337,7 +310,7 @@ class DT_Rule:
                         replace_var2attr.append("'{}'".format(self._cVarMappingReverse[p]))
 
                 summary = "ARRAY[" + ", ".join(replace_var2attr) + "]"
-                summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
+                summary_nodes.append("{} as {}".format(summary, self._head.table.getColmName(idx)))
             else:
                 hasOperator = False
                 for op in self._operators:
@@ -358,17 +331,17 @@ class DT_Rule:
                         opString = " " + op + " "
                         summary = opString.join(concatinatingValues)
                         if summary:
-                            summary_nodes.append("{} as {}".format(summary, self._head.db['column_names'][idx]))
+                            summary_nodes.append("{} as {}".format(summary, self._head.table.getColmName(idx)))
                 if not hasOperator:
                     if param[0].isdigit(): # constant parameter
-                        summary_nodes.append("{} as {}".format(param, self._head.db['column_names'][idx]))
+                        summary_nodes.append("{} as {}".format(param, self._head.table.getColmName(idx)))
                     else:
                         if param not in variableList.keys() and param not in self._cVarMappingReverse:
-                            summary_nodes.append("'{}' as {}".format(param, self._head.db['column_names'][idx]))
+                            summary_nodes.append("'{}' as {}".format(param, self._head.table.getColmName(idx)))
                         elif param not in variableList.keys() and param in self._cVarMappingReverse:
-                            summary_nodes.append("'{}' as {}".format(self._cVarMappingReverse[param], self._head.db['column_names'][idx]))
+                            summary_nodes.append("'{}' as {}".format(self._cVarMappingReverse[param], self._head.table.getColmName(idx)))
                         else: # variable or c-var that also appears in body
-                            summary_nodes.append("{} as {}".format(variableList[param][0], self._head.db['column_names'][idx]))
+                            summary_nodes.append("{} as {}".format(variableList[param][0], self._head.table.getColmName(idx)))
         for var in variableList:
             for i in range(len(variableList[var])-1):
                 colmName = variableList[var][i].split(".")[1]
@@ -379,12 +352,12 @@ class DT_Rule:
                     if tableNameSQL == tableNameS:
                         break
                 columns = {}
-                if self.database:
-                    currentTable = self.database.getTable(tableName)
+                if self.db:
+                    currentTable = self.db.getTable(tableName)
                     columns = currentTable.columns
 
                 if len(columns) > 0 and "inet" in columns[colmName]:
-                    constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + " < '1.0.0.0')")
+                    constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + " < '0.0.255.0')")
                 else:
                     constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + "< 0)")
                 constraintsZ3Format.append(variableList[var][i] + " == " + variableList[var][i+1])
@@ -420,12 +393,12 @@ class DT_Rule:
         return summary_nodes, tables, constraints, constraintsZ3Format
 
     @timeit
-    def execute(self, conn):
+    def execute(self, conn, faure_evaluation_mode="contradiction"):
         if len(self._c_variables) == 0:
             cursor = conn.cursor()
-            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.db["name"], sql = self.sql, attrs= ", ".join(self.selectColumns))
+            except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.table.name, sql = self.sql, attrs= ", ".join(self.selectColumns))
             if (not self._recursive_rules):
-                except_sql = "insert into {header_table} {sql}".format(header_table=self._head.db["name"], sql = self.sql)
+                except_sql = "insert into {header_table} {sql}".format(header_table=self._head.table.name, sql = self.sql)
             start = time.time()
             cursor.execute(except_sql)
             affectedRows = 0
@@ -438,7 +411,7 @@ class DT_Rule:
             if (not self._recursive_rules):
                 changed = False
         else:
-            return self.run_with_faure(conn, self.sql)
+            return self.run_with_faure(conn, self.sql, faure_evaluation_mode)
         return changed
 
     @timeit
@@ -453,8 +426,8 @@ class DT_Rule:
                 for p in param:
                     mapping_constants.append(str(self._mapping[p]))
                 # check if two arrays are equal
-                constraints.append("ARRAY[{}] @> {}".format(", ".join(mapping_constants), self._head.db["column_names"][col]))
-                constraints.append("ARRAY[{}] <@ {}".format(", ".join(mapping_constants), self._head.db["column_names"][col]))
+                constraints.append("ARRAY[{}] @> {}".format(", ".join(mapping_constants), self._head.table.getColmName(col)))
+                constraints.append("ARRAY[{}] <@ {}".format(", ".join(mapping_constants), self._head.table.getColmName(col)))
             else:
                 hasOperator = False
                 for op in self._operators:
@@ -468,16 +441,16 @@ class DT_Rule:
                                 concatinatingValues.append(str(self._mapping[concatinatingVar]))
                         if op == "||":
                             finalString = "{" + ",".join(concatinatingValues) +"}"
-                            constraints.append("{} = '{}'".format(self._head.db["column_names"][col], finalString))
+                            constraints.append("{} = '{}'".format(self._head.table.getColmName(col), finalString))
                         else:
                             print("Error. Unsupported OP encountered")
                             exit()
                 if not hasOperator:
                     if param[0].isdigit():
-                        constraints.append("{} = {}".format(self._head.db["column_names"][col], param))
+                        constraints.append("{} = {}".format(self._head.table.getColmName(col), param))
                     else:
-                        constraints.append("{} = {}".format(self._head.db["column_names"][col], str(self._mapping[param])))
-        sql = "select * from " + self._head.db["name"]
+                        constraints.append("{} = {}".format(self._head.table.getColmName(col), str(self._mapping[param])))
+        sql = "select * from " + self._head.table.name
         if (constraints):
             sql += " where " + " and ".join(constraints)
         cursor = conn.cursor()
@@ -485,7 +458,6 @@ class DT_Rule:
         result = cursor.fetchall()
         conn.commit()
         contained = (len(result) > 0)
-        # print("contained", contained)
         return contained
     
     # Check if two variables/constants/c_variables are the same
@@ -528,15 +500,15 @@ class DT_Rule:
 
         # delete redundants
         if self._reasoning_engine == 'z3':
-            merge_tuples.merge_tuples_z3(self._head.db["name"], # tablename of header
+            merge_tuples.merge_tuples_z3(self._head.table.name, # tablename of header
                                         information_on=False) 
         else:
-            merge_tuples.merge_tuples_bdd(self._head.db["name"], self.reasoning_tool, information_on=False)
+            merge_tuples.merge_tuples_bdd(self._head.table.name, self.reasoning_tool, information_on=False)
 
         '''
         check whether Q_summary is in resulting table
         '''
-        sql = "select {} from {}".format(", ".join(self.selectColumns), self._head.db["name"])
+        sql = "select {} from {}".format(", ".join(self.selectColumns), self._head.table.name)
         if self._reasoning_engine == 'bdd':
             sql = sql.replace('text[]', 'integer')
         cursor.execute(sql)
@@ -546,7 +518,7 @@ class DT_Rule:
         # add constants to header data portion
         header_data_portion = []
         for i, p  in enumerate(self._head.parameters):
-            col_type = self._head.db["column_types"][i]
+            col_type = self._head.table.getColmType(i)
             if type(p) == list:
                 newP = []
                 for elem in p:
@@ -591,8 +563,6 @@ class DT_Rule:
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
             data_portion = list(tup[:-1])
-            print("portion", header_data_portion, data_portion)
-            print(self._sameDataPortion(header_data_portion, data_portion))
             if self._sameDataPortion(header_data_portion, data_portion): 
                 # Adding extra c-conditions
                 extra_conditions = []
@@ -617,16 +587,13 @@ class DT_Rule:
                     # Does the condition in the header imply the condition in the tuple?
                     # We are not checking for equivalence because we are merging tuples
                     # if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.is_implication(header_condition, str_tup_cond):
-
                     if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions):
                         contains = True
                         return contains                    
                 elif self._reasoning_engine == 'bdd':
                     # convert list of conditions to a string of condition
                     extra_conditions = "And({})".format(", ".join(extra_conditions))
-                    # print("extra_conditions", extra_conditions)
                     extra_condition_idx = self.reasoning_tool.str_to_BDD(extra_conditions)
-                    # str_tup_cond_idx = reasoning_tool.str_to_BDD(str_tup_cond)
                     if header_condition is None:
                         header_condition=""
                     header_condition_idx = self.reasoning_tool.str_to_BDD(header_condition)
@@ -665,7 +632,7 @@ class DT_Rule:
     @timeit
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
-        header_table = self._head.db["name"]
+        header_table = self._head.table.name
 
         if (not self._recursive_rules):
             sql = "insert into {header_table} select * from {fromTable}".format(header_table=header_table, fromTable=fromTable)
@@ -704,13 +671,13 @@ class DT_Rule:
                 return False
 
     @timeit
-    def run_with_faure(self, conn, program_sql):
-        header_table = self._head.db["name"]
+    def run_with_faure(self, conn, program_sql, faure_evaluation_mode="contradiction"):
+        header_table = self._head.table.name
         changed = False
         '''
         generate new facts
         '''
-        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self._domains, reasoning_engine=self._reasoning_engine, reasoning_sort=self._reasoning_type, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=self._faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format})
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=False, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format})
         changed = self.insertTuplesToHead(conn)
         return changed
 
@@ -721,7 +688,7 @@ class DT_Rule:
         for var in variableList: # Variable list contains location for every occurrence of the variable. Need to fix
             singleLocVarList[var] = variableList[var][0]
         for constraint in constraints:
-            newConstraints.append(z3ToSQL(condition = constraint, replacements = singleLocVarList))
+            newConstraints.append(z3ToSQL(condition = constraint, replacements = singleLocVarList, cVarTypes=self.db.cVarTypes))
         newConstraint = newConstraints[0] # note that this function should only be called when there are positive number of constraints
         if len(newConstraints) > 1:
             newConstraint = " and ".join(newConstraints)

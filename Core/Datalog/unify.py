@@ -334,7 +334,6 @@ def getEquivalentSubstitutions(rule3, r2_without_faure):
 def getSubstitutions(rule, rule2_without_Faure):
 	conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 	conn.set_session()
-	rule2_without_Faure.initiateDB(conn)
 	rule2_without_Faure.addConstants(conn)
 	_, tables, constraints = rule.convertRuleToSQLPartitioned()
 	tuples = []

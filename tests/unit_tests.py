@@ -51,7 +51,7 @@ def unit_test2():
 def unit_test3():
     p1 = "R(a3, h3, [a, h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
     # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer[]", "integer"], "l":["integer", "integer"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["R", "l"], cVarMapping={"-2":"h3"}, faure_evaluation_mode="implication")
+    program1 = DT_Program(p1, {"R":["integer_faure", "integer_faure","integer_faure[]", "integer_faure"], "l":["integer_faure", "integer_faure"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["R", "l"], cVarMapping={"-2":"h3"}, faure_evaluation_mode="implication")
     start = time.time()
     program1.minimize()
     print(program1)
@@ -65,8 +65,8 @@ def unit_test3():
 # ====================================== c-variable data part test  =====================================
 # Tests is_head_contained_faure
 def unit_test4():
-    R = DT_Table(name="R", columns={"c0":"integer", "c1":"integer"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
-    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    l = DT_Table(name="l", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
     database = DT_Database(tables=[R,l], cVarMapping={'-1':"x", '-2':"y", '-3':"z"})
     p1 = "R(x, y) :- l(x,y)\nR(x,z) :- R(x,y), l(y,z)"
     program1 = DT_Program(p1, database)
@@ -83,9 +83,9 @@ def unit_test4():
 # ======================================= c-variable as header test  ====================================
 # Tests c-variable appearing in header that does not appear anywhere in the body
 def unit_test5():
-    R = DT_Table(name="R", columns={"c0":"integer", "c1":"integer"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
-    L = DT_Table(name="L", columns={"c0":"integer", "c1":"integer", "c2":"integer"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
-    Q = DT_Table(name="Q", columns={"c0":"integer"}, cvars={"y":"c0", "z":"c0"}, domain={"c0":['1', '2']})
+    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    L = DT_Table(name="L", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"integer_faure"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    Q = DT_Table(name="Q", columns={"c0":"integer_faure"}, cvars={"y":"c0", "z":"c0"}, domain={"c0":['1', '2']})
     database = DT_Database(tables=[R,L,Q], cVarMapping={'-2':"y", '-3':"z"})
     p1 = "R(x,y) :- L(x,q,z), Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
     program1 = DT_Program(p1, database)
@@ -101,14 +101,15 @@ def unit_test5():
 
 # ==================================== New Condition Format Test  ======================================
 def unit_test6():
-    R = DT_Table(name="R", columns={"c0":"integer", "c1":"integer"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
-    L = DT_Table(name="L", columns={"c0":"integer", "c1":"integer", "c2":"integer"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
-    Q = DT_Table(name="Q", columns={"c0":"integer"}, cvars={"y":"c0", "z":"c0"}, domain={"c0":['1', '2']})
+    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    L = DT_Table(name="L", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"integer_faure"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    Q = DT_Table(name="Q", columns={"c0":"integer_faure"}, cvars={"y":"c0", "z":"c0"}, domain={"c0":['1', '2']})
+    
     database = DT_Database(tables=[R,L,Q], cVarMapping={'-2':"y", '-3':"z"})
     p1 = "R(x,y)[And(y = 10, y < 20)] :- L(x,y,z)[And(y = 10, y < 20)], Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
     program1 = DT_Program(p1, database)    
     start = time.time()
-    program1.minimize()
+    program1.minimize(False, True)
     print(program1)
     if (str(program1) != "R(x,y)[And(y == 10, y < 20)] :- L(x,y,z)[And(y == 10, y < 20)],Q(z)\nR(x,y) :- L(x,q,z),Q(z)"):
         print("Test 6 failed")
@@ -121,8 +122,8 @@ def unit_test6():
 # ======================================== Route Aggregation ========================================
 # With implication mode, test 7.2 fails because early exit when one rule's condition does not imply the old condition. Need to think about how to approach this.
 def unit_test7():
-    R = DT_Table(name="R", columns={"c0":"integer", "c1":"integer"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
-    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+    l = DT_Table(name="l", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"x":"c0", "y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
     database = DT_Database(tables=[R,l], cVarMapping={'-1':"x", '-2':"y", '-3':"z"})
 
     p1 = "R(1,x)[x == 10] :- l(1,2), l(1,3), l(1,4), R(2,x)[x == 10]\nR(1,x)[x == 20] :- l(1,2), l(1,3), l(1,4), R(3,x)[x == 20]\nR(1,x)[x == 30] :- l(1,2), l(1,3), l(1,4), R(4,x)[x == 30]"
@@ -149,8 +150,8 @@ def unit_test7():
 
 # ======================================== C-variable Implication Behaviour ========================================
 def unit_test8():
-    k = DT_Table(name="k", columns={"c0":"integer", "c1":"integer", "c2":"integer"}, cvars={"d":"c0", "y":"c1", "e":"c1"})
-    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer"}, cvars={"y":"c0", "c":"c1", "f":"c1", "g":"c1"})
+    k = DT_Table(name="k", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"integer_faure"}, cvars={"d":"c0", "y":"c1", "e":"c1"})
+    l = DT_Table(name="l", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"y":"c0", "c":"c1", "f":"c1", "g":"c1"})
     database = DT_Database(tables=[k,l], cVarMapping={'-3':"c", '-4':"d",'-5':"e", '-6':"f",'-7':"g", '-8':"y"})
     p1 = "l(3,4) :- l(1,3), k(2,1,3), l(1,5)"
     p2 = "l(3,4) :- l(y,c), k(d,y,e), l(f,g)"
@@ -176,8 +177,8 @@ def unit_test8():
         print("Test 8.2 passed in {} seconds".format(end-start))
 
 def unit_test9():
-    R = DT_Table(name="R", columns={"c0":"integer"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
-    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer"}, cvars={"x":"c0", "y":"c1", "z":"c1"})
+    R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
+    l = DT_Table(name="l", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"x":"c0", "y":"c1", "z":"c1"})
     database = DT_Database(tables=[R,l], cVarMapping={'-1':"x", '-2':"y", '-3':"z"})
 
     p1 = "l(1,x)[x == 1] :- R(x)[x == 1]\nl(1,x)[x == 2] :- R(x)[x == 2]"
@@ -206,8 +207,8 @@ def unit_test9():
         print("Test 9.2 passed in {} seconds".format(end-start))
 
 def unit_test10():
-    R = DT_Table(name="R", columns={"c0":"integer"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
-    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer"}, cvars={"x":"c0", "y":"c1", "z":"c1"})
+    R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
+    l = DT_Table(name="l", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
     database = DT_Database(tables=[R,l], cVarMapping={'-1':"x", '-2':"y", '-3':"z"})
 
     p1 = "l(x)[And(x > 2, x  < 7)] :- R(x)[And(x > 0, x  < 10)], R(x)[And(x > 2, x  < 7)]"
@@ -230,8 +231,8 @@ def unit_test10():
         print("Test 10 passed in {} seconds".format(end-start))
 
 def unit_test11():
-    R = DT_Table(name="R", columns={"c0":"integer"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
-    l = DT_Table(name="l", columns={"c0":"integer"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
+    R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
+    l = DT_Table(name="l", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
     database = DT_Database(tables=[R,l], cVarMapping={'-1':"x", '-2':"y", '-3':"z"})
 
     p1 = "l(x)[And(x != 2, x != 3)] :- R(x)[x != 2], R(x)[x != 3]\nl(x)[x != 2] :- R(x)[x != 2], R(x)"
@@ -272,8 +273,8 @@ def unit_test11():
         print("Test 11.3 passed in {} seconds".format(end-start))
 
 def unit_test12():
-    R = DT_Table(name="R", columns={"c0":"integer", "c1":"inet", "c2":"integer"}, cvars={"D":"c1"})
-    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer", "c2":"inet"}, cvars={"D":"c2"})
+    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"inet", "c2":"integer_faure"}, cvars={"D":"c1"})
+    l = DT_Table(name="l", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"inet"}, cvars={"D":"c2"})
     database = DT_Database(tables=[R,l], cVarMapping={"'0.0.0.1'":"D"})
 
     p1 = "R(4323,D,3356)[And(And(D != '216.186.192.0/22',D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22',D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)\nR(4323,D,3356)[And(And(D != '216.186.192.0/22',D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22',D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)"
@@ -294,7 +295,7 @@ def unit_test12():
 # execution with array concatination
 def unit_test13():
     p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != n2], F(10, n2, n)"
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer", "integer[]"], "F":["integer", "integer", "integer"]}, domains={}, c_variables=['x1','x2','x3','y1','y2','y3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"], faure_evaluation_mode='contradiction', cVarMapping={'-1':"x1", '-2':'x2', '-3':'x3', '-10':"y1", '-20':'y2', '-30':'y3'})
+    program1 = DT_Program(p1, {"R":["integer_faure", "integer_faure","integer_faure", "integer_faure[]"], "F":["integer_faure", "integer_faure", "integer_faure"]}, domains={}, c_variables=['x1','x2','x3','y1','y2','y3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"], faure_evaluation_mode='contradiction', cVarMapping={'-1':"x1", '-2':'x2', '-3':'x3', '-10':"y1", '-20':'y2', '-30':'y3'})
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
     program1.initiateDB(conn)
@@ -312,7 +313,7 @@ def unit_test13():
 # execution with array concatination (Faure hack)
 def unit_test14():
     p1 = "R(10, 100, n, [100, n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != n2], F(10, n2, n)"
-    program1 = DT_Program(p1, {"R":["integer", "integer","integer", "integer[]"], "F":["integer", "integer", "integer"]}, domains={}, c_variables=['x1','x2','x3','y1','y2','y3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"])
+    program1 = DT_Program(p1, {"R":["integer_faure", "integer_faure","integer_faure", "integer_faure[]"], "F":["integer_faure", "integer_faure", "integer_faure"]}, domains={}, c_variables=['x1','x2','x3','y1','y2','y3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"])
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
     program1.initiateDB(conn)
@@ -354,19 +355,18 @@ def unit_test15():
 if __name__ == "__main__":
     # unit_test1()
     # unit_test2()
-    # # unit_test3()
-    # # unit_test4()
-    # unit_test5()
-    # unit_test6()
+    # unit_test3()
+    # unit_test4()
+    unit_test5()
+    unit_test6()
 
     # # # unit_test7()
     # # # unit_test9()
 
-    # unit_test8()
-    # unit_test10()
-    # unit_test11()
+    unit_test8()
+    unit_test10()
+    unit_test11()
     unit_test12()
-    # # unit_test12()
     # unit_test13()
     # unit_test14()
     # unit_test15()

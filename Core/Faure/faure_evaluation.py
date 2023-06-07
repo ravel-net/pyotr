@@ -132,7 +132,7 @@ class FaureEvaluation:
             if simplication_on:
                 self._reasoning_tool.simplification(self.output_table)
         else:
-            self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases)
+            # self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases)
             self._additional_condition = additional_condition
             self._empty_condition_idx = None # the reference of the empty condition with BDD
             
@@ -276,23 +276,18 @@ class FaureEvaluation:
         for i in range(count_num):
             
             (old_conditions, conjunctin_conditions, id) = data_tuples[i]
-            # print(old_conditions, conjunctin_conditions, id)
             '''
             Logical AND all original conditions for all tables
             '''
-            # print("result", bddmm.operate_BDDs(0, 1, "&"))
             old_bdd = old_conditions[0]
             for cond_idx in range(1, len(old_conditions)):
                 bdd1 = old_conditions[cond_idx]
-                # print("old_bdd", old_bdd, "bdd1", bdd1)
                 old_bdd = self._reasoning_tool.operate_BDDs(int(bdd1), int(old_bdd), "&")
-                # print('old', old_bdd)
 
             '''
             get BDD reference number for conjunction condition
             '''
-            # print("conjunctin_conditions", conjunctin_conditions)
-            if len(conjunctin_conditions) != 0:
+            if conjunctin_conditions and len(conjunctin_conditions) != 0:
                 # conjunction_str = "And({})".format(", ".join(conjunctin_conditions))
                 conjunction_ref = self._reasoning_tool.str_to_BDD(conjunctin_conditions)
 
@@ -359,21 +354,18 @@ class FaureEvaluation:
         
         update_tuples = []
         for i in range(count_num):
-            
             (old_conditions, conjunctin_conditions, id) = data_tuples[i]
             
             old_cond = None
             # old_conditions = [item for subconditions in old_conditions for item in subconditions]
-            if len(old_conditions) == 0:
+            if old_conditions == None or len(old_conditions) == 0:
                 old_cond = "1 == 1"
             elif len(old_conditions) == 1:
                 old_cond = old_conditions[0]
             else:
                 old_cond = "And({})".format(", ".join(old_conditions))
 
-            print("Checking implication", old_cond, conjunctin_conditions)
             if self._reasoning_tool.is_implication(old_cond, conjunctin_conditions): # all possible instances are matched the program
-                print("Implication success", old_cond, conjunctin_conditions)
                 update_tuples.append((id, [old_cond, conjunctin_conditions]))
             
         

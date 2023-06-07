@@ -64,7 +64,6 @@ def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 def getTablesAsConditions(tables = [], colmName = "condition"):
 	tableRefs = []
 	for table in tables:
-		print(table)
 		tableReference = table.split()[1]
 		tableRefs.append(tableReference + "." + colmName)
 	return " || ".join(tableRefs)
@@ -127,7 +126,9 @@ def extractConditions(conditions, i):
 	end = curr
 	return conditions[start:end].strip(), start, end
 
-def processCon(var1, var2, op, replacements, is_ip=False):
+# TODO: Remove is ip
+# TODO: Need to have table c-var type so that conditions can be appropriately run
+def processCon(var1, var2, op, replacements, cVarTypes={}, is_ip=False):
 	condition = ""
 	if var1 in replacements:
 		condition += replacements[var1]
@@ -144,14 +145,20 @@ def processCon(var1, var2, op, replacements, is_ip=False):
 
 	# to support negative integers as c-variables
 	if var1 in replacements:
-		finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "'1.0.0.0')"  
+		if var1 in cVarTypes and "inet" in cVarTypes[var1]:
+			finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "'0.0.255.0')"  
+		else:
+			finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "0)"  
 	else:
-		finalCondition = "(" + condition + " or " + var1 + " < " + "'1.0.0.0')"  	
+		if var1 in cVarTypes and "inet" in cVarTypes[var1]:
+			finalCondition = "(" + condition + " or " + var1 + " < " + "'0.0.255.0')"  	
+		else:
+			finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
 
 	return finalCondition
 
 # Converts a z3 condition into a SQL where clause
-def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, is_ip=False):
+def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, cVarTypes={}, is_ip=False):
 	if (len(condition) <= 1): # Empty condition
 		return TRUE, []
 	stack = deque()
@@ -177,7 +184,7 @@ def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replaceme
 			splitConditions = currCondition.split(op)
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
-			encodedCond = processCon(splitConditions[0], splitConditions[1], op, replacements, is_ip)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], op, replacements, cVarTypes, is_ip)
 			stack.append(encodedCond)
 			i+=len(splitConditions[1])+len(op)-1
 		else:

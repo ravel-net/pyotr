@@ -18,7 +18,7 @@ def minimizeAtoms(P):
             if not rule_with_deleted_atom.safe():
                 atomNum += 1 
                 continue
-            contained = P.contains_rule(rule_with_deleted_atom, P._cVarMappingReverse)
+            contained = P.contains_rule(rule_with_deleted_atom, P.db.cVarMappingReverse)
             if contained:
                 P.replaceRule(ruleNum, rule_with_deleted_atom) 
                 rule = rule_with_deleted_atom
@@ -33,7 +33,7 @@ def minimizeRules(P):
             return
         rule = P.getRule(ruleNum)
         newProgram = P.copyWithDeletedRule(ruleNum)
-        if newProgram.contains_rule(rule, P._cVarMappingReverse):
+        if newProgram.contains_rule(rule, P.db.cVarMappingReverse):
             P.deleteRule(ruleNum)
         else:
             ruleNum += 1   
@@ -43,7 +43,7 @@ def enhancedMinimization(P, constantUnificationOn = True):
     signatureBuckets = {}
     ruleName = {}
     P_unified = []
-    for ruleNum, rule in enumerate(P._rules):
+    for ruleNum, rule in enumerate(Prules):
         signature = rule.getSignature()
         if not signature in signatureBuckets:
             signatureBuckets[signature] = ([],[]) # (rule, ruleNum)

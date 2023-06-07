@@ -21,7 +21,7 @@ class DT_Atom:
         Add constants in place of variables referenced in this atom on database pointed by psycopg2 connection "conn". Conversion to sql and execution of sql occurs here
     """
     
-    def __init__(self, atom_str, databaseTypes={}, operators=[], c_variables=[], c_tables=[]):
+    def __init__(self, atom_str, database=None, operators=[]):
         relation = None
         condition = None
         if ')[' in atom_str: # contains conditions for atom, e.g., R(a1, xd, p)[a1 = 1]
@@ -34,10 +34,9 @@ class DT_Atom:
         else: # without conditions for atom, e.g., R(a1, xd, p)
             relation = atom_str.strip()
         split_str = relation.split("(")
-        self.db = {}
+        self.db = database
         self.variables = []
-        self.c_variables = c_variables
-        self._isCTable = False
+        self.c_variables = self.db.c_variables
 
         self.constraints = [] # conditions for c-variables
         if condition is not None: # conditions for c-variables
@@ -45,6 +44,7 @@ class DT_Atom:
             self.constraints.append(processed_c)
 
         self.parameters =  []
+        #TODO: Move to parsing utils
         parameter_str = split_str[1].strip() # parameter_str = 'a1, xd, p'
         if parameter_str[-1] == ')':
             parameter_str = parameter_str[:-1] 
@@ -72,18 +72,15 @@ class DT_Atom:
                 else:
                     self.parameters.append(var.strip())
 
-        self.db["name"] = split_str[0].strip()
-        if self.db["name"] in c_tables:
-            self._isCTable = True
-        self.db["column_names"] = []
-        self.db["column_types"] = []
-        for i, var in enumerate(self.parameters):
-            self.db["column_names"].append("c"+str(i))
-            if self.db["name"] in databaseTypes:
-                self.db["column_types"].append(databaseTypes[self.db["name"]][i])
-            else:
-                self.db["column_types"].append("integer")
+        tableName = split_str[0].strip()
+        self.table = self.db.getTable(tableName)
+        if self.table == None:
+            print("Table {} not found. Exiting".format(tableName)) #TODO: Log it
+            exit()
+        self._isCTable = self.table.isCTable
 
+        # TODO: Move to parsing utils as getAtomVariables
+        for i, var in enumerate(self.parameters):
             if type(var) == list:
                 for v in var:
                     isDigit = v[0].isdigit() or (v[0] == "'" and v[1].isdigit)
@@ -107,29 +104,6 @@ class DT_Atom:
                 if not hasOperator and not var[0].isdigit():
                     if var not in self.c_variables and var not in self.variables:
                         self.variables.append(var)
-
-        # # cleaning up parameters so that integers are represented as integers and variables/c-vars as text
-        # cleaned_params = []
-        # for param in self.parameters:
-        #     if type(param) == list:
-        #         newSubParam = []
-        #         for subparam in param:
-        #             if subparam.isdigit():
-        #                 newSubParam.append(int(subparam))
-        #             else:
-        #                 newSubParam.append(subparam)
-        #         cleaned_params.append(newSubParam)
-        #     else:
-        #         if param.isdigit():
-        #             cleaned_params.append(int(param))
-        #         else:
-        #             cleaned_params.append(param)
-        # self.parameters = cleaned_params
-
-        # column for condition attribute
-        if self._isCTable:
-            self.db["column_names"].append("condition")
-            self.db["column_types"].append("text[]")
         
     def __str__(self):
         parameter_strs = []
@@ -138,7 +112,7 @@ class DT_Atom:
                 parameter_strs.append("[{}]".format(", ".join(p)))
             else:
                 parameter_strs.append(p)
-        atom_str = self.db["name"]+"("+",".join(parameter_strs)+")"
+        atom_str = self.table.name+"("+",".join(parameter_strs)+")"
         if self.constraints:
             atom_str += "[{}]".format(", ".join(self.constraints))
         return atom_str
@@ -150,7 +124,7 @@ class DT_Atom:
                 parameter_strs.append("[{}]".format(", ".join(p)))
             else:
                 parameter_strs.append(p)
-        atom_str = self.db["name"]+"("+",".join(parameter_strs)+")"
+        atom_str = self.table.name+"("+",".join(parameter_strs)+")"
         return atom_str
 
     def replaceCondition(self, condition):
@@ -162,7 +136,7 @@ class DT_Atom:
             if type(var) == list:
                 mapping_constants = []
                 for v in var:
-                    if v in cVarMappingReverse:
+                    if v in cVarMappingReverse: # it is a c-variable
                         mapping_constants.append(cVarMappingReverse[v])
                     else:
                         mapping_constants.append(str(mapping[v]))
@@ -171,46 +145,34 @@ class DT_Atom:
             if len(var.split('.')) == 4: # it is IP constant
                 variableConstants.append("'{}'".format(var))
                 continue
-            if var[0].isdigit():
+            elif var[0].isdigit(): #TODO: Can ip in the if before this be merged with this one? Also, why if and not elif?
                 variableConstants.append(str(var))
                 continue
-            if var in self.c_variables:
+            elif var in cVarMappingReverse: # it is a cvariable
                 variableConstants.append("{}".format(cVarMappingReverse[var]))
                 continue
-            if self.db["column_types"][i] == "integer":
-                variableConstants.append(str(mapping[var]))
-            elif "[]" in self.db["column_types"][i]: # Only supports single dimensional array
-                # # For supporting array[]
-                # if "[" in var:
-                #     if var[0] == '[': 
-                #         var = var[1:]
-                #     if var[-1] == ']':
-                #         var = var[:-1]
-                #     listing_vars = var.split(',')
-                #     temp_variable_constants = []
-                #     for listing_var in listing_vars:
-                #         if var in self.c_variables:
-                #             temp_variable_constants.append("'{}'".format(listing_var))
-                #         else:
-                #             temp_variable_constants.append(str(mapping[var]))
-                #     variableConstants.append("ARRAY[{}]".format(", ".join(temp_variable_constants)))
-                #     continue
-
-                # For supporting ||
+            # if self.db["column_types"][i] == "integer":
+            #     variableConstants.append(str(mapping[var]))
+            if "[]" in self.table.getColmType(i): # TODO: Add documentation that this only supports single dimensional array
                 variableConstants.append("'{" + str(mapping[var]).replace("'","") + "}'")
-            else:
+            elif "int" in self.table.getColmType(i):
+                variableConstants.append(str(mapping[var]))
+            elif len(mapping[var].split('.')) == 4:
                 variableConstants.append("'{}'".format(mapping[var]))
+            else:
+                variableConstants.append(str(mapping[var]))
 
         # if self.c_variables:
         if self._isCTable:
             variableConstants.append("'{" + ", ".join(['"{}"'.format(c.replace("'","")) for c in self.constraints]) + "}'") 
             # variableConstants.append("'{}'") 
 
-        sql = "insert into " + self.db["name"] + " values(" +  ",".join(variableConstants) + ")"
+        sql = "insert into " + self.table.name + " values(" +  ",".join(variableConstants) + ")"
         cursor = conn.cursor()
         cursor.execute(sql)
         conn.commit()
     
+    #TODO: Check if still relevant. If it is, move to parsingUtils
     def datalog_condition2z3_condition(self, condition):
         # Assume support logical Or/And, excluding mixed uses
         logical_opr = None
@@ -241,9 +203,6 @@ class DT_Atom:
             print("Illegal condition: {}!".format(condition))
             exit()
         return processed_cond
-        
-
-
 
 if __name__ == "__main__":
     atom = DT_Atom("Gasd(x,y,z)")
