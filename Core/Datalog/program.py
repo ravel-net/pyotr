@@ -6,9 +6,11 @@ import psycopg2
 from copy import deepcopy
 from Core.Datalog.rule import DT_Rule
 from Core.Datalog.database import DT_Database
+from Core.Datalog.table import DT_Table
 from Core.Datalog.DL_minimization import minimizeAtoms, minimizeRules, enhancedMinimization
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 from Backend.reasoning.CUDD.BDDTools import BDDTools
+from utils.parsing_utils import split_atoms
 from utils.converter.recursion_converter import RecursiveConverter
 import databaseconfig as cfg
 from utils.logging import timeit
@@ -50,6 +52,8 @@ class DT_Program:
         # IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
         self.db = database #TODO: When tables not specified, have a function to extract tables and databases.
+        if not self.db:
+            self.db = self.createDB(program_str)
         self._isFaureEval = False
         self._optimizations = optimizations
         self.reasoning_tool = None
@@ -88,6 +92,7 @@ class DT_Program:
             if not self.contains_rule(rule, dt_program2.db.cVarMappingReverse):
                 return False
         return True
+
 
     # @timeit
     def execute(self, conn, faure_evaluation_mode="contradiction"):
@@ -184,7 +189,42 @@ class DT_Program:
             else:
                 enhancedMinimization(self, True)
 
-    
+    # Creates a database if the database is not explictly specified. Default db has only integers
+    def createDB(self, program_str):
+        tables = []
+        tableNames = []
+        for rule_str in program_str.split("\n"):
+            head_str = rule_str.split(":-")[0].strip()
+            body_str = rule_str.split(":-")[1].strip().split(",(")[0]
+
+            head_table = self.createTable(head_str)
+            if head_table.name not in tableNames:
+                tableNames.append(head_table.name)
+                tables.append(head_table)
+            body = []
+            # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
+            atom_strs = split_atoms(body_str)
+            for atom_str in atom_strs:
+                atom_str = atom_str.strip()
+                # if atom_str[0] == '(': # additional constraint
+                #     self._additional_constraints.append(atom_str[1:-1])
+                #     continue
+                body_atom_table = self.createTable(atom_str)
+                if body_atom_table.name not in tableNames:
+                    tableNames.append(body_atom_table.name)
+                    tables.append(body_atom_table)
+        return DT_Database(tables)
+
+    # given an atom string, creates a table
+    def createTable(self, atom_str):
+        tableName = atom_str[0]
+        numParameters = atom_str.count(",")+1 # hacky method to know the number of parameters. This will not work when there are arrays. TODO: Fix when there are arrays
+        columns = {}
+        for param in range(numParameters):
+            columns['c'+str(param)] = "integer"
+        return DT_Table(name=tableName, columns=columns)
+
+
     @property
     def numRules(self):
         return len(self.rules)

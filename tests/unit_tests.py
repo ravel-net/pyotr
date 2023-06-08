@@ -353,8 +353,8 @@ def unit_test15():
         print("Test 15.2 passed in {} seconds".format(end-start))
 
 if __name__ == "__main__":
-    # unit_test1()
-    # unit_test2()
+    unit_test1()
+    unit_test2()
     # unit_test3()
     # unit_test4()
     unit_test5()

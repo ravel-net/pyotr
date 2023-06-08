@@ -1,9 +1,16 @@
+import sys
+from os.path import dirname, abspath
+root = dirname(abspath(__file__))
+sys.path.append(root)
+
 from collections import deque
+from utils.logging import timeit
 
 logicalOpsConversion = {"^":"Or", "&":"And"}
 
 # Input: Conditions as conjunctive array (e.g. ['t0.c0 == t1.c0', 't1.c0 == t2.c0', 't2.c0 == t3.c0', ['t0.c0 == 2', 'And(Or(t0.c0 == 1, t0.c0 == 2), t0.c0 == 5)']])
 # Output Example: Array['And(' || t0.c0 || ' == ' || t1.c0 || ', ' || t1.c0 || ' == ' || t2.c0 || ', ' || t2.c0 || ' == ' || t3.c0 || ', ' || t0.c0 || ' == ' || 2 || ', ' || 'And(' || 'Or(' || t0.c0 || ' == ' || 1 || ', ' || t0.c0 || ' == ' || 2 || ')' || ', ' || t0.c0 || ' == ' || 5 || ')' || ')']
+@timeit
 def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 	if len(conditions) > 0:
 		conditionSQL = "And(" + ", ".join(conditions)+")"
@@ -61,6 +68,7 @@ def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 
 # Input: Tables for joining (e.g. ['C t0', 'C t1', 'C t2', 'B t3'])
 # Output Example: t0.condition || t1.condition || t2.condition || t3.condition
+@timeit
 def getTablesAsConditions(tables = [], colmName = "condition"):
 	tableRefs = []
 	for table in tables:
@@ -72,6 +80,7 @@ def getTablesAsConditions(tables = [], colmName = "condition"):
 # Input: Condition
 # Processing: Replace negative integers by c-vars
 # Output: String in z3 format
+@timeit
 def replaceCVarsNegative(condition, mapping):
     replacedConditions = []
     for c in condition:
@@ -83,6 +92,7 @@ def replaceCVarsNegative(condition, mapping):
 # Input: Condition
 # Processing: Replace cvariables by sql locations
 # Output: Return processed condition
+@timeit
 def replaceCVars(condition, mapping):
     replacedConditions = []
     for c in condition:
@@ -92,6 +102,7 @@ def replaceCVars(condition, mapping):
     return replacedConditions
 
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
+@timeit
 def popUntilLogicalOP(stack):
 	elem = stack.pop()
 	listItems = []
@@ -101,6 +112,7 @@ def popUntilLogicalOP(stack):
 	return listItems[::-1], logicalOpsConversion[elem] #Todo: Should work even without reversing array using ::-1
 
 # Combines a list of items under a single logical operator into pairwise logical operations that are understandable by CUDD
+@timeit
 def combineItems(listItems, logicalOP, replacements):
 	if logicalOP in replacements:
 		logicalOP = replacements[logicalOP]
@@ -113,6 +125,7 @@ def combineItems(listItems, logicalOP, replacements):
 
 
 # Extract conditions from a given position in the whole condition string. Note that i is the position of "=="
+@timeit
 def extractConditions(conditions, i):
 	start = 0
 	end = len(conditions)
@@ -128,6 +141,7 @@ def extractConditions(conditions, i):
 
 # TODO: Remove is ip
 # TODO: Need to have table c-var type so that conditions can be appropriately run
+@timeit
 def processCon(var1, var2, op, replacements, cVarTypes={}, is_ip=False):
 	condition = ""
 	if var1 in replacements:
@@ -158,6 +172,7 @@ def processCon(var1, var2, op, replacements, cVarTypes={}, is_ip=False):
 	return finalCondition
 
 # Converts a z3 condition into a SQL where clause
+@timeit
 def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, cVarTypes={}, is_ip=False):
 	if (len(condition) <= 1): # Empty condition
 		return TRUE, []
@@ -196,6 +211,39 @@ def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replaceme
 	sqlFormCond = stack.pop()
 
 	return sqlFormCond
+
+@timeit
+def split_atoms(bodystr):
+	i = 0
+	in_cond = False
+	in_param = False
+	atom_strs = []
+	begin_pos = i
+	while i < len(bodystr):
+		if bodystr[i] == '(' and not in_cond:
+			in_param = True
+		elif bodystr[i] == '[' and not in_param:
+			in_cond = True
+		elif bodystr[i] == ')' and not in_cond:
+			in_param = False
+			atom_str = bodystr[begin_pos: i+1].strip(" ,")
+			atom_strs.append(atom_str)
+			begin_pos = i+1
+		elif bodystr[i] == ']' and not in_param:
+			# if len(in_parenth) < 1:
+			in_cond = False
+			in_param = False
+			relation = atom_strs.pop(-1)
+			atom_str_with_condition = relation + bodystr[begin_pos: i+1]
+			atom_str_with_condition.strip(" ,")
+			atom_strs.append(atom_str_with_condition)
+			begin_pos = i + 1
+		
+		i += 1
+	if begin_pos != len(bodystr):
+		atom_strs.append(bodystr[begin_pos:].strip(" ,"))
+	
+	return atom_strs
 
 print(z3ToSQL("And(y == 10, y < 20)"))
 # print(z3ToSQL("And(Or(Or(Or(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1))), x3 == 1, x2 == 1, x1 == 1), x3 == 1, x2 == 1, Or(And(x3 == 1, 1 == x1), And(x2 == 1, 1 == x1), 1 == x1, x1 == 1)), x2 == 1, x3 == 1, x1 == 1), 1 == x2, x2 == 2)"))

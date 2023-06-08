@@ -72,6 +72,7 @@ class DT_Atom:
                 else:
                     self.parameters.append(var.strip())
 
+        # TODO: Add documentation that table name must be a single letter
         tableName = split_str[0].strip()
         self.table = self.db.getTable(tableName)
         if self.table == None:

@@ -25,7 +25,8 @@ class DT_Table:
     # columns: {column_name : column_type}
     # domain: {column_name : []}
     # cvars: {cvar : column_name}
-    def __init__(self, name, columns, cvars, domain={}):
+    @timeit
+    def __init__(self, name, columns={}, cvars={}, domain={}):
         self.name = name
         self.columns = columns
         self.cvars = cvars
@@ -38,10 +39,12 @@ class DT_Table:
             self.addConditionColumn()
     
     # TODO: Think about a better way than this
+    @timeit
     def getColmTypeWithoutFaure(self, colmType):
         return colmType.replace("_faure","")
     
     # Initiates an empty table
+    @timeit
     def initiateTable(self, conn):
         cursor = conn.cursor()
         cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
@@ -54,6 +57,7 @@ class DT_Table:
         cursor.execute(table_creation_query)
 
     # Given a colm index, return the colm type
+    @timeit
     def getColmType(self, i):
         j = 0
         for colmName in self.columns:
@@ -65,6 +69,7 @@ class DT_Table:
         exit()
 
     # Given a colm index, return the colm name
+    @timeit
     def getColmName(self, i):
         j = 0
         for colmName in self.columns:
@@ -77,16 +82,19 @@ class DT_Table:
 
 
     # Adds condition column of type text[] and name condition (if it already does not exist)
+    @timeit
     def addConditionColumn(self):
         if "condition" not in self.columns:
             self.columns["condition"] = "text[]"
 
+    @timeit
     def isCTable(self):
         for colm in self.columns:
             if "faure" in self.columns[colm]:
                 return True
         return False
-        
+    
+    @timeit
     def getCvarsDomain(self):
         cvars_domain = {}
         for cvar in self.cvars:
@@ -95,6 +103,7 @@ class DT_Table:
                 cvars_domain[cvar] = self.domain[colm]
         return cvars_domain
     
+    @timeit
     def getReasoningType(self):
         reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec"}
         reasoning_types = {}
@@ -108,6 +117,7 @@ class DT_Table:
                 reasoning_types[cvar] = colm_type
         return reasoning_types
 
+    @timeit
     def getCVarType(self):
         cVar_types = {}
         for cvar in self.cvars:

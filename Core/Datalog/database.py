@@ -24,6 +24,7 @@ class DT_Database:
     """
 
     # list of tables 
+    @timeit
     def __init__(self, tables = [], cVarMapping={}):
         self.tables = tables
         self.cVarMapping = cVarMapping
@@ -38,16 +39,19 @@ class DT_Database:
         self.cVarTypes = self.getCVarType()
 
     # creates an empty DB
+    @timeit
     def initiateDB(self, conn):
         for table in self.tables:
             table.initiateTable(conn)
 
+    @timeit
     def getTable(self, name):
         for table in self.tables:
             if table.name == name:
                 return table
         return None
 
+    @timeit
     def getCTables(self):
         c_tables = []
         for table in self.tables:
@@ -55,6 +59,7 @@ class DT_Database:
                 c_tables.append(table.name)
         return c_tables
 
+    @timeit
     def getDatabaseTypes(self):
         databaseTypes = {}
         for table in self.tables:
@@ -64,9 +69,11 @@ class DT_Database:
             databaseTypes[table.name] = table_types
         return databaseTypes
     
+    @timeit
     def getCVars(self):
         return list(self.cVarMappingReverse.keys())
 
+    @timeit
     def getDomains(self):
         cvar_domain = {}
         for table in self.tables:
@@ -79,6 +86,7 @@ class DT_Database:
                     cvar_domain[cvar] = domain
         return cvar_domain
 
+    @timeit
     def getReasoningType(self):
         reasoning_types = {}
         for table in self.tables:
@@ -93,6 +101,7 @@ class DT_Database:
                     reasoning_types[cvar] = colm_type
         return reasoning_types
 
+    @timeit
     def getCVarType(self):
         cVarTypes = {}
         for table in self.tables:

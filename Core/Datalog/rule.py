@@ -20,7 +20,7 @@ from psycopg2.extras import execute_values
 from Core.Datalog.atom import DT_Atom
 from Core.Faure.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
-from utils.parsing_utils import z3ToSQL, replaceCVars
+from utils.parsing_utils import z3ToSQL, replaceCVars, split_atoms
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils.logging import timeit
 import logging
@@ -70,7 +70,8 @@ class DT_Rule:
         if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
             self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
-        self._cVarMappingReverse = database.cVarMappingReverse
+        if self.db:
+            self._cVarMappingReverse = self.db.cVarMappingReverse
         self.optimizations = optimizations
         if headAtom and bodyAtoms:
             self.generateRule(head=headAtom, body=bodyAtoms, operators=operators, optimizations=self.optimizations, database=self.db)
@@ -84,7 +85,7 @@ class DT_Rule:
             head = DT_Atom(head_str, database=self.db, operators=operators)
             body = []
             # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
-            atom_strs = self.split_atoms(body_str)
+            atom_strs = split_atoms(body_str)
             for atom_str in atom_strs:
                 atom_str = atom_str.strip()
                 # if atom_str[0] == '(': # additional constraint
@@ -111,7 +112,8 @@ class DT_Rule:
         self._operators = operators
         self._reasoning_engine = "z3" # TODO: Change this to have a member of reasoning tool that identifies the engine
         self._simplication_on = self.optimizations["simplification_on"]
-        self._c_tables = self.db.c_tables
+        if self.db:
+            self._c_tables = self.db.c_tables
         self._reverseMapping = {}
         self._recursive_rules = self.optimizations["recursive_rules"]
         
@@ -693,39 +695,6 @@ class DT_Rule:
         if len(newConstraints) > 1:
             newConstraint = " and ".join(newConstraints)
         return newConstraint.replace("==","=")
-
-    @timeit
-    def split_atoms(self, bodystr):
-        i = 0
-        in_cond = False
-        in_param = False
-        atom_strs = []
-        begin_pos = i
-        while i < len(bodystr):
-            if bodystr[i] == '(' and not in_cond:
-                in_param = True
-            elif bodystr[i] == '[' and not in_param:
-                in_cond = True
-            elif bodystr[i] == ')' and not in_cond:
-                in_param = False
-                atom_str = bodystr[begin_pos: i+1].strip(" ,")
-                atom_strs.append(atom_str)
-                begin_pos = i+1
-            elif bodystr[i] == ']' and not in_param:
-                # if len(in_parenth) < 1:
-                in_cond = False
-                in_param = False
-                relation = atom_strs.pop(-1)
-                atom_str_with_condition = relation + bodystr[begin_pos: i+1]
-                atom_str_with_condition.strip(" ,")
-                atom_strs.append(atom_str_with_condition)
-                begin_pos = i + 1
-            
-            i += 1
-        if begin_pos != len(bodystr):
-            atom_strs.append(bodystr[begin_pos:].strip(" ,"))
-        
-        return atom_strs
 
     def __str__(self):
         string = str(self._head) + " :- "
