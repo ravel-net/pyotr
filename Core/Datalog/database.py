@@ -38,6 +38,12 @@ class DT_Database:
         self.c_tables = self.getCTables()
         self.cVarTypes = self.getCVarType()
 
+    @timeit
+    def delete(self, conn): # destructor - drop tables
+        for table in self.tables:
+            table.delete(conn)
+        conn.commit()
+
     # creates an empty DB
     @timeit
     def initiateDB(self, conn):

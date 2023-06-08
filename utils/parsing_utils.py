@@ -157,16 +157,17 @@ def processCon(var1, var2, op, replacements, cVarTypes={}, is_ip=False):
 	else:
 		condition += var2
 
+	finalCondition = condition
 	# to support negative integers as c-variables
 	if var1 in replacements:
-		if var1 in cVarTypes and "inet" in cVarTypes[var1]:
+		if var1 in cVarTypes and "inet_faure" in cVarTypes[var1]:
 			finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "'0.0.255.0')"  
-		else:
+		elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
 			finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "0)"  
 	else:
 		if var1 in cVarTypes and "inet" in cVarTypes[var1]:
 			finalCondition = "(" + condition + " or " + var1 + " < " + "'0.0.255.0')"  	
-		else:
+		elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
 			finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
 
 	return finalCondition

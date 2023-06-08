@@ -38,6 +38,11 @@ class DT_Table:
         if self.isCTable:
             self.addConditionColumn()
     
+    @timeit 
+    def delete(self, conn): # drops table from db
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
+        
     # TODO: Think about a better way than this
     @timeit
     def getColmTypeWithoutFaure(self, colmType):
@@ -47,6 +52,11 @@ class DT_Table:
     @timeit
     def initiateTable(self, conn):
         cursor = conn.cursor()
+        cursor.execute("SELECT count(to_regclass('{}'))".format(self.name)) # checking if table already exists
+        if cursor.fetchall()[0][0] > 0: # if table exists
+            cursor.execute("SELECT count(*) from {}".format(self.name)) # check if empty
+            if cursor.fetchall()[0][0] == 0:
+                return # no need to create a new table
         cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
         table_creation_query = "CREATE TABLE {}(".format(self.name)
         for colmName in self.columns: 

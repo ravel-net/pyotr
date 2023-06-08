@@ -289,10 +289,14 @@ class DT_Rule:
                             variables_idx_in_array[var] = {'location': loc}
                             variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
                 elif val[0].isdigit():
-                    if len(columns) > 0 and "inet" in columns[atom.table.getColmName(col)]:
+                    if len(columns) > 0 and "inet_faure" in columns[atom.table.getColmName(col)]:
                         constraints.append("(t{}.{} = {} or t{}.{} < '0.0.255.0')".format(i, atom.table.getColmName(col), val, i, atom.table.getColmName(col)))
-                    else:
+                    elif len(columns) > 0 and "inet" in columns[atom.table.getColmName(col)]:
+                        constraints.append("t{}.{} = {}".format(i, atom.table.getColmName(col), val))
+                    elif len(columns) > 0 and "integer_faure" in columns[atom.table.getColmName(col)]:
                         constraints.append("(t{}.{} = {} or t{}.{} < 0)".format(i, atom.table.getColmName(col), val, i, atom.table.getColmName(col)))
+                    else:
+                        constraints.append("t{}.{} = {}".format(i, atom.table.getColmName(col), val))
                     constraintsZ3Format.append("t{}.{} == {}".format(i, atom.table.getColmName(col), val))
                 else: # variable or c_variable
                     if val not in variableList:
@@ -358,10 +362,12 @@ class DT_Rule:
                     currentTable = self.db.getTable(tableName)
                     columns = currentTable.columns
 
-                if len(columns) > 0 and "inet" in columns[colmName]:
+                if len(columns) > 0 and "inet_faure" in columns[colmName]:
                     constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + " < '0.0.255.0')")
-                else:
+                elif len(columns) > 0 and "integer_faure" in columns[colmName]:
                     constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + "< 0)")
+                else:
+                    constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
                 constraintsZ3Format.append(variableList[var][i] + " == " + variableList[var][i+1])
 
         # adding variables in arrays in variableList
@@ -501,11 +507,11 @@ class DT_Rule:
         contains = False
 
         # delete redundants
-        if self._reasoning_engine == 'z3':
-            merge_tuples.merge_tuples_z3(self._head.table.name, # tablename of header
-                                        information_on=False) 
-        else:
-            merge_tuples.merge_tuples_bdd(self._head.table.name, self.reasoning_tool, information_on=False)
+        # if self._reasoning_engine == 'z3':
+        #     merge_tuples.merge_tuples_z3(self._head.table.name, # tablename of header
+        #                                 information_on=False) 
+        # else:
+        #     merge_tuples.merge_tuples_bdd(self._head.table.name, self.reasoning_tool, information_on=False)
 
         '''
         check whether Q_summary is in resulting table
@@ -679,7 +685,7 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=False, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format})
+        FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format})
         changed = self.insertTuplesToHead(conn)
         return changed
 

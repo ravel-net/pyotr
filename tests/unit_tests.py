@@ -11,6 +11,8 @@ from Core.Datalog.table import DT_Table
 import psycopg2 
 import databaseconfig as cfg
 
+conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+
 # ====================================== Example 6 - Containment ========================================
 def unit_test1():
     p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
@@ -72,6 +74,7 @@ def unit_test4():
     program1 = DT_Program(p1, database)
     start = time.time()
     program1.minimize()
+    database.delete(conn)
     print(program1)
     if (str(program1) != "R(x,y) :- l(x,y)\nR(x,z) :- R(x,y),l(y,z)"):
         print("Test 4 failed")
@@ -90,7 +93,8 @@ def unit_test5():
     p1 = "R(x,y) :- L(x,q,z), Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
     program1 = DT_Program(p1, database)
     start = time.time()
-    program1.minimize(False, True, "Off")
+    program1.minimize()
+    database.delete(conn)
     print(program1)
     if (str(program1) != "R(x,y) :- L(x,q,z),Q(z)"):
         print("Test 5 failed")
@@ -110,6 +114,7 @@ def unit_test6():
     program1 = DT_Program(p1, database)    
     start = time.time()
     program1.minimize(False, True)
+    database.delete(conn)
     print(program1)
     if (str(program1) != "R(x,y)[And(y == 10, y < 20)] :- L(x,y,z)[And(y == 10, y < 20)],Q(z)\nR(x,y) :- L(x,q,z),Q(z)"):
         print("Test 6 failed")
@@ -132,6 +137,7 @@ def unit_test7():
 
     program1 = DT_Program(p1, database)
     program2 = DT_Program(p2, database)
+    database.delete(conn)
     start = time.time()
     if (not program2.contains(program1)):
         print("Text 7.1 failed")
@@ -163,6 +169,7 @@ def unit_test8():
     start = time.time()
     if (not program2.contains(program1)):
         print("Text 8.1 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
@@ -171,10 +178,12 @@ def unit_test8():
     start = time.time()
     if (program1.contains(program2)):
         print("Text 8.2 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 8.2 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
 def unit_test9():
     R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
@@ -193,6 +202,7 @@ def unit_test9():
     start = time.time()
     if (not program2.contains(program1)):
         print("Text 9.1 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
@@ -201,10 +211,12 @@ def unit_test9():
     start = time.time()
     if (not program1.contains(program2)):
         print("Text 9.2 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 9.2 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
 def unit_test10():
     R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
@@ -225,10 +237,12 @@ def unit_test10():
     print("Program 2 after minimization:", program2)
     if (str(program1) != str(program2)):
         print("Text 10 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 10 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
 def unit_test11():
     R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
@@ -242,10 +256,12 @@ def unit_test11():
     print("Program 1 after minimization:", program1)
     if (str(program1) != "l(x)[x != 2] :- R(x)[x != 2],R(x)"):
         print("Text 11.1 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 11.1 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
     p2 = "l(x)[x != 2] :- R(x)[x != 2], R(x)[x != 2]\nl(x)[x != 2] :- R(x)[x != 2], R(x)"
     program2 = DT_Program(p2, database)
@@ -254,10 +270,12 @@ def unit_test11():
     print("Program 2 after minimization:", program2)
     if (str(program2) != "l(x)[x != 2] :- R(x)[x != 2],R(x)"):
         print("Text 11.2 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 11.2 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
     p3 = "l(x)[And(x != 2, x != 3)] :- R(x)[x != 2], R(x)[x != 3]\nl(x)[And(x != 2, x != 4)] :- R(x)[x != 2], R(x)[x != 4]"
     program3 = DT_Program(p3, database)
@@ -267,14 +285,16 @@ def unit_test11():
     print("Program 3 after minimization:", program3)
     if (str(program3) != program3_orig):
         print("Text 11.3 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 11.3 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
 def unit_test12():
-    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"inet", "c2":"integer_faure"}, cvars={"D":"c1"})
-    l = DT_Table(name="l", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"inet"}, cvars={"D":"c2"})
+    R = DT_Table(name="R", columns={"c0":"integer", "c1":"inet_faure", "c2":"integer"}, cvars={"D":"c1"})
+    l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer", "c2":"inet_faure"}, cvars={"D":"c2"})
     database = DT_Database(tables=[R,l], cVarMapping={"'0.0.0.1'":"D"})
 
     p1 = "R(4323,D,3356)[And(And(D != '216.186.192.0/22',D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22',D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)\nR(4323,D,3356)[And(And(D != '216.186.192.0/22',D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22',D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)"
@@ -287,10 +307,12 @@ def unit_test12():
     print(program1)
     if (str(program1) != "R(4323,D,3356)[And(And(D != '216.186.192.0/22',D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22',D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)"):
         print("Text 12.1 failed")
+        database.delete(conn)
         exit()
     else:
         end = time.time()
         print("Test 12.1 passed in {} seconds".format(end-start))
+    database.delete(conn)
 
 # execution with array concatination
 def unit_test13():
@@ -355,13 +377,13 @@ def unit_test15():
 if __name__ == "__main__":
     unit_test1()
     unit_test2()
-    # unit_test3()
-    # unit_test4()
+    # # unit_test3()
+    # # unit_test4()
     unit_test5()
     unit_test6()
 
-    # # # unit_test7()
-    # # # unit_test9()
+    # # unit_test7()
+    # # unit_test9()
 
     unit_test8()
     unit_test10()
