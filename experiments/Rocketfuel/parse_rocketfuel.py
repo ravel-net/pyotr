@@ -423,7 +423,7 @@ class RocketfuelPoPTopo:
         if rule not in self._nodesRule:
             self._nodesRule[rule] = []
         for atom in rule._body:
-            if atom.db["name"] == "l":
+            if atom.table.name == "l":
                 node1 = atom.parameters[0]
                 node2 = atom.parameters[1]
                 # if node1.isdigit() or node2.isdigit():
@@ -435,28 +435,28 @@ class RocketfuelPoPTopo:
 
     def convertToProgram(self, rulesArr):
         program = DT_Program("\n".join(rulesArr), optimizations={"recursive_rules":False})    
-        for rule in program._rules:
+        for rule in program.rules:
             self.setNodes(rule)
         return program
 
     def convertToFirewallProgram(self, rulesArr):
-        R = DT_Table(name="R", columns={"c0":"integer", "c1":"inet", "c2":"integer"}, cvars={"D":"c1"})
-        l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer", "c2":"inet"}, cvars={"D":"c2"})
-        A = DT_Table(name="A", columns={"c0":"inet", "c1":"integer"}, cvars={"D":"c0"})
+        R = DT_Table(name="R", columns={"c0":"integer", "c1":"inet_faure", "c2":"integer"}, cvars={"D":"c1"})
+        l = DT_Table(name="l", columns={"c0":"integer", "c1":"integer", "c2":"inet_faure"}, cvars={"D":"c2"})
+        A = DT_Table(name="A", columns={"c0":"inet_faure", "c1":"integer"}, cvars={"D":"c0"})
         database = DT_Database(tables=[R,l, A], cVarMapping={"'0.0.0.1'":"D"})
 
         program = DT_Program("\n".join(rulesArr), database, optimizations={"recursive_rules":False})
-        for rule in program._rules:
+        for rule in program.rules:
             self.setNodes(rule)
         return program
 
     def minimize(self, program):
         minimizedProgram = deepcopy(program)
-        numRulesBefore = len(minimizedProgram._rules)
+        numRulesBefore = len(minimizedProgram.rules)
         start = time.time()
         minimizedProgram.minimize(False, True)
         end = time.time()
-        numRulesAfter = len(minimizedProgram._rules)
+        numRulesAfter = len(minimizedProgram.rules)
         return minimizedProgram
 
     def getNodes(self, rulesArr):
@@ -474,7 +474,7 @@ class RocketfuelPoPTopo:
         nodes = []
         for rule in rulesArray:
             for atom in rule._body:
-                if atom.db["name"] == "l":
+                if atom.table.name == "l":
                     node1 = atom.parameters[0]
                     node2 = atom.parameters[1]
                     # if node1.isdigit() or node2.isdigit():
@@ -504,25 +504,25 @@ class RocketfuelPoPTopo:
     def isEquivalentRule(self, rule1, rule2, firewall):
         program1 = ""
         if not firewall:
-            program1 = DT_Program(rule2, recursive_rules=False)
+            program1 = DT_Program(rule2, optimizations={"recursive_rules":False})
         else:
             program1 = self.convertToFirewallProgram([str(rule2)])
-        if not program1.contains_rule(rule1, program1._cVarMappingReverse):
+        if not program1.contains_rule(rule1, program1.db.cVarMappingReverse):
             return False
         if firewall:
             program2 = self.convertToFirewallProgram([str(rule1)])
-            if not program2.contains_rule(rule2, program2._cVarMappingReverse):
+            if not program2.contains_rule(rule2, program2.db.cVarMappingReverse):
                 return False
         return True
 
     def getEquivalenceClasses(self, minimizedProgram, program, firewall):
         equivalentClasses = [] # stores the equivalent classes
         rulesToDelete = []
-        numProgramRules = len(program._rules)
-        for minRule in minimizedProgram._rules:
+        numProgramRules = len(program.rules)
+        for minRule in minimizedProgram.rules:
             rulesToDelete = []
             currentRuleMatches = []
-            for ruleNum, rule in enumerate(program._rules):
+            for ruleNum, rule in enumerate(program.rules):
                 #if str(minRule) == str(rule): # same rule will be equivalent, no need to check
                 #    continue
                 if self.isEquivalentRule(rule, minRule, firewall):
@@ -823,9 +823,9 @@ def topologyMinimization(case, runs, logFilePath, mode = "w+", middleBoxes = [],
 
             # actualProgram = AS.convertToConstants(str(minimizedProgram))
             # print(actualProgram)
-            nodes, links = AS.getLinksNodes(programCopy._rules)
+            nodes, links = AS.getLinksNodes(programCopy.rules)
             # nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
-            nodes2, links2 = AS.getLinksNodes(selectedLinksProgram._rules)
+            nodes2, links2 = AS.getLinksNodes(selectedLinksProgram.rules)
             numNodesBefore = len(nodes)
             numNodesAfter = len(nodes2)
             numLinksBefore = len(links)
