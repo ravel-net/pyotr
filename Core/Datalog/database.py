@@ -7,6 +7,7 @@ sys.path.append(root)
 import databaseconfig as cfg
 from utils.logging import timeit
 from Core.Datalog.table import DT_Table
+from ipaddress import IPv4Address
 
 class DT_Database:
     """
@@ -27,16 +28,33 @@ class DT_Database:
     @timeit
     def __init__(self, tables = [], cVarMapping={}):
         self.tables = tables
-        self.cVarMapping = cVarMapping
-        self.cVarMappingReverse = {}
-        for negInt in self.cVarMapping:
-            self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
         self.cvar_domain = self.getDomains()
         self.c_variables = self.getCVars()
         self.reasoning_types = self.getReasoningType()
         self.databaseTypes = self.getDatabaseTypes()
         self.c_tables = self.getCTables()
         self.cVarTypes = self.getCVarType()
+        self.cVarMapping = self.getCVarMapping()
+        self.cVarMappingReverse = {}
+        for negInt in self.cVarMapping:
+            self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
+
+
+    # Maps cvariable integers to negative integers and maps cvariable inets to 0.0.0.1 to 0.0.255.0
+    @timeit
+    def getCVarMapping(self):
+        cvarMapping = {}
+        i = 1
+        for cvar in self.c_variables:
+            if 'BitVec' in self.reasoning_types[cvar]:
+                net = IPv4Address('0.0.0.1') + i
+                cvarMapping["'"+str(net)+"'"] = cvar
+            else:
+                cvarMapping[str(0-i)] = cvar
+            i += 1 
+        return cvarMapping
+
+
 
     @timeit
     def delete(self, conn): # destructor - drop tables
@@ -77,7 +95,12 @@ class DT_Database:
     
     @timeit
     def getCVars(self):
-        return list(self.cVarMappingReverse.keys())
+        cvars = []
+        for table in self.tables:
+            for cvar in table.cvars:
+                if cvar not in cvars:
+                    cvars.append(cvar)
+        return cvars
 
     @timeit
     def getDomains(self):
