@@ -139,10 +139,8 @@ def extractConditions(conditions, i):
 	end = curr
 	return conditions[start:end].strip(), start, end
 
-# TODO: Remove is ip
-# TODO: Need to have table c-var type so that conditions can be appropriately run
 @timeit
-def processCon(var1, var2, op, replacements, cVarTypes={}, is_ip=False):
+def processCon(var1, var2, op, replacements, cVarTypes={}):
 	condition = ""
 	if var1 in replacements:
 		condition += replacements[var1]
@@ -174,7 +172,7 @@ def processCon(var1, var2, op, replacements, cVarTypes={}, is_ip=False):
 
 # Converts a z3 condition into a SQL where clause
 @timeit
-def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, cVarTypes={}, is_ip=False):
+def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, cVarTypes={}):
 	if (len(condition) <= 1): # Empty condition
 		return TRUE, []
 	stack = deque()
@@ -197,16 +195,16 @@ def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replaceme
 			op = condition[i:i+2].strip()
 			currCondition, _,_ = extractConditions(condition, i)
 			length = len(condition)
-			splitConditions = currCondition.split(op)
-			splitConditions[0] = splitConditions[0].strip()
-			splitConditions[1] = splitConditions[1].strip()
-			encodedCond = processCon(splitConditions[0], splitConditions[1], op, replacements, cVarTypes, is_ip)
+			splitConditionsPre = currCondition.split(op)
+			splitConditions = [splitConditionsPre[0].strip(), splitConditionsPre[1].strip()]
+			encodedCond = processCon(splitConditions[0], splitConditions[1], op, replacements, cVarTypes)
 			stack.append(encodedCond)
-			i+=len(splitConditions[1])+len(op)-1
+			i+=len(splitConditionsPre[1])+len(op)-1
 		else:
 			i+=1
 
 	if (len(stack) != 1):
+		print(stack)
 		print("Length of stack should be 1")
 		exit()
 	sqlFormCond = stack.pop()
@@ -246,5 +244,94 @@ def split_atoms(bodystr):
 	
 	return atom_strs
 
-print(z3ToSQL("And(y == 10, y < 20)"))
-# print(z3ToSQL("And(Or(Or(Or(Or(Or(x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, x3 == 1), x2 == 1, x3 == 1), x3 == 1, x2 == 1, Or(1 == x1, And(x2 == 1, x3 == 1, 1 == x1), x1 == 1, And(x1 == 1, x2 == 1), And(x2 == 1, 1 == x1), And(x3 == 1, 1 == x1))), x3 == 1, x2 == 1, x1 == 1), x3 == 1, x2 == 1, Or(And(x3 == 1, 1 == x1), And(x2 == 1, 1 == x1), 1 == x1, x1 == 1)), x2 == 1, x3 == 1, x1 == 1), 1 == x2, x2 == 2)"))
+@timeit
+def datalog_condition2z3_condition(condition):
+	# Assume support logical Or/And, excluding mixed uses
+	logical_opr = None
+	if '^' in condition:
+		logical_opr = '^'
+	elif '&' in condition:
+		logical_opr = '&'
+	
+	conds = []
+	processed_cond = None
+	if logical_opr:
+		for c in condition.split(logical_opr):
+			c = c.strip()
+			if c.split()[1].strip() == '=':
+				c = c.replace('=', '==')
+			conds.append(c)
+	else:
+		if len(condition.split()) > 1 and condition.split()[1].strip() == '=':
+			condition = condition.replace('=', '==')
+		processed_cond = condition
+	
+	if logical_opr == '^':
+		processed_cond = "Or({})".format(", ".join(conds))
+	elif logical_opr == '&':
+		processed_cond = "And({})".format(", ".join(conds))
+	
+	if processed_cond is None:
+		print("Illegal condition: {}!".format(condition))
+		exit()
+	return processed_cond
+
+@timeit
+# paramstring is anything in an atom after the table name and initial bracket
+def getAtomParameters(paramString):
+	parameters = []
+	parameter_str = paramString.strip() # parameter_str = 'a1, xd, p'
+	if parameter_str[-1] == ')':
+		parameter_str = parameter_str[:-1] 
+	# if '[' in parameter_str: # there is an array in parameters, e.g., R(a1, xd, [a1, e1]), then parameter_str = 'a1, xd, [a1, e1]'
+	#     items = parameter_str.split('[')
+	in_sqr_parenth = False
+	vars_in_sqr_parenth = []
+	for var in parameter_str.split(','):
+		if '[' in var and ']' in var and '||' in var: # special case, parameter_str = 'a1, xd, a || [a1]'
+			parameters.append(var.strip())
+		elif '[' in var and ']' in var: # special case, parameter_str = 'a1, xd, [a1]'
+			value_in_array = re.findall(r'\[(.*?)\]', var)
+			parameters.append(copy(value_in_array))
+		elif '[' in var:
+			in_sqr_parenth = True
+			vars_in_sqr_parenth.append(var.split('[')[1].strip())
+		elif ']' in var:
+			in_sqr_parenth = False
+			vars_in_sqr_parenth.append(var.split(']')[0].strip())
+			parameters.append(copy(vars_in_sqr_parenth))
+			vars_in_sqr_parenth.clear()
+		else:
+			if in_sqr_parenth:
+				vars_in_sqr_parenth.append(var.strip())
+			else:
+				parameters.append(var.strip())
+	return parameters
+
+def getAtomVariables(parameters, c_variables, operators):
+	variables = []
+	for i, var in enumerate(parameters):
+		if type(var) == list:
+			for v in var:
+				isDigit = v[0].isdigit() or (v[0] == "'" and v[1].isdigit)
+				if not isDigit and v not in variables and v not in c_variables: # hacky fix
+					variables.append(v)
+		else:
+			hasOperator = False
+			for op in operators:
+				if (op in var):
+					hasOperator = True
+					concatinatingVars = var.split(op)
+					for concatinatingVar in concatinatingVars:
+						concatinatingVar = concatinatingVar.strip()
+						if '[' in concatinatingVar and ']' in concatinatingVar:
+							concatinatingVar = concatinatingVar.replace("[",'').replace("]",'').split(",")
+							for v in concatinatingVar:
+								if not v[0].isdigit() and v not in variables and v not in c_variables:
+									variables.append(v)
+						elif not concatinatingVar[0].isdigit() and concatinatingVar not in variables:
+							variables.append(concatinatingVar)
+			if not hasOperator and not var[0].isdigit():
+				if var not in c_variables and var not in variables:
+					variables.append(var)
+	return variables

@@ -97,8 +97,8 @@ def getCVarReplacements(conditions1, conditions2):
 def getConditions(substitution, rule, rule2, r2_without_faure, ruleName, constantUnificationOn):
 	conditions = []
 	for atom in rule2._body:
-		if atom.constraints:
-			conditions += atom.constraints
+		if atom.conditions:
+			conditions += atom.conditions
 	atomNum = 0
 	replacements = {}
 	for atom in rule._body: # note that the order of tuples in substitution should be the same as the order of atoms of rule
@@ -380,7 +380,7 @@ def getEquivalentRule(rule, ruleName, constantUnificationOn):
 
 # TODO: the param < 10000 is a hardcoded condition. Need to fix 
 def isConstant(param):
-	if "." in param and param[:5] == '0.0.0':
+	if "." in param and param[:5] == '0.1.0':
 		return False
 	elif "." in param:
 		return True
@@ -424,8 +424,8 @@ def getEquivalentAtom(atom, rule, atomName, constantUnificationOn):
 							listParams.append(listParam)
 					elif listParam in c_variables or listParam in new_cvariables:
 						listParams.append(listParam)
-						if atom.constraints and atom.constraints[0] not in conditions:
-							conditions += atom.constraints
+						if atom.conditions and atom.conditions[0] not in conditions:
+							conditions += atom.conditions
 					else: # variables:
 						new_cvar = listParam + "`"
 						new_cvariables.append(new_cvar)
@@ -443,8 +443,8 @@ def getEquivalentAtom(atom, rule, atomName, constantUnificationOn):
 					parameters.append(param)
 			elif param in c_variables or param in new_cvariables:
 				parameters.append(param)
-				if atom.constraints and atom.constraints[0] not in conditions:
-					conditions += atom.constraints
+				if atom.conditions and atom.conditions[0] not in conditions:
+					conditions += atom.conditions
 			else: # variables:
 				new_cvar = param + "`"
 				new_cvariables.append(new_cvar)

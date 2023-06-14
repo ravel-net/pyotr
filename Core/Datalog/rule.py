@@ -1,12 +1,3 @@
-# Constructor: string to array of atoms (head and list of body)
-# each atom has a database and arguments (string)
-
-# Iterate over atoms
-# Delete atom
-# Make new rule with a deleted atom
-# Rule to sql
-# Populate with constants in database (return the expected head). Give connection
-# Expected head to sql
 import sys
 from os.path import dirname, abspath
 from Backend.reasoning.Z3.z3smt import z3SMTTools
@@ -20,12 +11,13 @@ from psycopg2.extras import execute_values
 from Core.Datalog.atom import DT_Atom
 from Core.Faure.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
-from utils.parsing_utils import z3ToSQL, replaceCVars, split_atoms
+from utils import parsing_utils
 from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils.logging import timeit
 import logging
 import time 
 
+# TODO: Update documentation
 class DT_Rule:
     """
     A class used to represent a datalog rule.
@@ -85,7 +77,7 @@ class DT_Rule:
             head = DT_Atom(head_str, database=self.db, operators=operators)
             body = []
             # atom_strs = re.split(r'\),|\],', body_str) # split by ], or ),
-            atom_strs = split_atoms(body_str)
+            atom_strs = parsing_utils.split_atoms(body_str)
             for atom_str in atom_strs:
                 atom_str = atom_str.strip()
                 # if atom_str[0] == '(': # additional constraint
@@ -151,7 +143,7 @@ class DT_Rule:
                             self._reverseMapping[IPaddr] = listVar
                             i += 1
                         else: # Int data type
-                            # Document that integers above 100000 are reserved for variables and negative integers are reserved for c-variables. Include a check that no integers should overlap
+                            # TODO: Document that integers above 100000 are reserved for variables and negative integers are reserved for c-variables. Include a check that no integers should overlap
                             self._mapping[listVar] = 100000+i
                             self._reverseMapping[100000+i] = listVar
                             i += 1
@@ -195,19 +187,6 @@ class DT_Rule:
     @property
     def getDBs(self):
         return self._DBs
-
-    # returns the signature of a rule
-    @timeit
-    def getSignature(self):
-        signature = self._head.table.name+":-"
-        bodyTables = []
-
-        for atom in self._body:
-            table = atom.table.name
-            bodyTables.append(table)
-        bodyTables.sort()
-        signature += ",".join(bodyTables)
-        return signature
 
     def removeAdditionalCondition(self):
         self._additional_constraints = []
@@ -382,12 +361,12 @@ class DT_Rule:
         # Additional constraints are faure constraints.
         constraints_faure = []
         for atom in self._body:
-            for constraint in atom.constraints:
+            for constraint in atom.conditions:
                 constraints_faure.append(constraint)
 
         if len(constraints_faure) > 0:
             faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray)
-            constraintsZ3Format += replaceCVars(constraints_faure, varListWithArray)
+            constraintsZ3Format += parsing_utils.replaceCVars(constraints_faure, varListWithArray)
             constraints.append(faure_constraints)
         # TODO: Check for appropriate z3 format conversion for arrays
         # constraints for array
@@ -561,13 +540,13 @@ class DT_Rule:
 
         # set header condition
         header_condition = None
-        if self._head.constraints:
-            if len(self._head.constraints) == 0:
+        if self._head.conditions:
+            if len(self._head.conditions) == 0:
                 header_condition = ""
-            elif len(self._head.constraints) == 1:
-                header_condition = self._head.constraints[0]
+            elif len(self._head.conditions) == 1:
+                header_condition = self._head.conditions[0]
             else:
-                header_condition = "And({})".format(", ".join(self._head.constraints))
+                header_condition = "And({})".format(", ".join(self._head.conditions))
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
             data_portion = list(tup[:-1])
@@ -696,7 +675,7 @@ class DT_Rule:
         for var in variableList: # Variable list contains location for every occurrence of the variable. Need to fix
             singleLocVarList[var] = variableList[var][0]
         for constraint in constraints:
-            newConstraints.append(z3ToSQL(condition = constraint, replacements = singleLocVarList, cVarTypes=self.db.cVarTypes))
+            newConstraints.append(parsing_utils.z3ToSQL(condition = constraint, replacements = singleLocVarList, cVarTypes=self.db.cVarTypes))
         newConstraint = newConstraints[0] # note that this function should only be called when there are positive number of constraints
         if len(newConstraints) > 1:
             newConstraint = " and ".join(newConstraints)

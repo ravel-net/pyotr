@@ -11,7 +11,7 @@ import re
 import time
 from tqdm import tqdm
 from utils.logging import timeit
-from utils.parsing_utils import replaceCVarsNegative
+from utils import parsing_utils
 
 class z3SMTTools:
     """
@@ -571,7 +571,7 @@ class z3SMTTools:
             # else:
             #     print(len(row[1][0]))
 
-            is_contrad = self.iscontradiction(replaceCVarsNegative(row[1], self._mapping))
+            is_contrad = self.iscontradiction(parsing_utils.replaceCVarsNegative(row[1], self._mapping))
 
             if is_contrad:
                 del_tuple.append(row[0])
@@ -600,7 +600,7 @@ class z3SMTTools:
         for i in tqdm(range(redun_count)):
             row = cursor.fetchone()
             # print("check redun")
-            has_redun, result = self.has_redundancy(replaceCVarsNegative(row[1], self._mapping))
+            has_redun, result = self.has_redundancy(parsing_utils.replaceCVarsNegative(row[1], self._mapping))
             if has_redun:
                 if result != '{}':
                     result = ['"{}"'.format(r) for r in result]
@@ -646,7 +646,7 @@ class z3SMTTools:
     @timeit
     def _convert_z3_variable(self, condition):
         # TODO: BitVec datatype of value in array
-        condition = replaceCVarsNegative([condition], self._mapping)[0]
+        condition = parsing_utils.replaceCVarsNegative([condition], self._mapping)[0]
         if "\\not_in" in condition or "\\in" in condition:
             return self._convert_array_condition2z3_variable(condition)
         datatype = self._variable_type_in_condition(condition)

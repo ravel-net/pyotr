@@ -391,19 +391,35 @@ def unit_test16():
 
     start = time.time()
     if (not program2.contains(program1)):
-        print("Text 15.1 failed")
+        print("Text 16.1 failed")
         exit()
     else:
         end = time.time()
-        print("Test 15.1 passed in {} seconds".format(end-start))
+        print("Test 16.1 passed in {} seconds".format(end-start))
 
     start = time.time()
     if (not program1.contains(program2)):
-        print("Text 15.2 failed")
+        print("Text 16.2 failed")
         exit()
     else:
         end = time.time()
-        print("Test 15.2 passed in {} seconds".format(end-start))
+        print("Test 16.2 passed in {} seconds".format(end-start))
+
+# testing faure queries
+def unit_test17():
+    T1 = DT_Table(name="T1", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "q":"c2"})
+    R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "q":"c2"})
+    database = DT_Database(tables=[R,T1])
+    T1.initiateTable(conn)
+    R.initiateTable(conn)
+    conn.commit()
+    cursor = conn.cursor()
+    cursor.execute("INSERT INTO R VALUES (1,2,3),(4,5,6)")
+    conn.commit()
+
+    p1 = "T1(f, n1, q)[And(q > 3, x+y+z=1)] :- R(f,n1,q)[q > 3],(x+y+z=1)"
+    program1 = DT_Program(p1, database)
+    program1.execute(conn)
 
 if __name__ == "__main__":
     unit_test1()
@@ -425,6 +441,7 @@ if __name__ == "__main__":
     # unit_test15()
 
     unit_test16()
+    unit_test17()
 
 
 

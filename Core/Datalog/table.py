@@ -42,7 +42,7 @@ class DT_Table:
     def delete(self, conn): # drops table from db
         cursor = conn.cursor()
         cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
-        
+
     # TODO: Think about a better way than this
     @timeit
     def getColmTypeWithoutFaure(self, colmType):
@@ -115,7 +115,7 @@ class DT_Table:
     
     @timeit
     def getReasoningType(self):
-        reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec"}
+        reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec", "text[]":"Int"}
         reasoning_types = {}
         for cvar in self.cvars:
             colm = self.cvars[cvar] 
