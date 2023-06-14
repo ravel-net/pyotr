@@ -1,0 +1,18 @@
+1. Install the following packages:
+
+pip3 install psycopg2-binary
+pip3  install z3-solver
+pip3 install tqdm
+sudo apt-get install python3-tk
+pip3 install tk
+pip3 install python-igraph
+
+Note that depending on your machine, you might need to install more/different packages. 
+
+2. Install PostgreSQL (tested on version 9 and 13 but will likely work on other versions).
+
+3. Create a test database e.g. 'create database test' in PostgreSQL cli.
+
+4. Add host ip, username, password, and the name of the test database in "databaseconfig.py". This configuration file is used in Pyotr for database operations. 
+
+
