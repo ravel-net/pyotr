@@ -27,6 +27,7 @@ postgres = {
     "db": "test"
 }
 ````
+Installation instructions can be found here: https://github.com/ravel-net/pyotr/blob/FaureOptimization/Installation_instructions.txt
 
 ### Example 1: Containment with default database
 ````
