@@ -1,34 +1,72 @@
 # Datalog Program
-This folder provides a representation of a datalog program. The datalog program is made up of a list of rules, which in turn is made up of a list of atoms. The main function supported by the datalog program are `contains` and `minimize`. Contains checks for uniform containment between two programs and minimize removes redundant atoms and rules from a program. Postgresql is used as the reasoning engine and datalog programs are converted to sql, which is iteratively run until a fixed point is reached (or maximum number of iterations, defined by user, is reached)
+This folder provides a representation of a datalog program. The datalog program is made up of a list of rules, which in turn is made up of a list of atoms. The main function supported by the datalog program are `contains` and `minimize`. Contains checks for uniform containment between two programs and minimize removes redundant atoms and rules from a program. Postgresql is used as the database system and datalog programs are converted into SQL queries, which are iteratively run until a fixed point is reached (or maximum number of iterations, defined by the user, is reached)
 
-All other details are given as docstrings in the code
+Implementation details are given as docstrings in the code.
+
+## Representation
+A datalog program is represented by the class `DT_Program`. `DT_Program(program_string, database)` takes as argument a string represantation of the program (with rules separated by the newline character i.e. \n) and optionally a database of type `DT_Database`. When a database is not provided, it is inferred from the program string and all columns are assumed to be of integer types with domain -infinity to +infinity and the database is assumed to be complete (e.g. no c-variables).
+
+### DT_Database
+`DT_Database` represents the schema of the underlying database. It consists of a list of tables of type `DT_Table`.
+
+### DT_Table
+`DT_Table` represents the structure of a table in the database. `DT_Table(name, columns={}, cvars={}, domain={})` takes as argument the name of the table, the columns with column name as key and column type as value, cvars with c-variables as key and column name to which the c-variable belongs as value, domain with column name as key and the corresponding domain of the column as value. 
+
+When domain is not provided, the domain of all columns is considered to be -infinity to +infinity for integers and the entire 32-bit IP space for IP addresses. 
+
+Supported column types are integer, integer_faure (i.e. a c-variable type), inet (for IP addresses), inet_faure (i.e. a c-variable type), and text[] for the condition column. If a table does not contain a condition column but has c-variable types (i.e. _faure), a condition column is automatically added.
+
+
 ## Usage examples:
+The examples can be found in examples.py to make it easier to test. You must have a database created in PostgreSQL. You must also create a configuration file in the root directory of pyotr called databaseconfig.py. An example configuration file:
 ````
-  # Example 6 - Containment
-  p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
-  p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
-  program1 = DT_Program(p1)
-  program2 = DT_Program(p2)
-  print(program1.contains(program2))
-  print(program2.contains(program1))    
+postgres = {
+    "host": "127.0.0.1",
+    "user": "postgres",
+    "password": "postgres",
+    "db": "test"
+}
+````
 
-  # # Example 7 - Minimization
-  p1 = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)"
-  p2 = "G(x,y,z) :- G(x,w,z),A(w,z),A(z,z),A(z,y)"
-  program1 = DT_Program(p1)
-  program2 = DT_Program(p2)
-  print(program1.contains(program2))
-  print(program2.contains(program1))    
-  program1.minimize()
-  print(program1)
+### Example 1: Containment with default database
+````
+p1 = "G(x,z) :- A(x,z)\nG(x,z) :- G(x,y),G(y,z)"
+p2 = "G(x,z) :- A(x,z)\nG(x,z) :- A(x,y),G(y,z)"
+program1 = DT_Program(p1)
+program2 = DT_Program(p2)
+print(program1.contains(program2))
+print(program2.contains(program1))  
+````
+### Example 2: Minimization with default database
 
-  # # Control Plane Toy Example
-  p1 = "R(x2,xd,x2 || xp) :- link(x2,x3), link(x2,x4), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), link(x2,x4), R(x2,xd,xp)"
-  p2 = "R(x2,xd,x2 || xp) :- link(x2,x3), R(x3,xd,xp)\nR(x1,xd,x1 || xp) :- link(x1,x2), link(x2,x3), R(x2,xd,xp)"
-  program1 = DT_Program(p1, {"R":["integer", "integer","integer[]"]}) # We need to provide the second argument, the list of column types for a database only when the default column type is not integer
-  program2 = DT_Program(p2, {"R":["integer", "integer","integer[]"]})
-  print(program2.contains(program1))
-  print(program1.contains(program2))
+````
+p = "G(x,y,z) :- G(x,w,z),A(w,y),A(w,z),A(z,z),A(z,y)" 
+program = DT_Program(p)
+program.minimize()
+print(program)
+````
+
+### Example 3: Minimization with custom database (default domain)
+````
+R = DT_Table(name="R", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
+l = DT_Table(name="l", columns={"c0":"integer_faure"}, cvars={"x":"c0", "y":"c0", "z":"c0"})
+database = DT_Database(tables=[R,l])
+
+p1 = "l(x)[And(x != 2, x != 3)] :- R(x)[x != 2], R(x)[x != 3]\nl(x)[x != 2] :- R(x)[x != 2], R(x)"
+program1 = DT_Program(p1, database)
+program1.minimize(minimizeAtomsOn=False, minimizeRulesOn=True) # only rules minimized
+print(program1)
+````
+
+### Example 4: Minimization with custom database (custom domain)
+````
+R = DT_Table(name="R", columns={"c0":"integer_faure", "c1":"integer_faure"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+L = DT_Table(name="L", columns={"c0":"integer_faure", "c1":"integer_faure", "c2":"integer_faure"}, cvars={"y":"c1", "z":"c1"}, domain={"c0":['1', '2'], "c1":['1', '2']})
+Q = DT_Table(name="Q", columns={"c0":"integer_faure"}, cvars={"y":"c0", "z":"c0"}, domain={"c0":['1', '2']})
+database = DT_Database(tables=[R,L,Q])
+p1 = "R(x,y) :- L(x,q,z), Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
+program1 = DT_Program(p1, database)
+program1.minimize()
 ````
  
 ## Datalog with incomplete information:
@@ -86,7 +124,7 @@ c0 | c1 |  condition
 When checking if the instantiated head is in the generated database, there is some more nuance involved when dealing with c-variables. We need a proper way to handle the conditions and the mapping of c-variables to constants and other c-variables. When checking if the data portion of a tuple is equal to the data portion of the instantiated head, we need to generate additional conditions for mapping of c-variables. For example, if c-variable x maps to constant 1, we need to add x=1 condition in the tuple condition. This will become clear in the example below. Note that the instantiated head and the tuples in the generated database will only have constants and c-variables (since variables are converted to distinct constants). 
 
 
-### Comprehensive Example
+### Comprehensive Example For Checking Uniform Containment
 Consider program P and Q, where x and y are c-variables. The domain of y is {2,3,4} and the domain of x is {10,20,30}:  
 **P:** `R(1,x)[x == 30] :- l(1,2), l(1,3), l(1,4), R(4,x)[x == 30]`  
 **Q:** `R(1,x)[Or(x == 10, x == 20, x == 30)]  :- l(1,2), l(1,3), l(1,4), R(y,x)[Or(And(y == 2, x == 10), And(y == 3, x == 20), And(y == 4 , x == 30))] `	
@@ -131,11 +169,11 @@ Check if condition of generated head is contained within the matched tuple from 
 **(ii) Condition of tuple 1:** `Or(And(y == 2, x == 10), And(y == 3, x == 20), And(y == 4 , x == 30))`  
 **(iii) Condition of tuple 1 with data portion mapping condition:** `And(Or(And(y == 2, x == 10), And(y == 3, x == 20), And(y == 4 , x == 30)), 1 == y, x == x)`
 
-Since conditions (i) and (iii) are not equivalent, we move on to the next tuple.
+Since condition (iii) does not imply (i) are not equivalent, we move on to the next tuple.
 
 #### Step 6:
 Repeat step 4 and 5 until all tuples are considered or we find that the instantiated head is in the result. Then, repeat step 1-5 until a fixed point is reached or we find that the instantiated head is in the result.
 
 ## Miscellaneous
 ### Variables as distinct constants:
-When a rule is treated as a data instance, variables are replaced with distinct constants. Ideally, this requires making sure that the constants are different from any other constant in the rule and any other constant in the program that is applied to it. One way to do this would be to treat variables as c-variables without conditions. However, this might be slow. In our current implementation, we treat variables as constants that are unlikely to appear elsewhere. For integer datatype, we replace variables as constant above 10000. For IP Addresses, the IP for variables starts with 0.0.0.*.  
+When a rule is treated as a data instance, variables are replaced with distinct constants. Ideally, this requires making sure that the constants are different from any other constant in the rule and any other constant in the program that is applied to it. One way to do this would be to treat variables as c-variables without conditions. However, this might be slow. In our current implementation, we treat variables as constants that are unlikely to appear elsewhere. For integer datatype, we replace variables as constant above 10000. For IP Addresses, the IP for variables starts with 0.1.0.*.  
