@@ -34,7 +34,9 @@ class DT_Database:
         self.databaseTypes = self.getDatabaseTypes()
         self.c_tables = self.getCTables()
         self.cVarTypes = self.getCVarType()
-        self.cVarMapping = self.getCVarMapping()
+        self.cVarMapping = cVarMapping
+        if (len(cVarMapping) == 0):
+            self.cVarMapping = self.getCVarMapping()
         self.cVarMappingReverse = {}
         for negInt in self.cVarMapping:
             self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
