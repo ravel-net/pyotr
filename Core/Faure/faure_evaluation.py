@@ -6,9 +6,9 @@ root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 from Backend.reasoning.Z3.z3smt import z3SMTTools
 # BDD manager Module
-import BDD_managerModule as bddmm
+# import BDD_managerModule as bddmm
 import Backend.reasoning.CUDD.BDD_manager.encodeCUDD as encodeCUDD
-from Backend.reasoning.CUDD.BDDTools import BDDTools
+# from Backend.reasoning.CUDD.BDDTools import BDDTools
 
 from Core.Faure.parser import SQL_Parser
 from tqdm import tqdm

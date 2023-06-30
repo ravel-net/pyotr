@@ -12,7 +12,7 @@ from Core.Datalog.atom import DT_Atom
 from Core.Faure.faure_evaluation import FaureEvaluation
 import Core.Homomorphism.Optimizations.merge_tuples.merge_tuples as merge_tuples
 from utils import parsing_utils
-from Backend.reasoning.CUDD.BDDTools import BDDTools
+# from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils.logging import timeit
 import logging
 import time 

@@ -8,7 +8,7 @@ from Core.Datalog.rule import DT_Rule
 from Core.Datalog.database import DT_Database
 from Core.Datalog.table import DT_Table
 from Backend.reasoning.Z3.z3smt import z3SMTTools
-from Backend.reasoning.CUDD.BDDTools import BDDTools
+# from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils import parsing_utils
 from utils.converter.recursion_converter import RecursiveConverter
 import databaseconfig as cfg
@@ -68,8 +68,8 @@ class DT_Program:
             self._isFaureEval = True
             if self._reasoning_engine == 'z3':
                 self.reasoning_tool = z3SMTTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types, mapping=self.db.cVarMapping)
-            else:
-                self.reasoning_tool = BDDTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types)
+            # else:
+            #     self.reasoning_tool = BDDTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types)
 
         if "simplification_on" not in self._optimizations:
             self._optimizations["simplification_on"] = False # default value
