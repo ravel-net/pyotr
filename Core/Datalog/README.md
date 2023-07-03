@@ -16,9 +16,11 @@ When domain is not provided, the domain of all columns is considered to be -infi
 
 Supported column types are integer, integer_faure (i.e. a c-variable type), inet (for IP addresses), inet_faure (i.e. a c-variable type), and text[] for the condition column. If a table does not contain a condition column but has c-variable types (i.e. _faure), a condition column is automatically added.
 
+## Installation:
+Installation instructions can be found here: https://github.com/ravel-net/pyotr/blob/FaureOptimization/Installation_instructions.txt
 
-## Usage examples:
-The examples can be found in examples.py to make it easier to test. You must have a database created in PostgreSQL. You must also create a configuration file in the root directory of pyotr called databaseconfig.py. An example configuration file:
+### Configuration
+You must have a database created in PostgreSQL. You must also create a configuration file in the root directory of pyotr called databaseconfig.py. An example configuration file:
 ````
 postgres = {
     "host": "127.0.0.1",
@@ -27,7 +29,16 @@ postgres = {
     "db": "test"
 }
 ````
-Installation instructions can be found here: https://github.com/ravel-net/pyotr/blob/FaureOptimization/Installation_instructions.txt
+To create a new user and database, in a command line run:
+```
+psql
+CREATE USER [username] WITH PASSWORD [password]
+CREATE DATABASE [dbname]
+```
+You can then fill the user, password, and db fields in databaseconfig.py with the created username, password and db name. If postgreSQL is installed locally, then the value of the host field must be the localhost ip. To get it on a Mac, run `sudo open -a TextEdit /etc/hosts`.
+
+## Usage examples:
+Some usage examples can be found in examples.py to make it easier to test the installation. 
 
 ### Example 1: Containment with default database
 ````
