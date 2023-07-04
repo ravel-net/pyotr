@@ -1,4 +1,6 @@
 import sys
+import re
+from copy import copy
 from os.path import dirname, abspath
 root = dirname(abspath(__file__))
 sys.path.append(root)
@@ -85,7 +87,7 @@ def replaceCVarsNegative(condition, mapping):
     replacedConditions = []
     for c in condition:
         for var in mapping:
-            c = c.replace(var, mapping[var])
+            c = c.replace(str(var), str(mapping[var]))
         replacedConditions.append(c)
     return replacedConditions
 
@@ -93,12 +95,19 @@ def replaceCVarsNegative(condition, mapping):
 # Processing: Replace cvariables by sql locations
 # Output: Return processed condition
 @timeit
-def replaceCVars(condition, mapping):
+def replaceCVars(condition, mapping, arrayVariables=[]):
     replacedConditions = []
     for c in condition:
+        addCondition = True
         for var in mapping:
-            c = c.replace(var+" ", mapping[var][0]+" ")
-        replacedConditions.append(c)
+            if var in arrayVariables: # TODO: Hacky way to remove conditions over arrays from z3. Fix it
+                addCondition = False
+                continue
+            c = c.replace(str(var)+" ", str(mapping[var][0]+" ")) # TODO: Hacky way to only replace variables
+            c = c.replace(str(var)+")", str(mapping[var][0]+")")) # TODO: Hacky way to only replace variables
+            c = c.replace(str(var)+",", str(mapping[var][0]+",")) # TODO: Hacky way to only replace variables
+        if addCondition:
+            replacedConditions.append(c)
     return replacedConditions
 
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
@@ -151,7 +160,12 @@ def processCon(var1, var2, op, replacements, cVarTypes={}):
 	else:
 		condition += " " + op + " "
 	if var2 in replacements:
-		condition += replacements[var2]
+		if replacements[var2][0] == "[" and op == "==":
+			condition += "ANY("+replacements[var2][1:-1]+")"
+		elif replacements[var2][0] == "[" and op == "!=":
+			condition += "ALL("+replacements[var2][1:-1]+")"
+		else:
+			condition += replacements[var2]
 	else:
 		condition += var2
 
@@ -208,7 +222,6 @@ def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replaceme
 		print("Length of stack should be 1")
 		exit()
 	sqlFormCond = stack.pop()
-
 	return sqlFormCond
 
 @timeit

@@ -38,9 +38,11 @@ class DT_Program:
     minimize()
         minimize this datalog program
     execute(conn, faure_evaluation_mode="contradiction")
-        run this datalog program on database pointed by psycopg2 connection "conn". If we are dealing with an incomplete database, the faure_evaluation_mode is used to determine if the semantics of the required evaluation (exact answer vs certain answer)
-    execute_and_check_containment(conn, rule2)
-        run this datalog program on database pointed by psycopg2 connection "conn" and return true if rule2 is uniformly contained by this program
+        run this datalog program on database pointed by psycopg2 connection "conn" until fixed point is reached. If we are dealing with an incomplete database, the faure_evaluation_mode is used to determine if the semantics of the required evaluation (exact answer vs certain answer)
+    executeonce(conn, faure_evaluation_mode="contradiction")
+        run this datalog program once on database pointed by psycopg2 connection "conn". If we are dealing with an incomplete database, the faure_evaluation_mode is used to determine if the semantics of the required evaluation (exact answer vs certain answer)
+    executeonce_and_check_containment(conn, rule2)
+        run this datalog program once on database pointed by psycopg2 connection "conn" and return true if rule2 is uniformly contained by this program
     initiateDB(conn)
         initiate tables in this datalog program on database pointed by psycopg2 connection "conn"
     contains_rule(rule2)
@@ -102,7 +104,7 @@ class DT_Program:
 
     # Execute this program
     @timeit
-    def execute(self, conn, faure_evaluation_mode="contradiction"):
+    def executeonce(self, conn, faure_evaluation_mode="contradiction"):
         if self._optimizations["pg_native_recursion"] and self._isFaureEval: # pg_recursion is only used to Datalog
             program_sqls = RecursiveConverter(self).recursion_converter()
             cursor = conn.cursor()
@@ -119,7 +121,15 @@ class DT_Program:
             return changed    
 
     @timeit
-    def execute_and_check_containment(self, conn, rule2):
+    def execute(self, conn, faure_evaluation_mode="contradiction"):
+        iterations = 0
+        changed = True
+        while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
+            iterations += 1
+            changed = self.executeonce(conn, faure_evaluation_mode=faure_evaluation_mode)
+
+    @timeit
+    def executeonce_and_check_containment(self, conn, rule2):
         changedLocal = False
         for rule in self.rules:
             DB_changes = rule.execute(conn, faure_evaluation_mode="implication")
@@ -152,9 +162,9 @@ class DT_Program:
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             if self._optimizations["recursive_rules"]:
-                changed = self.execute(conn, faure_evaluation_mode="implication")
+                changed = self.executeonce(conn, faure_evaluation_mode="implication")
             else:
-                changed = self.execute_and_check_containment(conn, rule2)
+                changed = self.executeonce_and_check_containment(conn, rule2)
 
             if self._optimizations["simplification_on"] and self._reasoning_engine == 'z3':
                 self.reasoning_tool.simplification(rule2._head.table.name, conn)

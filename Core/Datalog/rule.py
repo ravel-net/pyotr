@@ -249,6 +249,7 @@ class DT_Rule:
         variableList = {} # stores variable to table.column mapping. etc: {'x': ['t0.c0'], 'w': ['t0.c1', 't1.c0'], 'z': ['t0.c2', 't1.c1', 't2.c0'], 'y': ['t2.c1']}
         summary = set()
         summary_nodes = []
+        arrayVariables = [] # stores all variables that are involved with array operations. This is necessary to replace the condition of the operation with All[variable]
         constraintsZ3Format = []
         constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
         variables_idx_in_array = {} # format {'var': list[location], e.g., {'a1':['t1.n3','t4.n1']}}
@@ -280,6 +281,8 @@ class DT_Rule:
                 else: # variable or c_variable
                     if val not in variableList:
                         variableList[val] = []
+                    if "[]" in atom.table.getColmType(col):
+                        arrayVariables.append(val)
                     variableList[val].append("t{}.{}".format(i, atom.table.getColmName(col)))
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
@@ -354,9 +357,6 @@ class DT_Rule:
         varListWithArray = deepcopy(variableList)
         for var in variables_idx_in_array:
             varListWithArray[var] = [variables_idx_in_array[var]["location"]+'['+str(variables_idx_in_array[var]["idx"]) + ']']
-        # if (self._additional_constraints):
-        #     additional_constraints = self.addtional_constraints2where_clause(self._additional_constraints, varListWithArray)
-        #     constraints += additional_constraints
 
         # Additional constraints are faure constraints.
         constraints_faure = []
@@ -365,9 +365,10 @@ class DT_Rule:
                 constraints_faure.append(constraint)
 
         if len(constraints_faure) > 0:
-            faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray)
-            constraintsZ3Format += parsing_utils.replaceCVars(constraints_faure, varListWithArray)
+            faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray, arrayVariables)
+            constraintsZ3Format += parsing_utils.replaceCVars(constraints_faure, varListWithArray, arrayVariables)
             constraints.append(faure_constraints)
+
         # TODO: Check for appropriate z3 format conversion for arrays
         # constraints for array
         for attr in constraints_for_array:
@@ -669,11 +670,14 @@ class DT_Rule:
         return changed
 
     @timeit
-    def addtional_constraints2where_clause(self, constraints, variableList):
+    def addtional_constraints2where_clause(self, constraints, variableList, arrayVariables):
         newConstraints = []
         singleLocVarList = {}
         for var in variableList: # Variable list contains location for every occurrence of the variable. Need to fix
-            singleLocVarList[var] = variableList[var][0]
+            if var in arrayVariables:
+                singleLocVarList[var] = "[" + variableList[var][0] + "]"
+            else:
+                singleLocVarList[var] = variableList[var][0]
         for constraint in constraints:
             newConstraints.append(parsing_utils.z3ToSQL(condition = constraint, replacements = singleLocVarList, cVarTypes=self.db.cVarTypes))
         newConstraint = newConstraints[0] # note that this function should only be called when there are positive number of constraints

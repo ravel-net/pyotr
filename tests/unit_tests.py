@@ -52,11 +52,20 @@ def unit_test2():
 # ======================================== ACL Example ========================================
 def unit_test3():
     p1 = "R(a3, h3, [a, h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    # p1 = "R(a3, h3, [h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
-    program1 = DT_Program(p1, {"R":["integer_faure", "integer_faure","integer_faure[]", "integer_faure"], "l":["integer_faure", "integer_faure"]}, domains={'h3':['10', '20']}, c_variables=['h3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=False, c_tables=["R", "l"], cVarMapping={"-2":"h3"}, faure_evaluation_mode="implication")
+
+    # R = DT_Table(name="R", columns={"source":"integer_faure", "destination":"integer_faure", "path":"integer_faure[]", "hops":"integer_faure","condition":"text[]"}, domain={"destination":[10,20]}, cvars={"h3":"destination"})
+    R = DT_Table(name="R", columns={"source":"integer_faure", "destination":"integer_faure", "path":"integer_faure[]", "hops":"integer_faure"}, domain={"destination":[10,20]}, cvars={"h3":"destination"})
+
+    l = DT_Table(name="l", columns={"node1":"integer_faure", "node2":"integer_faure"}, cvars={"h3":"node2"})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[R,l])
+
+    program1 = DT_Program(p1, database)
     start = time.time()
     program1.minimize()
     print(program1)
+    database.delete(conn)
     if (str(program1) != "R(a3,h3,[a, h3],1)[h3 == 10] :- l(a3,h3)[h3 == 10],l(a,e1)\nR(a2,h3,[h3],1) :- l(a2,h3)\nR(e1,h3,[a3, x],2) :- R(a3,h3,[x],1),l(a3,e1)\nR(a1,h3,[e1, x, y],3)[h3 == 10] :- R(e1,h3,[x, y],2)[h3 == 10],l(a1,e1)\nR(h2,h3,[a1, x, y, z],4) :- R(a1,h3,[x, y, z],3),l(a1,h2)"):
         print("Test 3 failed")
         exit()
@@ -319,22 +328,47 @@ def unit_test12():
     database.delete(conn)
 
 # execution with array concatination
+# S = 100
+# A = 1, B = 2, T = 3
+# D = 400
+# host1 = 401
+# x1 = -1, x2 = -2, x3 = -3
+# y1 = -10, y2 = -20, y3 = -30
 def unit_test13():
-    p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != n2], F(10, n2, n)"
-    program1 = DT_Program(p1, {"R":["integer_faure", "integer_faure","integer_faure", "integer_faure[]"], "F":["integer_faure", "integer_faure", "integer_faure"]}, domains={}, c_variables=['x1','x2','x3','y1','y2','y3'], reasoning_engine='z3', reasoning_type={}, datatype='int4_faure', simplification_on=True, c_tables=["R", "F"], faure_evaluation_mode='contradiction', cVarMapping={'-1':"x1", '-2':'x2', '-3':'x3', '-10':"y1", '-20':'y2', '-30':'y3'})
+    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"})
+
+    V = DT_Table(name="V", columns={"violation":"integer"})
+
+    F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"x1":"header","x2":"header","x3":"header","y1":"next_hop","y2":"next_hop","y3":"next_hop"}, domain={"next_hop":[100,1,2,3,400,401],"node":[100,1,2,3,400,401]})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[F,R,V], cVarMapping = {-10:"y1",-20:"y2",-30:"y3",-1:"x1",-2:"x2",-3:"x3"})
+
+    p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, 100, 400, p)[And(1 != p, 400 == p)]"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
-    program1.initiateDB(conn)
+    database.initiateDB(conn)
     conn.commit()
     variableConstants = []
+
     sql = "insert into F values ('-1', 100, '-10', '{\"Or(y1 == 1, y1 == 2)\"}'), ('-2', 1, '-20', '{\"Or(y2 == 100, y2 == 3)\"}'), ('-3', 2, '-30', '{\"Or(y3 == 100, y3 == 3)\"}'), ('10', 3, 400, '{}'), ('10', 400, 401, '{}')"
     cursor = conn.cursor()
     cursor.execute(sql)
     conn.commit()
-
-    # manually checking for answer by running query twice. The query does not finish otherwise because of loops
-    changed = program1.execute(conn)
-    changed = program1.execute(conn)
+    
+    start = time.time()
+    program1.execute(conn)
+    end = time.time()
+    cursor.execute("select * from V")
+    if cursor.fetchall()[0][0] == 1:
+        print("Test 13 passed in {} seconds".format(end-start))
+        database.delete(conn)
+    else:
+        print("Test 13 failed in {} seconds".format(end-start))
+        database.delete(conn)
+        exit()
 
 # execution with array concatination (Faure hack)
 def unit_test14():
@@ -419,27 +453,34 @@ def unit_test17():
 
     p1 = "T1(f, n1, q)[And(q > 3, x+y+z=1)] :- R(f,n1,q)[q > 3],(x+y+z=1)"
     program1 = DT_Program(p1, database)
+    start = time.time()
     program1.execute(conn)
+    end = time.time()
+    cursor.execute("select * from T1")
+    T1_data = cursor.fetchall()
+    if len(T1_data) == 1 and T1_data[0] == (4, 5, 6, ['And(6 > 3)', 'x+y+z=1']):
+        print("Test 17 passed in {} seconds".format(end-start))
+        database.delete(conn)
+    else:
+        print("Test 17 failed in {} seconds".format(end-start))
+        database.delete(conn)
 
 if __name__ == "__main__":
     unit_test1()
     unit_test2()
-    # # unit_test3()
+    unit_test3()
     # # unit_test4()
     unit_test5()
     unit_test6()
-
     # # unit_test7()
-    # # unit_test9()
-
     unit_test8()
+    # # unit_test9()
     unit_test10()
     unit_test11()
-    unit_test12()
-    # unit_test13()
-    # unit_test14()
-    # unit_test15()
-
+    unit_test12() 
+    unit_test13()
+    # # unit_test14()
+    # # unit_test15()
     unit_test16()
     unit_test17()
 

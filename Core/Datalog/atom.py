@@ -1,5 +1,3 @@
-from copy import copy
-import re
 from ipaddress import IPv4Address
 import sys
 from os.path import dirname, abspath
@@ -52,7 +50,7 @@ class DT_Atom:
         split_str = relation.split("(")
         self.db = database
         self.variables = []
-        self.c_variables = self.db.c_variables
+        
 
         self.conditions = [] # conditions for c-variables
         if condition is not None: # conditions for c-variables
@@ -70,6 +68,7 @@ class DT_Atom:
             exit()
         self._isCTable = self.table.isCTable
 
+        self.c_variables = self.table.cvars
         self.variables = parsing_utils.getAtomVariables(self.parameters, self.c_variables, operators)
         
     def __str__(self):

@@ -355,9 +355,9 @@ class FaureEvaluation:
         update_tuples = []
         for i in range(count_num):
             (old_conditions, conjunctin_conditions, id) = data_tuples[i]
-            
             old_cond = None
-            # old_conditions = [item for subconditions in old_conditions for item in subconditions]
+            if "" in old_conditions:
+                old_conditions.remove("")
             if old_conditions == None or len(old_conditions) == 0:
                 old_cond = "1 == 1"
             elif len(old_conditions) == 1:
