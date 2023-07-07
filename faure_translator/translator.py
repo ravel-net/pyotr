@@ -105,11 +105,15 @@ def upd_condition(tree):
     if keyword == '' or keyword == 'and':
         
         # for c in cond_list:
-        for idx, c in enumerate(cond_list):
-            # sql = "update output set condition = array_append(condition, {})".format(c)
-            sql = "update output set condition = array_append(condition, {}) where is_var({}) or is_var({})".format(c, where_list[idx][0], where_list[idx][1])
-            print(sql)
-            cursor.execute(sql)
+        # for idx, c in enumerate(cond_list):
+        #     # sql = "update output set condition = array_append(condition, {})".format(c)
+        #     sql = "update output set condition = array_append(condition, {}) where is_var({}) or is_var({})".format(c, where_list[idx][0], where_list[idx][1])
+        #     print(sql)
+        #     cursor.execute(sql)
+
+        sql = "update output set condition = array_append(condition, {})".format("'And(' || " + " || ' , ' || ".join(cond_list) + " || ')'")
+        print(sql)
+        cursor.execute(sql)
     else:
         # keyword == or
         sql = "update output set condition = array_append(condition, {})".format("'Or(' || " + " || ' , ' || ".join(cond_list) + " || ')'")
@@ -527,7 +531,7 @@ def get_all_columns(tables):
                 else:
                     columns.append([[t[2], '.', col[0]], 'as', '{}_{}'.format(t[2], col[0])])
         # print(col_conds)
-        columns.append([['', '', ' || '.join(col_conds)], 'as', 'condition'])
+    columns.append([['', '', ' || '.join(col_conds)], 'as', 'condition'])
     # print(columns)
     return columns
 
