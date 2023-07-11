@@ -335,14 +335,14 @@ def unit_test12():
 # x1 = -1, x2 = -2, x3 = -3
 # y1 = -10, y2 = -20, y3 = -30
 def unit_test13():
-    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"})
+    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
 
     V = DT_Table(name="V", columns={"violation":"integer"})
 
     F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"x1":"header","x2":"header","x3":"header","y1":"next_hop","y2":"next_hop","y3":"next_hop"}, domain={"next_hop":[100,1,2,3,400,401],"node":[100,1,2,3,400,401]})
 
     # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
-    database = DT_Database(tables=[F,R,V], cVarMapping = {-10:"y1",-20:"y2",-30:"y3",-1:"x1",-2:"x2",-3:"x3"})
+    database = DT_Database(tables=[F,R,V], cVarMapping = {-10:"y1",-20:"y2",-30:"y3",-1:"x1",-2:"x2",-3:"x3",-100:"p"})
 
     p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, 100, 400, p)[And(1 != p, 400 == p)]"
 
@@ -483,7 +483,3 @@ if __name__ == "__main__":
     # # unit_test15()
     unit_test16()
     unit_test17()
-
-
-
-

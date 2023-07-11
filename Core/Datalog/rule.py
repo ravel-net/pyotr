@@ -165,10 +165,10 @@ class DT_Rule:
         if self.safe():
             self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
             self.sql = self.convertRuleToSQL()
-        # else:
-        #     print("\n------------------------")
-        #     print("Unsafe rule: {}!".format(self)) 
-        #     print("------------------------\n")
+        else:
+            print("\n------------------------")
+            print("Unsafe rule: {}!".format(self)) 
+            print("------------------------\n")
 
         self.selectColumns = self.calculateSelect() 
 
@@ -603,6 +603,8 @@ class DT_Rule:
     def tuplesEquivalent(self, tuple1, tuple2):
         if str(tuple1[:-1]) != str(tuple2[:-1]): # data portion must be the same
             return False
+        elif len(tuple1) == 1 and len(tuple2) == 1:
+            return True
         conditions1 = tuple1[-1]
         conditions2 = tuple2[-1]
         if self._reasoning_engine == 'z3':

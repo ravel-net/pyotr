@@ -426,9 +426,9 @@ class z3SMTTools:
             condition_positions = []
             in_square_parenthese = False
             while i < len(cond_str):
-                if cond_str[i] == '[':
+                if cond_str[i] == '{':
                     in_square_parenthese = True
-                elif cond_str[i] == ']':
+                elif cond_str[i] == '}':
                     in_square_parenthese = False
                 elif cond_str[i] == '(':
                     if len(stack_last_post) != 0:
@@ -436,6 +436,7 @@ class z3SMTTools:
                     stack_last_post.insert(0, i+1)
                 elif cond_str[i] == ')' or cond_str[i] == ',':
                     if cond_str[i] == ',' and in_square_parenthese:
+                        i += 1
                         continue
                     begin_idx = stack_last_post.pop()
                     if i != begin_idx:
@@ -570,7 +571,6 @@ class z3SMTTools:
             #     print(len(row[1]))
             # else:
             #     print(len(row[1][0]))
-
             is_contrad = self.iscontradiction(parsing_utils.replaceCVarsNegative(row[1], self._mapping))
 
             if is_contrad:
@@ -647,7 +647,8 @@ class z3SMTTools:
     def _convert_z3_variable(self, condition):
         # TODO: BitVec datatype of value in array
         condition = parsing_utils.replaceCVarsNegative([condition], self._mapping)[0]
-        if "\\not_in" in condition or "\\in" in condition:
+        if "{" in condition and "}" in condition:
+        # if "\\not_in" in condition or "\\in" in condition:
             return self._convert_array_condition2z3_variable(condition)
         datatype = self._variable_type_in_condition(condition)
         if datatype == "BitVec":
@@ -691,7 +692,7 @@ class z3SMTTools:
             elif len(c_list[0].split('.')) == 4:
                 vartype_in_left_opd = 'BitVec'
             else:
-                print("currently only support integer and IP prefix")
+                print("currently only support integer and IP prefix. Condition: ", condition)
                 exit()
         
         vartype_in_right_opd = None
@@ -706,7 +707,7 @@ class z3SMTTools:
             elif len(c_list[2].split('.')) == 4:
                 vartype_in_right_opd = 'BitVec'
             else:
-                print("currently only support integer and IP prefix")
+                print("currently only support integer and IP prefix. Condition: ", condition)
                 exit()
         
         if vartype_in_left_opd != vartype_in_right_opd:
@@ -731,24 +732,31 @@ class z3SMTTools:
             if c_list[0].isdigit():
                 datatype = 'Int'
             else: 
-                print("Do not support IP prefix in array")
+                print("Do not support IP prefix in array. Condition: ", condition)
                 exit()
             op1 = "z3.{}Val('{}')".format(datatype, c_list[0])
 
-        array_condition = "EmptySet({}Sort()".format(datatype)
-        array_items_str = re.findall(r'\[(.*?)\]', c_list[2])
+        if operator == '==':
+            array_condition = "Or("
+        elif operator == "!=":
+            array_condition = "And("
+        else:
+            print("Illegal operator on arrays {} detected".format(operator))
+            exit()
+        # print(c_list[2])
+        # array_items_str = re.findall(r'(.*?)', c_list[2])
+        # array_items_str = re.findall(r'\{(.*?)\}', c_list[2])
+        array_items_str = c_list[2][1:-1]
+        conditionsArray = []
         for item in array_items_str.split(','):
             item = item.strip()
-
-            if item.isalpha():
-                array_condition = "SetAdd({}, {}('{}'))".format(array_condition, datatype, item)
+            if item[0].isalpha():
+                conditionsArray.append("{} {} z3.{}('{}')".format(op1, operator, datatype,item))
             else:
-                array_condition = "SetAdd({}, {}Val('{}'))".format(array_condition, datatype, item)
-        if operator == '\\in':
-            return "isMember({}, {})".format(op1, array_condition)
-        else:
-            return "Not(isMember({}, {}))".format(op1, array_condition)
-
+                conditionsArray.append("{} {} z3.{}Val('{}')".format(op1, operator, datatype,item))
+        array_condition += ",".join(conditionsArray) + ")"
+        return array_condition
+    
     @timeit
     def _convertIPToBits(self, IP, bits):
         if "/" in IP:

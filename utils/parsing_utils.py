@@ -56,9 +56,8 @@ def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 					i += 2
 					j = i
 				elif i == len(item)-1:
-					if (j != i):
-						conditionComponents.append(item[j:i+1])
-					# conditionComponents.append(conditionSQL[i])
+					# if (j != i):
+					conditionComponents.append(item[j:i+1])
 					i += 2
 					j = i
 				else:
@@ -84,31 +83,31 @@ def getTablesAsConditions(tables = [], colmName = "condition"):
 # Output: String in z3 format
 @timeit
 def replaceCVarsNegative(condition, mapping):
-    replacedConditions = []
-    for c in condition:
-        for var in mapping:
-            c = c.replace(str(var), str(mapping[var]))
-        replacedConditions.append(c)
-    return replacedConditions
+	replacedConditions = []
+	for c in condition:
+		for var in mapping:
+			c = c.replace(str(var), str(mapping[var]))
+		replacedConditions.append(c)
+	return replacedConditions
 
 # Input: Condition
 # Processing: Replace cvariables by sql locations
 # Output: Return processed condition
 @timeit
 def replaceCVars(condition, mapping, arrayVariables=[]):
-    replacedConditions = []
-    for c in condition:
-        addCondition = True
-        for var in mapping:
-            if var in arrayVariables: # TODO: Hacky way to remove conditions over arrays from z3. Fix it
-                addCondition = False
-                continue
-            c = c.replace(str(var)+" ", str(mapping[var][0]+" ")) # TODO: Hacky way to only replace variables
-            c = c.replace(str(var)+")", str(mapping[var][0]+")")) # TODO: Hacky way to only replace variables
-            c = c.replace(str(var)+",", str(mapping[var][0]+",")) # TODO: Hacky way to only replace variables
-        if addCondition:
-            replacedConditions.append(c)
-    return replacedConditions
+	replacedConditions = []
+	for c in condition:
+		for var in mapping:
+			replacement = str(mapping[var][0])
+			if var in arrayVariables: # TODO: Hacky way to remove conditions over arrays from z3. Fix it
+				replacement = replacement + "::text"
+			c = c.replace(str(var)+" ", replacement+" ") # TODO: Hacky way to only replace variables
+			c = c.replace(str(var)+")", replacement+")") # TODO: Hacky way to only replace variables
+			c = c.replace(str(var)+"[", replacement+"[") # TODO: Hacky way to only replace variables
+			c = c.replace(str(var)+",", replacement+",") # TODO: Hacky way to only replace variables
+			c = c.replace(" " + str(var), " " + replacement) # TODO: Hacky way to only replace variables
+		replacedConditions.append(c)
+	return replacedConditions
 
 # When a bracket close is encountered, pop items from the stack until a logical operator is encountered
 @timeit
@@ -170,6 +169,7 @@ def processCon(var1, var2, op, replacements, cVarTypes={}):
 		condition += var2
 
 	finalCondition = condition
+
 	# to support negative integers as c-variables
 	if var1 in replacements:
 		if var1 in cVarTypes and "inet_faure" in cVarTypes[var1]:
@@ -181,6 +181,17 @@ def processCon(var1, var2, op, replacements, cVarTypes={}):
 			finalCondition = "(" + condition + " or " + var1 + " < " + "'0.0.255.0')"  	
 		elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
 			finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
+
+	if var2 in replacements and replacements[var2][0] == "[":
+		if var2 in cVarTypes and "inet_faure" in cVarTypes[var2]:
+			finalCondition = "(" + condition + " or '0.0.255.0' > Any(" + replacements[var2][1:-1] + "))"  
+		elif var2 in cVarTypes and "integer_faure" in cVarTypes[var2]:
+			finalCondition = "(" + condition + " or 0 > Any(" + replacements[var2][1:-1] + "))"  
+	# else:
+	# 	if var1 in cVarTypes and "inet" in cVarTypes[var1]:
+	# 		finalCondition = "(" + condition + " or " + var1 + " < " + "'0.0.255.0')"  	
+	# 	elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
+	# 		finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
 
 	return finalCondition
 
@@ -342,7 +353,7 @@ def getAtomVariables(parameters, c_variables, operators):
 							for v in concatinatingVar:
 								if not v[0].isdigit() and v not in variables and v not in c_variables:
 									variables.append(v)
-						elif not concatinatingVar[0].isdigit() and concatinatingVar not in variables:
+						elif not concatinatingVar[0].isdigit() and concatinatingVar not in variables and concatinatingVar not in c_variables:
 							variables.append(concatinatingVar)
 			if not hasOperator and not var[0].isdigit():
 				if var not in c_variables and var not in variables:

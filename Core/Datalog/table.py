@@ -115,7 +115,7 @@ class DT_Table:
     
     @timeit
     def getReasoningType(self):
-        reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec", "text[]":"Int"}
+        reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec", "text[]":"Int", "integer_faure[]":"Int[]", "inet_faure[]":"BitVec[]"}
         reasoning_types = {}
         for cvar in self.cvars:
             colm = self.cvars[cvar] 
