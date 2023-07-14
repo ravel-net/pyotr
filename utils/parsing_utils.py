@@ -169,29 +169,23 @@ def processCon(var1, var2, op, replacements, cVarTypes={}):
 		condition += var2
 
 	finalCondition = condition
-
-	# to support negative integers as c-variables
-	if var1 in replacements:
-		if var1 in cVarTypes and "inet_faure" in cVarTypes[var1]:
-			finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "'0.0.255.0')"  
-		elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
-			finalCondition = "(" + condition + " or " + replacements[var1] + " < " + "0)"  
-	else:
-		if var1 in cVarTypes and "inet" in cVarTypes[var1]:
-			finalCondition = "(" + condition + " or " + var1 + " < " + "'0.0.255.0')"  	
-		elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
-			finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
-
-	if var2 in replacements and replacements[var2][0] == "[":
-		if var2 in cVarTypes and "inet_faure" in cVarTypes[var2]:
-			finalCondition = "(" + condition + " or '0.0.255.0' > Any(" + replacements[var2][1:-1] + "))"  
-		elif var2 in cVarTypes and "integer_faure" in cVarTypes[var2]:
-			finalCondition = "(" + condition + " or 0 > Any(" + replacements[var2][1:-1] + "))"  
-	# else:
-	# 	if var1 in cVarTypes and "inet" in cVarTypes[var1]:
-	# 		finalCondition = "(" + condition + " or " + var1 + " < " + "'0.0.255.0')"  	
-	# 	elif var1 in cVarTypes and "integer_faure" in cVarTypes[var1]:
-	# 		finalCondition = "(" + condition + " or " + var1 + " < " + "0)"  	
+	
+	conditionAdd = [] # stores extra conditions for negative integer implementation
+	for var in [var1, var2]:
+		if var in cVarTypes:
+			replacedVar = var
+			if var in replacements:
+				replacedVar = replacements[var]
+			if "inet_faure[]" in cVarTypes[var]: # inet list
+				conditionAdd.append("'0.0.255.0' > Any(" + replacedVar[1:-1] + ")")
+			elif "integer_faure[]" in cVarTypes[var]:# integer list
+				conditionAdd.append("0 > Any(" + replacedVar[1:-1] + ")")  
+			elif "inet_faure" in cVarTypes[var]: # inet
+				conditionAdd.append(replacedVar + " < " + "'0.0.255.0'") 
+			elif "integer_faure" in cVarTypes[var]: # integer
+				conditionAdd.append(replacedVar + " < " + "0")
+	if conditionAdd:
+		finalCondition = "(" + condition + " or " +" or ".join(conditionAdd) + ")"
 
 	return finalCondition
 

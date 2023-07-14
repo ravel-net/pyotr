@@ -121,12 +121,16 @@ class DT_Program:
             return changed    
 
     @timeit
-    def execute(self, conn, faure_evaluation_mode="contradiction"):
+    def execute(self, conn, faure_evaluation_mode="contradiction", violationTables=[]):
         iterations = 0
         changed = True
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.executeonce(conn, faure_evaluation_mode=faure_evaluation_mode)
+            for table in violationTables:
+                if not table.isEmpty(conn):
+                    conn.commit()
+                    return
 
     @timeit
     def executeonce_and_check_containment(self, conn, rule2):

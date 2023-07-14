@@ -332,25 +332,33 @@ class DT_Rule:
                             summary_nodes.append("{} as {}".format(variableList[param][0], self._head.table.getColmName(idx)))
         for var in variableList:
             for i in range(len(variableList[var])-1):
-                colmName = variableList[var][i].split(".")[1]
-                tableNameSQL = variableList[var][i].split(".")[0]
-                for table in tables:
-                    tableName = table.split()[0]
-                    tableNameS = table.split()[1]
-                    if tableNameSQL == tableNameS:
-                        break
-                columns = {}
-                if self.db:
-                    currentTable = self.db.getTable(tableName)
-                    columns = currentTable.columns
-
-                if len(columns) > 0 and "inet_faure" in columns[colmName]:
-                    constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + " < '0.0.255.0')")
-                elif len(columns) > 0 and "integer_faure" in columns[colmName]:
-                    constraints.append("(" + variableList[var][i] + " = " + variableList[var][i+1] + " or " + variableList[var][i] + "< 0)")
-                else:
-                    constraints.append(variableList[var][i] + " = " + variableList[var][i+1])
+                patternConstraint = variableList[var][i] + " = " + variableList[var][i+1]
                 constraintsZ3Format.append(variableList[var][i] + " == " + variableList[var][i+1])
+                conditionAdd = []
+                for variable in [variableList[var][i], variableList[var][i+1]]:
+                    colmName = variable.split(".")[1]
+                    tableNameSQL = variable.split(".")[0]
+                    for table in tables:
+                        tableName = table.split()[0]
+                        tableNameS = table.split()[1]
+                        if tableNameSQL == tableNameS:
+                            break
+                    columns = {}
+                    if self.db:
+                        currentTable = self.db.getTable(tableName)
+                        columns = currentTable.columns
+                    
+                    if len(columns) > 0 and "inet_faure[]" in columns[colmName]:
+                        conditionAdd.append("'0.0.255.0' > Any(" + variable + ")")
+                    elif len(columns) > 0 and "integer_faure[]" in columns[colmName]:
+                        conditionAdd.append("0 > Any(" + variable + ")")
+                    elif len(columns) > 0 and "inet_faure" in columns[colmName]:
+                        conditionAdd.append(variable + " < '0.0.255.0'")
+                    elif len(columns) > 0 and "integer_faure" in columns[colmName]:
+                        conditionAdd.append(variable + " < 0")
+                if conditionAdd:
+                    patternConstraint = "(" + patternConstraint + " or " +" or ".join(conditionAdd) + ")"
+                constraints.append(patternConstraint)
 
         # adding variables in arrays in variableList
         # TODO: Possibly inefficient
@@ -382,7 +390,7 @@ class DT_Rule:
 
     @timeit
     def execute(self, conn, faure_evaluation_mode="contradiction"):
-        if len(self._c_variables) == 0:
+        if len(self._c_tables) == 0:
             cursor = conn.cursor()
             except_sql = "insert into {header_table} ({sql} except select {attrs} from {header_table})".format(header_table=self._head.table.name, sql = self.sql, attrs= ", ".join(self.selectColumns))
             if (not self._recursive_rules):

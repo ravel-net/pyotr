@@ -48,15 +48,23 @@ class DT_Table:
     def getColmTypeWithoutFaure(self, colmType):
         return colmType.replace("_faure","")
     
+    # returns true if table is empty
+    @timeit
+    def isEmpty(self, conn):
+        cursor = conn.cursor()
+        cursor.execute("SELECT count(*) from {}".format(self.name)) # check if empty
+        if cursor.fetchall()[0][0] == 0:
+            return True
+        else:
+            return False
+
     # Initiates an empty table
     @timeit
     def initiateTable(self, conn):
         cursor = conn.cursor()
         cursor.execute("SELECT count(to_regclass('{}'))".format(self.name)) # checking if table already exists
-        if cursor.fetchall()[0][0] > 0: # if table exists
-            cursor.execute("SELECT count(*) from {}".format(self.name)) # check if empty
-            if cursor.fetchall()[0][0] == 0:
-                return # no need to create a new table
+        if cursor.fetchall()[0][0] > 0 and self.isEmpty(conn): # if table exists and is already empty
+            return # no need to create a new table
         cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
         table_creation_query = "CREATE TABLE {}(".format(self.name)
         for colmName in self.columns: 
