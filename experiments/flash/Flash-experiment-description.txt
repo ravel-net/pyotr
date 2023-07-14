@@ -1,0 +1,21 @@
+The file contains the trace and updates of devices
+
+Format: INSERT/DELETE DELAY EPOCH DEVICE IP PREFIX DEVICENAME LASTUPDATE? 
+
+Details: + means delete
+
+
+Experiments:
+In loop detection experiments, on each iteration, one device is selected as buggy and one device is selected as long-tailed. We never receive the answer from long tailed device. For buggy device, the output port of a every rule is randomized. This may cause loops, which are detected by the algorithm.
+
+
+
+Loop Detection:
+1. After every 10 updates on a device, EarlyDetector.run() is called. If no new devices were closed in those 10 updates. then nothing happens. 
+2. Earlydetector.run() calls traverse
+3. Traverse traverses the device in question. If the paths lead to a blackhole (i.e. updates not yet specified of a device) then the algorithm stops. Otherwise, it keeps exploring unless a loop is found?
+4. A device might have multiple connections to another device. In that case, the traverse function aggregates all predicates that are sent to the next device and then calls traverse once
+
+
+
+Question: Can we use incremental view maintainance to form this? Not sure what is the difference between long tailed updates and this update.
