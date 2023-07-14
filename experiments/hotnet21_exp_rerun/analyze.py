@@ -53,25 +53,26 @@ def analyze(filename, mode='print'):
 				sums[function].append(time)
 
 	if mode == 'output':
-		name = filename.split(".log")[0] + '.txt'
-		with open(name, 'w') as f:
+		name = filename.split(".log")[0].split('/')[-1]
+		newfile = "summary.log"
+		with open(newfile, 'a') as f:
 			for function in sums:
 				print(function, sum(sums[function]))
-				f.write("{} {}".format(function, sum(sums[function])))
+				f.write("{} {} {}\n".format(function, sum(sums[function]), name))
 
 			for d in info:
 				print(d)
-				f.write("{}".format(d))
+				f.write("{} {}\n".format(d, name))
 
 			for w in whitelists:
 				print(w)
-				f.write("{}".format(w))
+				f.write("{} {}\n".format(w, name))
 
 			# raw_data = []
 			for s in suspicious:
 				# raw_data.append(float(s.split(",")[-1].split(':')[-1]))
 				print(s)
-				f.write("{}".format(s))
+				f.write("{} {}\n".format(s, name))
 	else:
 		for function in sums:
 			print(function, sum(sums[function]))

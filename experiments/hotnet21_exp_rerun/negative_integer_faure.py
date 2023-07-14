@@ -88,18 +88,21 @@ def q8(r_table):
     program1.execute(conn)
     end = time.time()
 
-def clean_tables():
+def clean_tables(tables=None):
     cursor = conn.cursor()
-    cursor.execute("drop table if exists t1")
-    cursor.execute("drop table if exists t2")
-    cursor.execute("drop table if exists t3")
+    if tables is None:
+        cursor.execute("drop table if exists t1")
+        cursor.execute("drop table if exists t2")
+        cursor.execute("drop table if exists t3")
+    else:
+        for table in tables:
+            cursor.execute("drop table if exists {}".format(table))
     conn.commit()
-
 if __name__ == "__main__":
     # tables = ['rib10_r', 'rib100_r', 'rib1000_r', 'rib10000_r', 'rib100000_r']
     # q4q5("f_table_rib10")
     table = sys.argv[1]
-    num = 1
+    num = 10
     if table == 'clean':
         clean_tables()
     else:
@@ -107,34 +110,40 @@ if __name__ == "__main__":
         # for table in tables:
         print('\n{} begin.....\n'.format(table))
         with open("time.log", "a") as f:
+            table_tobe_cleaned = None
             for n in range(num):
                 if query == 'q6':
                     begin_q6 = time.time()
                     q6(table)
                     end_q6 = time.time()
-                    f.write("Time:q6 {} took {}\n".format(table, end_q6-begin_q6))
+                    f.write("Time: q6_{} took {}\n".format(table, end_q6-begin_q6))
+                    table_tobe_cleaned = 't1'
                     print("q6 done!\n")
                 elif query == 'q7':
                     begin_q7 = time.time()
                     q7()
                     end_q7 = time.time()
-                    f.write("Time:q7 {} took {}\n".format(table, end_q7-begin_q7))
+                    f.write("Time: q7_{} took {}\n".format(table, end_q7-begin_q7))
+                    table_tobe_cleaned = 't2'
                     print("q7 done!\n")
                 elif query == 'q8':
                     begin_q8 = time.time()
                     q8(table)
                     end_q8 = time.time()
-                    f.write("Time:q8 {} took {}\n".format(table, end_q8-begin_q8))
+                    f.write("Time: q8_{} took {}\n".format(table, end_q8-begin_q8))
+                    table_tobe_cleaned = 't3'
                     print("q8 done!\n")
                 elif query == 'q4q5':
                     q4q5_begin = time.time()
                     q4q5(table)
                     q4q5_end = time.time()
-                    f.write("Time:q4q5 {} took {}\n".format(table, q4q5_end-q4q5_begin))
+                    f.write("Time: q4q5_{} took {}\n".format(table, q4q5_end-q4q5_begin))
+                    table_tobe_cleaned = 'f_table_{}_r'.format(table)
                     print("q4q5 done!\n")
                 if num > 1 and n != num - 1:
-                    clean_tables()
+                    clean_tables([table_tobe_cleaned])
+                    print('clean...')
                 
-            # if os.path.isfile('program.log'):
-            #     os.rename('time.log', '{}_{}_{}.log'.format(table, query, datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
+            if os.path.isfile('time.log'):
+                os.rename('time.log', '{}_{}{}.log'.format(table, query, datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
             conn.close()
