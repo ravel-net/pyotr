@@ -128,6 +128,8 @@ class DT_Program:
             iterations += 1
             changed = self.executeonce(conn, faure_evaluation_mode=faure_evaluation_mode)
             for table in violationTables:
+                if self._optimizations["simplification_on"] == False: # we always simplify the violation tables since we are early exiting
+                    self.reasoning_tool.simplification(table.name, conn)
                 if not table.isEmpty(conn):
                     conn.commit()
                     return

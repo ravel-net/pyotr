@@ -1,3 +1,4 @@
+I2-Trace
 The file contains the trace and updates of devices
 
 Format: INSERT/DELETE DELAY EPOCH DEVICE IP PREFIX DEVICENAME LASTUPDATE? 
@@ -19,3 +20,15 @@ Loop Detection:
 
 
 Question: Can we use incremental view maintainance to form this? Not sure what is the difference between long tailed updates and this update.
+
+
+
+Airtel: https://www.usenix.org/conference/nsdi17/technical-sessions/presentation/horn-alex
+
+Format:
+0: prefix, 1: ingress_router-device, 2: ingress_router-device, 3: priority
+
+Description:
+16 routers with a total of 68 nodes and 260 links. 
+
+This is an actual AS topology (AS 9498). We connect each of these OpenFlow compliant switchesto an external border router that we emulate using Quagga.We configure Quagga such that each border router advertises one hundred IP prefixes, which we randomly select from over half a million real-world IP prefixes gathered from the Route Views project, resulting in a total of 1,600 unique (but possibly overlapping) IP prefixes.

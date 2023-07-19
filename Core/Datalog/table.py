@@ -46,8 +46,45 @@ class DT_Table:
     # TODO: Think about a better way than this
     @timeit
     def getColmTypeWithoutFaure(self, colmType):
+        colmType = colmType.replace("integer","bigint") # for ip addresses
         return colmType.replace("_faure","")
+
+
+    @timeit
+    def getRandomTuple(self, conn, colmName):
+        if self.isEmpty(conn):
+            print("Table {} is empty. Exiting.".format(self.name))
+            exit()
+        cursor = conn.cursor()
+        cursor.execute("select {} from {} order by random() limit 1;".format(colmName, self.name))
+        return cursor.fetchall()[0][0]
     
+    @timeit
+    def enableIndexing(self, conn, colmName, using="btree"):
+        if colmName not in self.columns:
+            print("Column {} is not a valid column in table {}".format(colmName, self.name))
+            return
+        cursor = conn.cursor()
+        cursor.execute("SELECT indexdef FROM pg_indexes WHERE tablename = '{}' and indexname = '{}_{}';".format(self.name.lower(), self.name.lower(), colmName))
+        result = cursor.fetchall()
+        if len(result) > 0 and using in result[0][0]: # index already exists
+            return
+        else:
+            cursor.execute("CREATE INDEX {}_{} ON {} using {}({})".format(self.name, colmName, self.name, using, colmName))
+
+    @timeit
+    def deleteAllIndexes(self, conn):
+        cursor = conn.cursor()
+        cursor.execute("SELECT indexname FROM pg_indexes WHERE tablename = '{}';".format(self.name.lower()))
+        result = cursor.fetchall()
+        for tuple in result:
+            cursor.execute("DROP INDEX {}".format(tuple[0]))
+
+    @timeit
+    def deleteAllTuples(self, conn):
+        self.delete(conn)
+        self.initiateTable(conn)
+
     # returns true if table is empty
     @timeit
     def isEmpty(self, conn):
