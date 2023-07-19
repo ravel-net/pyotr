@@ -4,7 +4,7 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 from utils import parsing_utils
-
+from Core.Datalog.conditionTree import ConditionTree
 
 class DT_Atom:
     """
@@ -37,7 +37,7 @@ class DT_Atom:
     
     def __init__(self, atom_str, database=None, operators=[]):
         relation = None
-        condition = None
+        condition = ""
         if ')[' in atom_str: # contains conditions for atom, e.g., R(a1, xd, p)[a1 = 1]
             items = atom_str.strip().split(')[')
             relation = items[0] + ')'
@@ -51,11 +51,7 @@ class DT_Atom:
         self.db = database
         self.variables = []
         
-
-        self.conditions = [] # conditions for c-variables
-        if condition is not None: # conditions for c-variables
-            processed_c = parsing_utils.datalog_condition2z3_condition(condition)
-            self.conditions.append(processed_c)
+        self.condition = ConditionTree(condition)
 
         self.parameters =  []
 
@@ -68,7 +64,7 @@ class DT_Atom:
             exit()
         self._isCTable = self.table.isCTable
 
-        self.c_variables = self.table.cvars
+        self.c_variables = self.table.cvars # this shouldnt be the case. It should be computed for each atom (e.g. any non-digit that is in self.table.cvars) 
         self.variables = parsing_utils.getAtomVariables(self.parameters, self.c_variables, operators)
         
     def __str__(self):
@@ -79,8 +75,8 @@ class DT_Atom:
             else:
                 parameter_strs.append(p)
         atom_str = self.table.name+"("+",".join(parameter_strs)+")"
-        if self.conditions:
-            atom_str += "[{}]".format(", ".join(self.conditions))
+        if not self.condition.isEmpty:
+            atom_str += "[{}]".format(str(self.condition))
         return atom_str
 
     # variableMapping is a dictionary with variables as keys and their mapping to distinct constants as value
@@ -119,7 +115,10 @@ class DT_Atom:
 
         # if self.c_variables:
         if self._isCTable:
-            variableConstants.append("'{" + ", ".join(['"{}"'.format(c.replace("'","")) for c in self.conditions]) + "}'") 
+            if self.condition.isEmpty:
+                variableConstants.append("'{}'") 
+            else:
+                variableConstants.append("'{" + '"{}"'.format(str(self.condition).replace("'","")) + "}'") 
             # variableConstants.append("'{}'") 
 
         sql = "insert into " + self.table.name + " values(" +  ",".join(variableConstants) + ")"
@@ -127,18 +126,50 @@ class DT_Atom:
         cursor.execute(sql)
         conn.commit()
 
-    def strAtomWithoutConditions(self):
-        parameter_strs = []
-        for p in self.parameters:
-            if type(p) == list:
-                parameter_strs.append("[{}]".format(", ".join(p)))
-            else:
-                parameter_strs.append(p)
-        atom_str = self.table.name+"("+",".join(parameter_strs)+")"
-        return atom_str
-
     def replaceCondition(self, new_condition):
         self.conditions = new_condition
+
+    # return the column names as an array of where the variable appears. i.e. if table F has columns (c1,c2,c3,c4) and has value (a,200,a,c4[800,a]) then this atom.getVarColmNames("a") will return [F.c1,F.c3,F.c4[2]]. Thus array is also returned
+    def getVarColmNames(self, var, tableReference):
+        i = 0
+        varColms = []
+        for param in self.parameters:
+            colmName = self.table.getColmName(i)
+            reference = "{}.{}".format(tableReference, colmName)
+            if type(param) == list:
+                index = 1 # postgres indexing starts from 1
+                for symbol in param:
+                    if symbol == var:
+                        varColms.append("{}[{}]".format(reference, index))
+                    index += 1
+            elif param == var:
+                varColms.append(reference)
+            i += 1
+        return varColms
+    
+    def sqlConstraints(self, varListMapping, tableReference):
+        i = 0
+        constraints = []
+        for param in self.parameters:
+            colmName = self.table.getColmName(i)
+            reference = "{}.{}".format(tableReference, colmName)
+            if type(param) == list:
+                index = 1 # postgres indexing starts from 1
+                for symbol in param:
+                    if symbol[0].isdigit():
+                        constraints.append("{}[{}] == {}".format(reference, index, symbol))
+                    index += 1
+            elif param[0].isdigit():
+                constraints.append("{} == {}".format(reference, param))
+            i += 1
+
+
+        if not self.condition.isEmpty:
+            constraints.append(self.condition.replacedString(varListMapping))
+        print("var list", varListMapping)
+        print("constraints", constraints)
+        return constraints
+
 
 if __name__ == "__main__":
     atom = DT_Atom("Gasd(x,y,z)")

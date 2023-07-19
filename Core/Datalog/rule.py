@@ -16,6 +16,8 @@ from utils import parsing_utils
 from utils.logging import timeit
 import logging
 import time 
+from Core.Datalog.conditionTree import ConditionTree
+
 
 # TODO: Update documentation
 class DT_Rule:
@@ -126,6 +128,22 @@ class DT_Rule:
         #     self._DBs.append(self._head.db)
         #     db_names.append(self._head.table.name)
 
+        self._createVariableMapping() # creates a mapping for variables to distinct constants
+    
+        if self.safe():
+            self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
+            self.sql = self.convertRuleToSQL()
+            print(self)
+            print("sql", self.sql)
+        else:
+            print("\n------------------------")
+            print("Unsafe rule: {}!".format(self)) 
+            print("------------------------\n")
+
+        self.selectColumns = self.calculateSelect() # store a sql query corresponding to the rule
+
+    # creates a mapping for variables to distinct constants
+    def _createVariableMapping(self):
         # TODO: Make sure that the mapping does not overlap with any other constant in the body
         # TODO: Add a Function to create mapping
         i = 0
@@ -161,17 +179,6 @@ class DT_Rule:
                     self._reverseMapping[100000+i] = var
                     i += 1
 
-        # in case of unsafe rule
-        if self.safe():
-            self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
-            self.sql = self.convertRuleToSQL()
-        else:
-            print("\n------------------------")
-            print("Unsafe rule: {}!".format(self)) 
-            print("------------------------\n")
-
-        self.selectColumns = self.calculateSelect() 
-
     @timeit
     # Includes the select part of query including datatype
     def calculateSelect(self):
@@ -187,9 +194,6 @@ class DT_Rule:
     @property
     def getDBs(self):
         return self._DBs
-
-    def removeAdditionalCondition(self):
-        self._additional_constraints = []
 
     def deleteAtom(self, atomNum):
         del self._body[atomNum]
@@ -223,7 +227,7 @@ class DT_Rule:
     @timeit
     def convertRuleToSQL(self):
         sql = "select " + ", ".join(self._summary_nodes) + " from " + ", ".join(self._tables)
-        if (self._constraints):
+        if len(self._constraints) > 0:
             sql += " where " + " and ".join(self._constraints)
         return sql
 
@@ -234,64 +238,68 @@ class DT_Rule:
             atom.table.initiateTable(conn)
 
     @timeit
-    def getRuleWithoutFaure(self): # returns the same rule but without any c-variables and conditions
-        newRuleStr = self._head.strAtomWithoutConditions() + " :- "
-        for bodyAtom in self._body:
-            newRuleStr += bodyAtom.strAtomWithoutConditions() + ", "
-        newRuleStr = newRuleStr[:-2]
-        newRule = DT_Rule(newRuleStr, database=self.db, operators=self.operators, reasoning_tool=self.reasoning_tool, optimizations=self.optimizations) # assuming that the default is without faure
-        return newRule
-
-    @timeit
     def convertRuleToSQLPartitioned(self):
+        patternMatchingVars = self._variables + self._c_variables
+        variableList = {} # stores variable to table.column mapping. etc: {'x': ['F.c0'], 'w': ['F.c1', 'R.c0'], 'z': ['R.c2', 'F.c1'])
+        sqlConstraints = []
+        varListMapping = {} # stores direct mapping e.g. {'x': 'F.c0', 'w': 'F.c1', 'z': 'R.c2'}
         tables = []
-        constraints = []
-        variableList = {} # stores variable to table.column mapping. etc: {'x': ['t0.c0'], 'w': ['t0.c1', 't1.c0'], 'z': ['t0.c2', 't1.c1', 't2.c0'], 'y': ['t2.c1']}
-        summary = set()
+        atomTables = {} # store a mapping from table name to table datatype
+        i = 0
+        for atom in self._body:
+            i += 1
+            tableReference = atom.table.name + str(i)
+            tables.append("{} {}".format(atom.table.name, tableReference))
+            atomTables[tableReference] = atom.table
+
+            for var in patternMatchingVars:
+                varColms = atom.getVarColmNames(var, tableReference) # return the column names as an array of where the variable appears. i.e. if table F has columns (c1,c2,c3,c4) and has value (a,200,a,c4[800,a]) then this atom.getVarColmNames("a", "F1") will return [F1.c1,F1.c3,F1.c4[2]]. Thus array is also returned
+                if var not in variableList and len(varColms) > 0:
+                    variableList[var] = []
+                if len(varColms) > 0:
+                    variableList[var] += varColms
+                    varListMapping[var] = varColms[0] 
+
+        i = 0
+        for atom in self._body:
+            i += 1
+            tableReference = atom.table.name + str(i)
+            sqlConstraints += atom.sqlConstraints(varListMapping, tableReference) # atom constraints are digit equivalence and atom conditions like [F.header = 800, F.source < 200]. Atom should call a function on the condition that returns a string with a variable replaced with F.source etc. And it with the constant constraints
+            
+
+        for var, varOccurances in variableList.items():
+            i = 0
+            while i < len(varOccurances) - 1:
+                sqlConstraints.append("{} == {}".format(varOccurances[i], varOccurances[i+1]))
+                i += 1
+        
+        generalConditions = ConditionTree("And(" + ", ".join(sqlConstraints) + ")")
+        negativeIntegerConstraints = generalConditions.getNegativeIntegerTree(atomTables) # same tree as general conditions but leafs expanded to include negative integers
+        constraints = negativeIntegerConstraints.sqlString(atomTables)
+
+        constraintsZ3Format = generalConditions.arrayIntegrationString(atomTables)
+        summary_nodes = self.getSummaryNodes(variableList)
+
+        constraintsArray = []
+        constraintsZ3FormatArray = []
+        if constraints != "":
+            constraintsArray = [constraints]
+        if constraintsZ3Format != "":
+            constraintsZ3FormatArray = [constraintsZ3Format]
+        return summary_nodes, tables, constraintsArray, constraintsZ3FormatArray
+    
+
+    # TODO: simplify this code. This should be easier
+    # TODO: Move to atom
+    @timeit 
+    def getSummaryNodes(self, variableList):
         summary_nodes = []
-        arrayVariables = [] # stores all variables that are involved with array operations. This is necessary to replace the condition of the operation with All[variable]
-        constraintsZ3Format = []
-        constraints_for_array = {} # format: {'location': list[variables]}, e.g., {'t1.n3':['a1', 'e2']}
-        variables_idx_in_array = {} # format {'var': list[location], e.g., {'a1':['t1.n3','t4.n1']}}
-        for i, atom in enumerate(self._body):
-            tables.append("{} t{}".format(atom.table.name, i))
-            # currentTableName = atom.table.name
-            columns = {}
-            if self.db:
-                currentTable = self.db.getTable(atom.table.name)
-                columns = currentTable.columns
-            for col, val in enumerate(atom.parameters):
-                if type(val) == list:
-                    loc = "t{}.{}".format(i, atom.table.getColmName(col))
-                    constraints_for_array[loc] = val
-                    for idx, var in enumerate(val):
-                        if var not in variableList and var not in variables_idx_in_array:
-                            variables_idx_in_array[var] = {'location': loc}
-                            variables_idx_in_array[var]['idx'] = idx+1 # postgres array uses one-based numbering convention
-                elif val[0].isdigit():
-                    if len(columns) > 0 and "inet_faure" in columns[atom.table.getColmName(col)]:
-                        constraints.append("(t{}.{} = {} or t{}.{} < '0.0.255.0')".format(i, atom.table.getColmName(col), val, i, atom.table.getColmName(col)))
-                    elif len(columns) > 0 and "inet" in columns[atom.table.getColmName(col)]:
-                        constraints.append("t{}.{} = {}".format(i, atom.table.getColmName(col), val))
-                    elif len(columns) > 0 and "integer_faure" in columns[atom.table.getColmName(col)]:
-                        constraints.append("(t{}.{} = {} or t{}.{} < 0)".format(i, atom.table.getColmName(col), val, i, atom.table.getColmName(col)))
-                    else:
-                        constraints.append("t{}.{} = {}".format(i, atom.table.getColmName(col), val))
-                    constraintsZ3Format.append("t{}.{} == {}".format(i, atom.table.getColmName(col), val))
-                else: # variable or c_variable
-                    if val not in variableList:
-                        variableList[val] = []
-                    if "[]" in atom.table.getColmType(col):
-                        arrayVariables.append(val)
-                    variableList[val].append("t{}.{}".format(i, atom.table.getColmName(col)))
         for idx, param in enumerate(self._head.parameters):
             if type(param) == list:
                 replace_var2attr = []
                 for p in param:
                     if p in variableList:
                         replace_var2attr.append(str(variableList[p][0]))
-                    elif p in variables_idx_in_array:
-                        replace_var2attr.append("{}[{}]".format(variables_idx_in_array[p]['location'], variables_idx_in_array[p]['idx']))
                     elif p[0].isdigit: # could be a constant that is not found in the body
                         replace_var2attr.append("{}".format(str(p)))
                     else: # could be a c-variable that is not found in the body
@@ -330,63 +338,7 @@ class DT_Rule:
                             summary_nodes.append("'{}' as {}".format(self._cVarMappingReverse[param], self._head.table.getColmName(idx)))
                         else: # variable or c-var that also appears in body
                             summary_nodes.append("{} as {}".format(variableList[param][0], self._head.table.getColmName(idx)))
-        for var in variableList:
-            for i in range(len(variableList[var])-1):
-                patternConstraint = variableList[var][i] + " = " + variableList[var][i+1]
-                constraintsZ3Format.append(variableList[var][i] + " == " + variableList[var][i+1])
-                conditionAdd = []
-                for variable in [variableList[var][i], variableList[var][i+1]]:
-                    colmName = variable.split(".")[1]
-                    tableNameSQL = variable.split(".")[0]
-                    for table in tables:
-                        tableName = table.split()[0]
-                        tableNameS = table.split()[1]
-                        if tableNameSQL == tableNameS:
-                            break
-                    columns = {}
-                    if self.db:
-                        currentTable = self.db.getTable(tableName)
-                        columns = currentTable.columns
-                    
-                    if len(columns) > 0 and "inet_faure[]" in columns[colmName]:
-                        conditionAdd.append("'0.0.255.0' > Any(" + variable + ")")
-                    elif len(columns) > 0 and "integer_faure[]" in columns[colmName]:
-                        conditionAdd.append("0 > Any(" + variable + ")")
-                    elif len(columns) > 0 and "inet_faure" in columns[colmName]:
-                        conditionAdd.append(variable + " < '0.0.255.0'")
-                    elif len(columns) > 0 and "integer_faure" in columns[colmName]:
-                        conditionAdd.append(variable + " < 0")
-                if conditionAdd:
-                    patternConstraint = "(" + patternConstraint + " or " +" or ".join(conditionAdd) + ")"
-                constraints.append(patternConstraint)
-
-        # adding variables in arrays in variableList
-        # TODO: Possibly inefficient
-        varListWithArray = deepcopy(variableList)
-        for var in variables_idx_in_array:
-            varListWithArray[var] = [variables_idx_in_array[var]["location"]+'['+str(variables_idx_in_array[var]["idx"]) + ']']
-
-        # Additional constraints are faure constraints.
-        constraints_faure = []
-        for atom in self._body:
-            for constraint in atom.conditions:
-                constraints_faure.append(constraint)
-
-        if len(constraints_faure) > 0:
-            faure_constraints = self.addtional_constraints2where_clause(constraints_faure, varListWithArray, arrayVariables)
-            constraintsZ3Format += parsing_utils.replaceCVars(constraints_faure, varListWithArray, arrayVariables)
-            constraints.append(faure_constraints)
-
-        # TODO: Check for appropriate z3 format conversion for arrays
-        # constraints for array
-        for attr in constraints_for_array:
-            for var in constraints_for_array[attr]:
-                if var in variableList:
-                    constraints.append("{} = ANY({})".format(variableList[var][0], attr))
-                # else:
-                #     constraints.append("{}[{}] = ANY({})".format(variables_idx_in_array[var]['location'], variables_idx_in_array[var]['idx'], attr))
-
-        return summary_nodes, tables, constraints, constraintsZ3Format
+        return summary_nodes
 
     @timeit
     def execute(self, conn, faure_evaluation_mode="contradiction"):
@@ -548,14 +500,7 @@ class DT_Rule:
                     header_data_portion.append(str(self._mapping[p]))
 
         # set header condition
-        header_condition = None
-        if self._head.conditions:
-            if len(self._head.conditions) == 0:
-                header_condition = ""
-            elif len(self._head.conditions) == 1:
-                header_condition = self._head.conditions[0]
-            else:
-                header_condition = "And({})".format(", ".join(self._head.conditions))
+        header_condition = str(self._head.condition)
         for tup in resulting_tuples:
             tup_cond = tup[-1] # assume condition locates the last position
             data_portion = list(tup[:-1])
@@ -607,7 +552,7 @@ class DT_Rule:
 
     # The argument tuple1 and tuple2 are single tuples. 
     # Functions checks if the tuples are equivalent
-    @timeit
+    # @timeit
     def tuplesEquivalent(self, tuple1, tuple2):
         if str(tuple1[:-1]) != str(tuple2[:-1]): # data portion must be the same
             return False
@@ -631,7 +576,6 @@ class DT_Rule:
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
         header_table = self._head.table.name
-
         if (not self._recursive_rules):
             sql = "insert into {header_table} select * from {fromTable}".format(header_table=header_table, fromTable=fromTable)
             cursor.execute(sql)
@@ -655,12 +599,18 @@ class DT_Rule:
             newTuples = []
             for generatedTuple in generatedHead:
                 alreadExists = False
+                start = time.time()
                 for tuple in head_table:
                     if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
                         alreadExists = True
+                end = time.time()
+                total_time = end-start
+                logging.info(f'Time: rule_tuplesEquivalent took {total_time:.4f}')
                 if not alreadExists:
                     newTuples.append(generatedTuple)
+            # logging.info(f'Time: rule_comparison_runs took {len(generatedTuple)*len(head_table)}')
             if len(newTuples) > 0:
+                self._head.table.deleteAllTuples(conn) # TODO: This is a hacky way to do semi naive
                 execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
                 conn.commit()
                 return True

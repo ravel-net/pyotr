@@ -77,6 +77,14 @@ def getTablesAsConditions(tables = [], colmName = "condition"):
 		tableRefs.append(tableReference + "." + colmName)
 	return " || ".join(tableRefs)
 
+# given a variable and its type, returns the negative integer condition
+# not adding any or all here. Need to keep track of this when doiing sql conversion. ALL only when != used.
+@timeit
+def negativeIntCondition(var, var_type):
+	if "inet_faure" in var_type: # inet list
+		return "'0.0.255.0' > " + var
+	elif "integer_faure" in var_type:# integer list
+		return "0 > " + var
 
 # Input: Condition
 # Processing: Replace negative integers by c-vars
@@ -188,6 +196,33 @@ def processCon(var1, var2, op, replacements, cVarTypes={}):
 		finalCondition = "(" + condition + " or " +" or ".join(conditionAdd) + ")"
 
 	return finalCondition
+
+# conditions end in either a comma or a bracket. A comma in array is not counted
+@timeit 
+def findCondEnd(condition, startPos):
+	inSquareBrackets = False
+	index = startPos
+	while index < len(condition):
+		char = condition[index]
+		if (char == "," or char == ")") and not inSquareBrackets:
+			return index
+		if condition[index] == "[":
+			inSquareBrackets = True
+		elif condition[index] == "]":
+			inSquareBrackets = False
+		index += 1
+	return index
+
+# conditions end in either a comma or a bracket. A comma in array is not counted
+@timeit 
+def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">=", "<", "<="]):
+	i = startPos
+	while i+2 < endPos:
+		if condition[i:i+2].strip() in operators:
+			return condition[i:i+2].strip()
+		i += 1
+	print("Could not find any operator in condition {}".format(condition[startPos, endPos]))
+	exit()
 
 # Converts a z3 condition into a SQL where clause
 @timeit
