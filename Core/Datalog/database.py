@@ -141,17 +141,8 @@ class DT_Database:
                     continue
                 colm_type = table.cVarTypes[cvar]
                 if cvar in cVarTypes and cVarTypes[cvar] != colm_type: # When a cvariable has different column types
-                        print("Error while getting reasoning types for database. Two different reasoning types defined for cvar {}: {} and {}. Exiting".format(cvar, colm_type, reasoning_types[cvar]))
+                        print("Error while getting reasoning types for database. Two different reasoning types defined for cvar {}: {} and {}. Exiting".format(cvar, colm_type, table.reasoning_types[cvar]))
                         exit()
                 elif cvar not in cVarTypes:
                     cVarTypes[cvar] = colm_type
         return cVarTypes
-
-
-    
-    
-    # def __str__(self):
-    #     DT_Program_str = ""
-    #     for rule in self._rules:
-    #         DT_Program_str += str(rule) + "\n"
-    #     return DT_Program_str[:-1] # removing the last \n

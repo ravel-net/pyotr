@@ -273,51 +273,51 @@ class DT_Program:
                 else:
                     atomNum += 1   
 
-    @timeit
-    def __minimizeRules(self):
-        ruleNum = 0
-        while ruleNum < self.__numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
-            if self.__numRules == 1: # if only one rule left in program, stop minimizing
-                return
-            rule = self.__getRule(ruleNum)
-            newProgram = self.__copyWithDeletedRule(ruleNum)
-            if newProgram.contains_rule(rule, self.db.cVarMappingReverse):
-                self.__deleteRule(ruleNum)
-            else:
-                ruleNum += 1   
+    # @timeit
+    # def __minimizeRules(self):
+    #     ruleNum = 0
+    #     while ruleNum < self.__numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
+    #         if self.__numRules == 1: # if only one rule left in program, stop minimizing
+    #             return
+    #         rule = self.__getRule(ruleNum)
+    #         newProgram = self.__copyWithDeletedRule(ruleNum)
+    #         if newProgram.contains_rule(rule, self.db.cVarMappingReverse):
+    #             self.__deleteRule(ruleNum)
+    #         else:
+    #             ruleNum += 1   
 
-    @timeit
-    def __enhancedMinimization(self, constantUnificationOn = True):
-        signatureBuckets = {}
-        ruleName = {}
-        P_unified = []
-        for ruleNum, rule in enumerate(Prules):
-            signature = rule.getSignature()
-            if not signature in signatureBuckets:
-                signatureBuckets[signature] = ([],[]) # (rule, ruleNum)
-            signatureBuckets[signature][0].append(rule)
-            signatureBuckets[signature][1].append("r"+str(ruleNum))
-        for signature in signatureBuckets:
-            bucket = signatureBuckets[signature][0]
-            ruleNums = signatureBuckets[signature][1]
-            # for i in range(len(bucket)-1):
-            i = 0
-            while i < len(bucket):
-                j = i+1
-                # for j in range(i+1, len(bucket)-1):
-                while j < len(bucket):
-                    r1 = bucket[i]
-                    r2 = bucket[j]
-                    r_tmp = unify(r1, r2, ruleNums[i], constantUnificationOn)
-                    if (r_tmp != None): # unification was successful
-                        bucket[i] = r_tmp
-                        del bucket[j]
-                        del ruleNums[j]
-                    else:
-                        j += 1
-                i += 1
-            for rule in bucket: # add all unified rules to p_unified
-                P_unified.append(str(rule))
-        self.__replaceProgram(P_unified)
+    # @timeit
+    # def __enhancedMinimization(self, constantUnificationOn = True):
+    #     signatureBuckets = {}
+    #     ruleName = {}
+    #     P_unified = []
+    #     for ruleNum, rule in enumerate(Prules):
+    #         signature = rule.getSignature()
+    #         if not signature in signatureBuckets:
+    #             signatureBuckets[signature] = ([],[]) # (rule, ruleNum)
+    #         signatureBuckets[signature][0].append(rule)
+    #         signatureBuckets[signature][1].append("r"+str(ruleNum))
+    #     for signature in signatureBuckets:
+    #         bucket = signatureBuckets[signature][0]
+    #         ruleNums = signatureBuckets[signature][1]
+    #         # for i in range(len(bucket)-1):
+    #         i = 0
+    #         while i < len(bucket):
+    #             j = i+1
+    #             # for j in range(i+1, len(bucket)-1):
+    #             while j < len(bucket):
+    #                 r1 = bucket[i]
+    #                 r2 = bucket[j]
+    #                 r_tmp = unify(r1, r2, ruleNums[i], constantUnificationOn)
+    #                 if (r_tmp != None): # unification was successful
+    #                     bucket[i] = r_tmp
+    #                     del bucket[j]
+    #                     del ruleNums[j]
+    #                 else:
+    #                     j += 1
+    #             i += 1
+    #         for rule in bucket: # add all unified rules to p_unified
+    #             P_unified.append(str(rule))
+    #     self.__replaceProgram(P_unified)
 
 

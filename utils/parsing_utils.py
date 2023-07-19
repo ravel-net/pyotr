@@ -228,7 +228,7 @@ def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">="
 @timeit
 def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, cVarTypes={}):
 	if (len(condition) <= 1): # Empty condition
-		return TRUE, []
+		return 'TRUE', []
 	stack = deque()
 	i = 0
 	while i < len(condition):

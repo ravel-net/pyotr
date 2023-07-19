@@ -179,7 +179,7 @@ class DT_Table:
             colm = self.cvars[cvar] 
             colm_type = self.columns[colm]
             if cvar in cVar_types and cVar_types[cvar] != colm_type: # When a cvariable has different column types
-                    print("Error while getting reasoning types for table {}. Two different reasoning types defined for cvar {}: {} and {}. Exiting".format(self.name, cvar, colm_type, reasoning_types[cvar]))
+                    print("Error while getting reasoning types for table {}. Two different reasoning types defined for cvar {}: {} and {}. Exiting".format(self.name, cvar, colm_type, self.reasoning_types[cvar]))
                     exit()
             elif cvar not in cVar_types:
                 cVar_types[cvar] = colm_type
