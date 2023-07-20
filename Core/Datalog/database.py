@@ -25,7 +25,7 @@ class DT_Database:
     """
 
     # list of tables 
-    @timeit
+    # cVarMapping must have string as key (not int)
     def __init__(self, tables = [], cVarMapping={}):
         self.tables = tables
         self.cvar_domain = self.getDomains()
@@ -39,45 +39,43 @@ class DT_Database:
             self.cVarMapping = self.getCVarMapping()
         self.cVarMappingReverse = {}
         for negInt in self.cVarMapping:
-            self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
+            currCvar = self.cVarMapping[negInt]
+            if currCvar not in self.cVarMappingReverse:
+                self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
+            elif currCvar in self.cVarMappingReverse and "'" in negInt: # This is done because reverseMapping is used by sql and it requires quotation marks for ip addresses
+                self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
 
 
     # Maps cvariable integers to negative integers and maps cvariable inets to 0.0.0.1 to 0.0.255.0
-    @timeit
     def getCVarMapping(self):
         cvarMapping = {}
         i = 1
         for cvar in self.c_variables:
             if 'BitVec' in self.reasoning_types[cvar]:
-                net = IPv4Address('0.0.0.1') + i
-                cvarMapping["'"+str(net)+"'"] = cvar
+                net = IPv4Address('0.1.0.0') + i # TODO: Doing /32 because postgresql interprets /32 as a host and doesn't print it. This is hacky and we need a better solution
+                cvarMapping[str(net)+"/31"] = cvar
+                cvarMapping["'"+str(net)+"/31"+"'"] = cvar
             else:
                 cvarMapping[str(0-i)] = cvar
             i += 1 
         return cvarMapping
 
-
-
-    @timeit
     def delete(self, conn): # destructor - drop tables
         for table in self.tables:
             table.delete(conn)
         conn.commit()
 
     # creates an empty DB
-    @timeit
     def initiateDB(self, conn):
         for table in self.tables:
             table.initiateTable(conn)
 
-    @timeit
     def getTable(self, name):
         for table in self.tables:
             if table.name == name:
                 return table
         return None
 
-    @timeit
     def getCTables(self):
         c_tables = []
         for table in self.tables:
@@ -85,7 +83,6 @@ class DT_Database:
                 c_tables.append(table.name)
         return c_tables
 
-    @timeit
     def getDatabaseTypes(self):
         databaseTypes = {}
         for table in self.tables:
@@ -95,7 +92,6 @@ class DT_Database:
             databaseTypes[table.name] = table_types
         return databaseTypes
     
-    @timeit
     def getCVars(self):
         cvars = []
         for table in self.tables:
@@ -104,7 +100,6 @@ class DT_Database:
                     cvars.append(cvar)
         return cvars
 
-    @timeit
     def getDomains(self):
         cvar_domain = {}
         for table in self.tables:
@@ -117,7 +112,6 @@ class DT_Database:
                     cvar_domain[cvar] = domain
         return cvar_domain
 
-    @timeit
     def getReasoningType(self):
         reasoning_types = {}
         for table in self.tables:
@@ -132,7 +126,6 @@ class DT_Database:
                     reasoning_types[cvar] = colm_type
         return reasoning_types
 
-    @timeit
     def getCVarType(self):
         cVarTypes = {}
         for table in self.tables:

@@ -18,12 +18,18 @@ class ConditionLeaf:
         conditionSplit = currCond.split(self.operator)
         self.var1 = conditionSplit[0].strip()
         self.var2 = conditionSplit[1].strip()
+        self.isTrue = False
+        if "=" in operator and str(self.var1) == str(self.var2):
+            self.isTrue = True
 
     def __str__(self):
         return parsing_utils.condToStringDefault(self.var1, self.operator, self.var2)
+    
+    def getIsTrue(self):
+        return self.isTrue
 
     def toString(self, mode, replacementDict = {}, atomTables = [], reasoningType={}):
-        return parsing_utils.condToStringModes(var1=self.var1, operator=self.operator, var2=self.var2, mode=mode, replacementDict=replacementDict, atomTables=atomTables, reasoningType={})
+        return parsing_utils.condToStringModes(var1=self.var1, operator=self.operator, var2=self.var2, mode=mode, replacementDict=replacementDict, atomTables=atomTables, reasoningType=reasoningType)
 
 # make sure to check if the conditionTree isTrue or not. If it is, then it is trivially true and can be skipped altogether
 # ConditionTree is either a single condition or a logical operator with conditionTrees as children
@@ -37,6 +43,8 @@ class ConditionTree:
         self.children = []
         self.isLeaf = False
         self.isEmpty = False
+        isProcessed = False
+        self.isTrue = False
         
         # skip over spaces:
         while pos < len(condition) and (condition[pos] == " " or condition[pos] == ","):
@@ -46,6 +54,7 @@ class ConditionTree:
             self.isEmpty = True
         elif len(condition)-pos < 4: # must be a leaf
             self.processLeaf(condition=condition, pos=pos)
+            isProcessed = True
         elif condition[pos:pos+2] == "Or":
             while pos < len(condition) and condition[pos] != "(":
                 pos += 1
@@ -63,26 +72,34 @@ class ConditionTree:
             self.value = "Not"
         else: # must be a leaf
             self.processLeaf(condition=condition, pos=pos)
+            isProcessed = True
 
         # skip over spaces:
         while pos < len(condition) and condition[pos] == " ":
             pos += 1
 
         # The bottom part only run if it's a logical operator
-        if not self.isEmpty and not self.isLeaf:
+        if not self.isEmpty and not isProcessed:
             while pos < len(condition) and condition[pos] != ")":
                 child = ConditionTree(condition, pos)
                 # if not child.getIsTrue(): # when the condition is trivially true. #TODO: Also think about doing something when the condition is trivially False.
-                self.children.append(child)
                 pos = child.getEndPos()
-                while pos < len(condition) and condition[pos] == " ":
+                if not child.getIsTrue():
+                    self.children.append(child)
+                else:
+                    del child
+                while pos < len(condition) and condition[pos] == " ": # skip over spaces:
                     pos += 1
-                        # skip over spaces:
-                # else:
-                    # del child
 
             pos += 1 # skipping over last bracket
             self.endPos = pos
+
+        if not self.isLeaf and len(self.children) == 0:
+            self.isEmpty = True
+            self.isTrue = True
+
+    def getIsTrue(self):
+        return self.isTrue
 
     def processLeaf(self, condition, pos):
         endPos = parsing_utils.findCondEnd(condition, pos)
@@ -95,16 +112,20 @@ class ConditionTree:
                 self.value = "And"
             else:
                 self.value = "Or"
-            conditionSplit = currCond.split(self.operator)
+            conditionSplit = currCond.split(operator)
             var1 = conditionSplit[0].strip()
             var2Arr = conditionSplit[1].strip()[1:-1].split(",") # we assume that var2 is an array
             for var2 in var2Arr:
-                var2 = var2.stript()
+                var2 = var2.strip()
                 conditionLeaf = "{} {} {}".format(var1, operator, var2)
                 self.children.append(ConditionLeaf(currCond=conditionLeaf, operator=operator))
         else:
             self.isLeaf = True
             self.value = ConditionLeaf(currCond, operator)
+            if self.value.getIsTrue():
+                self.isEmpty = True
+                self.isTrue = True
+
         if self.endPos < len(condition) and condition[self.endPos] == ",":
             self.endPos += 1
 

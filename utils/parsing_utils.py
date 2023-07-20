@@ -4,15 +4,148 @@ from copy import copy
 from os.path import dirname, abspath
 root = dirname(abspath(__file__))
 sys.path.append(root)
+from ipaddress import IPv4Network
 
 from collections import deque
 from utils.logging import timeit
+from Core.Datalog.database import DT_Database
+from Core.Datalog.table import DT_Table
 
-logicalOpsConversion = {"^":"Or", "&":"And"}
+
+############################################ Condition Tree Parsing ##################################
+# conditions end in either a comma or a bracket. A comma in array is not counted
+@timeit 
+def findCondEnd(condition, startPos):
+	inSquareBrackets = False
+	index = startPos
+	while index < len(condition):
+		char = condition[index]
+		if (char == "," or char == ")") and not inSquareBrackets:
+			return index
+		if condition[index] == "{" or condition[index] == "[":
+			inSquareBrackets = True
+		elif condition[index] == "}" or condition[index] == "]":
+			inSquareBrackets = False
+		index += 1
+	return index
+
+# conditions end in either a comma or a bracket. A comma in array is not counted
+@timeit 
+def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">=", "<", "<="]):
+	i = startPos
+	while i+2 < endPos:
+		if condition[i:i+2].strip() in operators:
+			return condition[i:i+2].strip()
+		i += 1
+	print("Could not find any operator in condition {}".format(condition[startPos, endPos]))
+	exit()
+
+def condToStringDefault(var1, operator, var2):
+	return var1 + " " + operator + " " + var2
+
+def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTables = [], reasoningType={}):
+	if mode == "Z3": 
+		newOp = operator
+		if newOp == "=":
+			newOp = "=="
+		if newOp != "==" and newOp != "!=" and (_isIP(var1) or _isIP(var2)):
+			print("Unsuported operator given for condition {}. Exiting.".format(condToStringDefault(var1, newOp, var2)))
+			exit()
+		if _isIP(var1) and _isIP(var2):
+			if operator == "==" and str(var1) == str(var2):
+				return "z3.Bool(True)"
+			elif operator == "==" and str(var1) != str(var2):
+				return "z3.Bool('False')"
+			elif operator == "!=" and str(var1) != str(var2):
+				return "z3.Bool('True')"
+			elif operator == "!=" and str(var1) == str(var2):
+				return "z3.Bool('False')"
+		if _isIP(var1):
+			return _convertIPCondition(var=var2, operator=operator, ip=var1)
+		elif _isIP(var2):
+			return _convertIPCondition(var=var1, operator=operator, ip=var2)
+		else:
+			newVar1 = _convertToZ3Var(var1, reasoningType)
+			newVar2 = _convertToZ3Var(var2, reasoningType)
+			return condToStringDefault(newVar1, newOp, newVar2)
+	elif mode == "Replace String":
+		newVar1 = var1
+		newVar2 = var2
+		if var1 in replacementDict:
+			newVar1 = replacementDict[var1]
+		elif str(var1) in replacementDict:
+			newVar1 = replacementDict[str(var1)]
+		if var2 in replacementDict:
+			newVar2 = replacementDict[var2]
+		elif str(var2) in replacementDict:
+			newVar2 = replacementDict[str(var2)]
+		return condToStringDefault(newVar1, operator, newVar2)
+	elif mode == "SQL":
+		newOp = operator
+		newVar1 = var1
+		newVar2 = var2        
+		if operator == "==":
+			newOp = "="
+		if not _isConstant(var1):
+			var1_table = var1.split(".")[0]
+			var1_colm = var1.split(".")[1]
+			var1_type = atomTables[var1_table].columns[var1_colm]
+			if "[]" in var1_type and operator == "!=":
+				newVar1 = "All(" + var1 + ")"
+			elif "[]" in var1_type:
+				newVar1 = "Any(" + var1 + ")"
+		if not _isConstant(var2):
+			var2_table = var2.split(".")[0]
+			var2_colm = var2.split(".")[1]
+			var2_type = atomTables[var2_table].columns[var2_colm]
+			if "[]" in var2_type and operator == "!=":
+				newVar2 = "All(" + var2 + ")"
+			elif "[]" in var2_type:
+				newVar2 = "Any(" + var2 + ")"
+		return condToStringDefault(newVar1, newOp, newVar2)
+	elif mode == "Array Integration":
+		newOp = operator
+		newVar1 = var1
+		newVar2 = var2        
+		if operator == "=":
+			newOp = "=="
+		if not _isConstant(var1):
+			var1_table = var1.split(".")[0]
+			var1_colm = var1.split(".")[1]
+			var1_type = atomTables[var1_table].columns[var1_colm]
+			if "[]" in var1_type:
+				newVar1 = var1 + "::text"
+		if not _isConstant(var2):
+			var2_table = var2.split(".")[0]
+			var2_colm = var2.split(".")[1]
+			var2_type = atomTables[var2_table].columns[var2_colm]
+			if "[]" in var2_type:
+				newVar2 = var2 + "::text"
+		return condToStringDefault(newVar1, newOp, newVar2)
+	elif mode == "Negative Int":
+		conditions = []
+		conditions.append(condToStringDefault(var1, operator, var2)) # first condition is the default one
+		if not _isConstant(var1):
+			var1_table = var1.split(".")[0]
+			var1_colm = var1.split(".")[1]
+			var1_type = atomTables[var1_table].columns[var1_colm]
+			if "faure" in var1_type: # c-table
+				newCondition = _negativeIntCondition(var1, var1_type)
+				conditions.append(newCondition)
+		if not _isConstant(var2):
+			var2_table = var2.split(".")[0]
+			var2_colm = var2.split(".")[1]
+			var2_type = atomTables[var2_table].columns[var2_colm]
+			if "faure" in var2_type: # c-table
+				newCondition = _negativeIntCondition(var2, var2_type)
+				conditions.append(newCondition)
+		return "Or(" + ", ".join(conditions) + ")"
+
+
+############################################ Faure Parsing ##################################
 
 # Input: Conditions as conjunctive array (e.g. ['t0.c0 == t1.c0', 't1.c0 == t2.c0', 't2.c0 == t3.c0', ['t0.c0 == 2', 'And(Or(t0.c0 == 1, t0.c0 == 2), t0.c0 == 5)']])
 # Output Example: Array['And(' || t0.c0 || ' == ' || t1.c0 || ', ' || t1.c0 || ' == ' || t2.c0 || ', ' || t2.c0 || ' == ' || t3.c0 || ', ' || t0.c0 || ' == ' || 2 || ', ' || 'And(' || 'Or(' || t0.c0 || ' == ' || 1 || ', ' || t0.c0 || ' == ' || 2 || ')' || ', ' || t0.c0 || ' == ' || 5 || ')' || ')']
-@timeit
 def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 	if len(conditions) > 0:
 		conditionSQL = "And(" + ", ".join(conditions)+")"
@@ -42,14 +175,6 @@ def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 					conditionComponents.append("', '")
 					i += 1
 					j = i
-				# elif item[i] == " ":
-				# 	if (j != i):
-				# 		conditionComponents.append(conditionSQL[j:i])
-				# 		print(conditionSQL[j:i])
-				# 	conditionComponents.append("')'")
-				# 	print(')')
-				# 	i += 1
-				# 	j = i
 				elif item[i:i+2].strip() in operators:
 					op = item[i:i+2].strip()
 					conditionComponents.append(" ' " + op + " ' ")
@@ -77,193 +202,88 @@ def getTablesAsConditions(tables = [], colmName = "condition"):
 		tableRefs.append(tableReference + "." + colmName)
 	return " || ".join(tableRefs)
 
+############################################ Helper Parsing ##################################
 # given a variable and its type, returns the negative integer condition
 # not adding any or all here. Need to keep track of this when doiing sql conversion. ALL only when != used.
 @timeit
-def negativeIntCondition(var, var_type):
+def _negativeIntCondition(var, var_type):
 	if "inet_faure" in var_type: # inet list
 		return "'0.0.255.0' > " + var
 	elif "integer_faure" in var_type:# integer list
 		return "0 > " + var
-
-# Input: Condition
-# Processing: Replace negative integers by c-vars
-# Output: String in z3 format
-@timeit
-def replaceCVarsNegative(condition, mapping):
-	replacedConditions = []
-	for c in condition:
-		for var in mapping:
-			c = c.replace(str(var), str(mapping[var]))
-		replacedConditions.append(c)
-	return replacedConditions
-
-# Input: Condition
-# Processing: Replace cvariables by sql locations
-# Output: Return processed condition
-@timeit
-def replaceCVars(condition, mapping, arrayVariables=[]):
-	replacedConditions = []
-	for c in condition:
-		for var in mapping:
-			replacement = str(mapping[var][0])
-			if var in arrayVariables: # TODO: Hacky way to remove conditions over arrays from z3. Fix it
-				replacement = replacement + "::text"
-			c = c.replace(str(var)+" ", replacement+" ") # TODO: Hacky way to only replace variables
-			c = c.replace(str(var)+")", replacement+")") # TODO: Hacky way to only replace variables
-			c = c.replace(str(var)+"[", replacement+"[") # TODO: Hacky way to only replace variables
-			c = c.replace(str(var)+",", replacement+",") # TODO: Hacky way to only replace variables
-			c = c.replace(" " + str(var), " " + replacement) # TODO: Hacky way to only replace variables
-		replacedConditions.append(c)
-	return replacedConditions
-
-# When a bracket close is encountered, pop items from the stack until a logical operator is encountered
-@timeit
-def popUntilLogicalOP(stack):
-	elem = stack.pop()
-	listItems = []
-	while elem != "^" and elem != "&":
-		listItems.append(elem)
-		elem = stack.pop()
-	return listItems[::-1], logicalOpsConversion[elem] #Todo: Should work even without reversing array using ::-1
-
-# Combines a list of items under a single logical operator into pairwise logical operations that are understandable by CUDD
-@timeit
-def combineItems(listItems, logicalOP, replacements):
-	if logicalOP in replacements:
-		logicalOP = replacements[logicalOP]
-	if len(listItems) == 1:
-		return listItems[0]
-	elif len(listItems) == 2:
-		return "("+listItems[0]+" "+logicalOP+" "+listItems[1]+")"
-	currString = "("+listItems[0]+" "+logicalOP+" "+combineItems(listItems[1:], logicalOP, replacements)+")"
-	return currString
-
-
-# Extract conditions from a given position in the whole condition string. Note that i is the position of "=="
-@timeit
-def extractConditions(conditions, i):
-	start = 0
-	end = len(conditions)
-	curr = i
-	while(curr >= 0 and conditions[curr] != '(' and conditions[curr] != ','):
-		curr -= 1
-	start = curr + 1
-	curr = i
-	while(curr < len(conditions) and conditions[curr] != ')' and conditions[curr] != ',' and i < len(conditions)-1):
-		curr += 1
-	end = curr
-	return conditions[start:end].strip(), start, end
-
-@timeit
-def processCon(var1, var2, op, replacements, cVarTypes={}):
-	condition = ""
-	if var1 in replacements:
-		condition += replacements[var1]
-	else:
-		condition += var1
-	if op in replacements:
-		condition += " " + replacements[op] + " "
-	else:
-		condition += " " + op + " "
-	if var2 in replacements:
-		if replacements[var2][0] == "[" and op == "==":
-			condition += "ANY("+replacements[var2][1:-1]+")"
-		elif replacements[var2][0] == "[" and op == "!=":
-			condition += "ALL("+replacements[var2][1:-1]+")"
-		else:
-			condition += replacements[var2]
-	else:
-		condition += var2
-
-	finalCondition = condition
 	
-	conditionAdd = [] # stores extra conditions for negative integer implementation
-	for var in [var1, var2]:
-		if var in cVarTypes:
-			replacedVar = var
-			if var in replacements:
-				replacedVar = replacements[var]
-			if "inet_faure[]" in cVarTypes[var]: # inet list
-				conditionAdd.append("'0.0.255.0' > Any(" + replacedVar[1:-1] + ")")
-			elif "integer_faure[]" in cVarTypes[var]:# integer list
-				conditionAdd.append("0 > Any(" + replacedVar[1:-1] + ")")  
-			elif "inet_faure" in cVarTypes[var]: # inet
-				conditionAdd.append(replacedVar + " < " + "'0.0.255.0'") 
-			elif "integer_faure" in cVarTypes[var]: # integer
-				conditionAdd.append(replacedVar + " < " + "0")
-	if conditionAdd:
-		finalCondition = "(" + condition + " or " +" or ".join(conditionAdd) + ")"
-
-	return finalCondition
-
-# conditions end in either a comma or a bracket. A comma in array is not counted
-@timeit 
-def findCondEnd(condition, startPos):
-	inSquareBrackets = False
-	index = startPos
-	while index < len(condition):
-		char = condition[index]
-		if (char == "," or char == ")") and not inSquareBrackets:
-			return index
-		if condition[index] == "[":
-			inSquareBrackets = True
-		elif condition[index] == "]":
-			inSquareBrackets = False
-		index += 1
-	return index
-
-# conditions end in either a comma or a bracket. A comma in array is not counted
-@timeit 
-def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">=", "<", "<="]):
-	i = startPos
-	while i+2 < endPos:
-		if condition[i:i+2].strip() in operators:
-			return condition[i:i+2].strip()
-		i += 1
-	print("Could not find any operator in condition {}".format(condition[startPos, endPos]))
-	exit()
-
-# Converts a z3 condition into a SQL where clause
+# Returns true if the var is a digit or an IP
 @timeit
-def z3ToSQL(condition, operators = ["==", "!=", ">", ">=", "<", "<="], replacements = {"==":"="}, cVarTypes={}):
-	if (len(condition) <= 1): # Empty condition
-		return 'TRUE', []
-	stack = deque()
-	i = 0
-	while i < len(condition):
-		if condition[i] == ')':
-			listItems, logicalOP = popUntilLogicalOP(stack) # pop until logical operator encountered.
-			if (len(listItems) > 1):
-				stack.append(combineItems(listItems, logicalOP, replacements))
-			else:
-				stack.append(listItems[0])
-			i+=1
-		elif condition[i:i+4] == "And(":
-			stack.append("&")
-			i+=4
-		elif condition[i:i+3] == "Or(":
-			stack.append("^")
-			i+=3
-		elif condition[i:i+2].strip() in operators:
-			op = condition[i:i+2].strip()
-			currCondition, _,_ = extractConditions(condition, i)
-			length = len(condition)
-			splitConditionsPre = currCondition.split(op)
-			splitConditions = [splitConditionsPre[0].strip(), splitConditionsPre[1].strip()]
-			encodedCond = processCon(splitConditions[0], splitConditions[1], op, replacements, cVarTypes)
-			stack.append(encodedCond)
-			i+=len(splitConditionsPre[1])+len(op)-1
+def _isConstant(var):
+	if _isInt(var) or _isIP(var):
+		return True
+	else:
+		return False
+
+def _isIP(var):
+	if var.count(".") == 3:
+		return True
+	else:
+		return False
+	
+def _isInt(var):
+	if type(var) == int or str(var)[0].isdigit():
+		return True
+	else:
+		return False
+
+############################################ Z3 Parsing ##################################
+def _convertIPToBits(IP, bits):
+	if "/" in IP:
+		IP = IP.split("/")[0]
+	IP_stripped = IP.split(".")
+	bitValue = 0
+	i = bits-8
+	for rangeVals in IP_stripped:
+		if "\\" in rangeVals:
+			rangeVals = rangeVals.split("\\")[0]
+		bitValue += (int(rangeVals) << i)
+		i -= 8 
+	return (bitValue)
+
+# Breaks IP into a range if it is subnetted.
+def _getRange(ip, bits = 32):
+	net = IPv4Network(ip)
+	if (net[0] != net[-1]): # subnet
+		return [str(net[0]), str(net[-1])]
+	else:
+		return [ip]
+	
+def _convertIPCondition(var, operator, ip, bits=32):
+	ip = ip.strip().strip("'").strip('"') # remove quotation marks
+	ipRange = _getRange(ip, bits)
+	var = "z3.BitVec('{}',{})".format(var, bits)
+	if len(ipRange) == 0:
+		return condToStringDefault(var1=var,operator=operator, var2=_convertToBitVec(ip, bits))
+	lower = _convertToBitVec(ipRange[0], bits)
+	upper = _convertToBitVec(ipRange[-1], bits)
+	if operator == "!=":
+		return "Or({var} < {lower}, {var} > {upper})".format(var=var,lower=lower,upper=upper)
+	if operator == "==":
+		return "And({var} >= {lower}, {var} <= {upper})".format(var=var,lower=lower,upper=upper)
+	
+def _convertToBitVec(ip, bits = 32):
+	ipBits = _convertIPToBits(ip, bits)
+	return "z3.BitVec('{ip}',{bits})".format(ip = ipBits, bits = bits)
+
+def _convertToZ3Var(var, reasoningType, bits = 32):
+	if var in reasoningType:
+		datatype = reasoningType[var]
+		if datatype == 'BitVec':
+			return "z3.{}('{}',{})".format(reasoningType[var], var, bits)
 		else:
-			i+=1
+			return "z3.{}('{}')".format(reasoningType[var], var)
+	elif _isIP(var):
+		return "z3.IntVal('{}')".format(var)
+	else: # We assume that anything that is not an ip is an integer
+		return "z3.IntVal('{}')".format(var)
 
-	if (len(stack) != 1):
-		print(stack)
-		print("Length of stack should be 1")
-		exit()
-	sqlFormCond = stack.pop()
-	return sqlFormCond
-
+############################################ Atom Parsing ##################################
 @timeit
 def split_atoms(bodystr):
 	i = 0
@@ -296,38 +316,6 @@ def split_atoms(bodystr):
 		atom_strs.append(bodystr[begin_pos:].strip(" ,"))
 	
 	return atom_strs
-
-@timeit
-def datalog_condition2z3_condition(condition):
-	# Assume support logical Or/And, excluding mixed uses
-	logical_opr = None
-	if '^' in condition:
-		logical_opr = '^'
-	elif '&' in condition:
-		logical_opr = '&'
-	
-	conds = []
-	processed_cond = None
-	if logical_opr:
-		for c in condition.split(logical_opr):
-			c = c.strip()
-			if c.split()[1].strip() == '=':
-				c = c.replace('=', '==')
-			conds.append(c)
-	else:
-		if len(condition.split()) > 1 and condition.split()[1].strip() == '=':
-			condition = condition.replace('=', '==')
-		processed_cond = condition
-	
-	if logical_opr == '^':
-		processed_cond = "Or({})".format(", ".join(conds))
-	elif logical_opr == '&':
-		processed_cond = "And({})".format(", ".join(conds))
-	
-	if processed_cond is None:
-		print("Illegal condition: {}!".format(condition))
-		exit()
-	return processed_cond
 
 @timeit
 # paramstring is anything in an atom after the table name and initial bracket

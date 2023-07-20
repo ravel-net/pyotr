@@ -7,7 +7,7 @@ logging.debug('[Datalog] Start Logging ...')
 def timeit(func):
     @wraps(func)
     def timeit_wrapper(*args, **kwargs):
-        logging.debug(f'Running Function {func.__name__}{args} {kwargs}')
+        # logging.debug(f'Running Function {func.__name__}{args} {kwargs}')
         start_time = time.perf_counter()
         result = func(*args, **kwargs)
         end_time = time.perf_counter()

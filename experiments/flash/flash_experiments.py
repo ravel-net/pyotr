@@ -126,19 +126,19 @@ def initializeDatabases(nodes, nodesToIgnore, nodeIntMapping, indexing_on):
 
     F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars=cvars, domain={"next_hop":allowedNodes,"node":allowedNodes})
 
-    mapping_index = -1
+    mapping_index = -200
     cvarMapping = {}
-    for cvar in cvarMapping:
-        cvarMapping[mapping_index] = cvar
+    for cvar in cvars:
+        cvarMapping[str(mapping_index)] = cvar
         mapping_index -= 1
 
     database = DT_Database(tables=[F,R,V], cVarMapping=cvarMapping)
-    R.delete(conn)
-    R.initiateTable(conn)
-    V.delete(conn)
-    V.initiateTable(conn)
-    # database.delete(conn)
-    # database.initiateDB(conn)
+    # R.delete(conn)
+    # R.initiateTable(conn)
+    # V.delete(conn)
+    # V.initiateTable(conn)
+    database.delete(conn)
+    database.initiateDB(conn)
 
     if indexing_on:
         F.enableIndexing(conn, "header")
@@ -163,8 +163,8 @@ def getMapping(nodes):
     nodeIntMappingReverse = {}
     i = 1
     for node in nodes:
-        nodeIntMapping[node] = i*100
-        nodeIntMappingReverse[i*100] = node
+        nodeIntMapping[node] = i+100
+        nodeIntMappingReverse[i+100] = node
         i += 1
     return nodeIntMapping, nodeIntMappingReverse
 
@@ -187,6 +187,33 @@ def storeTable(tableName, inputs):
     cursor = conn.cursor()
     cursor.execute("INSERT INTO {} VALUES {}".format(tableName, ",".join(inputs)))
     conn.commit()
+
+# takes into account deletions of prefixes
+# does not take longest prefix matching into account
+def cleanAirtelDataset(topology='airtel',datasetName='airtel.csv'):
+    dataset = "{}/{}".format(topology, datasetName)
+    with open(dataset) as f:
+        lines = f.readlines()
+        insertions = {} 
+        for line in lines:
+            splitLine = line.split(",")
+            node = splitLine[1].strip()
+            ipPart = splitLine[0].strip().split("/")
+            updateType = ipPart[0][0]
+            ip = ipPart[0][1:] # ignoring the '+' or '-' sign
+            prefix = ipPart[1]
+            port = splitLine[2].strip()
+            intIP = getIP(ip, prefix)
+            updateName = str(intIP)+"_"+node
+            if updateType == "+":
+                insertions[updateName] = [port, line]
+            elif updateType == '-' and updateName in insertions:
+                if len(insertions[updateName]) == 2 and insertions[updateName][0] == port:
+                    del insertions[updateName]
+    with open("airtel_airtel-cleaned.csv",'w') as f:
+        for update in insertions:
+            f.write(insertions[update][1] + "\n")
+
 
 def addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology):
     inputs = [] # list of inputs of the form [(header, source, next_hop, condition),...]
@@ -248,7 +275,7 @@ def addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topolo
             inputs.append(input)
     print("Storing table of size {} to F".format(len(inputs)))
     start = time()
-    # storeTable("F", inputs)
+    storeTable("F", inputs)
     end = time()
     print("Storing took {} seconds".format(end-start))
 
@@ -307,11 +334,13 @@ def runDatalog(db, nodeIntMappingReverse, nodeIntMapping, sourceNode = "atla", h
     program2.execute(conn, violationTables=[db.getTable("V")])
     end = time()
     conn.commit()
+    print("Total Time =", end-start)
     return (end-start)
 
-# python3 flash_experiments.py topology dataset1,dataset2,dataset3,... nodeIgnore1 [all/list of prefixes] nodeIgnore2 [all/list of prefixes]
 if __name__ == '__main__':
-    runs = 50
+    runs = 1
+    # cleanAirtelDataset()
+    # exit()
 
     if len(sys.argv) < 7:
         print("Program requires at least 6 parameters ([airtel/I2] [source_node] [header/X] [indexing_on] [simplification_on] and at least 1 dataset). Usage: python3 flash_experiments.py I2 atla 1 True False dataset1,dataset2,dataset3,... hous all kans 1,2833844992,5")
@@ -348,20 +377,22 @@ if __name__ == '__main__':
     portMapping, graph, nodes = loadTopology(topology) # load topology to get port to node mapping, possible next hops for all nodes, nodes list
     nodeIntMapping, nodeIntMappingReverse = getMapping(nodes) # each node is represented by an integer
 
+    db = initializeDatabases(nodes=nodes, nodesToIgnore=nodesToIgnore, nodeIntMapping=nodeIntMapping, indexing_on=indexing_on) # cvarmapping is int to string
+
+    for dataset in datasetFiles:
+        addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology)
+
     for run in range(runs):
-        db = initializeDatabases(nodes=nodes, nodesToIgnore=nodesToIgnore, nodeIntMapping=nodeIntMapping, indexing_on=indexing_on) # cvarmapping is int to string
-
-        # for dataset in datasetFiles:
-        #     addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology)
-
         header = headerStr
-        sourceNode = sourceNodeStr
+        source = sourceNodeStr
         if headerStr.lower() == 'random':
             header = db.getTable('F').getRandomTuple(conn = conn, colmName = 'header')
-        if sourceNodeStr.lower() == 'random':
-            source = db.getTable('F').getRandomTuple(conn = conn, colmName = 'node')
+        if sourceNodeStr.lower() == 'random' and headerStr.lower() != "x":
+            source = nodeIntMappingReverse[db.getTable('F').getRandomTuple(conn = conn, colmName = 'node', conditions=["header = {}".format(header)])]
+        elif sourceNodeStr.lower() == 'random':
+            source = nodeIntMappingReverse[db.getTable('F').getRandomTuple(conn = conn, colmName = 'node')]
         
-        timeTaken = runDatalog(db=db, nodeIntMappingReverse=nodeIntMappingReverse, nodeIntMapping=nodeIntMapping, sourceNode=nodeIntMappingReverse[source], header=header, simplification_on=simplification_on)
+        timeTaken = runDatalog(db=db, nodeIntMappingReverse=nodeIntMappingReverse, nodeIntMapping=nodeIntMapping, sourceNode=source, header=header, simplification_on=simplification_on)
 
         logFileName = "flash_experiment.log"
         if not os.path.isfile(logFileName):
@@ -375,3 +406,9 @@ if __name__ == '__main__':
                 f.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(topology,source,header,str(indexing_on),str(simplification_on),datasetFiles, nodesToIgnoreArr, str(timeTaken)))
         
         printTable("V", db, nodeIntMappingReverse)
+
+        db.getTable("R").deleteAllTuples(conn)
+        db.getTable("V").deleteAllTuples(conn)
+
+# Loop
+# python3 flash_experiments.py airtel s14-5 1 True False airtel-small.csv,airtel-cleaned.csv s15-5 all s9-7 all s15-1 all

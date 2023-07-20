@@ -25,7 +25,6 @@ class DT_Table:
     # columns: {column_name : column_type}
     # domain: {column_name : []}
     # cvars: {cvar : column_name}
-    @timeit
     def __init__(self, name, columns={}, cvars={}, domain={}):
         self.name = name
         self.columns = columns
@@ -38,28 +37,27 @@ class DT_Table:
         if self.isCTable:
             self.addConditionColumn()
     
-    @timeit 
     def delete(self, conn): # drops table from db
         cursor = conn.cursor()
         cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
 
     # TODO: Think about a better way than this
-    @timeit
     def getColmTypeWithoutFaure(self, colmType):
         colmType = colmType.replace("integer","bigint") # for ip addresses
         return colmType.replace("_faure","")
 
-
-    @timeit
-    def getRandomTuple(self, conn, colmName):
+    def getRandomTuple(self, conn, colmName, conditions=[]):
         if self.isEmpty(conn):
             print("Table {} is empty. Exiting.".format(self.name))
             exit()
         cursor = conn.cursor()
-        cursor.execute("select {} from {} order by random() limit 1;".format(colmName, self.name))
+        sql = "select {} from {}" .format(colmName, self.name)
+        if len(conditions) > 0:
+            sql += " where " + " and ".join(conditions)
+        sql += " order by random() limit 1;"
+        cursor.execute(sql)
         return cursor.fetchall()[0][0]
     
-    @timeit
     def enableIndexing(self, conn, colmName, using="btree"):
         if colmName not in self.columns:
             print("Column {} is not a valid column in table {}".format(colmName, self.name))
@@ -72,7 +70,6 @@ class DT_Table:
         else:
             cursor.execute("CREATE INDEX {}_{} ON {} using {}({})".format(self.name, colmName, self.name, using, colmName))
 
-    @timeit
     def deleteAllIndexes(self, conn):
         cursor = conn.cursor()
         cursor.execute("SELECT indexname FROM pg_indexes WHERE tablename = '{}';".format(self.name.lower()))
@@ -80,13 +77,11 @@ class DT_Table:
         for tuple in result:
             cursor.execute("DROP INDEX {}".format(tuple[0]))
 
-    @timeit
     def deleteAllTuples(self, conn):
         self.delete(conn)
         self.initiateTable(conn)
 
     # returns true if table is empty
-    @timeit
     def isEmpty(self, conn):
         cursor = conn.cursor()
         cursor.execute("SELECT count(*) from {}".format(self.name)) # check if empty
@@ -96,7 +91,6 @@ class DT_Table:
             return False
 
     # Initiates an empty table
-    @timeit
     def initiateTable(self, conn):
         cursor = conn.cursor()
         cursor.execute("SELECT count(to_regclass('{}'))".format(self.name)) # checking if table already exists
@@ -124,7 +118,6 @@ class DT_Table:
         exit()
 
     # Given a colm index, return the colm name
-    @timeit
     def getColmName(self, i):
         j = 0
         for colmName in self.columns:
@@ -137,19 +130,16 @@ class DT_Table:
 
 
     # Adds condition column of type text[] and name condition (if it already does not exist)
-    @timeit
     def addConditionColumn(self):
         if "condition" not in self.columns:
             self.columns["condition"] = "text[]"
 
-    @timeit
     def isCTable(self):
         for colm in self.columns:
             if "faure" in self.columns[colm]:
                 return True
         return False
     
-    @timeit
     def getCvarsDomain(self):
         cvars_domain = {}
         for cvar in self.cvars:
@@ -158,7 +148,6 @@ class DT_Table:
                 cvars_domain[cvar] = self.domain[colm]
         return cvars_domain
     
-    @timeit
     def getReasoningType(self):
         reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec", "text[]":"Int", "integer_faure[]":"Int[]", "inet_faure[]":"BitVec[]"}
         reasoning_types = {}
@@ -172,7 +161,6 @@ class DT_Table:
                 reasoning_types[cvar] = colm_type
         return reasoning_types
 
-    @timeit
     def getCVarType(self):
         cVar_types = {}
         for cvar in self.cvars:

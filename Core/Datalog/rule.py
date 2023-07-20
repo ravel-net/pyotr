@@ -133,8 +133,6 @@ class DT_Rule:
         if self.safe():
             self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
             self.sql = self.convertRuleToSQL()
-            print(self)
-            print("sql", self.sql)
         else:
             print("\n------------------------")
             print("Unsafe rule: {}!".format(self)) 
@@ -274,10 +272,10 @@ class DT_Rule:
                 i += 1
         
         generalConditions = ConditionTree("And(" + ", ".join(sqlConstraints) + ")")
-        negativeIntegerConstraints = generalConditions.getNegativeIntegerTree(atomTables) # same tree as general conditions but leafs expanded to include negative integers
-        constraints = negativeIntegerConstraints.sqlString(atomTables)
+        negativeIntegerConstraints = ConditionTree(generalConditions.toString(mode = "Negative Int", atomTables=atomTables)) # same tree as general conditions but leafs expanded to include negative integers
 
-        constraintsZ3Format = generalConditions.arrayIntegrationString(atomTables)
+        constraints = negativeIntegerConstraints.toString(mode="SQL", atomTables=atomTables)
+        constraintsZ3Format = generalConditions.toString(mode="Array Integration", atomTables=atomTables)
         summary_nodes = self.getSummaryNodes(variableList)
 
         constraintsArray = []
@@ -528,7 +526,8 @@ class DT_Rule:
                     # Does the condition in the header imply the condition in the tuple?
                     # We are not checking for equivalence because we are merging tuples
                     # if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions) and self.reasoning_tool.is_implication(header_condition, str_tup_cond):
-                    if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions):
+                    # if not self.reasoning_tool.iscontradiction([str_tup_cond]) and self.reasoning_tool.is_implication(str_tup_cond, extra_conditions): TODO: Revisit this condition. Do we need to check for implication now?
+                    if not self.reasoning_tool.iscontradiction([str_tup_cond]):
                         contains = True
                         return contains                    
                 elif self._reasoning_engine == 'bdd':
@@ -571,7 +570,7 @@ class DT_Rule:
                 return False
         return True
     
-    # Adds the result of the table "output" to head. Only adds distinct variables
+    # Adds the result of the table "output" to head. Only adds distinct variables. Only runs with faure so last column is always condition
     @timeit
     def insertTuplesToHead(self, conn, fromTable="output"):
         cursor = conn.cursor()
@@ -589,6 +588,18 @@ class DT_Rule:
             generatedHead = cursor.fetchall()
             if not generatedHead:
                 return False
+            
+            # TODO: Possible optimization for true conditions
+            # cleanedGeneratedHead = []
+            # for tup in generatedHead:
+            #     newTuple = list(tup[:-1])
+            #     conditionArr = tup[-1]
+            #     newCondArr = []
+            #     for cond in conditionArr:
+            #         newCondArr.append(str(ConditionTree(condition=cond)))
+            #     newTuple.append(newCondArr)
+            #     cleanedGeneratedHead.append(newTuple)
+            # generatedHead = cleanedGeneratedHead
 
             select_head_table_sql = "select * from {}".format(header_table)
 
@@ -610,7 +621,7 @@ class DT_Rule:
                     newTuples.append(generatedTuple)
             # logging.info(f'Time: rule_comparison_runs took {len(generatedTuple)*len(head_table)}')
             if len(newTuples) > 0:
-                self._head.table.deleteAllTuples(conn) # TODO: This is a hacky way to do semi naive
+                # self._head.table.deleteAllTuples(conn) # TODO: This is a hacky way to do semi naive
                 execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
                 conn.commit()
                 return True
@@ -632,22 +643,6 @@ class DT_Rule:
             end_faure = time.time()
             f.write("Time: faure took {}\n".format(end_faure-begin_faure))
         return changed
-
-    @timeit
-    def addtional_constraints2where_clause(self, constraints, variableList, arrayVariables):
-        newConstraints = []
-        singleLocVarList = {}
-        for var in variableList: # Variable list contains location for every occurrence of the variable. Need to fix
-            if var in arrayVariables:
-                singleLocVarList[var] = "[" + variableList[var][0] + "]"
-            else:
-                singleLocVarList[var] = variableList[var][0]
-        for constraint in constraints:
-            newConstraints.append(parsing_utils.z3ToSQL(condition = constraint, replacements = singleLocVarList, cVarTypes=self.db.cVarTypes))
-        newConstraint = newConstraints[0] # note that this function should only be called when there are positive number of constraints
-        if len(newConstraints) > 1:
-            newConstraint = " and ".join(newConstraints)
-        return newConstraint.replace("==","=")
 
     def __str__(self):
         string = str(self._head) + " :- "

@@ -193,11 +193,6 @@ class DT_Program:
                 self.__enhancedMinimization(True)
 
     # ======================== Private Methods ============================
-    # Takes a newRules (a list of rules as strings) as input, and replaces the current program with the new rules
-    def __replaceProgram(self, newRules):
-        newProgram = DT_Program(program_str="\n".join(newRules), database=self.db, reasoning_engine=self._reasoning_engine, optimizations=self._optimizations)
-        self.__dict__.update(newProgram.__dict__)
-
     def __replaceRule(self, ruleNum, newRule):
         self.rules[ruleNum] = newRule
 
@@ -273,18 +268,18 @@ class DT_Program:
                 else:
                     atomNum += 1   
 
-    # @timeit
-    # def __minimizeRules(self):
-    #     ruleNum = 0
-    #     while ruleNum < self.__numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
-    #         if self.__numRules == 1: # if only one rule left in program, stop minimizing
-    #             return
-    #         rule = self.__getRule(ruleNum)
-    #         newProgram = self.__copyWithDeletedRule(ruleNum)
-    #         if newProgram.contains_rule(rule, self.db.cVarMappingReverse):
-    #             self.__deleteRule(ruleNum)
-    #         else:
-    #             ruleNum += 1   
+    @timeit
+    def __minimizeRules(self):
+        ruleNum = 0
+        while ruleNum < self.__numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
+            if self.__numRules == 1: # if only one rule left in program, stop minimizing
+                return
+            rule = self.__getRule(ruleNum)
+            newProgram = self.__copyWithDeletedRule(ruleNum)
+            if newProgram.contains_rule(rule, self.db.cVarMappingReverse):
+                self.__deleteRule(ruleNum)
+            else:
+                ruleNum += 1   
 
     # @timeit
     # def __enhancedMinimization(self, constantUnificationOn = True):

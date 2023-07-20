@@ -165,9 +165,7 @@ class DT_Atom:
 
 
         if not self.condition.isEmpty:
-            constraints.append(self.condition.replacedString(varListMapping))
-        print("var list", varListMapping)
-        print("constraints", constraints)
+            constraints.append(self.condition.toString(mode="Replace String", replacementDict=varListMapping))
         return constraints
 
 

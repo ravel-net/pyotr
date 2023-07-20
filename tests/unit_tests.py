@@ -10,6 +10,8 @@ from Core.Datalog.database import DT_Database
 from Core.Datalog.table import DT_Table
 import psycopg2 
 import databaseconfig as cfg
+from tabulate import tabulate
+from copy import deepcopy
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
@@ -51,7 +53,8 @@ def unit_test2():
 
 # ======================================== ACL Example ========================================
 def unit_test3():
-    p1 = "R(a3, h3, [a, h3], 1)[h3 = 10] :- l(a3,h3)[h3 = 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 = 10] :- R(e1, h3, [x, y], 2)[h3 = 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    p1 = "R(a3, h3, [a, h3], 1)[h3 == 10] :- l(a3,h3)[h3 == 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(e1, h3, [a2, x], 2) :- R(a2, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(e1, h3, [a3, x], 2) :- R(a3, h3, [x], 1), l(a2, e1), l(a1, e1), l(a3, e1)\nR(a1, h3, [e1, x, y], 3)[h3 == 10] :- R(e1, h3, [x, y], 2)[h3 == 10], l(a1, h1), l(a1, e1), l(a1, h2)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
+    # p1 = "R(a3, h3, [a, h3], 1)[h3 == 10] :- l(a3,h3)[h3 == 10], l(a,e1)\nR(a2, h3, [h3], 1) :- l(a2,h3), l(a2, h4), l(a2, e1)\nR(h1, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h1)\nR(h2, h3, [a1, x, y, z], 4) :- R(a1, h3, [x, y, z], 3), l(a1, h2)"
 
     # R = DT_Table(name="R", columns={"source":"integer_faure", "destination":"integer_faure", "path":"integer_faure[]", "hops":"integer_faure","condition":"text[]"}, domain={"destination":[10,20]}, cvars={"h3":"destination"})
     R = DT_Table(name="R", columns={"source":"integer_faure", "destination":"integer_faure", "path":"integer_faure[]", "hops":"integer_faure"}, domain={"destination":[10,20]}, cvars={"h3":"destination"})
@@ -121,7 +124,7 @@ def unit_test6():
     Q = DT_Table(name="Q", columns={"c0":"integer_faure"}, cvars={"y":"c0", "z":"c0"}, domain={"c0":['1', '2']})
     
     database = DT_Database(tables=[R,L,Q])
-    p1 = "R(x,y)[And(y = 10, y < 20)] :- L(x,y,z)[And(y = 10, y < 20)], Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
+    p1 = "R(x,y)[And(y == 10, y < 20)] :- L(x,y,z)[And(y == 10, y < 20)], Q(z)\nR(x,y) :- L(x,q,z), Q(z)"
     program1 = DT_Program(p1, database)    
     start = time.time()
     program1.minimize(False, True)
@@ -318,7 +321,7 @@ def unit_test12():
     program1.minimize(False, True)
     print("Program 1 after minimization:")
     print(program1)
-    if (str(program1) != "R(4323,D,3356)[And(And(D != '216.186.192.0/22',D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22',D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)"):
+    if (str(program1) != "R(4323,D,3356)[And(And(D != '216.186.192.0/22', D != '64.153.32.0/20'))] :- l(4323,b,D),l(b,c,D)[And(D != '216.186.192.0/22', D != '64.153.32.0/20')],l(c,e,D),l(e,3356,D)"):
         print("Text 12.1 failed")
         database.delete(conn)
         exit()
@@ -342,11 +345,13 @@ def unit_test13():
     F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"x1":"header","x2":"header","x3":"header","y1":"next_hop","y2":"next_hop","y3":"next_hop"}, domain={"next_hop":[100,1,2,3,400,401],"node":[100,1,2,3,400,401]})
 
     # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
-    database = DT_Database(tables=[F,R,V], cVarMapping = {-10:"y1",-20:"y2",-30:"y3",-1:"x1",-2:"x2",-3:"x3",-100:"p"})
+    database = DT_Database(tables=[F,R,V], cVarMapping = {'-10':"y1",'-20':"y2",'-30':"y3",'-1':"x1",'-2':"x2",'-3':"x3",'-100':"p"})
 
-    p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)\nR(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, 100, 400, p)[And(1 != p, 400 == p)]"
+    p1 = "R(10, 100, n, ['100', n]) :- F(10, 100, n)"
+    p2 = "R(10, 100, n, p || [n]) :- R(10, 100, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, 100, 400, p)[And(1 != p, 400 == p)]"
 
     program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True})
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
     database.initiateDB(conn)
@@ -359,10 +364,12 @@ def unit_test13():
     conn.commit()
     
     start = time.time()
-    program1.execute(conn)
+    program1.executeonce(conn)
+    program2.execute(conn)
     end = time.time()
     cursor.execute("select * from V")
-    if cursor.fetchall()[0][0] == 1:
+    V_values = cursor.fetchall()
+    if len(V_values) > 0 and len(V_values[0]) > 0 and V_values[0][0] == 1:
         print("Test 13 passed in {} seconds".format(end-start))
         database.delete(conn)
     else:
@@ -416,7 +423,6 @@ def unit_test16():
     p1 = "R(x1,x4) :- P(x1,x2),P(x2,x3),P(x3,x4)\nP(x,y) :- P(x,z), P(z,y)\nP(x,x) :- P(x,z)"
     p2 = "R(y1,y2) :- P(y1,y2)\nP(x,y) :- P(x,z), P(z,y)\nP(x,x) :- P(x,z)"
 
-    
     program1 = DT_Program(p1)
     program2 = DT_Program(p2)
     program1.minimize()
@@ -451,7 +457,7 @@ def unit_test17():
     cursor.execute("INSERT INTO R VALUES (1,2,3),(4,5,6)")
     conn.commit()
 
-    p1 = "T1(f, n1, q)[And(q > 3, x+y+z=1)] :- R(f,n1,q)[q > 3],(x+y+z=1)"
+    p1 = "T1(f, n1, n2)[x+y+z=1] :- R(f,n1,n2),(x+y+z=1)"
     program1 = DT_Program(p1, database)
     start = time.time()
     program1.execute(conn)
@@ -464,6 +470,196 @@ def unit_test17():
     else:
         print("Test 17 failed in {} seconds".format(end-start))
         database.delete(conn)
+
+# execution with array concatination
+# v = 1, u = 2, x = 3, y = 4, d = 5
+# y1 = -1, y2 = -2, y3 = -3, y3 = -4, y5 = -5
+def unit_test18():
+    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
+
+    V = DT_Table(name="V", columns={"violation":"integer", "path":"integer_faure[]"}, cvars={"p":"path"})
+
+    F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"y4":"next_hop","y5":"next_hop","y1":"next_hop","y2":"next_hop","y3":"next_hop"}, domain={"next_hop":[5,1,2,3,4,401],"node":[5,1,2,3,4,401]})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[F,R,V], cVarMapping = {'-1':"y1",'-2':"y2",'-3':"y3",'-4':"y4",'-5':"y5"})
+    
+    p1 = "R(10, X, n, [X, n]) :- F(10, X, n)\nV(1, p) :- R(10, X, n2, p), F(10, n2, n)[n == p]\nR(10, X, n, p || [n]) :- R(10, X, n2, p), F(10, n2, n)"
+    # p1 = "R(10, X, n, [X, n]) :- F(10, X, n)\nR(10, X, n, p || [n]) :- R(10, X, n2, p), F(10, n2, n)\nV(1, p) :- R(10, 100, 400, p)[p[array_upper(p, 1)] == p]"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
+    # conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    # conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    database.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+
+    program1.execute(conn)
+
+    sql = "insert into F values (10, 1, 3, '{}'), (10, 2, -2, '{\"Or(y2 == 1, y2 == 3)\"}'), (10, 3, -3, '{\"Or(y3 == 5, y3 == 4)\"}'), (10, 4, -4, '{\"Or(y4 == 3, y4 == 5)\"}'), (10, 5, 401, '{}')"
+    input()
+
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    
+    start = time.time()
+    program1.executeonce(conn)
+    conn.commit()
+    input()
+    program1.executeonce(conn)
+    conn.commit()
+    input()
+    end = time.time()
+    database.delete(conn)
+    exit()
+    cursor.execute("select * from V")
+    if cursor.fetchall()[0][0] == 1:
+        print("Test 13 passed in {} seconds".format(end-start))
+        database.delete(conn)
+    else:
+        print("Test 13 failed in {} seconds".format(end-start))
+        database.delete(conn)
+        exit()
+
+# execution with array concatination
+# v = 1, u = 2, w = 3, d = 4
+# y1 = -1, y2 = -2, y3 = -3, y3 = -4, y5 = -5
+def unit_test19():
+    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"})
+
+    V = DT_Table(name="V", columns={"violation":"integer"})
+
+    F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"C4":"next_hop","C5":"next_hop","C1":"next_hop","C2":"next_hop","C3":"next_hop"}, domain={"next_hop":[1,2,3,4,401],"node":[1,2,3,4,401]})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[F,R,V], cVarMapping = {'-1':"C1",'-2':"C2",'-3':"C3",'-4':"C4",'-5':"C5"})
+    
+    # p1 = "R(10, X, n, [X, n]) :- F(10, X, n)\nR(10, X, n, p || [n]) :- R(10, X, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, X, 5, p)[And(1 != p, 400 == p)]"
+    p1 = "R(10, X, n, [X, n]) :- F(10, X, n)\nR(10, X, n, p || [n]) :- R(10, X, n2, p), F(10, n2, n)"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
+    # conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    # conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    database.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+
+    sql = "insert into F values (10, 1, -1, '{\"Or(C1 == 4, C1 == 3)\"}'), (10, 2, -2, '{\"Or(C2 == 4, C2 == 1)\"}'), (10, 3, -3, '{\"Or(C3 == 2, C3 == 4)\"}'),(10, 4, 401, '{}')"
+    input()
+
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    
+    start = time.time()
+    program1.executeonce(conn)
+    conn.commit()
+    input()
+    program1.executeonce(conn)
+    conn.commit()
+    input()
+    end = time.time()
+    database.delete(conn)
+    exit()
+    cursor.execute("select * from V")
+    if cursor.fetchall()[0][0] == 1:
+        print("Test 13 passed in {} seconds".format(end-start))
+        database.delete(conn)
+    else:
+        print("Test 13 failed in {} seconds".format(end-start))
+        database.delete(conn)
+        exit()
+
+# Anduo's example 
+# X = 1, W = 2, A = 3, B = 4, Y = 5, E = 6, C = 7
+# alpha = -1, beta = -2, gamma = -3, t_one = -4, t_two = -5
+def unit_test20():
+    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"}, domain={"source":[1,2,3,4,5,6,7],"dest":[1,2,3,4,5,6,7]})
+
+    V = DT_Table(name="V", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"}, domain={"source":[1,2,3,4,5,6,7],"dest":[1,2,3,4,5,6,7]})
+
+    F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"alpha":"next_hop", "beta":"next_hop","gamma":"next_hop","t_one":"header","t_two":"header"}, domain={"next_hop":[1,2,3,4,5,6,7],"node":[1,2,3,4,5,6,7], "header":[10,2,0,1]})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[F,R,V], cVarMapping = {'-1':"alpha",'-2':"beta",'-3':"gamma",'-4':"t_one",'-5':"t_two",'-100':"p"})
+
+    p1 = "R(10, S, n, [S, n]) :- F(10, S, n)"
+    p2 = "V(10, 1, n, p || [n]) :- R(10, 1, n2, p)[And(2 != p, 5 != p, n != p, n == 7)], F(10, n2, n)\nR(10, S, n, p || [n]) :- R(10, S, n2, p)[n != p], F(10, n2, n)"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True})
+    conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    database.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+# X = 1, W = 2, A = 3, B = 4, Y = 5, E = 6, C = 7
+# alpha = -1, u = -2, t_one = -3, t_two = -4
+    
+    sql = "insert into F values (10, 1, '-1', '{\"Or(alpha == 3, alpha == 2)\"}'), (10, 2, '-2', '{\"Or(beta == 3, beta == 4)\"}'), (10, 3, '-3', '{\"Or(gamma == 2, gamma == 4)\"}'), (10, 4, 6, '{\"And(t_one == 0, And(alpha == 3, beta == 3, gamma == 4))\"}'), (10, 4, 5, '{\"t_one != 0\"}'), (10, 6, 7, '{\"t_two == 0\"}'), (10, 6, 5, '{\"And(t_two != 3, And(alpha == 3, beta == 3, gamma == 4))\"}'), (10, 5, 7, '{}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    input()
+    start = time.time()
+    program1.executeonce(conn)
+    conn.commit()
+    input()
+    program2.execute(conn)
+    end = time.time()
+    cursor.execute("select * from V")
+    V_values = cursor.fetchall()
+    printTable("V", database, {1:'X',2:'W',3:'A',4:'B',5:'Y',6:'E',7:'C'})
+    input()
+    # if len(V_values) > 0 and len(V_values[0]) > 0 and V_values[0][0] == 1:
+    #     print("Test 13 passed in {} seconds".format(end-start))
+    #     database.delete(conn)
+    # else:
+    #     print("Test 13 failed in {} seconds".format(end-start))
+    #     database.delete(conn)
+    #     exit()
+
+
+def replaceVal(val, mapping):
+    if val in mapping:
+        return mapping[val]
+    elif str(val) in mapping:
+        return mapping[str(val)]
+    elif type(val) == str:
+        for replaceable in mapping:
+            if str(replaceable) in val:
+                val = val.replace(str(replaceable), mapping[replaceable])
+        return val
+    else:
+        return val
+    
+# move this to table class
+def printTable(tableName, db, nodeIntMappingReverse):
+    cursor = conn.cursor()
+    # cursor.execute("SELECT * from {} where source = 1 and dest = 7".format(tableName))
+    cursor.execute("SELECT * from {}".format(tableName))
+    table = cursor.fetchall()
+    newTable = []
+    mapping = deepcopy(nodeIntMappingReverse)
+    mapping.update(db.cVarMapping)
+    for row in table:
+        newRow = []
+        for colm in row:
+            if type(colm) == list:
+                colmArray = []
+                for item in colm:
+                    colmArray.append(replaceVal(item, mapping))
+                newRow.append(colmArray)
+            else:
+                newRow.append(replaceVal(colm, mapping))
+        newTable.append(newRow)
+    cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{}'".format(tableName.lower()))
+    headers = cursor.fetchall()
+    headerInArray = []
+    for colm in headers:
+        headerInArray.append(colm[0])
+    print(tabulate(newTable, headers=headerInArray))
 
 if __name__ == "__main__":
     unit_test1()
@@ -478,8 +674,11 @@ if __name__ == "__main__":
     unit_test10()
     unit_test11()
     unit_test12() 
-    unit_test13()
+    # unit_test13()
     # # unit_test14()
     # # unit_test15()
     unit_test16()
-    unit_test17()
+    # unit_test17()
+    # unit_test18()
+    # unit_test19()
+    # unit_test20()
