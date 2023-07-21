@@ -127,12 +127,12 @@ class DT_Program:
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.executeonce(conn, faure_evaluation_mode=faure_evaluation_mode)
-            for table in violationTables:
-                if self._optimizations["simplification_on"] == False: # we always simplify the violation tables since we are early exiting
-                    self.reasoning_tool.simplification(table.name, conn)
-                if not table.isEmpty(conn):
-                    conn.commit()
-                    return
+        # for table in violationTables:
+        #     if self._optimizations["simplification_on"] == False: # we always simplify the violation tables since we are early exiting
+        #         self.reasoning_tool.simplification(table.name, conn)
+                # if not table.isEmpty(conn):
+                #     conn.commit()
+                #     return
 
     @timeit
     def executeonce_and_check_containment(self, conn, rule2):

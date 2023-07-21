@@ -13,9 +13,12 @@ from Core.Datalog.program import DT_Program
 from Core.Datalog.database import DT_Database
 from Core.Datalog.table import DT_Table
 from tabulate import tabulate
-from ipaddress import IPv4Network, IPv4Address
 from copy import deepcopy
 from time import time
+from utils import parsing_utils
+import random
+import ipaddress
+
 
 
 DATABASE = cfg.postgres['db']
@@ -111,8 +114,7 @@ def initializeDatabases(nodes, nodesToIgnore, nodeIntMapping, indexing_on):
             cvars[node+"_next"] = "next_hop" #cvar name is node_header e.g. sans_header
         else:
             for prefix in prefixes:
-                cvars[node+"_"+str(prefix)] = "next_hop" # e.g. sans_691538
-
+                cvars[node+"_"+str(prefix).replace(".","")] = "next_hop" # e.g. sans_691538
     allowedNodes = []
     for node in nodeIntMapping:
         intRep = nodeIntMapping[node]
@@ -120,19 +122,20 @@ def initializeDatabases(nodes, nodesToIgnore, nodeIntMapping, indexing_on):
             allowedNodes.append(intRep)
     
     # R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","second_laster":"integer_faure","last_node":"integer_faure","condition":"text[]"}, cvars={"p":"path"}, domain={"next_hop":allowedNodes,"node":allowedNodes,"second_laster":allowedNodes})
-    R = DT_Table(name="R", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","second_laster":"integer","last_node":"integer","condition":"text[]"}, cvars={"p":"path"}, domain={"next_hop":allowedNodes,"node":allowedNodes,"second_laster":allowedNodes})
+    R = DT_Table(name="R", columns={"header":"inet_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","second_laster":"integer","last_node":"integer","condition":"text[]"}, cvars={"p":"path"}, domain={"next_hop":allowedNodes,"node":allowedNodes,"second_laster":allowedNodes})
 
-    V = DT_Table(name="V", columns={"header":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"}, domain={"next_hop":allowedNodes,"node":allowedNodes,"second_laster":allowedNodes})
+    V = DT_Table(name="V", columns={"header":"inet_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"}, domain={"next_hop":allowedNodes,"node":allowedNodes,"second_laster":allowedNodes})
 
-    F = DT_Table(name="F", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars=cvars, domain={"next_hop":allowedNodes,"node":allowedNodes})
+    F = DT_Table(name="F", columns={"header":"inet_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars=cvars, domain={"next_hop":allowedNodes,"node":allowedNodes})
 
-    mapping_index = -200
-    cvarMapping = {}
-    for cvar in cvars:
-        cvarMapping[str(mapping_index)] = cvar
-        mapping_index -= 1
+    # mapping_index = -200
+    # cvarMapping = {}
+    # for cvar in cvars:
+    #     cvarMapping[str(mapping_index)] = cvar
+    #     mapping_index -= 1
 
-    database = DT_Database(tables=[F,R,V], cVarMapping=cvarMapping)
+    # database = DT_Database(tables=[F,R,V], cVarMapping=cvarMapping)
+    database = DT_Database(tables=[F,R,V])
     # R.delete(conn)
     # R.initiateTable(conn)
     # V.delete(conn)
@@ -141,10 +144,10 @@ def initializeDatabases(nodes, nodesToIgnore, nodeIntMapping, indexing_on):
     database.initiateDB(conn)
 
     if indexing_on:
-        F.enableIndexing(conn, "header")
+        F.enableIndexing(conn, "header", using="gist")
         F.enableIndexing(conn, "node")
         F.enableIndexing(conn, "next_hop")
-        R.enableIndexing(conn, "header")
+        R.enableIndexing(conn, "header", using="gist")
         R.enableIndexing(conn, "dest")
         R.enableIndexing(conn, "source")
         R.enableIndexing(conn, "second_laster")
@@ -171,11 +174,13 @@ def getMapping(nodes):
 # do IP formatting here
 def getIP(ip, prefix):
     if "." in ip:
+        return "'"+ip+"/"+prefix+"'"
         ipAddress = IPv4Address(ip)
         # ipAddressPrefix = IPv4Network(str(ipAddress) + "/" + prefix)
         return int(ipAddress)
     else:
-        return int(ip) # I2 dataset has direct IP addresses as int
+        ipAddress = ipaddress.ip_address(int(ip)) # I2 dataset has direct IP addresses as int
+        return "'{}/{}'".format(str(ipAddress), prefix)
 
 def getOutputCondition(node, cvar, graph, nodeIntMapping):
     possibleOutputs = []
@@ -217,6 +222,26 @@ def cleanAirtelDataset(topology='airtel',datasetName='airtel.csv'):
 
 def addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology):
     inputs = [] # list of inputs of the form [(header, source, next_hop, condition),...]
+    for node in nodesToIgnore:
+        prefixes = nodesToIgnore[node]
+        if type(prefixes) == str and prefixes == "all":
+            condition = getOutputCondition(node=node, cvar=node+"_next", graph=graph, nodeIntMapping=nodeIntMapping)
+            header_mapped = db.cVarMappingReverse[node+"_header"]
+            next_hop_mapped = db.cVarMappingReverse[node+"_next"]
+            input = "({},{},{},{})".format(header_mapped, nodeIntMapping[node], next_hop_mapped, condition)
+            inputs.append(input)
+        else:
+            for pref in prefixes:
+                if "'" in pref:
+                    mappingIP = pref[1:-1].replace(".","")
+                else:
+                    mappingIP = pref.replace(".","")
+                    pref = "'"+pref+"'"
+                condition = getOutputCondition(node=node, cvar=node+"_"+mappingIP, graph=graph, nodeIntMapping=nodeIntMapping)
+                next_hop_mapped = db.cVarMappingReverse[node+"_"+mappingIP]
+                input = "({},{},{},{})".format(pref, nodeIntMapping[node], next_hop_mapped, condition)
+                inputs.append(input)
+
     if "/" not in dataset: # files should be in folders
         dataset = "{}/{}".format(topology, dataset)
     with open(dataset) as f:
@@ -252,20 +277,7 @@ def addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topolo
 
             intIP = getIP(ip, prefix)
             if node in nodesToIgnore:
-                prefixes = nodesToIgnore[node]
-                if type(prefixes) == str and prefixes == "all":
-                    condition = getOutputCondition(node=node, cvar=node+"_next", graph=graph, nodeIntMapping=nodeIntMapping)
-                    header_mapped = db.cVarMappingReverse[node+"_header"]
-                    next_hop_mapped = db.cVarMappingReverse[node+"_next"]
-                    input = "({},{},{},{})".format(header_mapped, nodeIntMapping[node], next_hop_mapped, condition)
-                    inputs.append(input)
-                    continue
-                elif intIP in prefixes:
-                    condition = getOutputCondition(node=node, cvar=node+"_"+str(intIP), graph=graph, nodeIntMapping=nodeIntMapping)
-                    next_hop_mapped = db.cVarMappingReverse[node+"_"+str(intIP)]
-                    input = "({},{},{},{})".format(intIP, nodeIntMapping[node], next_hop_mapped, condition)
-                    inputs.append(input)
-                    continue
+                continue
             
             condition = "'{}'"
             if node+"_"+port not in portMapping:
@@ -324,13 +336,27 @@ def runDatalog(db, nodeIntMappingReverse, nodeIntMapping, sourceNode = "atla", h
     p1 = "R({header}, {source}, n, [{source}, n], {source}, n) :- F({header}, {source}, n)[n != {source}]".format(source=source, header=header)
 
     p2 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster,last_node), F({header}, n2, n)[And(n == p, n != second_laster)]\nR({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), F({header}, n2, n)[n != second_laster]".format(source=source, header=header)
-    
     # p1 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster,last_node), F({header}, n2, n)[And(n == p, n != second_laster)]".format(source=source, header=header)
-
     program1 = DT_Program(p1, database=db, optimizations={"simplification_on":simplification_on})
     program2 = DT_Program(p2, database=db, optimizations={"simplification_on":simplification_on})
     start = time()
     program1.executeonce(conn)
+    # input()
+    # program2.executeonce(conn)
+    # printTable('R', db, nodeIntMappingReverse)
+    # input()
+    # program2.executeonce(conn)
+    # printTable('R', db, nodeIntMappingReverse)
+    # input()
+    # program2.executeonce(conn)
+    # printTable('R', db, nodeIntMappingReverse)
+    # input()
+    # program2.executeonce(conn)
+    # printTable('R', db, nodeIntMappingReverse)
+    # input()
+    # program2.executeonce(conn)
+    # printTable('R', db, nodeIntMappingReverse)
+    # input()
     program2.execute(conn, violationTables=[db.getTable("V")])
     end = time()
     conn.commit()
@@ -356,6 +382,7 @@ if __name__ == '__main__':
 
     i = 7
     nodesToIgnoreArr = []
+    randomNodeIgnore = False
     while i < len(sys.argv) - 1:
         node = sys.argv[i]
         string = node+"-"
@@ -367,32 +394,44 @@ if __name__ == '__main__':
             string += "["
             prefixList = []
             for prefix in prefixes:
-                prefixList.append(int(prefix))
+                if parsing_utils.isIP(prefix):
+                    prefixList.append(prefix)
+                else:
+                    prefixList.append(int(prefix))
                 string += prefix+","
             string = string[:-1] + "]"
             nodesToIgnore[node] = prefixList
         i += 2
         nodesToIgnoreArr.append(string)
     
+    if len(sys.argv) == 8 and sys.argv[7] == "random":
+        randomNodeIgnore = True
+
     portMapping, graph, nodes = loadTopology(topology) # load topology to get port to node mapping, possible next hops for all nodes, nodes list
-    nodeIntMapping, nodeIntMappingReverse = getMapping(nodes) # each node is represented by an integer
 
-    db = initializeDatabases(nodes=nodes, nodesToIgnore=nodesToIgnore, nodeIntMapping=nodeIntMapping, indexing_on=indexing_on) # cvarmapping is int to string
-
-    for dataset in datasetFiles:
-        addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology)
-
+    time_taken_arr = []
     for run in range(runs):
-        header = headerStr
         source = sourceNodeStr
+        if sourceNodeStr.lower() == 'random':
+            source = random.choice(nodes)
+            if randomNodeIgnore:
+                nodesToIgnore = {}
+                nodesToIgnore[source] = "all"
+
+        nodeIntMapping, nodeIntMappingReverse = getMapping(nodes) # each node is represented by an integer
+
+        db = initializeDatabases(nodes=nodes, nodesToIgnore=nodesToIgnore, nodeIntMapping=nodeIntMapping, indexing_on=indexing_on) # cvarmapping is int to string
+
+        for dataset in datasetFiles:
+            addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology)
+        input()
+        header = headerStr
         if headerStr.lower() == 'random':
             header = db.getTable('F').getRandomTuple(conn = conn, colmName = 'header')
-        if sourceNodeStr.lower() == 'random' and headerStr.lower() != "x":
-            source = nodeIntMappingReverse[db.getTable('F').getRandomTuple(conn = conn, colmName = 'node', conditions=["header = {}".format(header)])]
-        elif sourceNodeStr.lower() == 'random':
-            source = nodeIntMappingReverse[db.getTable('F').getRandomTuple(conn = conn, colmName = 'node')]
-        
+        if parsing_utils.isIP(header):
+            header = header.split("/")[0]+"/"+"32"
         timeTaken = runDatalog(db=db, nodeIntMappingReverse=nodeIntMappingReverse, nodeIntMapping=nodeIntMapping, sourceNode=source, header=header, simplification_on=simplification_on)
+        time_taken_arr.append(timeTaken)
 
         logFileName = "flash_experiment.log"
         if not os.path.isfile(logFileName):
@@ -405,10 +444,16 @@ if __name__ == '__main__':
             else:
                 f.write("{}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n".format(topology,source,header,str(indexing_on),str(simplification_on),datasetFiles, nodesToIgnoreArr, str(timeTaken)))
         
-        printTable("V", db, nodeIntMappingReverse)
-
+        # printTable("V", db, nodeIntMappingReverse)
+        # printTable("V", db, nodeIntMappingReverse)
         db.getTable("R").deleteAllTuples(conn)
         db.getTable("V").deleteAllTuples(conn)
+        db.getTable("F").deleteAllTuples(conn)
+        conn.commit()
+
+    print()
+    print("Average time taken: {}".format(sum(time_taken_arr)/len(time_taken_arr)))
+    print(time_taken_arr)
 
 # Loop
 # python3 flash_experiments.py airtel s14-5 1 True False airtel-small.csv,airtel-cleaned.csv s15-5 all s9-7 all s15-1 all

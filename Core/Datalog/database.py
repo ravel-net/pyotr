@@ -50,14 +50,16 @@ class DT_Database:
     def getCVarMapping(self):
         cvarMapping = {}
         i = 1
+        j = 200
         for cvar in self.c_variables:
             if 'BitVec' in self.reasoning_types[cvar]:
-                net = IPv4Address('0.1.0.0') + i # TODO: Doing /32 because postgresql interprets /32 as a host and doesn't print it. This is hacky and we need a better solution
+                net = IPv4Address('0.0.0.1') + i # TODO: Doing /32 because postgresql interprets /32 as a host and doesn't print it. This is hacky and we need a better solution
                 cvarMapping[str(net)+"/31"] = cvar
                 cvarMapping["'"+str(net)+"/31"+"'"] = cvar
             else:
-                cvarMapping[str(0-i)] = cvar
-            i += 1 
+                cvarMapping[str(0-j)] = cvar
+            i += 2 # since we are using /32, we need to do increments in the order of +2
+            j += 1 
         return cvarMapping
 
     def delete(self, conn): # destructor - drop tables

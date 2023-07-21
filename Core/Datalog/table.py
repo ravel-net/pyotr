@@ -56,6 +56,16 @@ class DT_Table:
             sql += " where " + " and ".join(conditions)
         sql += " order by random() limit 1;"
         cursor.execute(sql)
+        result = cursor.fetchall()[0][0]
+        return result
+        # if type(result) == int:
+        #     return result
+        # else:
+        #     return "'" + result + "'"
+
+    def getNumberEntries(self, conn):
+        cursor = conn.cursor()
+        cursor.execute("SELECT COUNT(*) FROM {}".format(self.name))
         return cursor.fetchall()[0][0]
     
     def enableIndexing(self, conn, colmName, using="btree"):
@@ -67,6 +77,8 @@ class DT_Table:
         result = cursor.fetchall()
         if len(result) > 0 and using in result[0][0]: # index already exists
             return
+        elif "gist" in using:
+            cursor.execute("CREATE INDEX {}_{} ON {} using {}({} inet_ops)".format(self.name, colmName, self.name, using, colmName))
         else:
             cursor.execute("CREATE INDEX {}_{} ON {} using {}({})".format(self.name, colmName, self.name, using, colmName))
 

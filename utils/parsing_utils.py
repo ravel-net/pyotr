@@ -48,10 +48,10 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 		newOp = operator
 		if newOp == "=":
 			newOp = "=="
-		if newOp != "==" and newOp != "!=" and (_isIP(var1) or _isIP(var2)):
+		if newOp != "==" and newOp != "!=" and (isIP(var1) or isIP(var2)):
 			print("Unsuported operator given for condition {}. Exiting.".format(condToStringDefault(var1, newOp, var2)))
 			exit()
-		if _isIP(var1) and _isIP(var2):
+		if isIP(var1) and isIP(var2):
 			if operator == "==" and str(var1) == str(var2):
 				return "z3.Bool(True)"
 			elif operator == "==" and str(var1) != str(var2):
@@ -60,9 +60,9 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 				return "z3.Bool('True')"
 			elif operator == "!=" and str(var1) == str(var2):
 				return "z3.Bool('False')"
-		if _isIP(var1):
+		if isIP(var1):
 			return _convertIPCondition(var=var2, operator=operator, ip=var1)
-		elif _isIP(var2):
+		elif isIP(var2):
 			return _convertIPCondition(var=var1, operator=operator, ip=var2)
 		else:
 			newVar1 = _convertToZ3Var(var1, reasoningType)
@@ -86,6 +86,9 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 		newVar2 = var2        
 		if operator == "==":
 			newOp = "="
+		isIpCondition = False
+		if isIP(var1) or isIP(var2):
+			isIpCondition = True
 		if not _isConstant(var1):
 			var1_table = var1.split(".")[0]
 			var1_colm = var1.split(".")[1]
@@ -94,6 +97,10 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 				newVar1 = "All(" + var1 + ")"
 			elif "[]" in var1_type:
 				newVar1 = "Any(" + var1 + ")"
+			if "inet" in var1_type:
+				isIpCondition = True
+		elif newVar1[0] != "'":
+			newVar1 = "'{}'".format(newVar1)
 		if not _isConstant(var2):
 			var2_table = var2.split(".")[0]
 			var2_colm = var2.split(".")[1]
@@ -102,6 +109,17 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 				newVar2 = "All(" + var2 + ")"
 			elif "[]" in var2_type:
 				newVar2 = "Any(" + var2 + ")"
+			if "inet" in var2_type:
+				isIpCondition = True
+		elif newVar2[0] != "'":
+			newVar2 = "'{}'".format(newVar2)
+		
+		if isIpCondition and newOp == "=":
+			newOp = ">>=" # represents "is contained within"
+			return condToStringDefault(newVar1, newOp, newVar2)
+		elif isIpCondition and newOp == "!=":
+			newOp = ">>=" # represents "is contained within"
+			return "not(" + condToStringDefault(newVar1, newOp, newVar2) + ")"
 		return condToStringDefault(newVar1, newOp, newVar2)
 	elif mode == "Array Integration":
 		newOp = operator
@@ -115,12 +133,16 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 			var1_type = atomTables[var1_table].columns[var1_colm]
 			if "[]" in var1_type:
 				newVar1 = var1 + "::text"
+		elif newVar1[0] != "'":
+			newVar1 = "'{}'".format(newVar1)
 		if not _isConstant(var2):
 			var2_table = var2.split(".")[0]
 			var2_colm = var2.split(".")[1]
 			var2_type = atomTables[var2_table].columns[var2_colm]
 			if "[]" in var2_type:
 				newVar2 = var2 + "::text"
+		elif newVar2[0] != "'":
+			newVar2 = "'{}'".format(newVar2)
 		return condToStringDefault(newVar1, newOp, newVar2)
 	elif mode == "Negative Int":
 		conditions = []
@@ -215,12 +237,12 @@ def _negativeIntCondition(var, var_type):
 # Returns true if the var is a digit or an IP
 @timeit
 def _isConstant(var):
-	if _isInt(var) or _isIP(var):
+	if _isInt(var) or isIP(var):
 		return True
 	else:
 		return False
 
-def _isIP(var):
+def isIP(var):
 	if var.count(".") == 3:
 		return True
 	else:
@@ -278,7 +300,7 @@ def _convertToZ3Var(var, reasoningType, bits = 32):
 			return "z3.{}('{}',{})".format(reasoningType[var], var, bits)
 		else:
 			return "z3.{}('{}')".format(reasoningType[var], var)
-	elif _isIP(var):
+	elif isIP(var):
 		return "z3.IntVal('{}')".format(var)
 	else: # We assume that anything that is not an ip is an integer
 		return "z3.IntVal('{}')".format(var)
