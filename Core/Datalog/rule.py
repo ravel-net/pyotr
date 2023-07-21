@@ -327,8 +327,8 @@ class DT_Rule:
                         if summary:
                             summary_nodes.append("{} as {}".format(summary, self._head.table.getColmName(idx)))
                 if not hasOperator:
-                    if param[0].isdigit(): # constant parameter
-                        summary_nodes.append("{} as {}".format(param, self._head.table.getColmName(idx)))
+                    if parsing_utils.isIP(param): # constant parameter or ip
+                        summary_nodes.append("'{}' as {}".format(param, self._head.table.getColmName(idx)))
                     else:
                         if param not in variableList.keys() and param not in self._cVarMappingReverse:
                             summary_nodes.append("'{}' as {}".format(param, self._head.table.getColmName(idx)))
@@ -610,18 +610,21 @@ class DT_Rule:
             newTuples = []
             for generatedTuple in generatedHead:
                 alreadExists = False
-                start = time.time()
-                for tuple in head_table:
-                    if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
-                        alreadExists = True
-                end = time.time()
-                total_time = end-start
-                logging.info(f'Time: rule_tuplesEquivalent took {total_time:.4f}')
+                # start = time.time()
+                # for tuple in head_table:
+                #     if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
+                #         alreadExists = True
+                #         print("EXISTS")
+                #         exit()
+                # end = time.time()
+                # total_time = end-start
+                # logging.info(f'Time: rule_tuplesEquivalent took {total_time:.4f}')
                 if not alreadExists:
                     newTuples.append(generatedTuple)
             # logging.info(f'Time: rule_comparison_runs took {len(generatedTuple)*len(head_table)}')
             if len(newTuples) > 0:
-                # self._head.table.deleteAllTuples(conn) # TODO: This is a hacky way to do semi naive
+                if self._head.table.name == "R": # TODO: This is a hacky way to do semi naive
+                    self._head.table.deleteAllTuples(conn) 
                 execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
                 conn.commit()
                 return True
