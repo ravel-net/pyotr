@@ -1,0 +1,131 @@
+INDEXING DOES NOT SEEM TO HELP
+
+======= QUERY: python3 flash_experiments.py I2_Topo trace-old.txt hous all =========
+Case 1: No optimization
+
+Total Time: ~3.758
+Break Down:
+z3SMTTools__convert_z3_variable 0.20619999999999344
+z3SMTTools_condition_parser 1.2183999999999244
+z3SMTTools_iscontradiction 2.116200000000004
+z3SMTTools_has_redundancy 0.5447999999999973
+z3SMTTools_simplification 2.9581000000000004
+FaureEvaluation___init__ 3.0443000000000002
+DT_Rule_run_with_faure 3.203099999999999
+DT_Rule_execute 3.2034
+DT_Program_executeonce 3.2039
+DT_Program_execute 3.2053
+
+
+Case 2: Deleting Head Table on each run
+
+Query: python3 flash_experiments.py I2_Topo trace-old.txt hous all
+Total Time: 1.4479789733886719
+Break Down:
+z3SMTTools_condition_parser 0.516500000000003
+z3SMTTools_iscontradiction 0.9326000000000003
+z3SMTTools_has_redundancy 0.20180000000000017
+z3SMTTools_simplification 1.3107
+FaureEvaluation___init__ 1.3743
+DT_Rule_run_with_faure 1.4533
+DT_Rule_execute 1.4537
+DT_Program_executeonce 1.4538
+DT_Program_execute 1.4582
+
+
+Case 3: Same as case 2 but not exiting on violation
+
+Total Time: 2.105776071548462
+Breakdown:
+z3SMTTools_condition_parser 0.6742999999999856
+z3SMTTools_iscontradiction 1.1704999999999988
+z3SMTTools_has_redundancy 0.3335000000000002
+z3SMTTools_simplification 1.8179
+FaureEvaluation___init__ 1.9624000000000004
+DT_Rule_run_with_faure 2.1042000000000005
+DT_Rule_execute 2.1047000000000007
+DT_Program_executeonce 2.1055
+DT_Program_execute 2.1057
+
+
+Case 4: Same as case 2 but no simplification on table R:
+
+Total Time: 1.0324451923370361
+Breakdown: 
+DT_Rule_insertTuplesToHead 0.3233
+DT_Rule_run_with_faure 0.3819
+DT_Rule_execute 0.3822
+DT_Program_executeonce 0.3827
+z3SMTTools_simplification 0.5913
+stack_parser 0.22439999999999924
+z3SMTTools_condition_parser 0.24950000000000086
+z3SMTTools_iscontradiction 0.5265999999999998
+DT_Program_execute 0.9757
+
+
+======= QUERY: python3 flash_experiments.py I2_Topo trace-old.txt hous 1 =========
+
+Case 1: Deleting Head Table on each run
+
+Total Time: 0.2580139636993408
+Breakdown:
+z3SMTTools_iscontradiction 0.05170000000000001
+z3SMTTools_simplification 0.16050000000000003
+FaureEvaluation___init__ 0.2126
+DT_Rule_run_with_faure 0.255
+DT_Rule_execute 0.2553
+DT_Program_executeonce 0.2556
+DT_Program_execute 0.2579
+
+
+Case 2: Same as case 1 but no simplification on table R:
+
+Total Time: 0.1628572940826416
+Breakdown: 
+DT_Rule_run_with_faure 0.09699999999999999
+DT_Rule_execute 0.0973
+DT_Program_executeonce 0.0976
+z3SMTTools_simplification 0.0632
+DT_Program_execute 0.1628
+
+
+
+======= QUERY: python3 flash_experiments.py I2_Topo trace-loop-hous.txt,I2/atlaapnotcomp,I2/chicapnotcomp,I2/saltapnotcomp,I2/seatapnotcomp,I2/losaapnotcomp,I2/kansapnotcomp,I2/washapnotcomp,I2/newy32aoaapnotcomp,I2/housapnotcomp hous 1 =========
+
+
+Case 1: Deleting Head Table on each run
+
+Total Time: 100.33573198318481
+Breakdown:
+FaureEvaluation__integration 66.5291
+z3SMTTools__convert_z3_variable 0.2215999999999921
+stack_parser 3.0588000000004527
+z3SMTTools_condition_parser 3.8822000000008767
+z3SMTTools_iscontradiction 3.7284999999996797
+z3SMTTools_has_redundancy 3.741199999999673
+z3SMTTools_simplification 10.745000000000001
+FaureEvaluation___init__ 77.2781
+rule_tuplesEquivalent 22.49579999999958
+rule_comparison_runs 62104.0
+DT_Rule_insertTuplesToHead 23.0516
+DT_Rule_run_with_faure 100.3317
+DT_Rule_execute 100.3325
+DT_Program_executeonce 100.3331
+DT_Program_execute 100.3355
+
+Case 2: Same as case 1 but no simplification on table R:
+
+Total Time: 85.99335432052612
+Breakdown: 
+FaureEvaluation__integration 62.85869999999999
+FaureEvaluation___init__ 62.8614
+rule_tuplesEquivalent 22.660399999999704
+rule_comparison_runs 62104.0
+DT_Rule_insertTuplesToHead 23.049500000000002
+DT_Rule_run_with_faure 85.91329999999999
+DT_Rule_execute 85.9141
+DT_Program_executeonce 85.9147
+DT_Program_execute 85.9948
+
+
+

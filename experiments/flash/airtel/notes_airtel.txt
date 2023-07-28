@@ -1,0 +1,164 @@
+All Queries done with header = 1
+Not all nodes have header 1.
+
+======= QUERY: python3 flash_experiments.py airtel airtel-small.csv,airtel.csv s12-1 s2-7 1 =========
+
+Case 1: Deleting Head Table on each run
+
+Total Time: 1.3192479610443115
+Breakdown:
+FaureEvaluation__integration 1.1313
+z3SMTTools_iscontradiction 0.09460000000000002
+z3SMTTools_simplification 0.1747
+FaureEvaluation___init__ 1.3098
+DT_Rule_run_with_faure 1.3172
+DT_Rule_execute 1.3178
+DT_Program_executeonce 1.318
+DT_Program_execute 1.1173
+
+
+
+
+Case 2: Same as case 1 but no simplification on table R:
+
+Total Time:  1.235219955444336
+Breakdown: 
+FaureEvaluation__integration 1.1155000000000002
+FaureEvaluation___init__ 1.118
+DT_Rule_run_with_faure 1.1357
+DT_Rule_execute 1.137
+DT_Program_executeonce 1.1381999999999999
+z3SMTTools_simplification 0.09490000000000001
+DT_Program_execute 1.0645
+
+
+
+Case 3: Same as case 1 but with indexing
+
+Time Taken: 0.1976330280303955
+Breakdown:
+z3SMTTools___init__ 0.0182
+ConditionTree___init__ 0.013999999999999995
+DT_Rule_generateRule 0.0109
+DT_Rule___init__ 0.0122
+FaureEvaluation__integration 0.06250000000000001
+z3SMTTools__convert_z3_variable 0.01249999999999998
+stack_parser 0.027000000000000017
+z3SMTTools_condition_parser 0.028500000000000015
+z3SMTTools_iscontradiction 0.044899999999999995
+z3SMTTools_has_redundancy 0.018699999999999998
+z3SMTTools_simplification 0.118
+FaureEvaluation___init__ 0.18159999999999998
+DT_Rule_insertTuplesToHead 0.0132
+DT_Rule_run_with_faure 0.1956
+DT_Rule_execute 0.19590000000000002
+DT_Program_executeonce 0.19619999999999999
+DT_Program_execute 0.1429
+
+
+
+Case 4: Same as case 2 but with indexing
+
+Total Time: 0.10908794403076172
+Breakdown: 
+DT_Table_delete 0.0065
+DT_Table_initiateTable 0.0094
+DT_Table_enableIndexing 0.0047
+z3SMTTools___init__ 0.0201
+ConditionTree___init__ 0.014399999999999993
+ConditionLeaf___init__ 0.0049
+DT_Rule_convertRuleToSQLPartitioned 0.01
+DT_Rule_generateRule 0.011699999999999999
+DT_Rule___init__ 0.012899999999999998
+FaureEvaluation__integration 0.040799999999999996
+FaureEvaluation___init__ 0.0414
+DT_Rule_insertTuplesToHead 0.008599999999999998
+DT_Rule_run_with_faure 0.0509
+DT_Rule_execute 0.051399999999999994
+DT_Program_executeonce 0.0516
+z3SMTTools_simplification 0.0559
+stack_parser 0.014899999999999998
+z3SMTTools_condition_parser 0.017199999999999997
+z3SMTTools_iscontradiction 0.0319
+z3SMTTools_has_redundancy 0.0063
+DT_Program_execute 0.0812
+
+======= QUERY: python3 flash_experiments.py airtel airtel-small.csv,airtel.csv s12-1 s2-7 all =========
+
+Case 1: Deleting Head Table on each run
+
+Total Time:  1.0045158863067627
+Breakdown:
+FaureEvaluation__integration 0.9097
+z3SMTTools_simplification 0.0818
+FaureEvaluation___init__ 0.9944
+DT_Rule_run_with_faure 1.0029
+DT_Rule_execute 1.0031999999999999
+DT_Program_executeonce 1.0034
+DT_Program_execute 0.8194
+
+
+Case 2: Same as case 1 but no simplification on table R:
+
+Total Time:  0.9338686466217041
+Breakdown: 
+FaureEvaluation__integration 0.8671000000000001
+FaureEvaluation___init__ 0.8689
+DT_Rule_run_with_faure 0.8837
+DT_Rule_execute 0.8887
+DT_Program_executeonce 0.8893
+DT_Program_execute 0.7646
+
+
+
+Case 3: Same as case 1 but with indexing
+
+Time Taken: 0.11770820617675781
+Breakdown:
+DT_Table_initiateTable 0.0068000000000000005
+z3SMTTools___init__ 0.0182
+ConditionTree___init__ 0.013999999999999995
+DT_Rule_convertRuleToSQLPartitioned 0.0104
+DT_Rule_generateRule 0.0119
+DT_Rule___init__ 0.013099999999999999
+FaureEvaluation__integration 0.0519
+stack_parser 0.0086
+z3SMTTools_condition_parser 0.0088
+z3SMTTools_iscontradiction 0.0116
+z3SMTTools_has_redundancy 0.0099
+z3SMTTools_simplification 0.05650000000000001
+FaureEvaluation___init__ 0.10910000000000002
+DT_Rule_insertTuplesToHead 0.0062
+DT_Rule_run_with_faure 0.1162
+DT_Rule_execute 0.1164
+DT_Program_executeonce 0.11649999999999999
+DT_Program_execute 0.0634
+
+
+Case 4: Same as case 2 but with indexing
+
+Total Time:  0.08197712898254395
+Breakdown: 
+DT_Table_initiateTable 0.0103
+z3SMTTools___init__ 0.0193
+ConditionTree___init__ 0.013999999999999993
+ConditionLeaf___init__ 0.004499999999999999
+DT_Rule_convertRuleToSQLPartitioned 0.01
+DT_Rule_generateRule 0.0116
+DT_Rule___init__ 0.012899999999999998
+FaureEvaluation__integration 0.04609999999999999
+FaureEvaluation___init__ 0.04639999999999999
+DT_Rule_insertTuplesToHead 0.0063
+DT_Rule_run_with_faure 0.0534
+DT_Rule_execute 0.0538
+DT_Program_executeonce 0.054
+z3SMTTools_simplification 0.0266
+stack_parser 0.0039000000000000003
+z3SMTTools_condition_parser 0.0044
+z3SMTTools_iscontradiction 0.0054
+z3SMTTools_has_redundancy 0.0056
+DT_Program_execute 0.0485
+stack_parser 0.0147
+z3SMTTools_condition_parser 0.017299999999999996
+z3SMTTools_iscontradiction 0.031900000000000005
+DT_Program_execute 0.0834

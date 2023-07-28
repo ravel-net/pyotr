@@ -1,0 +1,1 @@
+All experiments done with tuplesEquivalence checking commented out, hacky semi-naive, not stopping at violation, and no extra simplification of violation table
