@@ -43,7 +43,7 @@ class DT_Table:
 
     # TODO: Think about a better way than this
     def getColmTypeWithoutFaure(self, colmType):
-        colmType = colmType.replace("integer","bigint") # for ip addresses
+        # colmType = colmType.replace("integer","bigint") # for ip addresses
         return colmType.replace("_faure","")
 
     def getRandomTuple(self, conn, colmName, conditions=[]):
@@ -101,6 +101,26 @@ class DT_Table:
             return True
         else:
             return False
+
+    def deleteAllCVarRows(self, conn):
+        cursor = conn.cursor()
+        for colm in self.columns:
+            if self.columns[colm] == "integer_faure":
+                cursor.execute("DELETE FROM {} WHERE 0 > {}".format(self.name, colm))
+            elif self.columns[colm] == "inet_faure":
+                cursor.execute("DELETE FROM {} WHERE '0.255.0.0' > {}".format(self.name, colm))
+            elif self.columns[colm] == "inet_faure[]":
+                cursor.execute("DELETE FROM {} WHERE '0.255.0.0' > Any({})".format(self.name, colm))
+            elif self.columns[colm] == "integer_faure[]":
+                cursor.execute("DELETE FROM {} WHERE 0 > Any({})".format(self.name, colm))
+        conn.commit()
+
+    def exists(self, conn):
+        cursor = conn.cursor()
+        cursor.execute("SELECT EXISTS ( SELECT FROM information_schema.tables WHERE table_name   = '{}' );".format(self.name.lower()))
+        result = cursor.fetchall()[0][0]
+        conn.commit()
+        return result
 
     # Initiates an empty table
     def initiateTable(self, conn):
