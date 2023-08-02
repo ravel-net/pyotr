@@ -192,7 +192,7 @@ def initializeDatabases(nodesToIgnore, nodeIntMapping, indexing_on, topology):
 
     V = DT_Table(name="V", columns={"header":"inet_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
 
-    F = DT_Table(name=F_name, columns={"header":"inet_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars=cvars, domain={"next_hop":allowedNodes,"node":allowedNodes})
+    F = DT_Table(name=F_name, columns={"header":"inet_faure", "node":"integer", "next_hop":"integer_faure","condition":"text[]"}, cvars=cvars, domain={"next_hop":allowedNodes,"node":allowedNodes})
 
     # mapping_index = -200
     # cvarMapping = {}
@@ -207,12 +207,12 @@ def initializeDatabases(nodesToIgnore, nodeIntMapping, indexing_on, topology):
     V.delete(conn)
     V.initiateTable(conn)
     # database.delete(conn)
-    if not F.exists(conn):
-        F.initiateTable(conn)
+    F.delete(conn)
+    F.initiateTable(conn)
 
-    if not indexing_on:
-        F.deleteAllIndexes(conn)
-        R.deleteAllIndexes(conn)
+    # if not indexing_on:
+    #     F.deleteAllIndexes(conn)
+    #     R.deleteAllIndexes(conn)
     conn.commit()
 
     return database
@@ -242,10 +242,11 @@ def getIP(ip, prefix):
         return "'{}/{}'".format(str(ipAddress), prefix)
 
 def getOutputCondition(node, cvar, graph, nodeIntMapping):
-    possibleOutputs = []
+    next_hops = []
     for next_hop in graph[node]:
-        possibleOutputs.append(cvar + " == " + str(nodeIntMapping[next_hop]))
-    return "'{\"Or(" + ",".join(possibleOutputs) + ")\"}'"
+        next_hops.append(str(nodeIntMapping[next_hop]))
+    return "'{\"" + cvar + " == {" + ",".join(next_hops) + "}\"}'"
+    # return "'{\"Or(" + ",".join(possibleOutputs) + ")\"}'"
 
 def storeTable(tableName, inputs):
     cursor = conn.cursor()
@@ -288,7 +289,7 @@ def cleanAirtelDataset(topology='airtel',datasetName='airtel.csv'):
             f.write(insertions[update][1] + "\n")
 
 # Given a line from a forwarding table, parses
-def getForwardingInformation(topology, dataset, line):
+def getForwardingInformationLine(topology, dataset, line):
     if topology == "I2":
         splitLine = line.split(" ")
         if len(splitLine) == 4: # I2 normal dataset
@@ -316,6 +317,30 @@ def getForwardingInformation(topology, dataset, line):
         port = splitLine[2].strip()
     return node, ip, prefix, port, updateType
 
+def getForwardingInformation(topology, datasets, portMapping, nodeIntMapping):
+    fwdTable = []
+    if "L2" in topology:
+        npods = int(topology.split("_")[1])
+        rswPerPod = int(topology.split("_")[2])
+        return getForwardingInformationL2(npods, rswPerPod)
+    else:
+        for dataset in datasets:
+            if "/" not in dataset: # files should be in folders
+                dataset = "{}/{}".format(topology, dataset)
+            with open(dataset) as f:
+                lines = f.readlines()
+                for line in lines:
+                    node, ip, prefix, port, updateType = getForwardingInformationLine(topology, dataset, line)
+                    if updateType != "+":
+                        # print("Unknown update type encountered for line: {}".format(line))
+                        continue
+                    intIP = getIP(ip, prefix)
+                    if node+"_"+port not in portMapping:
+                        continue
+                    next_hop_node = portMapping[node+"_"+port]
+                    fwdTable.append((intIP, node, next_hop_node))
+        return fwdTable
+
 def addUnknownInfo(nodesToIgnore, graph, nodeIntMapping, db, topology):
     inputs = []
     F_table = db.getTable("F_"+topology)
@@ -340,37 +365,23 @@ def addUnknownInfo(nodesToIgnore, graph, nodeIntMapping, db, topology):
                 inputs.append(input)
     storeTable(F_table.name, inputs)
 
-def addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology, indexing_on):
+def addFW(nodeIntMapping, db, topology, sourceHeaderPairs, path):
     inputs = [] # list of inputs of the form [(header, source, next_hop, condition),...]
     F_table = db.getTable("F_"+topology)
     condition = "'{}'"
-    isEmpty = F_table.isEmpty(conn)
-    if "L2" in topology and isEmpty:
-        npods = int(topology.split("_")[1])
-        rswPerPod = int(topology.split("_")[2])
-        fwdData = getForwardingInformationL2(npods, rswPerPod)
-        for rule in fwdData:
-            input = "({},{},{},{})".format("'"+rule[0]+"/32'",nodeIntMapping[rule[1]],nodeIntMapping[rule[2]],condition)
+    for source, header in sourceHeaderPairs:
+        if "/" in header:
+            header = header.split("/")[0]
+        # for node in nodesInvolved:
+        i = 0
+        while i < len(path)-1:
+            node = path[i]
+            next_hop = path[i+1]
+            if next_hop == None:
+                break
+            input = "({},{},{},{})".format("'"+header+"/32'",nodeIntMapping[node],nodeIntMapping[next_hop],condition)
             inputs.append(input)
-    elif isEmpty:
-        if "/" not in dataset: # files should be in folders
-            dataset = "{}/{}".format(topology, dataset)
-        with open(dataset) as f:
-            lines = f.readlines()
-            for line in lines:
-                node, ip, prefix, port, updateType = getForwardingInformation(topology, dataset, line)
-                if updateType != "+":
-                    # print("Unknown update type encountered for line: {}".format(line))
-                    continue
-                intIP = getIP(ip, prefix)
-                if node in nodesToIgnore and nodesToIgnore[node] == "all":
-                    continue
-                
-                if node+"_"+port not in portMapping:
-                    continue
-                next_hop_node = portMapping[node+"_"+port]
-                input = "({},{},{},{})".format(intIP, nodeIntMapping[node], nodeIntMapping[next_hop_node], condition)
-                inputs.append(input)
+            i += 1
     print("Storing table of size {} to F".format(len(inputs)))
     start = time()
     storeTable(F_table.name, inputs)
@@ -392,9 +403,11 @@ def replaceVal(val, mapping):
 
 # move this to table class
 def printTable(tableName, db, nodeIntMappingReverse):
+    conn.commit()
     cursor = conn.cursor()
     cursor.execute("SELECT * from {}".format(tableName))
     table = cursor.fetchall()
+    conn.commit()
     newTable = []
     mapping = deepcopy(nodeIntMappingReverse)
     mapping.update(db.cVarMapping)
@@ -421,13 +434,17 @@ def runDatalog(db, nodeIntMappingReverse, nodeIntMapping, sourceNode = "atla", h
 
     p1 = "R({header}, {source}, n, [{source}, n], {source}, n) :- {F_name}({header}, {source}, n)[n != {source}]".format(source=source, header=header, F_name=F_name)
 
-    p2 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster,last_node), {F_name}({header}, n2, n)[And(n == p, n != second_laster)]\nR({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != second_laster]".format(source=source, header=header, F_name=F_name)
-    # p1 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster,last_node), F({header}, n2, n)[And(n == p, n != second_laster)]".format(source=source, header=header)
+    # p2 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n == p]\nR({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != second_laster]".format(source=source, header=header, F_name=F_name)
+    # p2 = "R({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != second_laster]".format(source=source, header=header, F_name=F_name)
+    p2 = "R({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != p]".format(source=source, header=header, F_name=F_name)
+    # p2 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster,last_node), F({header}, n2, n)[And(n == p, n != second_laster)]".format(source=source, header=header)
     program1 = DT_Program(p1, database=db, optimizations={"simplification_on":simplification_on})
     program2 = DT_Program(p2, database=db, optimizations={"simplification_on":simplification_on})
     start = time()
     program1.executeonce(conn)
     # program2.executeonce(conn)
+    # printTable('F_I2', db, nodeIntMappingReverse)
+    # input()
     # printTable('R', db, nodeIntMappingReverse)
     # input()
     # program2.executeonce(conn)
@@ -446,7 +463,7 @@ def runDatalog(db, nodeIntMappingReverse, nodeIntMapping, sourceNode = "atla", h
     end = time()
     conn.commit()
     # print("Total Time =", end-start)
-    # printTable('V', db, nodeIntMappingReverse)
+    printTable('V', db, nodeIntMappingReverse)
     return (end-start)
 
 # Given a string like "house all kans 1,1231231,5", it returns the dictionary nodes to ignore
@@ -504,7 +521,6 @@ def getForwardingInformationL2(npods = 112, rswPerPod = 48, mode = "shortest"):
                         dstfsw = "fsw-" + str(iPod) + "-" + str((48 * jPod + jRsw) % 4)
                     rule = (str(dstip), rsw, dstfsw)
                     data.append(rule)
-
         for iSpine in range(numSpines):
             fsw = "fsw-" + str(iPod) + "-" + str(iSpine)
             for jPod in range(npods):
@@ -522,11 +538,12 @@ def getForwardingInformationL2(npods = 112, rswPerPod = 48, mode = "shortest"):
         for iSsw in range(sswPerSpine):
             ssw = "ssw-" + str(iSpine) + "-" + str(iSsw)
             for k in range(npods):
-                for l in range(fswPerPod):
+                for l in range(rswPerPod):
                     dstip = ipaddress.ip_address((k << 24) + ((l + 1) << 16))
                     dstfsw = "fsw-" + str(k) + "-" + str(iSpine)
                     rule = (str(dstip), ssw, dstfsw)
                     data.append(rule)
+
     return data
 
 def loadFiles(topology, datasetFiles, portMapping):
@@ -542,7 +559,7 @@ def loadFiles(topology, datasetFiles, portMapping):
             with open(dataset) as f:
                 lines = f.readlines()
                 for line in lines:
-                    node, ip, prefix, port, updateType = getForwardingInformation(topology, dataset, line)
+                    node, ip, prefix, port, updateType = getForwardingInformationLine(topology, dataset, line)
                     if updateType != "+":
                         # print("Unknown update type encountered for line: {}".format(line))
                         continue
@@ -550,7 +567,7 @@ def loadFiles(topology, datasetFiles, portMapping):
                     if node+"_"+port not in portMapping:
                         continue
                     data.append((intIP, node, portMapping[node+"_"+port]))
-        return data
+        return {}, data
 
 def getNextHop(node, header, data):
     if "/" in header:
@@ -603,21 +620,24 @@ def verify(arguments):
                 for node in nodes[nodeType]:
                     allNodes.append(node)
             nodeIntMapping, nodeIntMappingReverse = getMapping(allNodes) # each node is represented by an integer
+            # fwdTable = getForwardingInformation(topology=topology, datasets=[], portMapping=portMapping, nodeIntMapping=nodeIntMapping)
         else:
             nodeIntMapping, nodeIntMappingReverse = getMapping(nodes) # each node is represented by an integer
+            # fwdTable = getForwardingInformation(topology=topology, datasets=datasetFiles, portMapping=portMapping, nodeIntMapping=nodeIntMapping)
+
         for line in lines:
             lineSplit = line.split(" ")
             source = lineSplit[0].strip()
             header = lineSplit[1].strip() # can be an ip as an int or a variable X (which represents all headers)
+            path = lineSplit[2].strip().split(",")
             nodesToIgnore = {} # key is node to ignore, value is either all or a list of prefixes to ignore
 
-            i = 2
-            nodesToIgnore, nodesToIgnoreArr = getNodesToIgnore(lineSplit[2:])
+            nodesToIgnore, nodesToIgnoreArr = getNodesToIgnore(lineSplit[3:])
             
             db = initializeDatabases(nodesToIgnore=nodesToIgnore, nodeIntMapping=nodeIntMapping, indexing_on=indexing_on, topology=topology) # cvarmapping is int to string
 
-            for dataset in datasetFiles:
-                addFW(dataset, nodesToIgnore, portMapping, graph, nodeIntMapping, db, topology, indexing_on=indexing_on)
+            sourceHeaderPairs = [(source, header)]
+            addFW(nodeIntMapping=nodeIntMapping, db=db, topology=topology, sourceHeaderPairs=sourceHeaderPairs, path=path)
             addUnknownInfo(nodesToIgnore, graph, nodeIntMapping, db, topology)
             F_table = db.getTable("F_"+topology)
             if indexing_on:
@@ -638,7 +658,7 @@ def verify(arguments):
                 output_file = input_file.split("/")[1].replace(".txt","")
             else:
                 output_file = input_file.replace(".txt","")
-            logFileName = "{}-{}-{}.log".format(output_file, str(indexing_on), str(simplification_on))
+            logFileName = "output/{}-{}-{}.log".format(output_file, str(indexing_on), str(simplification_on))
             if not os.path.isfile(logFileName):
                 with open(logFileName, 'w') as f:
                     f.write("TOPOLOGY\tSOURCE\tHEADER\tINDEXING_ON\tSIMPLIFICATION_ON\tDATASETS\tNODES_TO_IGNORE\tTIME_TAKEN\n")
@@ -651,7 +671,8 @@ def verify(arguments):
 
             db.getTable("R").deleteAllTuples(conn)
             db.getTable("V").deleteAllTuples(conn)
-            F_table.deleteAllCVarRows(conn)
+            F_table.deleteAllTuples(conn)
+            # F_table.deleteAllCVarRows(conn)
             conn.commit()
 
         print()
@@ -679,6 +700,7 @@ def generate(arguments):
     run = 0
     with open(output_filename,"w") as f:
         while run < numRuns:
+            print(run)
             if sourceNodeStr.lower() == 'random':
                 if "L2" in topology:
                     source = random.choice(nodes["rsw"]) # we only consider rsw to be the source in L2 Topology
@@ -689,14 +711,14 @@ def generate(arguments):
             header = header.replace("'","")
             if parsing_utils.isIP(header):
                 header = header.split("/")[0]+"/"+"32"
+            path = getPath(source, header, data)
             if "random" in nodesToIgnoreOld:
                 numRandomNodes = nodesToIgnoreOld["random"]
-                path = getPath(source, header, data)
-                print(path)
                 if len(path) <= numRandomNodes:
                     continue
                 nodesToIgnore = random.sample(path[:-1], numRandomNodes)
-            f.write("{} {}".format(source, header))
+            pathStr = ",".join(path)
+            f.write("{} {} {}".format(source, header, pathStr))
             for node in nodesToIgnore:
                 f.write(" {} all".format(node))
             if run != numRuns-1:
@@ -717,3 +739,15 @@ if __name__ == '__main__':
         generate(sys.argv[2:])
 # Loop
 # python3 flash_experiments.py airtel s14-5 1 True False airtel-small.csv,airtel-cleaned.csv s15-5 all s9-7 all s15-1 all
+
+
+
+# Generate
+#  python3 flash_experiments.py generate L2_112_48 L2_112_48-10-random-1 10 random random _ random 1
+
+# Verify
+# python3 flash_experiments.py verify L2_112_48 inputs/L2_112_48-10-random-0 True True _
+
+
+# Correctness test
+# python3 flash_experiments.py verify I2 inputs/I2-loop.txt True True trace-loop-hous.txt
