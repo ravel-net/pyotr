@@ -84,7 +84,7 @@ class ConditionTree:
                 child = ConditionTree(condition, pos)
                 # if not child.getIsTrue(): # when the condition is trivially true. #TODO: Also think about doing something when the condition is trivially False.
                 pos = child.getEndPos()
-                if not child.getIsTrue():
+                if not child.getIsTrue() or self.value == "Or":
                     self.children.append(child)
                 else:
                     del child
@@ -123,7 +123,7 @@ class ConditionTree:
             self.isLeaf = True
             self.value = ConditionLeaf(currCond, operator)
             if self.value.getIsTrue():
-                self.isEmpty = True
+                # self.isEmpty = True
                 self.isTrue = True
 
         if self.endPos < len(condition) and condition[self.endPos] == ",":
