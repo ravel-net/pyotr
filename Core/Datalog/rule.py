@@ -304,7 +304,7 @@ class DT_Rule:
                         replace_var2attr.append("'{}'".format(self._cVarMappingReverse[p]))
 
                 summary = "ARRAY[" + ", ".join(replace_var2attr) + "]"
-                summary_nodes.append("{} as {}".format(summary, self._head.table.getColmName(idx)))
+                summary_nodes.append("{}::{} as {}".format(summary, self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
             else:
                 hasOperator = False
                 for op in self._operators:
@@ -325,17 +325,17 @@ class DT_Rule:
                         opString = " " + op + " "
                         summary = opString.join(concatinatingValues)
                         if summary:
-                            summary_nodes.append("{} as {}".format(summary, self._head.table.getColmName(idx)))
+                            summary_nodes.append("{}::{} as {}".format(summary, self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
                 if not hasOperator:
                     if parsing_utils.isIP(param): # constant parameter or ip
-                        summary_nodes.append("'{}' as {}".format(param, self._head.table.getColmName(idx)))
+                        summary_nodes.append("'{}'::{} as {}".format(param, self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
                     else:
                         if param not in variableList.keys() and param not in self._cVarMappingReverse:
-                            summary_nodes.append("'{}' as {}".format(param, self._head.table.getColmName(idx)))
+                            summary_nodes.append("'{}'::{} as {}".format(param, self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
                         elif param not in variableList.keys() and param in self._cVarMappingReverse:
-                            summary_nodes.append("'{}' as {}".format(self._cVarMappingReverse[param], self._head.table.getColmName(idx)))
+                            summary_nodes.append("'{}'::{} as {}".format(self._cVarMappingReverse[param], self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
                         else: # variable or c-var that also appears in body
-                            summary_nodes.append("{} as {}".format(variableList[param][0], self._head.table.getColmName(idx)))
+                            summary_nodes.append("{}::{} as {}".format(variableList[param][0], self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
         return summary_nodes
 
     @timeit
@@ -548,104 +548,14 @@ class DT_Rule:
                     exit()
         return contains
 
-
-    # The argument tuple1 and tuple2 are single tuples. 
-    # Functions checks if the tuples are equivalent
-    # @timeit
-    def tuplesEquivalent(self, tuple1, tuple2):
-        if str(tuple1[:-1]) != str(tuple2[:-1]): # data portion must be the same
-            return False
-        elif len(tuple1) == 1 and len(tuple2) == 1:
-            return True
-        conditions1 = tuple1[-1]
-        conditions2 = tuple2[-1]
-        if self._reasoning_engine == 'z3':
-            if len(conditions1) != len(conditions2): # for Z3, we can just check the strings since they would be equal if the conditions are equal. This is only true when inserting head
-                return False
-            for i, cond in enumerate(conditions1):
-                if str(cond) != str(conditions2[i]):
-                    return False
-        else:
-            if not (self.reasoning_tool.is_implication(conditions1, conditions2) and self.reasoning_tool.is_implication(conditions2, conditions1)):
-                return False
-        return True
-    
-    # Adds the result of the table "output" to head. Only adds distinct variables. Only runs with faure so last column is always condition
-    @timeit
-    def insertTuplesToHead(self, conn, fromTable="output"):
-        cursor = conn.cursor()
-        header_table = self._head.table.name
-        if (not self._recursive_rules):
-            sql = "insert into {header_table} select * from {fromTable}".format(header_table=header_table, fromTable=fromTable)
-            cursor.execute(sql)
-            conn.commit()
-            return False
-        else:
-            select_gen_sql = "select distinct {} from {}".format(", ".join(self.selectColumns), fromTable)
-            if self._reasoning_engine == 'bdd': # replace condition datatype from text[] to integer 
-                select_gen_sql = select_gen_sql.replace('text[]', 'integer')  
-            cursor.execute(select_gen_sql)
-            generatedHead = cursor.fetchall()
-            if not generatedHead:
-                return False
-            
-            # TODO: Possible optimization for true conditions
-            # cleanedGeneratedHead = []
-            # for tup in generatedHead:
-            #     newTuple = list(tup[:-1])
-            #     conditionArr = tup[-1]
-            #     newCondArr = []
-            #     for cond in conditionArr:
-            #         newCondArr.append(str(ConditionTree(condition=cond)))
-            #     newTuple.append(newCondArr)
-            #     cleanedGeneratedHead.append(newTuple)
-            # generatedHead = cleanedGeneratedHead
-
-            select_head_table_sql = "select * from {}".format(header_table)
-
-            cursor.execute(select_head_table_sql)
-            head_table = cursor.fetchall()
-
-            # Check if any of the generated head is new
-            newTuples = []
-            for generatedTuple in generatedHead:
-                alreadExists = False
-                # start = time.time()
-                # for tuple in head_table:
-                #     if self.tuplesEquivalent(generatedTuple, tuple): # only add tuples that are not equivalent
-                #         alreadExists = True
-                #         print("EXISTS")
-                #         exit()
-                # end = time.time()
-                # total_time = end-start
-                # logging.info(f'Time: rule_tuplesEquivalent took {total_time:.4f}')
-                if not alreadExists:
-                    newTuples.append(generatedTuple)
-            # logging.info(f'Time: rule_comparison_runs took {len(generatedTuple)*len(head_table)}')
-            if len(newTuples) > 0:
-                if self._head.table.name == "R": # TODO: This is a hacky way to do semi naive
-                    self._head.table.deleteAllTuples(conn) 
-                execute_values(cursor, "insert into {} values %s".format(header_table), newTuples)
-                conn.commit()
-                return True
-            else:
-                conn.commit()
-                return False
-
     @timeit
     def run_with_faure(self, conn, program_sql, faure_evaluation_mode="contradiction"):
-        header_table = self._head.table.name
-        changed = False
+        header_table = self._head.table
         '''
         generate new facts
         '''
-        with open('time.log', 'a') as f:
-            begin_faure = time.time()
-            FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format})
-            changed = self.insertTuplesToHead(conn)
-            end_faure = time.time()
-            f.write("Time: faure took {}\n".format(end_faure-begin_faure))
-        return changed
+        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
+        return faure_query.rowsAffected != 0
 
     def __str__(self):
         string = str(self._head) + " :- "

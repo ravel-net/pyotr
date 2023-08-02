@@ -113,13 +113,13 @@ class DT_Table:
                 cursor.execute("DELETE FROM {} WHERE '0.255.0.0' > Any({})".format(self.name, colm))
             elif self.columns[colm] == "integer_faure[]":
                 cursor.execute("DELETE FROM {} WHERE 0 > Any({})".format(self.name, colm))
-        conn.commit()
+        # conn.commit()
 
     def exists(self, conn):
         cursor = conn.cursor()
         cursor.execute("SELECT EXISTS ( SELECT FROM information_schema.tables WHERE table_name   = '{}' );".format(self.name.lower()))
         result = cursor.fetchall()[0][0]
-        conn.commit()
+        # conn.commit()
         return result
 
     # Initiates an empty table
@@ -134,6 +134,7 @@ class DT_Table:
             colmType = self.columns[colmName]
             table_creation_query += '{} {},'.format(colmName, self.getColmTypeWithoutFaure(colmType))
         table_creation_query = table_creation_query[:-1]
+        table_creation_query += ", UNIQUE (" + ",".join(self.columns) + ")"
         table_creation_query += ");"
         cursor.execute(table_creation_query)
 

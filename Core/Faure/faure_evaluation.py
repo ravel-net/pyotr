@@ -49,7 +49,7 @@ class FaureEvaluation:
         convert a c-table with text condition to a c-table with BDD reference
     """
     @timeit
-    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False, faure_evaluation_mode='contradiction', sqlPartitioned={}) -> None:
+    def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False, faure_evaluation_mode='contradiction', sqlPartitioned={}, headerTable = None) -> None:
         """
         Parameters:
         ------------
@@ -102,7 +102,7 @@ class FaureEvaluation:
         """
         self._conn = conn
         self._SQL = SQL.strip().rstrip(";")
-
+        self.headerTable = headerTable
         self.output_table=output_table
         self._information_on = information_on
         self._simplification_on = simplication_on
@@ -139,25 +139,25 @@ class FaureEvaluation:
             if self._reasoning_engine.lower() == 'z3':
                 # integration of step 1 and step 2
                 if self._faure_evaluation_mode == 'contradiction':
-                    self._integration()
+                    self.rowsAffected = self._integration()
                     
                 elif self._faure_evaluation_mode == 'implication':
                     self._integration_implication_mode()
 
-                    self._reserve_tuples_by_checking_implication_z3()
+                    self.rowsAffected = self._reserve_tuples_by_checking_implication_z3()
                 else:
                     print("Please input correct mode! 'contradiction' or 'implication'")
 
                 if self._additional_condition:
                     self._append_additional_condition()
 
-                if simplication_on:
-                    # Step 3: simplication
-                    self._reasoning_tool.simplification(self.output_table, self._conn)
+                # if simplication_on:
+                #     # Step 3: simplication
+                #     self._reasoning_tool.simplification(self.headerTable.name, self._conn)
 
             elif self._reasoning_engine.lower() == 'bdd':
                 # step 1: data
-                self._integration()
+                self.rowsAffected = self._integration()
 
                 # Step 2: update
                 self._upd_condition_BDD()
@@ -176,7 +176,7 @@ class FaureEvaluation:
             else:
                 conditionPart = tablesAsConditions + "::text[] as condition"
             selectPart = self._summary_nodes+[conditionPart]
-            sql = "select " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
+            sql = "select distinct " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
             if (self._constraints):
                 sql += " where " + "(" + " and ".join(self._constraints) + ")"
             return sql  
@@ -186,7 +186,7 @@ class FaureEvaluation:
             else:
                 conditionPart = tablesAsConditions + "::text[] as old_conditions, " + "'' as conjunction_condition"
             selectPart = self._summary_nodes+[conditionPart]
-            sql = "select " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
+            sql = "select distinct " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
             if (self._constraints):
                 sql += " where " + " and ".join(self._constraints)
             return sql        
@@ -200,24 +200,43 @@ class FaureEvaluation:
             print("\n************************Step 1: data with complete condition****************************")
         
         cursor = self._conn.cursor()
-        cursor.execute("drop table if exists {}".format(self.output_table))
+        begin_data = time.time()
+        # cursor.execute("drop table if exists {}".format(self.output_table))
         select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode)
-        data_sql = "create table {} as {}".format(self.output_table, select_sql)
+        # data_sql = "create table {} as {}".format(self.output_table, select_sql)
+        rowsModified = []
+        if self._simplification_on:
+            cursor.execute(select_sql)
+            end_data = time.time()
+            self.data_time = end_data - begin_data
+
+            rows = cursor.fetchall()
+            if self.headerTable.name == "R":
+                self.headerTable.deleteAllTuples(self._conn)
+            for row in rows:
+                is_contrad = self._reasoning_tool.iscontradiction(row[-1])
+                if not is_contrad:
+                    rowsModified.append(str(row).replace("[","ARRAY["))
+            if len(rowsModified) == 0:
+                return 0
+            data_sql = "INSERT INTO {} VALUES {} ON CONFLICT DO NOTHING".format(self.headerTable.name, ",".join(rowsModified))
+        else:
+            data_sql = "INSERT INTO {} {} ON CONFLICT DO NOTHING".format(self.headerTable.name, select_sql)
+
         if self._information_on:
             print(data_sql)
         
         begin_data = time.time()
         cursor.execute(data_sql)
         end_data = time.time()
-
-        self.data_time = end_data - begin_data
-
+        self.data_time += (end_data - begin_data)
+       
         if self._information_on:
             print("\ncombined executing time: ", self.data_time)
         # start = time.time()
-        self._conn.commit()
         # end = time.time()
         # logging.info("Time: Commit took {}".format(end-start))
+        return cursor.rowcount
     
     @timeit
     def _integration_implication_mode(self):
@@ -374,9 +393,9 @@ class FaureEvaluation:
         execute_values(cursor, "insert into temp_update values %s", update_tuples)
 
         
-        sql = "SELECT column_name FROM information_schema.columns where table_name = '{}';".format(self.output_table.lower())
-        cursor.execute(sql)
-        columns_without_condition = [name for (name, ) in cursor.fetchall() if 'condition' not in name and 'id' not in name]
+        columns_without_condition = deepcopy(self.headerTable.columns)
+        if "condition" in columns_without_condition:
+            del columns_without_condition["condition"]
 
         sql = "create table temp_{} as select {}, t2.condition as condition from {} t1, temp_update t2 where t1.id = t2.uid".format(self.output_table, ", ".join(columns_without_condition), self.output_table)
         cursor.execute(sql)
@@ -384,6 +403,10 @@ class FaureEvaluation:
         cursor.execute("drop table if exists {}".format(self.output_table))
         cursor.execute("alter table temp_{output} rename to {output}".format(output=self.output_table))
         self._conn.commit()
+        cursor.execute("insert into {head} select distinct * from {output} on conflict DO NOTHING".format(head=self.headerTable.name,output=self.output_table))
+        b = cursor.rowcount
+        self._conn.commit()
+        return b
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"

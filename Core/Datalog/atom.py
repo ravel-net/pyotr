@@ -121,7 +121,7 @@ class DT_Atom:
                 variableConstants.append("'{" + '"{}"'.format(str(self.condition).replace("'","")) + "}'") 
             # variableConstants.append("'{}'") 
 
-        sql = "insert into " + self.table.name + " values(" +  ",".join(variableConstants) + ")"
+        sql = "insert into " + self.table.name + " values(" +  ",".join(variableConstants) + ") ON CONFLICT DO NOTHING"
         cursor = conn.cursor()
         cursor.execute(sql)
         conn.commit()
