@@ -63,7 +63,6 @@ def unit_test3():
 
     # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
     database = DT_Database(tables=[R,l])
-
     program1 = DT_Program(p1, database)
     start = time.time()
     program1.minimize()
@@ -471,7 +470,7 @@ def unit_test17():
         print("Test 17 failed in {} seconds".format(end-start))
         database.delete(conn)
 
-# execution with array concatination
+# # ordering example 1
 # v = 1, u = 2, x = 3, y = 4, d = 5
 # y1 = -1, y2 = -2, y3 = -3, y3 = -4, y5 = -5
 def unit_test18():
@@ -522,7 +521,7 @@ def unit_test18():
         database.delete(conn)
         exit()
 
-# execution with array concatination
+# ordering example 2
 # v = 1, u = 2, w = 3, d = 4
 # y1 = -1, y2 = -2, y3 = -3, y3 = -4, y5 = -5
 def unit_test19():
@@ -635,10 +634,14 @@ def replaceVal(val, mapping):
         return val
     
 # move this to table class
-def printTable(tableName, db, nodeIntMappingReverse):
+def printTable(tableName, db, nodeIntMappingReverse, condition = None):
     cursor = conn.cursor()
     # cursor.execute("SELECT * from {} where source = 1 and dest = 7".format(tableName))
-    cursor.execute("SELECT * from {}".format(tableName))
+    if condition:
+        cursor.execute("SELECT * from {} where {}".format(tableName, condition))
+    else:
+        cursor.execute("SELECT * from {}".format(tableName))
+
     table = cursor.fetchall()
     newTable = []
     mapping = deepcopy(nodeIntMappingReverse)
@@ -660,6 +663,210 @@ def printTable(tableName, db, nodeIntMappingReverse):
     for colm in headers:
         headerInArray.append(colm[0])
     print(tabulate(newTable, headers=headerInArray))
+
+
+# ordering example 3
+# s = 11, v1 = 22, v2 = 33, v3 = 44, d = 55
+# C1 = -1, C2 = -2, C3 = -3, C4 = -4, C5 = -5
+# https://ieeexplore.ieee.org/stamp/stamp.jsp?arnumber=8500100&casa_token=BnSkzZ8MHcgAAAAA:BdUDVVwmYi_p-szvbrSQKISQPPQT6FoTXlgclcGZmLDluKkaSevytPYSMA2NnlB5BO2vEfjk7Bc
+def unit_test21():
+    R1 = DT_Table(name="R1", columns={"header":"integer_faure", "source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"})
+
+    V1 = DT_Table(name="V1", columns={"header":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
+
+    F1 = DT_Table(name="F1", columns={"header":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"v1_next":"next_hop","v2_next":"next_hop","v3_next":"next_hop"}, domain={"next_hop":[11,22,33,44,55],"node":[11,22,33,44,55]})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[F1,R1,V1], cVarMapping = {'-2':"v1_next",'-3':"v2_next",'-4':"v3_next"})
+    
+    # p1 = "R(10, X, n, [X, n]) :- F(10, X, n)\nR(10, X, n, p || [n]) :- R(10, X, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, X, 5, p)[And(1 != p, 400 == p)]"
+    p1 = "R1(10, X, n, [X, n]) :- F1(10, X, n)"
+    p2 = "V1(10, p) :- R1(10, X, n2, p), F1(10, n2, n)[n != p]\nR1(10, X, n, p || [n]) :- R1(10, X, n2, p), F1(10, n2, n)[n != p]"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True})
+    # conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    # conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    nodeMapping = {'11':"s","22":"v1","33":"v2","44":"v3","55":"d"}
+    database.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+
+    sql = "insert into F1 values (10, 11, 22, '{}'),(10, 22, -2, '{\"Or(v1_next == 33, v1_next == 55)\"}'),(10, 33, -3, '{\"Or(v2_next == 44, v2_next == 22)\"}'),(10, 44, -4, '{\"Or(v3_next == 55, v3_next == 33)\"}')"
+
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    printTable("F1",database,nodeMapping)
+    input()
+    
+    start = time.time()
+    program1.executeonce(conn)
+    conn.commit()
+    input()
+    program2.execute(conn)
+    # program2.executeonce(conn)
+    # conn.commit()
+    # printTable("V",database,nodeMapping)
+    # input()
+    # program2.executeonce(conn)
+    # conn.commit()
+    # printTable("V",database,nodeMapping)
+    # input()
+    # program2.executeonce(conn)
+    # conn.commit()
+    # printTable("V",database,nodeMapping)
+    # input()
+    # program2.executeonce(conn)
+    # conn.commit()
+    printTable("V1",database,nodeMapping)
+    # input()
+    database.delete(conn)
+    exit()
+    cursor.execute("select * from V")
+    if cursor.fetchall()[0][0] == 1:
+        print("Test 13 passed in {} seconds".format(end-start))
+        database.delete(conn)
+    else:
+        print("Test 13 failed in {} seconds".format(end-start))
+        database.delete(conn)
+        exit()
+
+# ordering example 4
+# X = 11, W = 22, A = 33, E = 44, Y = 55, B = 66, C = 77, D = 88
+# alpha = -1, beta = -2, u = -11, gamma = -3, sigma = -4, v = -22, t_one = -101, t_two = -201, t_three = -301, t_four = -401, l = -1111
+# Anduo's email on July 29 with 3 admins
+def unit_test22():
+    M1 = DT_Table(name="M1", columns={"node":"integer","condition":"text[]"}, domain={"node":[11,22,33,44,55,66,77,88]})
+    M2 = DT_Table(name="M2", columns={"node":"integer","condition":"text[]"}, domain={"node":[11,22,33,44,55,66,77,88]})
+    M12 = DT_Table(name="M12", columns={"node":"integer","condition":"text[]"}, domain={"node":[11,22,33,44,55,66,77,88]})
+    M23 = DT_Table(name="M23", columns={"node":"integer","condition":"text[]"}, domain={"node":[11,22,33,44,55,66,77,88]})
+    M123 = DT_Table(name="M123", columns={"node":"integer","condition":"text[]"}, domain={"node":[11,22,33,44,55,66,77,88]})
+
+    R_admins = DT_Table(name="R_admins", columns={"source":"integer_faure", "dest":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path", "alpha":"source", "beta":"source","gamma":"source","sigma":"source", "u":"condition", "v":"condition", "t_one":"condition", "t_two":"condition", "t_three":"condition", "t_four":"condition", "l":"condition"}, domain={"source":[11,22,33,44,55,66,77,88],"dest":[11,22,33,44,55,66,77,88], "condition":[0,1]})
+
+    V_admins = DT_Table(name="V_admins", columns={"path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
+
+    F1 = DT_Table(name="F1", columns={"node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"alpha":"node", "beta":"node","gamma":"node","sigma":"node", "u":"condition", "v":"condition", "t_one":"condition", "t_two":"condition", "t_three":"condition", "t_four":"condition", "l":"condition"}, domain={"node":[11,22,33,44,55,66,77,88],"next_hop":[11,22,33,44,55,66,77,88], "condition":[0,1]})
+
+    F2 = DT_Table(name="F2", columns={"node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"alpha":"node", "beta":"node","gamma":"node","sigma":"node", "u":"condition", "v":"condition", "t_one":"condition", "t_two":"condition", "t_three":"condition", "t_four":"condition", "l":"condition"}, domain={"node":[11,22,33,44,55,66,77,88],"next_hop":[11,22,33,44,55,66,77,88], "condition":[0,1]})
+
+    F3 = DT_Table(name="F3", columns={"node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"alpha":"node", "beta":"node","gamma":"node","sigma":"node", "u":"condition", "v":"condition", "t_one":"condition", "t_two":"condition", "t_three":"condition", "t_four":"condition", "l":"condition"}, domain={"node":[11,22,33,44,55,66,77,88],"next_hop":[11,22,33,44,55,66,77,88], "condition":[0,1]})
+
+    F_admins = DT_Table(name="F_admins", columns={"node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"alpha":"node", "beta":"node","gamma":"node","sigma":"node", "u":"condition", "v":"condition", "t_one":"condition", "t_two":"condition", "t_three":"condition", "t_four":"condition", "l":"condition"}, domain={"node":[11,22,33,44,55,66,77,88],"next_hop":[11,22,33,44,55,66,77,88], "condition":[0,1]})
+
+    # database = DT_Database(tables=[F,R], cVarMapping = {"y1":-10,"y2":-20,"y3":-30,"x1":-1,"x2":-2,"x3":-1})
+    database = DT_Database(tables=[F1,F2,F3,M1,M2,M12,M23,M123,V_admins, R_admins, F_admins], cVarMapping = {'-1':"alpha",'-2':"beta",'-3':"gamma",'-4':"sigma",'-4=101':"t_one",'-201':"t_two",'-1123':"p",'-301':"t_three",'-401':"t_four",'-1111':"l"})
+    
+    # p1 = "R(10, X, n, [X, n]) :- F(10, X, n)\nR(10, X, n, p || [n]) :- R(10, X, n2, p)[n != p], F(10, n2, n)\nV(1) :- R(10, X, 5, p)[And(1 != p, 400 == p)]"
+    p0 = "F_admins(x,y) :- F1(x,y), M1(x)\nF_admins(x,y) :- F2(x,y), M2(x)\nF_admins(x,y) :- F1(x,y), F2(x,y), M12(x)\nF_admins(x,y) :- F2(x,y), F3(x,y), M23(x)\nF_admins(x,y) :- F1(x,y), F2(x,y), F3(x,y), M123(x)"
+
+    p1 = "R_admins(11, n, [11, n]) :- F_admins(11, n)"
+    p2 = "R_admins(11, n, p || [n]) :- R_admins(11, n2, p), F_admins(n2, n)[n != p]\nV_admins(p) :- R_admins(11, n2, p)[And(44 == p, 55 == p, 88 == p)]"
+    # p2 = "V_admins(p) :- R_admins(11, n2, p), F_admins(n2, n)[n == p]\nR_admins(11, n, p || [n]) :- R_admins(11, n2, p), F_admins(n2, n)[n != p]"
+
+    program0 = DT_Program(p0, database=database, optimizations={"simplification_on":True})
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True})
+    # conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
+    # conn.set_session(isolation_level=psycopg2.extensions.ISOLATION_LEVEL_READ_UNCOMMITTED)
+    nodeMapping = {'11':"X","22":"W","33":"A","44":"E","55":"Y","66":"B","77":"C","88":"D"}
+    database.delete(conn)
+    database.initiateDB(conn)
+    conn.commit()
+    variableConstants = []
+
+# X = 11, W = 22, A = 33, E = 44, Y = 55, B = 66, C = 77, D = 88
+# alpha = -1, beta = -2, u = -11, gamma = -3, sigma = -4, v = -22, t_one = -101, t_two = -201, t_three = -301, t_four = -401, l = -1111
+# Anduo's email on July 29 with 3 admins
+
+    # Correction: E goes to Y or B
+    sql = "insert into F1 values (33, -1, '{\"Or(alpha == 55, alpha == 22)\"}'),(55, -2, '{\"Or(beta == 77, beta == 44)\"}'),(11, 33, '{\"And(And(alpha == 55, beta == 77),t_one == 0)\"}'),(11, 22, '{\"t_one != 0\"}'),(22,33,'{\"And(And(alpha == 55, beta == 77),t_two == 0)\"}'),(22,44,'{\"t_two != 0\"}'),(44,55,'{\"And(And(alpha == 55, beta == 77),t_three == 0)\"}'),(44,66,'{\"t_three != 0\"}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+
+    sql = "insert into F2 values (44,-3,'{\"Or(gamma == 55, gamma == 66)\"}'), (55,-4,'{\"Or(sigma == 77, sigma == 44)\"}'), (66,44,'{\"And(And(gamma == 55, sigma == 77),t_four == 0)\"}'), (66,77,'{\"t_four != 0\"}'), (77,88,'{}')"
+    # sql = "insert into F2 values (44,-3,'{\"Or(gamma == 55, gamma == 66)\"}'), (55,-4,'{\"Or(sigma == 77, sigma == 44)\"}'), (66,44,'{}'), (77,88,'{}')" # B always goes to E
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    sql = "insert into F3 values (66, 77, '{\"l == 1\"}'),(66, 44, '{\"l == 0\"}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    sql = "insert into M1 values (11, '{}'),(22, '{}'),(33, '{}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    sql = "insert into M12 values (44, '{}'),(55, '{}')"    
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    # sql = "insert into M23 values (44, '{}'),(66, '{}'),(77, '{}')"
+    # Corrections: M23 only has B
+    sql = "insert into M23 values (66, '{}')"
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    sql = "insert into M123 values (44, '{}')"  
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    sql = "insert into M2 values (77, '{}')"  
+    cursor = conn.cursor()
+    cursor.execute(sql)
+
+    printTable("F1", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("F2", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("F3", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("M1", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("M12", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("M23", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("M123", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    printTable("M2", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    conn.commit()
+    input()
+
+    start = time.time()
+    program0.execute(conn)
+    program0.reasoning_tool.simplification("F_admins", conn)
+    conn.commit()
+    printTable("F_admins", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'})
+    input()
+    program1.executeonce(conn)
+    printTable("R_admins", db=database, nodeIntMappingReverse={11:'X',22:'W',33:'A',44:'E',55:'Y',66:'B',77:'C',88:'D'}, condition="dest = 88")
+
+    # program2.executeonce(conn)
+    # conn.commit()
+    # printTable("V",database,nodeMapping)
+    # input()
+    # program2.executeonce(conn)
+    # conn.commit()
+    # printTable("V",database,nodeMapping)
+    # input()
+    # program2.executeonce(conn)
+    # conn.commit()
+    # printTable("V",database,nodeMapping)
+    # input()
+    # program2.executeonce(conn)
+    # conn.commit()
+    program2.execute(conn, violationTables=[V_admins])
+    conn.commit()
+    printTable("V_admins",database,nodeMapping)
+    printTable("R_admins",database,nodeMapping)
+    # input()
+    input()
+    database.delete(conn)
+    exit()
+    cursor.execute("select * from V")
+    if cursor.fetchall()[0][0] == 1:
+        print("Test 13 passed in {} seconds".format(end-start))
+        database.delete(conn)
+    else:
+        print("Test 13 failed in {} seconds".format(end-start))
+        database.delete(conn)
+        exit()
 
 if __name__ == "__main__":
     unit_test1()
