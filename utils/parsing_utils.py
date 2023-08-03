@@ -35,7 +35,10 @@ def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">="
 	i = startPos
 	while i+2 < endPos:
 		if condition[i:i+2].strip() in operators:
-			return condition[i:i+2].strip()
+			if i+3 < endPos and condition[i:i+3].strip() in operators:
+				return condition[i:i+3].strip()
+			else:
+				return condition[i:i+2].strip()
 		i += 1
 	print("Could not find any operator in condition {}".format(condition[startPos, endPos]))
 	exit()
@@ -161,6 +164,27 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 			if "faure" in var2_type: # c-table
 				newCondition = _negativeIntCondition(var2, var2_type)
 				conditions.append(newCondition)
+		return "Or(" + ", ".join(conditions) + ")"
+	elif mode == "Negative Int Arr": # same as negative int but conditions on arrays
+		conditions = []
+		conditions.append(condToStringDefault(var1, operator, var2)) # first condition is the default one
+		if not _isConstant(var1):
+			var1_table = var1.split(".")[0]
+			var1_colm = var1.split(".")[1]
+			var1_type = atomTables[var1_table].columns[var1_colm]
+			if "faure" in var1_type: # c-table
+				newCondition = _negativeIntCondition(var1, var1_type)
+				conditions.append(newCondition)
+		if not _isConstant(var2):
+			var2_table = var2.split(".")[0]
+			var2_colm = var2.split(".")[1]
+			var2_type = atomTables[var2_table].columns[var2_colm]
+			if "faure" in var2_type: # c-table
+				newCondition = _negativeIntCondition(var2, var2_type)
+				conditions.append(newCondition)
+		if not _isConstant(var2):
+			if "faure" in var2_type and "[]" in var2_type: # c-table
+				conditions = [condToStringDefault(var1, operator, var2)]
 		return "Or(" + ", ".join(conditions) + ")"
 
 

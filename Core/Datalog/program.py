@@ -110,14 +110,14 @@ class DT_Program:
             cursor = conn.cursor()
             for sql in program_sqls:
                 cursor.execute(sql)
-            conn.commit()
+            # conn.commit()
             return False
         else:
             changed = False
             for rule in self.rules:
                 DB_changes = rule.execute(conn, faure_evaluation_mode)
                 changed = changed or DB_changes
-            conn.commit()
+            # conn.commit()
             return changed    
 
     @timeit
@@ -127,12 +127,16 @@ class DT_Program:
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.executeonce(conn, faure_evaluation_mode=faure_evaluation_mode)
-        # for table in violationTables:
-        #     if self._optimizations["simplification_on"] == False: # we always simplify the violation tables since we are early exiting
-        #         self.reasoning_tool.simplification(table.name, conn)
-                # if not table.isEmpty(conn):
-                #     conn.commit()
-                #     return
+            # for table in violationTables:
+            #     if self._optimizations["simplification_on"] == False: # we always simplify the violation tables since we are early exiting
+            #         self.reasoning_tool.simplification(table.name, conn)
+            #     if not table.isEmpty(conn):
+            #         conn.commit()
+            #         return
+        if iterations >= self.__MAX_ITERATIONS:
+            print("Execution ending since max iterations of {} reached".format(str(iterations)))
+            exit()
+        conn.commit()
 
     @timeit
     def executeonce_and_check_containment(self, conn, rule2):
@@ -174,9 +178,9 @@ class DT_Program:
 
             if self._optimizations["simplification_on"] and self._reasoning_engine == 'z3':
                 self.reasoning_tool.simplification(rule2._head.table.name, conn)
+        conn.commit()
         if rule2.isHeadContained(conn):
             return True
-        conn.commit()
         return False
             
     # minimize. Does minimization in place. Make sure to make a copy if you want the original program
@@ -191,6 +195,7 @@ class DT_Program:
                 self.__enhancedMinimization(False)
             else:
                 self.__enhancedMinimization(True)
+        
 
     # ======================== Private Methods ============================
     def __replaceRule(self, ruleNum, newRule):
@@ -275,11 +280,16 @@ class DT_Program:
             if self.__numRules == 1: # if only one rule left in program, stop minimizing
                 return
             rule = self.__getRule(ruleNum)
+            print("rule", rule)
             newProgram = self.__copyWithDeletedRule(ruleNum)
+            print("program", newProgram)
+
             if newProgram.contains_rule(rule, self.db.cVarMappingReverse):
+                print("Rule contained!")
                 self.__deleteRule(ruleNum)
             else:
                 ruleNum += 1   
+
 
     # @timeit
     # def __enhancedMinimization(self, constantUnificationOn = True):
