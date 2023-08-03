@@ -341,30 +341,30 @@ class z3SMTTools:
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
         conn.commit()
 
-        '''
-        set tautology and remove redundant
-        '''
-        # print("remove redundant")
-        redun_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
-        redun_count = cursor.rowcount
-        # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
-        upd_cur = conn.cursor()
+        # '''
+        # set tautology and remove redundant
+        # '''
+        # # print("remove redundant")
+        # redun_begin = time.time()
+        # cursor.execute("select id, condition from {}".format(target_table))
+        # redun_count = cursor.rowcount
+        # # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
+        # upd_cur = conn.cursor()
 
-        for i in tqdm(range(redun_count)):
-            row = cursor.fetchone()
-            # print("check redun")
-            has_redun, result = self.has_redundancy(row[1])
-            if has_redun:
-                if result != '{}':
-                    result = ['"{}"'.format(r) for r in result]
-                    upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {}".format(target_table, "{" + ", ".join(result) + "}", row[0]))
-                else:
-                    upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {}".format(target_table, row[0]))
-        redun_end = time.time()
-        self.simplication_time["redundancy"] = redun_end - redun_begin
-        conn.commit()
-
+        # for i in tqdm(range(redun_count)):
+        #     row = cursor.fetchone()
+        #     # print("check redun")
+        #     has_redun, result = self.has_redundancy(row[1])
+        #     if has_redun:
+        #         if result != '{}':
+        #             result = ['"{}"'.format(r) for r in result]
+        #             upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {} ON CONFLICT UPDATE".format(target_table, "{" + ", ".join(result) + "}", row[0]))
+        #         else:
+        #             upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {} ON CONFLICT UPDATE".format(target_table, row[0]))
+        # redun_end = time.time()
+        # self.simplication_time["redundancy"] = redun_end - redun_begin
+        # conn.commit()
+        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
         # if self._information_on:
         # for k, v in self.solver.statistics():
         #     if (k == "max memory"):
@@ -377,13 +377,13 @@ class z3SMTTools:
         for var in self._domains:
             if var not in self._reasoning_type.keys() or self._reasoning_type[var] == 'Int':
                 var_conditions = []
-                for val in self._domains[var]:
-                    var_conditions.append("z3.{sort}('{var}') == z3.{sort}Val({val})".format(sort='Int', var=var, val=val))
-
-                # Possible optimization would be to store domain as range 
-                # if self._domains[var] != []:
-                #     domain_conditions.append("And(z3.{sort}('{var}') >= z3.{sort}Val({val1}), z3.{sort}('{var}') <= z3.{sort}Val({val2}))".format(sort='Int', var=var, val1=self._domains[var][0], val2=self._domains[var][-1]))
-                
+                if type(self._domains[var]) == tuple: # this allows ranges
+                    minVal = self._domains[var][0]
+                    maxVal = self._domains[var][1]
+                    var_conditions.append("And(z3.{sort}('{var}') >= z3.{sort}Val({minVal}), z3.{sort}('{var}') <= z3.{sort}Val({maxVal}))".format(sort='Int', var=var, minVal=minVal, maxVal=maxVal))
+                else:
+                    for val in self._domains[var]:
+                        var_conditions.append("z3.{sort}('{var}') == z3.{sort}Val({val})".format(sort='Int', var=var, val=val))
                 if len(var_conditions) != 0:
                     domain_conditions.append("Or({})".format(", ".join(var_conditions)))
             else:
