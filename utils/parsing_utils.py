@@ -46,7 +46,7 @@ def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">="
 def condToStringDefault(var1, operator, var2):
 	return var1 + " " + operator + " " + var2
 
-def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTables = [], reasoningType={}):
+def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTables = [], reasoningType={}, bits = 6):
 	if mode == "Z3": 
 		newOp = operator
 		if newOp == "=":
@@ -63,10 +63,14 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 				return "z3.Bool('True')"
 			elif operator == "!=" and str(var1) == str(var2):
 				return "z3.Bool('False')"
+		if isTernary(var1):
+			return _convertTernaryCondition(var=var2, operator=operator, tbv=var1, bits=bits)
+		elif isTernary(var2):
+			return _convertTernaryCondition(var=var1, operator=operator, tbv=var2, bits=bits)
 		if isIP(var1):
-			return _convertIPCondition(var=var2, operator=operator, ip=var1)
+			return _convertIPCondition(var=var2, operator=operator, ip=var1, bits=bits)
 		elif isIP(var2):
-			return _convertIPCondition(var=var1, operator=operator, ip=var2)
+			return _convertIPCondition(var=var1, operator=operator, ip=var2, bits=bits)
 		else:
 			newVar1 = _convertToZ3Var(var1, reasoningType)
 			newVar2 = _convertToZ3Var(var2, reasoningType)
@@ -293,14 +297,14 @@ def _convertIPToBits(IP, bits):
 	return (bitValue)
 
 # Breaks IP into a range if it is subnetted.
-def _getRange(ip, bits = 32):
+def _getRange(ip, bits = 6):
 	net = IPv4Network(ip)
 	if (net[0] != net[-1]): # subnet
 		return [str(net[0]), str(net[-1])]
 	else:
 		return [ip]
 	
-def _convertIPCondition(var, operator, ip, bits=32):
+def _convertIPCondition(var, operator, ip, bits=6):
 	ip = ip.strip().strip("'").strip('"') # remove quotation marks
 	ipRange = _getRange(ip, bits)
 	var = "z3.BitVec('{}',{})".format(var, bits)
@@ -313,11 +317,11 @@ def _convertIPCondition(var, operator, ip, bits=32):
 	if operator == "==":
 		return "And({var} >= {lower}, {var} <= {upper})".format(var=var,lower=lower,upper=upper)
 	
-def _convertToBitVec(ip, bits = 32):
+def _convertToBitVec(ip, bits = 6):
 	ipBits = _convertIPToBits(ip, bits)
 	return "z3.BitVec('{ip}',{bits})".format(ip = ipBits, bits = bits)
 
-def _convertToZ3Var(var, reasoningType, bits = 32):
+def _convertToZ3Var(var, reasoningType, bits = 6):
 	if var in reasoningType:
 		datatype = reasoningType[var]
 		if datatype == 'BitVec':
@@ -422,3 +426,45 @@ def getAtomVariables(parameters, c_variables, operators):
 				if var not in c_variables and var not in variables:
 					variables.append(var)
 	return variables
+
+def isTernary(item):
+	if str(item)[0] == '#':
+		return True
+	else:
+		return False
+	
+# _extractMatchingBit(1xx0, 1) = 1000 = 8
+# _extractMatchingBit(1xx0, 0) = 0001 = 1
+def _extractMatchingBit(tbv, bit):
+	# assert that bit is either 1 or 0
+	number = ""
+	for b in tbv:
+		if b == str(bit):
+			number += '1'
+		else:
+			number += '0'
+	return int(number, 2)
+
+def _extractAllMatchingBits(tbv, bit):
+	matchingBits = []
+	bitNumber = len(tbv) - 1
+	for b in tbv:
+		if b == str(bit):
+			matchingBits.append(pow(2, bitNumber))
+		bitNumber -= 1
+	return matchingBits
+
+def _convertTernaryCondition(var, operator, tbv, bits=6):
+	if operator == "==":
+		ones_binary = _extractMatchingBit(tbv = tbv, bit = 1)
+		zeroes_binary = _extractMatchingBit(tbv = tbv, bit = 0)
+		return "And(z3.BitVec('{var}',{bits}) & {ones_binary} == {ones_binary}, z3.BitVec('{var}',{bits}) & {zeroes_binary} == 0)".format(var = var, bits=bits, ones_binary=ones_binary, zeroes_binary=zeroes_binary)
+	elif operator == "!=":
+		conditions = []
+		all_one_bits = _extractAllMatchingBits(tbv = tbv, bit = 1) # array of bits that are one
+		all_zero_bits = _extractAllMatchingBits(tbv = tbv, bit = 0) # array of bits that are zero
+		for ones_binary in all_one_bits:
+			conditions.append("z3.BitVec('{var}',{bits}) & {ones_binary} != {ones_binary}".format(var = var, bits=bits, ones_binary=ones_binary))
+		for zeroes_binary in all_zero_bits:
+			conditions.append("z3.BitVec('{var}',{bits}) & {zeroes_binary} != 0".format(var = var, bits=bits, zeroes_binary=zeroes_binary))
+		return "Or({})".format(",".join(conditions))
