@@ -5,8 +5,6 @@ sys.path.append(root)
 from utils.logging import timeit
 from utils import parsing_utils
 from copy import deepcopy
-from Core.Datalog.database import DT_Database
-from Core.Datalog.table import DT_Table
 
 class ConditionLeaf:
     """
@@ -28,8 +26,8 @@ class ConditionLeaf:
     def getIsTrue(self):
         return self.isTrue
 
-    def toString(self, mode, replacementDict = {}, atomTables = [], reasoningType={}):
-        return parsing_utils.condToStringModes(var1=self.var1, operator=self.operator, var2=self.var2, mode=mode, replacementDict=replacementDict, atomTables=atomTables, reasoningType=reasoningType)
+    def toString(self, mode, replacementDict = {}, atomTables = [], reasoningType={}, bits = 32):
+        return parsing_utils.condToStringModes(var1=self.var1, operator=self.operator, var2=self.var2, mode=mode, replacementDict=replacementDict, atomTables=atomTables, reasoningType=reasoningType, bits = bits)
 
 # make sure to check if the conditionTree isTrue or not. If it is, then it is trivially true and can be skipped altogether
 # ConditionTree is either a single condition or a logical operator with conditionTrees as children
@@ -113,12 +111,19 @@ class ConditionTree:
             else:
                 self.value = "Or"
             conditionSplit = currCond.split(operator)
+            var1Arr = []
             var1 = conditionSplit[0].strip()
-            var2Arr = conditionSplit[1].strip()[1:-1].split(",") # we assume that var2 is an array
-            for var2 in var2Arr:
-                var2 = var2.strip()
-                conditionLeaf = "{} {} {}".format(var1, operator, var2)
-                self.children.append(ConditionLeaf(currCond=conditionLeaf, operator=operator))
+            if "{" in var1: # var1 also an array!
+                var1Arr = conditionSplit[0].strip()[1:-1].split(",") # var1 could also be an array
+            else:
+                var1Arr.append(var1)
+            var2Arr = conditionSplit[1].strip()[1:-1].split(",") # we assume that var2 is an array always when there is any array involved
+            for var1 in var1Arr:
+                var1 = var1.strip()
+                for var2 in var2Arr:
+                    var2 = var2.strip()
+                    conditionLeaf = "{} {} {}".format(var1, operator, var2)
+                    self.children.append(ConditionLeaf(currCond=conditionLeaf, operator=operator))
         else:
             self.isLeaf = True
             self.value = ConditionLeaf(currCond, operator)
@@ -147,15 +152,15 @@ class ConditionTree:
             else:
                 return ""
     
-    def toString(self, mode, replacementDict={}, atomTables=[], reasoningType={}):
+    def toString(self, mode, replacementDict={}, atomTables=[], reasoningType={}, bits = 32):
         if self.isEmpty:
             return ""
         if self.isLeaf:
-            return self.value.toString(mode = mode, atomTables=atomTables, replacementDict=replacementDict, reasoningType=reasoningType)
+            return self.value.toString(mode = mode, atomTables=atomTables, replacementDict=replacementDict, reasoningType=reasoningType, bits = bits)
         else:
             childrenStr = []
             for child in self.children:
-                childrenStr.append(child.toString(mode = mode, atomTables=atomTables, replacementDict=replacementDict, reasoningType=reasoningType))
+                childrenStr.append(child.toString(mode = mode, atomTables=atomTables, replacementDict=replacementDict, reasoningType=reasoningType, bits = bits))
             if len(childrenStr) > 0:
                 if mode == "SQL":
                     return "(" + " {} ".format(self.value).join(childrenStr) + ")"   

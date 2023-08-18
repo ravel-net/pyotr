@@ -6,6 +6,9 @@ sys.path.append(root)
 # from copy import deepcopy
 import databaseconfig as cfg
 from utils.logging import timeit
+from Core.Datalog.conditionTree import ConditionTree
+from tabulate import tabulate
+from copy import deepcopy
 
 class DT_Table:
     """
@@ -44,7 +47,10 @@ class DT_Table:
     # TODO: Think about a better way than this
     def getColmTypeWithoutFaure(self, colmType):
         # colmType = colmType.replace("integer","bigint") # for ip addresses
-        return colmType.replace("_faure","")
+        if colmType == "bit_faure":
+            return "integer"
+        else:
+            return colmType.replace("_faure","")
 
     def getRandomTuple(self, conn, colmName, conditions=[]):
         if self.isEmpty(conn):
@@ -134,7 +140,11 @@ class DT_Table:
             colmType = self.columns[colmName]
             table_creation_query += '{} {},'.format(colmName, self.getColmTypeWithoutFaure(colmType))
         table_creation_query = table_creation_query[:-1]
-        table_creation_query += ", UNIQUE (" + ",".join(self.columns) + ")"
+        all_unique_colms = []
+        for colm in self.columns:
+            if "condition" not in colm: # we ignore the condition column for a unique index. TODO: Might not be correct
+                all_unique_colms.append(colm)
+        table_creation_query += ", UNIQUE (" + ",".join(all_unique_colms) + ")"
         table_creation_query += ");"
         cursor.execute(table_creation_query)
 
@@ -161,7 +171,6 @@ class DT_Table:
         print("Error (getColmName in Table): {} index given but there are only {} colms in table {}".format(i,j,self.name))
         exit()
 
-
     # Adds condition column of type text[] and name condition (if it already does not exist)
     def addConditionColumn(self):
         if "condition" not in self.columns:
@@ -182,7 +191,7 @@ class DT_Table:
         return cvars_domain
     
     def getReasoningType(self):
-        reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec", "text[]":"Int", "integer_faure[]":"Int[]", "inet_faure[]":"BitVec[]"}
+        reasoningTypeMapping = {"integer":"Int", "inet":"BitVec", "integer_faure":"Int", "inet_faure":"BitVec", "text[]":"Int", "integer_faure[]":"Int[]", "inet_faure[]":"BitVec[]", "bit_faure":"BitVec", "bit_faure[]":"BitVec[]"}
         reasoning_types = {}
         for cvar in self.cvars:
             colm = self.cvars[cvar] 
@@ -206,6 +215,46 @@ class DT_Table:
                 cVar_types[cvar] = colm_type
         return cVar_types
 
+    def _replaceVal(self, val, mapping):
+        if val in mapping:
+            return mapping[val]
+        elif str(val) in mapping:
+            return mapping[str(val)]
+        elif type(val) == str:
+            conditions = ConditionTree(val)
+            return conditions.toString(mode = "Replace String", replacementDict = mapping)
+        else:
+            return val
+    
+    # move this to table class
+    def printTable(self, conn, mapping = {}, cVarMapping = {}, condition = None):
+        cursor = conn.cursor()
+        if condition:
+            cursor.execute("SELECT * from {} where {}".format(self.name, condition))
+        else:
+            cursor.execute("SELECT * from {}".format(self.name))
+
+        table = cursor.fetchall()
+        newTable = []
+        mapping.update(cVarMapping)
+        for row in table:
+            newRow = []
+            for colm in row:
+                if type(colm) == list:
+                    colmArray = []
+                    for item in colm:
+                        colmArray.append(self._replaceVal(item, mapping))
+                    newRow.append(colmArray)
+                else:
+                    newRow.append(self._replaceVal(colm, mapping))
+            newTable.append(newRow)
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_schema = 'public' AND table_name = '{}'".format(self.name.lower()))
+        headers = cursor.fetchall()
+        headerInArray = []
+        for colm in headers:
+            headerInArray.append(colm[0])
+        print("\nPrinting Table: {}".format(self.name))
+        print(tabulate(newTable, headers=headerInArray))
 
     # def __str__(self):
     #     DT_Program_str = ""

@@ -41,7 +41,7 @@ class z3SMTTools:
         get the domain condition with z3 datatype
     """
     @timeit
-    def __init__(self, variables, domains={}, reasoning_type={}, mapping={}) -> None:
+    def __init__(self, variables, domains={}, reasoning_type={}, mapping={}, bits = 32) -> None:
         """
         Parameters:
         -----------
@@ -64,6 +64,7 @@ class z3SMTTools:
         self._mapping = mapping
         self.solver = z3.Solver()
         self.simplication_time = {}
+        self.bits = bits
 
         domain_str = self._get_domain_str()
         if len((domain_str)) != 0:
@@ -84,7 +85,6 @@ class z3SMTTools:
         
         if len(conditions) == 0:
             return 
-
         self.solver.push()
         all_cond = []
         for c in conditions:
@@ -253,7 +253,7 @@ class z3SMTTools:
         if conditionTreeNegative.getIsTrue():
             return "z3.Bool('True')"
         else:
-            return conditionTreeNegative.toString(mode = "Z3", reasoningType=self._reasoning_type)
+            return conditionTreeNegative.toString(mode = "Z3", reasoningType=self._reasoning_type, bits = self.bits)
     
     @timeit
     def is_implication(self, condition1, condition2):
@@ -389,7 +389,7 @@ class z3SMTTools:
             else:
                 var_conditions = []
                 for val in self._domains[var]:
-                    condition = self._convert_z3_variable_bit("{} == {}".format(var, val), 'BitVec', 32) # TODO: Fix this. Nedd the correct version of convertz3variablebit
+                    condition = self._convert_z3_variable_bit("{} == {}".format(var, val), 'BitVec', self.bits) # TODO: Fix this. Nedd the correct version of convertz3variablebit
                     var_conditions.append(condition)
                 domain_conditions.append("Or({})".format(", ".join(var_conditions)))
 

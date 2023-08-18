@@ -211,14 +211,15 @@ class FaureEvaluation:
             self.data_time = end_data - begin_data
 
             rows = cursor.fetchall()
-            if self.headerTable.name == "R":
-                self.headerTable.deleteAllTuples(self._conn)
             for row in rows:
                 is_contrad = self._reasoning_tool.iscontradiction(row[-1])
                 if not is_contrad:
                     rowsModified.append(str(row).replace("[","ARRAY["))
             if len(rowsModified) == 0:
                 return 0
+            # else:
+                # if "R" in self.headerTable.name:
+                #     self.headerTable.deleteAllTuples(self._conn)
             data_sql = "INSERT INTO {} VALUES {} ON CONFLICT DO NOTHING".format(self.headerTable.name, ",".join(rowsModified))
         else:
             data_sql = "INSERT INTO {} {} ON CONFLICT DO NOTHING".format(self.headerTable.name, select_sql)

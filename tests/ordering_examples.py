@@ -8,6 +8,7 @@ sys.path.append(root)
 from Core.Datalog.program import DT_Program
 from Core.Datalog.database import DT_Database
 from Core.Datalog.table import DT_Table
+from Core.Datalog.conditionTree import ConditionTree
 import psycopg2 
 import databaseconfig as cfg
 from tabulate import tabulate
@@ -158,10 +159,8 @@ def replaceVal(val, mapping):
     elif str(val) in mapping:
         return mapping[str(val)]
     elif type(val) == str:
-        for replaceable in mapping:
-            if str(replaceable) in val:
-                val = val.replace(str(replaceable), mapping[replaceable])
-        return val
+        conditions = ConditionTree(val)
+        return conditions.toString(mode = "Replace String", replacementDict = mapping)
     else:
         return val
     
@@ -379,24 +378,80 @@ def distributed_example2():
 # i1 = -1, i2 = -2, i3 = -3, i4 = -4, i5 = -5
 # o1 = -10, o2 = -20, o3 = -30, o4 = -40, o5 = -50
 def EC_example1():
-    R_nod = DT_Table(name="R_nod", columns={"pkt_in":"integer_faure", "pkt_out":"integer_faure", "source":"integer_faure", "dest":"integer_faure","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "o1":"pkt_out","o2":"pkt_out","o3":"pkt_out","o4":"pkt_out","o5":"pkt_out"}, domain={"source":[10,20,30,40,123,245],"dest":[10,20,30,40,123,245],"pkt_in":(0,63),"pkt_out":(0,63)})
+    R_nod = DT_Table(name="R_nod", columns={"pkt_in":"inet_faure", "pkt_out":"inet_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "o1":"pkt_out","o2":"pkt_out","o3":"pkt_out","o4":"pkt_out","o5":"pkt_out"}, domain={"source":[10,20,30,40,123,245],"dest":[10,20,30,40,123,245],"last_node":[10,20,30,40,123,245]})
 
-    # V1 = DT_Table(name="V1", columns={"header":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
+    F_nod = DT_Table(name="F_nod", columns={"pkt_in":"inet_faure", "pkt_out":"inet_faure", "node":"integer", "next_hop":"integer","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "o1":"pkt_out","o2":"pkt_out","o3":"pkt_out","o4":"pkt_out","o5":"pkt_out"}, domain={"next_hop":[10,20,30,40,123,245],"node":[10,20,30,40,123,245]})
 
-    F_nod = DT_Table(name="F_nod", columns={"pkt_in":"integer_faure", "pkt_out":"integer_faure", "node":"integer_faure", "next_hop":"integer_faure","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "o1":"pkt_out","o2":"pkt_out","o3":"pkt_out","o4":"pkt_out","o5":"pkt_out"}, domain={"next_hop":[10,20,30,40,123,245],"node":[10,20,30,40,123,245],"pkt_in":(0,63),"pkt_out":(0,63)})
-
-    database = DT_Database(tables=[R_nod,F_nod], cVarMapping = {'-16':"i1",'-26':"i2",'-36':"i3",'-46':"i4",'-56':"i5",'-11':"o1",'-22':"o2",'-33':"o3",'-44':"o4",'-55':"o5"})
+    database = DT_Database(tables=[R_nod,F_nod], cVarMapping = {"0.0.0.16/31":"i1","0.0.0.26/31":"i2","0.0.0.36/31":"i3","0.0.0.46/31":"i4","0.0.0.56/31":"i5","0.0.0.11/31":"o1","0.0.0.22/31":"o2","0.0.0.33/31":"o3","0.0.0.44/31":"o4","0.0.0.55/31":"o5"})
     
-    p1 = "R_nod(pkt_in, pkt_out, 10, dest) :- F_nod(pkt_in, pkt_out, 10, dest)"
-    p2 = "R_nod(pkt_in, new_pktout, 10, z) :- R_nod(pkt_in, pkt_out, 10, y), F_nod(pkt_out, new_pktout, y, z)"
+    # p1 = "R_nod(pkt_in, pkt_out, 10, dest) :- F_nod(pkt_in, pkt_out, 10, dest)"
+    # p2 = "R_nod(pkt_in, new_pktout, 10, z) :- R_nod(pkt_in, pkt_out, 10, y), F_nod(pkt_out, new_pktout, y, z)"
+    p1 = "R_nod(pkt_in, pkt_out, s, [s, n], n) :- F_nod(pkt_in, pkt_out, s, n)[n != s]"
+    p2 = "R_nod(pkt_in, new_pktout, s, p || [n2], n2) :- R_nod(pkt_in, pkt_out, s, p, n)[n2 != p], F_nod(pkt_out, new_pktout, n, n2)"
 
-    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True})
-    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True})
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True}, bits = 6)
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True}, bits = 6)
     nodeMapping = {'10':"R1",'20':"R2",'30':"R3",'123':"B",'245':"D"}
     database.initiateDB(conn)
     conn.commit()
 
-    sql = "insert into F_nod values (-16,-11, 10, 20, '{\"And(i1 == o1, o1 == {34,35,42,43})\"}'),(-26,-22, 10, 30, '{\"And(i2 == o2, o1 != {34,35,42,43}, o2 >= 32)\"}'),(-36,-33, 20, 123, '{\"And(i3 == o3, And(o3 >= 32, o3 <= 47))\"}'),(-46,-44, 30, 245, '{\"And(i4 == o4, o4 == {4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63})\"}'),(-56,-55, 30, 20, '{\"And(i5 != {4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63}, i5 >= 32, And(o5 >= 32, o5 >= 32, o5 <= 47, o5 != {4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63}))\"}')"
+    # sql = "insert into F_nod values ('0.0.0.16/31','0.0.0.11/31', 10, 20, '{\"And(i1 == o1, o1 == #10*01*)\"}'),('0.0.0.26/31','0.0.0.22/31', 10, 30, '{\"And(i2 == o2, o1 != #10*01*, o2 == #1*****)\"}'),('0.0.0.36/31','0.0.0.33/31', 20, 123, '{\"And(i3 == o3, o3 == #10****)\"}'),('0.0.0.46/31','0.0.0.44/31', 30, 245, '{\"And(i4 == o4, o4 == #***1**)\"}'),('0.0.0.56/31','0.0.0.55/31', 30, 20, '{\"And(i5 != #***1**, i5 == #1*****, And(o5 != #***1**, o5 == #1*****, o5 == #*0****))\"}')"
+    sql = "insert into F_nod values ('0.0.0.16/31','0.0.0.11/31', 10, 20, '{\"And(i1 == o1, o1 == #10*01*)\"}'),('0.0.0.26/31','0.0.0.22/31', 10, 30, '{\"And(i2 == o2, o1 != #10*01*, o2 == #1*****)\"}'),('0.0.0.36/31','0.0.0.33/31', 20, 123, '{\"And(i3 == o3, o3 == #10****, o3 == #*0****)\"}'),('0.0.0.46/31','0.0.0.44/31', 30, 245, '{\"And(i4 == o4, o4 == #***1**)\"}'),('0.0.0.56/31','0.0.0.55/31', 30, 20, '{\"And(i5 != #***1**, i5 == #11****, And(o5 != #***1**, o5 == #11****))\"}')"
+
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    # printTable("F_nod",database,nodeMapping)
+    # input()
+    
+    start = time.time()
+    program1.executeonce(conn)
+    # conn.commit()
+    # printTable("R_nod",database,nodeMapping)
+    # input()
+    program2.execute(conn)
+    end = time.time()
+    printTable("R_nod",database,nodeMapping)
+    # printTable("R_nod",database,nodeMapping, condition="dest = 245")
+    print(end-start)
+    database.delete(conn)
+
+# Example taken from NoD (Checking beliefs in networks)
+# Load balancing
+# G12 -> x == [34,35,42,43]  i.e. 10* and 01* (And(dst == [32,40], src == [2,3]))
+# G13 -> x >= 32 i.e. 1** and ***
+# G2B -> And(x >= 32, x <= 47) i.e. 10* and ***
+# G3D -> x == [4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63] i.e. *** and 1**
+# G32 -> x >= 32 i.e. 1** and ***
+# Set(o5) -> And(x >= 32, x <= 47)
+
+# R1 = 10, R2 = 20, R3 = 30, R4 = 40, S = 111, D = 222
+# i1 = -1, i2 = -2, i3 = -3, i4 = -4, i5 = -5
+# o1 = -10, o2 = -20, o3 = -30, o4 = -40, o5 = -50
+def EC_example2():
+    R_nod = DT_Table(name="R_nod", columns={"pkt_in":"integer_faure", "source":"integer_faure", "dest":"integer_faure","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "i5":"pkt_in"}, domain={"source":[10,20,30,40,111,222],"dest":[10,20,30,40,111,222],"pkt_in":(0,31)})
+
+    # V1 = DT_Table(name="V1", columns={"header":"integer_faure","path":"integer_faure[]","condition":"text[]"}, cvars={"p":"path"})
+
+    F_nod = DT_Table(name="F_nod", columns={"pkt_in":"integer_faure", "source":"integer_faure", "dest":"integer_faure","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "i5":"pkt_in"}, domain={"source":[10,20,30,40,111,222],"dest":[10,20,30,40,111,222],"pkt_in":(0,31)})
+
+    V_nod = DT_Table(name="V_nod", columns={"pkt_in":"integer_faure", "source":"integer_faure", "dest":"integer_faure","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "i5":"pkt_in"}, domain={"source":[10,20,30,40,111,222],"dest":[10,20,30,40,111,222],"pkt_in":(0,31)})
+
+    database = DT_Database(tables=[R_nod,F_nod, V_nod], cVarMapping = {'-16':"i1",'-26':"i2",'-36':"i3",'-46':"i4",'-56':"i5",'-66':"i6"})
+    
+    # p1 = "R_nod(pkt_in, pkt_out, 10, dest) :- F_nod(pkt_in, pkt_out, 10, dest)"
+    # p2 = "R_nod(pkt_in, new_pktout, 10, z) :- R_nod(pkt_in, pkt_out, 10, y), F_nod(pkt_out, new_pktout, y, z)"
+    p1 = "R_nod(pkt_in, x, y) :- F_nod(pkt_in, x, y)"
+    p2 = "R_nod(pkt_in, x, z) :- R_nod(pkt_in, x, y), F_nod(pkt_in, y, z)\nV_nod(h1, 111, y) :- R_nod(h1, 111, y), R_nod(h2, 111, y)[h1 != h2]"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":False})
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":False})
+    nodeMapping = {'10':"R1",'20':"R2",'30':"R3",'40':"R4",'111':"S",'222':"D"}
+    database.initiateDB(conn)
+    conn.commit()
+
+    # sql = "insert into F_nod values (-16,-11, 10, 20, '{\"And(i1 == o1, o1 == 1*****)\"}'),(-26,-22, 10, 30, '{\"And(i2 == o2, o1 != {34,35,42,43}, o2 >= 32)\"}'),(-36,-33, 20, 123, '{\"And(i3 == o3, And(o3 >= 32, o3 <= 47))\"}'),(-46,-44, 30, 245, '{\"And(i4 == o4, o4 == {4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63})\"}'),(-56,-55, 30, 20, '{\"And(i5 != {4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63}, i5 >= 32, And(o5 >= 32, o5 >= 32, o5 <= 47, o5 != {4,5,6,7,12,13,14,15,20,21,22,23,28,29,30,31,36,37,38,39,44,45,46,47,52,53,54,55,60,61,62,63}))\"}')"
+    sql = "insert into F_nod values (-16,111,10, '{\"i1 == *****\"}'),(-26,10,20, '{\"And(i2 == 1****, H_i2 == 1)\"}'),(-36,10,30, '{\"And(i3 == 1****, H_i3 == 2)\"}'),(-46,20,40, '{\"i4 == 1***0\"}'),(-56,30,40, '{\"i5 == 1****\"}'),(-66,40,222, '{\"i6 == 11***\"}')"
 
     cursor = conn.cursor()
     cursor.execute(sql)
@@ -416,5 +471,45 @@ def EC_example1():
     database.delete(conn)
     exit()
 
+def EC_example3():
+    R_nod = DT_Table(name="R_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "o1":"pkt_out","o2":"pkt_out","o3":"pkt_out","o4":"pkt_out","o5":"pkt_out"}, domain={"source":[10,20,30,40,123,245],"dest":[10,20,30,40,123,245],"last_node":[10,20,30,40,123,245]})
+
+    F_nod = DT_Table(name="F_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","condition":"text[]"}, cvars={"i1":"pkt_in","i2":"pkt_in","i3":"pkt_in","i4":"pkt_in","i5":"pkt_in", "o1":"pkt_out","o2":"pkt_out","o3":"pkt_out","o4":"pkt_out","o5":"pkt_out"}, domain={"next_hop":[10,20,30,40,123,245],"node":[10,20,30,40,123,245]})
+
+    database = DT_Database(tables=[R_nod,F_nod], cVarMapping = {"-16":"i1","-26":"i2","-36":"i3","-46":"i4","-56":"i5","-11":"o1","-22":"o2","-33":"o3","-44":"o4","-55":"o5"})
+    
+    # p1 = "R_nod(pkt_in, pkt_out, 10, dest) :- F_nod(pkt_in, pkt_out, 10, dest)"
+    # p2 = "R_nod(pkt_in, new_pktout, 10, z) :- R_nod(pkt_in, pkt_out, 10, y), F_nod(pkt_out, new_pktout, y, z)"
+    p1 = "R_nod(pkt_in, pkt_out, 10, [n], n) :- F_nod(pkt_in, pkt_out, 10, n)[n != 10]"
+    p2 = "R_nod(pkt_in, new_pktout, 10, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 10, p, n)[n2 != p], F_nod(pkt_out, new_pktout, n, n2)"
+
+    program1 = DT_Program(p1, database=database, optimizations={"simplification_on":True}, bits = 6)
+    program2 = DT_Program(p2, database=database, optimizations={"simplification_on":True}, bits = 6)
+    nodeMapping = {'10':"R1",'20':"R2",'30':"R3",'123':"B",'245':"D"}
+    database.initiateDB(conn)
+    conn.commit()
+
+    # sql = "insert into F_nod values ('0.0.0.16/31','0.0.0.11/31', 10, 20, '{\"And(i1 == o1, o1 == #10*01*)\"}'),('0.0.0.26/31','0.0.0.22/31', 10, 30, '{\"And(i2 == o2, o1 != #10*01*, o2 == #1*****)\"}'),('0.0.0.36/31','0.0.0.33/31', 20, 123, '{\"And(i3 == o3, o3 == #10****)\"}'),('0.0.0.46/31','0.0.0.44/31', 30, 245, '{\"And(i4 == o4, o4 == #***1**)\"}'),('0.0.0.56/31','0.0.0.55/31', 30, 20, '{\"And(i5 != #***1**, i5 == #1*****, And(o5 != #***1**, o5 == #1*****, o5 == #*0****))\"}')"
+    sql = "insert into F_nod values ('-16','-11', 10, 20, '{\"And(i1 == o1, o1 == #10*01*)\"}'),('-26','-22', 10, 30, '{\"And(i2 == o2, o1 != #10*01*, o2 == #1*****)\"}'),('-36','-33', 20, 123, '{\"And(i3 == o3, o3 == #10****, o3 == #*0****)\"}'),('-46','-44', 30, 245, '{\"And(i4 == o4, o4 == #***1**)\"}'),('-56','-55', 30, 20, '{\"And(i5 != #***1**, i5 == #11****, And(o5 != #***1**, o5 == #11****))\"}')"
+
+    cursor = conn.cursor()
+    cursor.execute(sql)
+    conn.commit()
+    # printTable("F_nod",database,nodeMapping)
+    # input()
+    
+    start = time.time()
+    program1.executeonce(conn)
+    conn.commit()
+    # printTable("R_nod",database,nodeMapping)
+    program2.execute(conn)
+    end = time.time()
+    printTable("R_nod",database,nodeMapping)
+    # printTable("R_nod",database,nodeMapping, condition="dest = 245")
+    print(end-start)
+    database.delete(conn)
+
 if __name__ == "__main__":
-    EC_example1()
+    EC_example3()
+    # EC_example1()
+    # EC_example2()

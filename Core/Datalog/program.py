@@ -55,7 +55,7 @@ class DT_Program:
     __OPERATORS = ["||"]
     
     # Default values: "simplification_on"=False, "pg_native_recursion"=False, "recursive_rules"=True
-    def __init__(self, program_str, database=None, reasoning_engine='z3', optimizations={}):
+    def __init__(self, program_str, database=None, reasoning_engine='z3', optimizations={}, bits = 32):
         self.rules = []
         # TODO IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
@@ -69,7 +69,7 @@ class DT_Program:
         if len(self.db.c_tables) > 0: # when faureeval is required
             self._isFaureEval = True
             if self._reasoning_engine == 'z3':
-                self.reasoning_tool = z3SMTTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types, mapping=self.db.cVarMapping)
+                self.reasoning_tool = z3SMTTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types, mapping=self.db.cVarMapping, bits=bits)
             # else:
             #     self.reasoning_tool = BDDTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types)
 

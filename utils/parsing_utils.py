@@ -46,7 +46,7 @@ def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">="
 def condToStringDefault(var1, operator, var2):
 	return var1 + " " + operator + " " + var2
 
-def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTables = [], reasoningType={}, bits = 6):
+def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTables = [], reasoningType={}, bits = 32):
 	if mode == "Z3": 
 		newOp = operator
 		if newOp == "=":
@@ -72,8 +72,8 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 		elif isIP(var2):
 			return _convertIPCondition(var=var1, operator=operator, ip=var2, bits=bits)
 		else:
-			newVar1 = _convertToZ3Var(var1, reasoningType)
-			newVar2 = _convertToZ3Var(var2, reasoningType)
+			newVar1 = _convertToZ3Var(var1, reasoningType, bits=bits)
+			newVar2 = _convertToZ3Var(var2, reasoningType, bits=bits)
 			return condToStringDefault(newVar1, newOp, newVar2)
 	elif mode == "Replace String":
 		newVar1 = var1
@@ -96,7 +96,21 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 		isIpCondition = False
 		if isIP(var1) or isIP(var2):
 			isIpCondition = True
-		if not _isConstant(var1):
+		
+		if not _isConstant(var1) and not _isConstant(var2):
+			var1_table = var1.split(".")[0]
+			var1_colm = var1.split(".")[1]
+			var1_type = atomTables[var1_table].columns[var1_colm]
+			var2_table = var2.split(".")[0]
+			var2_colm = var2.split(".")[1]
+			var2_type = atomTables[var2_table].columns[var2_colm]
+			if "[]" in var1_type and "[]" in var2_type: # array operator array
+				if operator == "!=":
+					return "Not({} && {})".format(var1, var2)
+				else:
+					print("Unknown operator for array operation {} {} {}. Exiting".format(var1, operator, var2))
+					exit()
+		elif not _isConstant(var1):
 			var1_table = var1.split(".")[0]
 			var1_colm = var1.split(".")[1]
 			var1_type = atomTables[var1_table].columns[var1_colm]
@@ -259,7 +273,7 @@ def getTablesAsConditions(tables = [], colmName = "condition"):
 def _negativeIntCondition(var, var_type):
 	if "inet_faure" in var_type: # inet list
 		return "'0.0.255.0' > " + var
-	elif "integer_faure" in var_type:# integer list
+	elif "integer_faure" in var_type or "bit_faure" in var_type:# integer list
 		return "0 > " + var
 	
 # Returns true if the var is a digit or an IP
@@ -283,7 +297,7 @@ def _isInt(var):
 		return False
 
 ############################################ Z3 Parsing ##################################
-def _convertIPToBits(IP, bits):
+def _convertIPToBits(IP, bits = 32):
 	if "/" in IP:
 		IP = IP.split("/")[0]
 	IP_stripped = IP.split(".")
@@ -297,14 +311,14 @@ def _convertIPToBits(IP, bits):
 	return (bitValue)
 
 # Breaks IP into a range if it is subnetted.
-def _getRange(ip, bits = 6):
+def _getRange(ip, bits = 32):
 	net = IPv4Network(ip)
 	if (net[0] != net[-1]): # subnet
 		return [str(net[0]), str(net[-1])]
 	else:
 		return [ip]
 	
-def _convertIPCondition(var, operator, ip, bits=6):
+def _convertIPCondition(var, operator, ip, bits = 32):
 	ip = ip.strip().strip("'").strip('"') # remove quotation marks
 	ipRange = _getRange(ip, bits)
 	var = "z3.BitVec('{}',{})".format(var, bits)
@@ -317,11 +331,11 @@ def _convertIPCondition(var, operator, ip, bits=6):
 	if operator == "==":
 		return "And({var} >= {lower}, {var} <= {upper})".format(var=var,lower=lower,upper=upper)
 	
-def _convertToBitVec(ip, bits = 6):
+def _convertToBitVec(ip, bits = 32):
 	ipBits = _convertIPToBits(ip, bits)
 	return "z3.BitVec('{ip}',{bits})".format(ip = ipBits, bits = bits)
 
-def _convertToZ3Var(var, reasoningType, bits = 6):
+def _convertToZ3Var(var, reasoningType, bits = 32):
 	if var in reasoningType:
 		datatype = reasoningType[var]
 		if datatype == 'BitVec':
@@ -427,44 +441,29 @@ def getAtomVariables(parameters, c_variables, operators):
 					variables.append(var)
 	return variables
 
+############################################ Ternary Bitvectors ##################################
 def isTernary(item):
 	if str(item)[0] == '#':
 		return True
 	else:
 		return False
-	
-# _extractMatchingBit(1xx0, 1) = 1000 = 8
-# _extractMatchingBit(1xx0, 0) = 0001 = 1
-def _extractMatchingBit(tbv, bit):
-	# assert that bit is either 1 or 0
-	number = ""
+
+def _extractBitsTBV(tbv):
+	mask = ""
+	result = ""
 	for b in tbv:
-		if b == str(bit):
-			number += '1'
+		if b == '1':
+			mask += '1'
+			result += '1'
+		elif b == '0':
+			mask += '1'
+			result += '0'
 		else:
-			number += '0'
-	return int(number, 2)
+			mask += '0'
+			result += '0'
+	return int(mask, 2), int(result, 2)
+		
 
-def _extractAllMatchingBits(tbv, bit):
-	matchingBits = []
-	bitNumber = len(tbv) - 1
-	for b in tbv:
-		if b == str(bit):
-			matchingBits.append(pow(2, bitNumber))
-		bitNumber -= 1
-	return matchingBits
-
-def _convertTernaryCondition(var, operator, tbv, bits=6):
-	if operator == "==":
-		ones_binary = _extractMatchingBit(tbv = tbv, bit = 1)
-		zeroes_binary = _extractMatchingBit(tbv = tbv, bit = 0)
-		return "And(z3.BitVec('{var}',{bits}) & {ones_binary} == {ones_binary}, z3.BitVec('{var}',{bits}) & {zeroes_binary} == 0)".format(var = var, bits=bits, ones_binary=ones_binary, zeroes_binary=zeroes_binary)
-	elif operator == "!=":
-		conditions = []
-		all_one_bits = _extractAllMatchingBits(tbv = tbv, bit = 1) # array of bits that are one
-		all_zero_bits = _extractAllMatchingBits(tbv = tbv, bit = 0) # array of bits that are zero
-		for ones_binary in all_one_bits:
-			conditions.append("z3.BitVec('{var}',{bits}) & {ones_binary} != {ones_binary}".format(var = var, bits=bits, ones_binary=ones_binary))
-		for zeroes_binary in all_zero_bits:
-			conditions.append("z3.BitVec('{var}',{bits}) & {zeroes_binary} != 0".format(var = var, bits=bits, zeroes_binary=zeroes_binary))
-		return "Or({})".format(",".join(conditions))
+def _convertTernaryCondition(var, operator, tbv, bits = 32):
+	mask, result = _extractBitsTBV(tbv = tbv)
+	return "z3.BitVec('{var}',{bits}) & {mask} {operator} {result}".format(var = var, bits=bits, mask=mask, result=result, operator=operator)
