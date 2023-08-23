@@ -139,7 +139,8 @@ def runDatalog(db, nodeIntMappingReverse, nodeIntMapping, sourceNode = "atla", h
 def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
     try:
         lines = []
-        with open(backbonefile) as f:
+        directory = topology+"_tf"
+        with open(directory+"/"+backbonefile) as f:
             lines = f.readlines()
     except:
         print("Could not open input file {}. Exiting".format(backbonefile))
@@ -157,38 +158,22 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
             links[node2].append(node1)
         return links
 
-
-
 def runDatalogSimple(db, topology = "Stanford"):
     # p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
+    p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx10101011010000000000001011001000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)".format(topology)
     # p2 = "R_nod(pkt_in, new_pktout, 1500007, p1 || p2, n3) :- R_nod(pkt_in, pkt_out, 1500007, p1, n), R_nod(pkt_out, new_pktout, n, p2, n3)[p1 != p2]"
-    p1 = "R_nod(pkt_in, pkt_out, 1500007, [1500007, n], n) :- F_Stanford(pkt_in, pkt_out, 1500007, n)[n != 1500007]"
+    # p1 = "R_nod(pkt_in, pkt_out, 1500007, [1500007, n], n) :- F_Stanford(pkt_in, pkt_out, 1500007, n)[n != 1500007]"
     p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 
     program1 = DT_Program(p1, database=db, optimizations={"simplification_on":True}, bits = 128)
     program2 = DT_Program(p2, database=db, optimizations={"simplification_on":True}, bits = 128)
+    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="bdd")
     conn.commit()
     start = time()
-    program1.executeonce(conn)
-    conn.commit()
-    # program2.executeonce(conn)
-    # printTable('F_I2', db, nodeIntMappingReverse)
-    # input()
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    program2.execute(conn)
+    # program1.executeonce(conn)
+    # conn.commit()
+    # program2.execute(conn)
+    program_naive.execute_semi_naive(conn)
     end = time()
     conn.commit()
     print("Total Time =", end-start)
@@ -322,9 +307,10 @@ def initializeForwardingTable(topology="Stanford", links={}):
     storeTable(tableName = "F_"+topology, inputs=rules)
     F_table = db.getTable("F_"+topology)
     conn.commit()
-    print("Done")
-    # if indexing_on:
-    #     F_table.enableIndexing(conn, "node")
+    print("Added rules to F_"+topology)
+    if indexing_on:
+        F_table.enableIndexing(conn, "node")
+        F_table.enableIndexing(conn, "next_hop")
     return db
     # timeTaken = runDatalog(db=db, nodeIntMappingReverse=nodeIntMappingReverse, nodeIntMapping=nodeIntMapping, sourceNode=source, header=header, simplification_on=simplification_on, F_name="F_"+topology)
     # time_taken_arr.append(timeTaken)
