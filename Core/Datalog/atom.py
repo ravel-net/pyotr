@@ -5,6 +5,7 @@ root = dirname(dirname(dirname(dirname(abspath(__file__)))))
 sys.path.append(root)
 from utils import parsing_utils
 from Core.Datalog.conditionTree import ConditionTree
+from copy import deepcopy
 
 class DT_Atom:
     """
@@ -78,6 +79,13 @@ class DT_Atom:
         if not self.condition.isEmpty:
             atom_str += "[{}]".format(str(self.condition))
         return atom_str
+
+    # duplicates the current table but changes the name
+    def getChangedName(self, newName):
+        newAtom = deepcopy(self)
+        newAtom.table = newAtom.table.duplicateWithNewName(newName)
+        return newAtom
+
 
     # variableMapping is a dictionary with variables as keys and their mapping to distinct constants as value
     # cVarMappingReverse is a dictionary with c_variables as keys and their mapping to negative integers/defined IPs as value

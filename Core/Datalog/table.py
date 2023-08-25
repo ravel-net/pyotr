@@ -9,6 +9,7 @@ from utils.logging import timeit
 from Core.Datalog.conditionTree import ConditionTree
 from tabulate import tabulate
 from copy import deepcopy
+from utils import sql_operations
 
 class DT_Table:
     """
@@ -51,6 +52,18 @@ class DT_Table:
             return "integer"
         else:
             return colmType.replace("_faure","")
+
+    # renames the current table to to the new table pointed out by newName
+    def rename(self, conn, newName):
+        cursor = conn.cursor()
+        cursor.execute("ALTER TABLE {table_name} RENAME TO {new_table_name}".format(table_name=newName, new_table_name=self.name))
+
+    def unionDifference(self, conn, tableNames):
+        sql_operations.unionDifference(conn=conn, outputTableName=self.name, tableNames=tableNames)
+
+    # calculates the set difference and returns the row count of inserted tuples
+    def setDifference(self, conn, table1Name, table2Name):
+        return sql_operations.setDifference(conn=conn, outputTableName=self.name, table1Name=table1Name, table2Name=table2Name)
 
     def getRandomTuple(self, conn, colmName, conditions=[]):
         if self.isEmpty(conn):
@@ -101,12 +114,7 @@ class DT_Table:
 
     # returns true if table is empty
     def isEmpty(self, conn):
-        cursor = conn.cursor()
-        cursor.execute("SELECT count(*) from {}".format(self.name)) # check if empty
-        if cursor.fetchall()[0][0] == 0:
-            return True
-        else:
-            return False
+        return sql_operations.isEmpty(conn, self.name)
 
     def deleteAllCVarRows(self, conn):
         cursor = conn.cursor()
@@ -128,23 +136,34 @@ class DT_Table:
         # conn.commit()
         return result
 
+    # initiates an exact table but with the name changed
+    def initiateNewTable(self, conn, newName):
+        newTable = self.duplicateWithNewName(newName)
+        cursor = conn.cursor()
+        cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
+        newTable.initiateTable(conn)
+        return newTable
+
+    def duplicateWithNewName(self, newName):
+        return DT_Table(name=newName, columns=self.columns, cvars=self.cvars, domain=self.domain)
+
     # Initiates an empty table
     def initiateTable(self, conn):
         cursor = conn.cursor()
-        cursor.execute("SELECT count(to_regclass('{}'))".format(self.name)) # checking if table already exists
-        if cursor.fetchall()[0][0] > 0 and self.isEmpty(conn): # if table exists and is already empty
-            return # no need to create a new table
+        # cursor.execute("SELECT count(to_regclass('{}'))".format(self.name)) # checking if table already exists
+        # if cursor.fetchall()[0][0] > 0 and self.isEmpty(conn): # if table exists and is already empty
+        #     return # no need to create a new table
         cursor.execute("DROP TABLE IF EXISTS {};".format(self.name))
         table_creation_query = "CREATE TABLE {}(".format(self.name)
         for colmName in self.columns: 
             colmType = self.columns[colmName]
             table_creation_query += '{} {},'.format(colmName, self.getColmTypeWithoutFaure(colmType))
         table_creation_query = table_creation_query[:-1]
-        all_unique_colms = []
-        for colm in self.columns:
-            if "condition" not in colm: # we ignore the condition column for a unique index. TODO: Might not be correct
-                all_unique_colms.append(colm)
-        table_creation_query += ", UNIQUE (" + ",".join(all_unique_colms) + ")"
+        # all_unique_colms = []
+        # for colm in self.columns:
+        #     if "condition" not in colm: # we ignore the condition column for a unique index. TODO: Might not be correct
+        #         all_unique_colms.append(colm)
+        # table_creation_query += ", UNIQUE (" + ",".join(all_unique_colms) + ")"
         table_creation_query += ");"
         cursor.execute(table_creation_query)
 

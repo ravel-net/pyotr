@@ -8,9 +8,6 @@ from ipaddress import IPv4Network
 
 from collections import deque
 from utils.logging import timeit
-from Core.Datalog.database import DT_Database
-from Core.Datalog.table import DT_Table
-
 
 ############################################ Condition Tree Parsing ##################################
 # conditions end in either a comma or a bracket. A comma in array is not counted
@@ -47,7 +44,34 @@ def condToStringDefault(var1, operator, var2):
 	return var1 + " " + operator + " " + var2
 
 def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTables = [], reasoningType={}, bits = 32):
-	if mode == "Z3": 
+	if mode == "BDD": # Hacky implementation that only supports ternary bitvectors and integers (without a domain). var = var type conditions also not supported
+		if _isConstant(var1) and _isConstant(var2):
+			if str(var1) == str(var2) and operator == "==":
+				return "(1)"
+			elif str(var1) != str(var2) and operator == "!=":
+				return "(1)"
+			elif str(var1) != str(var2) and operator == "==":
+				return "(0)"
+			elif str(var1) == str(var2) and operator == "!=":
+				return "(0)"
+		elif isTernary(var1):
+			return _convertTernaryConditionBDD(var=var2, operator=operator, tbv=var1, bits=bits, varToIntMapping=replacementDict)
+		elif isTernary(var2):
+			return _convertTernaryConditionBDD(var=var1, operator=operator, tbv=var2, bits=bits, varToIntMapping=replacementDict)
+		elif _isConstant(var1):
+			return _convertBDDInt(var = var2, operator = operator, constant = var1, varToIntMapping=replacementDict)
+		elif _isConstant(var2):
+			return _convertBDDInt(var = var1, operator = operator, constant = var2, varToIntMapping=replacementDict)
+		else: # var = var or var != var. We assume ternary bitvector variables only for now
+			condition = []
+			for i in range(bits):
+				condition.append("$("+replacementDict[var1+"_"+str(i)]+","+replacementDict[var2+"_"+str(i)]+")")
+			processedCond = _combineItems(condition, "&")
+			if operator == "!=":
+				return "~(" + processedCond + ")"
+			else:
+				return processedCond
+	elif mode == "Z3": 
 		newOp = operator
 		if newOp == "=":
 			newOp = "=="
@@ -148,15 +172,15 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 		newVar2 = var2        
 		if operator == "=":
 			newOp = "=="
-		if not _isConstant(var1):
+		if not _isConstant(var1) and "." in var1:
 			var1_table = var1.split(".")[0]
 			var1_colm = var1.split(".")[1]
 			var1_type = atomTables[var1_table].columns[var1_colm]
 			if "[]" in var1_type:
 				newVar1 = var1 + "::text"
-		elif newVar1[0] != "'":
+		elif newVar1[0] != "'": # takes care of situations when it's just a variable to append (e.g. in additional constraints when the c-var does not appear in the body)
 			newVar1 = "'{}'".format(newVar1)
-		if not _isConstant(var2):
+		if not _isConstant(var2) and "." in var1:
 			var2_table = var2.split(".")[0]
 			var2_colm = var2.split(".")[1]
 			var2_type = atomTables[var2_table].columns[var2_colm]
@@ -279,7 +303,7 @@ def _negativeIntCondition(var, var_type):
 # Returns true if the var is a digit or an IP
 @timeit
 def _isConstant(var):
-	if _isInt(var) or isIP(var):
+	if _isInt(var) or isIP(var) or isTernary(var):
 		return True
 	else:
 		return False
@@ -291,7 +315,7 @@ def isIP(var):
 		return False
 	
 def _isInt(var):
-	if type(var) == int or str(var)[0].isdigit():
+	if type(var) == int or var.isdigit() or (var[0] == "-" and var[1:].isdigit()):
 		return True
 	else:
 		return False
@@ -451,6 +475,8 @@ def isTernary(item):
 def _extractBitsTBV(tbv):
 	mask = ""
 	result = ""
+	if tbv[0] == "#":
+		tbv = tbv[1:]
 	for b in tbv:
 		if b == '1':
 			mask += '1'
@@ -467,3 +493,53 @@ def _extractBitsTBV(tbv):
 def _convertTernaryCondition(var, operator, tbv, bits = 32):
 	mask, result = _extractBitsTBV(tbv = tbv)
 	return "z3.BitVec('{var}',{bits}) & {mask} {operator} {result}".format(var = var, bits=bits, mask=mask, result=result, operator=operator)
+
+def _convertTernaryConditionBDD(var, operator, tbv, bits = 32, varToIntMapping = {}):
+	condition = []
+	if tbv[0] == "#":
+		tbv = tbv[1:]
+	for i, bit in enumerate(tbv):
+		if bit == '1':
+			condition.append(varToIntMapping["{}_{}".format(var, i)])
+		elif bit == '0':
+			condition.append("~(" + varToIntMapping["{}_{}".format(var, i)] + ")")
+	if len(condition) == 0:
+		return "(1)"
+	combinedCondition = _combineItems(condition, "&")
+	if operator == "!=":
+		return "~(" + combinedCondition + ")"
+	else:
+		return combinedCondition
+	
+def _binaryRepresentation(var1, numBinDigits, binary_rep, expectedBinDigits, varToIntMapping):
+	newItems = []
+	iterator = 0
+	diff_len = numBinDigits - len(binary_rep)
+	for i in range(diff_len):
+		binary_rep = '0'+binary_rep
+	for val in binary_rep[:expectedBinDigits]: # binary representation
+		# print(splitConditions[0])
+		# print(bin(updatedDomains[splitConditions[0]].index(splitConditions[1]))[2:])
+		# print(val)
+		# print(updatedDomains[var1].index(var2))
+		if val == '1':
+			newItems.append(varToIntMapping[var1+"_"+str(iterator)])
+		else:
+			newItems.append("~("+varToIntMapping[var1+"_"+str(iterator)]+")")
+		iterator += 1
+	return newItems
+
+# Combines a list of items under a single logical operator into pairwise logical operations that are understandable by CUDD
+def _combineItems(listItems, logicalOP):
+	if len(listItems) == 1:
+		return listItems[0]
+	elif len(listItems) == 2:
+		return logicalOP+"("+listItems[0]+","+listItems[1]+")"
+	currString = logicalOP+"("+listItems[0]+","+_combineItems(listItems[1:], logicalOP)+")"
+	return currString
+
+def _convertBDDInt(var, operator, constant, varToIntMapping):
+	numBinDigits = 32
+	binary_rep = bin(int(constant))[2:]
+	newItems = _binaryRepresentation(var, numBinDigits, binary_rep, numBinDigits, varToIntMapping)
+	return _combineItems(newItems, "&")

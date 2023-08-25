@@ -58,9 +58,10 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
     @timeit
-    def __init__(self, rule_str, operators=[], reasoning_tool=None, headAtom="", bodyAtoms=[], additional_constraints=[], database=None, optimizations={}):
+    def __init__(self, rule_str="", operators=[], reasoning_tool=None, headAtom=None, bodyAtoms=[], additional_constraints=[], database=None, optimizations={}):
         self._additional_constraints = []
         self.db = database
+        self.isRecursive = False
         if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
             self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
@@ -87,7 +88,43 @@ class DT_Rule:
                 #     continue
                 currAtom = DT_Atom(atom_str, database=self.db, operators=operators)
                 body.append(currAtom)
+                if currAtom.table.name == head.table.name:
+                    self.isRecursive = True
             self.generateRule(head=head, body=body, operators=operators, optimizations=self.optimizations, database=self.db)
+
+    @timeit
+    #temp_S_(i+1)←R1(v1),...,Rn(vn), Ti 1(w1),...,Ti j−1(wj−1),i Tj (wj),Ti−1 j+1(wj+1),...,Ti−1 m (wm)
+    # Where T_i are IDB predicates
+    def getTempRules(self, i, idb_predicates_names):
+        tempRules = [] # number of temp rules correspond to the number of IDB predicates in rule
+        sharedBody = []
+        newHeadName = self._head.table.name+"_temp_"+str(i+1)
+        idb_preds_in_body = []
+        for atom in self._body:
+            if atom.table.name not in idb_predicates_names:
+                sharedBody.append(atom) # this stores non-idb atoms
+            else:
+                idb_preds_in_body.append(atom)
+        for atomNum, atom in enumerate(idb_preds_in_body):
+            newBody = []
+            newBody = self._getAtomOnIteration(idb_preds_in_body[:atomNum], i) + [atom.getChangedName(newName=atom.table.name+"_delta_"+str(i))] + self._getAtomOnIteration(idb_preds_in_body[atomNum+1:], i-1) + sharedBody
+            newHead = self._head.getChangedName(newName=newHeadName)
+            newRule = DT_Rule(operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newHead, bodyAtoms=newBody, additional_constraints=self._additional_constraints, database=self.db, optimizations=self.optimizations)
+            tempRules.append(newRule)
+        return tempRules, newHeadName
+
+    # Given a list of atoms and an iteration level, returns atoms with that particular iteration level
+    @timeit
+    def _getAtomOnIteration(self, idb_preds_in_body, i):
+        body = []
+        for atom in idb_preds_in_body:
+            body.append(atom.getChangedName(newName=atom.table.name+"_"+str(i)))
+        return body
+
+    # newTable is of type DT_Table
+    @timeit
+    def changeHeaderTable(self, newTable):
+        self._head.table = newTable
 
     def safe(self):
         headVars = self._head.variables
@@ -104,7 +141,7 @@ class DT_Rule:
         self._body = body
         self._mapping = {}
         self._operators = operators
-        self._reasoning_engine = "z3" # TODO: Change this to have a member of reasoning tool that identifies the engine
+        self._reasoning_engine = self.reasoning_tool.name # TODO: Change this to have a member of reasoning tool that identifies the engine
         self._simplication_on = self.optimizations["simplification_on"]
         if self.db:
             self._c_tables = self.db.c_tables
@@ -263,7 +300,6 @@ class DT_Rule:
             i += 1
             tableReference = atom.table.name + str(i)
             sqlConstraints += atom.sqlConstraints(varListMapping, tableReference) # atom constraints are digit equivalence and atom conditions like [F.header = 800, F.source < 200]. Atom should call a function on the condition that returns a string with a variable replaced with F.source etc. And it with the constant constraints
-            
 
         for var, varOccurances in variableList.items():
             i = 0
@@ -275,6 +311,12 @@ class DT_Rule:
         negativeIntegerConstraints = ConditionTree(generalConditions.toString(mode = "Negative Int", atomTables=atomTables)) # same tree as general conditions but leafs expanded to include negative integers
 
         constraints = negativeIntegerConstraints.toString(mode="SQL", atomTables=atomTables)
+
+        # Adding additional constraints to SQL. Note that we replace the c-variable if it exists in the varListMapping for the rule (e.g. it also appears in the body). Otherwise, we keep the variable as is. Both are valid additional constraints.
+        if self._additional_constraints: # no need to compute general conditions again if there are no additional constraints
+            for additional_constraint in self._additional_constraints:
+                sqlConstraints.append(ConditionTree(additional_constraint).toString(mode="Replace String", replacementDict=varListMapping))
+            generalConditions = ConditionTree("And(" + ", ".join(sqlConstraints) + ")")
         constraintsZ3Format = generalConditions.toString(mode="Array Integration", atomTables=atomTables)
         summary_nodes = self.getSummaryNodes(variableList)
 
@@ -554,7 +596,8 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
+        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=False, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
+        conn.commit()
         return faure_query.rowsAffected != 0
 
     def __str__(self):
