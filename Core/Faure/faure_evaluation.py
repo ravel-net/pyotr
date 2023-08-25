@@ -139,7 +139,7 @@ class FaureEvaluation:
             if self._reasoning_engine.lower() == 'z3':
                 # integration of step 1 and step 2
                 if self._faure_evaluation_mode == 'contradiction':
-                    self.rowsAffected = self._integration()
+                    self.rowsAffected = self._integrationZ3()
                     
                 elif self._faure_evaluation_mode == 'implication':
                     self._integration_implication_mode()
@@ -147,34 +147,48 @@ class FaureEvaluation:
                     self.rowsAffected = self._reserve_tuples_by_checking_implication_z3()
                 else:
                     print("Please input correct mode! 'contradiction' or 'implication'")
-
-                if self._additional_condition:
-                    self._append_additional_condition()
-
-                # if simplication_on:
-                #     # Step 3: simplication
-                #     self._reasoning_tool.simplification(self.headerTable.name, self._conn)
+                if simplication_on:
+                    # Step 3: simplication
+                    self.simplification(self.headerTable.name)
 
             elif self._reasoning_engine.lower() == 'bdd':
                 # step 1: data
-                self.rowsAffected = self._integration()
+                self.rowsAffected = self._integrationBDD()
 
                 # Step 2: update
                 self._upd_condition_BDD()
 
+                if simplication_on:
+                    # Step 3: simplication
+                    self.simplification(self.output_table)
             else:
                 print("Unsupported reasoning engine", self._reasoning_engine)
                 exit()
 
+            if self._reasoning_engine.lower() == 'bdd':
+                cursor = self._conn.cursor()
+                cursor.execute("INSERT INTO {} SELECT * FROM {}".format(self.headerTable.name, self.output_table))
+                self._conn.commit()
+
     @timeit
-    def getSelectSQL(self, mode = "contradiction"):
+    def getSelectSQL(self, mode = "contradiction", engine = "Z3"):
         arrayPart = parsing_utils.getArrayPart(self._constraintsZ3Format)
         tablesAsConditions = parsing_utils.getTablesAsConditions(self._tables)
         if mode == "contradiction":
             if arrayPart:
-                conditionPart = tablesAsConditions + " || Array[" + arrayPart + "]::text[] as condition"
+                if engine == "BDD":
+                     conditionPart = tablesAsConditions + "::text[] as old_conditions, Array[" + arrayPart + "]"
+                else:
+                    conditionPart = tablesAsConditions + " || Array[" + arrayPart + "]"
             else:
-                conditionPart = tablesAsConditions + "::text[] as condition"
+                if engine == "BDD":
+                    conditionPart = tablesAsConditions + "::text[] as old_conditions, []"
+                else:
+                    conditionPart = tablesAsConditions
+            if engine == "BDD":
+                conditionPart += "::text[] as conjunction_condition"
+            else:
+                conditionPart += "::text[] as condition"
             selectPart = self._summary_nodes+[conditionPart]
             sql = "select distinct " + ", ".join(selectPart) + " from " + ", ".join(self._tables)
             if (self._constraints):
@@ -195,48 +209,43 @@ class FaureEvaluation:
             exit()    
 
     @timeit
-    def _integration(self):
+    def _integrationZ3(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition****************************")
         
         cursor = self._conn.cursor()
         begin_data = time.time()
-        # cursor.execute("drop table if exists {}".format(self.output_table))
         select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode)
-        # data_sql = "create table {} as {}".format(self.output_table, select_sql)
-        rowsModified = []
-        if self._simplification_on:
-            cursor.execute(select_sql)
-            end_data = time.time()
-            self.data_time = end_data - begin_data
-
-            rows = cursor.fetchall()
-            for row in rows:
-                is_contrad = self._reasoning_tool.iscontradiction(row[-1])
-                if not is_contrad:
-                    rowsModified.append(str(row).replace("[","ARRAY["))
-            if len(rowsModified) == 0:
-                return 0
-            # else:
-                # if "R" in self.headerTable.name:
-                #     self.headerTable.deleteAllTuples(self._conn)
-            data_sql = "INSERT INTO {} VALUES {} ON CONFLICT DO NOTHING".format(self.headerTable.name, ",".join(rowsModified))
-        else:
-            data_sql = "INSERT INTO {} {} ON CONFLICT DO NOTHING".format(self.headerTable.name, select_sql)
 
         if self._information_on:
-            print(data_sql)
+            print(select_sql)
         
         begin_data = time.time()
-        cursor.execute(data_sql)
+        cursor.execute("INSERT INTO {} {}".format(self.headerTable.name, select_sql))
         end_data = time.time()
         self.data_time += (end_data - begin_data)
        
         if self._information_on:
             print("\ncombined executing time: ", self.data_time)
-        # start = time.time()
-        # end = time.time()
-        # logging.info("Time: Commit took {}".format(end-start))
+        return cursor.rowcount
+    
+    def _integrationBDD(self):
+        if self._information_on:
+            print("\n************************Step 1: data with complete condition for BDD****************************")
+        
+        cursor = self._conn.cursor()
+        begin_data = time.time()
+        cursor.execute("drop table if exists {}".format(self.output_table))
+        select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode, engine = "BDD")
+        data_sql = "create table {} as {}".format(self.output_table, select_sql)
+        cursor.execute(data_sql)
+        end_data = time.time()
+        self._conn.commit()
+        if self._information_on:
+            print(select_sql)
+        
+        if self._information_on:
+            print("\ncombined executing time: ", end_data-begin_data)
         return cursor.rowcount
     
     @timeit
@@ -291,11 +300,26 @@ class FaureEvaluation:
 
         count_num = cursor.rowcount
         data_tuples = cursor.fetchall()
+        self._conn.commit()
         #self._conn.commit()
         new_reference_mapping = {}
-        for i in range(count_num):
+        for i in tqdm(range(count_num)):
             
-            (old_conditions, conjunctin_conditions, id) = data_tuples[i]
+            (old_conditions, conjunction_conditions, id) = data_tuples[i]
+            
+            '''
+            get BDD reference number for conjunction condition
+            '''
+            conjunction_condition = ""
+            if len(conjunction_conditions) == 1:
+                conjunction_condition = conjunction_conditions[0]
+            elif len(conjunction_conditions) > 1:
+                conjunction_condition = "And({})".format(",".join(conjunction_conditions))
+            if len(conjunction_conditions) != 0:
+                # conjunction_str = "And({})".format(", ".join(conjunction_conditions))
+                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunction_condition)
+            
+
             '''
             Logical AND all original conditions for all tables
             '''
@@ -303,54 +327,33 @@ class FaureEvaluation:
             for cond_idx in range(1, len(old_conditions)):
                 bdd1 = old_conditions[cond_idx]
                 old_bdd = self._reasoning_tool.operate_BDDs(int(bdd1), int(old_bdd), "&")
-
-            '''
-            get BDD reference number for conjunction condition
-            '''
-            if conjunctin_conditions and len(conjunctin_conditions) != 0:
-                # conjunction_str = "And({})".format(", ".join(conjunctin_conditions))
-                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunctin_conditions)
-
+            if len(conjunction_conditions) != 0:
                 # Logical AND original BDD and conjunction BDD
-                new_ref = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
-                new_reference_mapping[id] = new_ref
+                new_reference_mapping[id] = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
             else:
                 new_reference_mapping[id] = old_bdd
 
-        
         '''
-        append additional conditions to output table
-        '''
-        if self._additional_condition:
-            additional_ref = self._reasoning_tool.str_to_BDD(self._additional_condition)
-            for id in new_reference_mapping.keys():
-                cond_ref = new_reference_mapping[id]
-                new_ref = self._reasoning_tool.operate_BDDs(cond_ref, additional_ref, '&')
-                # update condition reference for each tuple after appending additional conditions
-                new_reference_mapping[id] = new_ref
-
-        '''
-        add condition column of integer type
+        add condition column of text[] type
         update bdd reference number on condition column
         '''
-        sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, add column condition integer".format(self.output_table)
+        sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, add column condition text[]".format(self.output_table)
         cursor.execute(sql)
         #self._conn.commit()
 
         begin_upd = time.time()
         for key in new_reference_mapping.keys():
-            sql = "update {} set condition = {} where id = {}".format(self.output_table, new_reference_mapping[key], key)
+            sql = "update {} set condition = Array[{}] where id = {}".format(self.output_table, new_reference_mapping[key], key)
             cursor.execute(sql)
         end_upd = time.time()
-        #self._conn.commit()
 
         self.update_condition_time['update_condition'] = end_upd - begin_upd
         #self._conn.commit()
 
         sql = "alter table if exists {} drop column if exists id".format(self.output_table)
         cursor.execute(sql)
-        #self._conn.commit()
-    
+        self._conn.commit()
+
     @timeit
     def _reserve_tuples_by_checking_implication_z3(self):
         if self._information_on:
@@ -374,7 +377,7 @@ class FaureEvaluation:
         
         update_tuples = []
         for i in range(count_num):
-            (old_conditions, conjunctin_conditions, id) = data_tuples[i]
+            (old_conditions, conjunction_conditions, id) = data_tuples[i]
             old_cond = None
             if "" in old_conditions:
                 old_conditions.remove("")
@@ -385,8 +388,8 @@ class FaureEvaluation:
             else:
                 old_cond = "And({})".format(", ".join(old_conditions))
 
-            if self._reasoning_tool.is_implication(old_cond, conjunctin_conditions): # all possible instances are matched the program
-                update_tuples.append((id, [old_cond, conjunctin_conditions]))
+            if self._reasoning_tool.is_implication(old_cond, conjunction_conditions): # all possible instances are matched the program
+                update_tuples.append((id, [old_cond, conjunction_conditions]))
             
         
         cursor.execute("create temp table if not exists temp_update(uid integer, condition text[])")
@@ -408,6 +411,38 @@ class FaureEvaluation:
         b = cursor.rowcount
         self._conn.commit()
         return b
+
+    #TODO: Simplification should be a function in faure evaluation that uses contradiction checking
+    @timeit
+    def simplification(self, target_table):
+        cursor = self._conn.cursor()
+        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
+
+        '''
+        delete contradiction
+        '''
+        contrd_begin = time.time()
+        cursor.execute("select id, condition from {}".format(target_table))
+        contrad_count = cursor.rowcount
+        del_tuple = []
+        for i in tqdm(range(contrad_count)):
+            row = cursor.fetchone()
+            is_contrad = self._reasoning_tool.iscontradiction(row[1])
+
+            if is_contrad:
+                del_tuple.append(row[0])
+        
+        if len(del_tuple) == 0:
+            pass
+        elif len(del_tuple) == 1:
+            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
+        else:
+            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
+
+        contrd_end = time.time()
+        self.simplication_time['contradiction'] = contrd_end - contrd_begin
+        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
+        self._conn.commit()
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"

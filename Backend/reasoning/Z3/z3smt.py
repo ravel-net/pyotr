@@ -65,6 +65,7 @@ class z3SMTTools:
         self.solver = z3.Solver()
         self.simplication_time = {}
         self.bits = bits
+        self.name = "z3"
 
         domain_str = self._get_domain_str()
         if len((domain_str)) != 0:
@@ -82,7 +83,6 @@ class z3SMTTools:
         --------
         True or False
         """
-        
         if len(conditions) == 0:
             return 
         self.solver.push()
@@ -303,72 +303,6 @@ class z3SMTTools:
             simplified_condition
         
         return simplified_condition
-
-    @timeit
-    def simplification(self, target_table, conn):
-        cursor = conn.cursor()
-        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
-        conn.commit()
-
-        '''
-        delete contradiction
-        '''
-        contrd_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
-        contrad_count = cursor.rowcount
-        # logging.info("size of input(delete contradiction): %s" % str(count))
-        del_tuple = []
-        for i in tqdm(range(contrad_count)):
-            row = cursor.fetchone()
-            # print("check contrad")
-            # if len(row[1]) == 0:
-            #     print(len(row[1]))
-            # else:
-            #     print(len(row[1][0]))
-            is_contrad = self.iscontradiction(row[1])
-
-            if is_contrad:
-                del_tuple.append(row[0])
-        
-        if len(del_tuple) == 0:
-            pass
-        elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
-        else:
-            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
-
-        contrd_end = time.time()
-        self.simplication_time['contradiction'] = contrd_end - contrd_begin
-        conn.commit()
-
-        # '''
-        # set tautology and remove redundant
-        # '''
-        # # print("remove redundant")
-        # redun_begin = time.time()
-        # cursor.execute("select id, condition from {}".format(target_table))
-        # redun_count = cursor.rowcount
-        # # logging.info("size of input(remove redundancy and tautology): %s" % str(count))
-        # upd_cur = conn.cursor()
-
-        # for i in tqdm(range(redun_count)):
-        #     row = cursor.fetchone()
-        #     # print("check redun")
-        #     has_redun, result = self.has_redundancy(row[1])
-        #     if has_redun:
-        #         if result != '{}':
-        #             result = ['"{}"'.format(r) for r in result]
-        #             upd_cur.execute("UPDATE {} SET condition = '{}' WHERE id = {} ON CONFLICT UPDATE".format(target_table, "{" + ", ".join(result) + "}", row[0]))
-        #         else:
-        #             upd_cur.execute("UPDATE {} SET condition = '{{}}' WHERE id = {} ON CONFLICT UPDATE".format(target_table, row[0]))
-        # redun_end = time.time()
-        # self.simplication_time["redundancy"] = redun_end - redun_begin
-        # conn.commit()
-        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
-        # if self._information_on:
-        # for k, v in self.solver.statistics():
-        #     if (k == "max memory"):
-        #         print ("Solver Max Memory: %s : %s" % (k, v))
 
     @timeit
     def _get_domain_str(self):
