@@ -8,7 +8,6 @@
 #include <math.h>
 #include <unistd.h>
 #include <sys/time.h>
-
 #define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
 
 // Gets the current variable index referenced in the condition
@@ -33,7 +32,7 @@ bool isLogicalOp(char letter){
 }
 
 DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* bdd_right) {
-    DdNode* tmp;
+    DdNode* tmp = NULL;
     if (curr_char == '&')
         tmp = Cudd_bddAnd(gbm, bdd_left, bdd_right);
     else if (curr_char == '^')
@@ -42,6 +41,7 @@ DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* b
         tmp = Cudd_bddXnor(gbm, bdd_left, bdd_right);
     else
         assert(false);
+    Cudd_Ref(tmp);
     return tmp;
 }
 
@@ -56,37 +56,39 @@ bool isLogicalNot(char curr_char) {
 }
 
 // Returns a BDD from a string condition
-DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
+DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars, FILE *outfile) {
     DdNode *bdd;
     char curr_char = condition[*i];
+
     if (isLogicalOp(curr_char)) {
+        int j = *i;
         *i = *i + 2; // Skipping bracket
-        DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
-        DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
+        DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars, outfile); // i passed as reference to remember where we are in encoding
+        DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars, outfile); // i passed as reference to remember where we are in encoding
+
+        clock_t t;
+        t = clock();
         bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
-        Cudd_Ref(bdd);
-        // printf("\n1\n");
-        // Cudd_DebugCheck(gbm);
+        t = clock() - t;
+        double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
         Cudd_RecursiveDeref(gbm,bdd_right);
         Cudd_RecursiveDeref(gbm,bdd_left);
-        // printf("\n2\n");
-        // Cudd_DebugCheck(gbm);
     }
     else if (isLogicalNot(curr_char)) {
         *i = *i + 2; // Skipping bracket
-        DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
+        DdNode * tmp = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars, outfile);
         bdd = Cudd_Not(tmp);
         Cudd_Ref(bdd);
         Cudd_RecursiveDeref(gbm,tmp);
     }
     else if (curr_char == ',' || curr_char == '(' || curr_char == ')') {
         *i = *i + 1;
-        bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); 
+        bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars, outfile); 
     }
 
     // must be a variables at this point
     else if (isdigit(curr_char)) {
-    int index = getVar(condition,i);
+        int index = getVar(condition,i);
         if (index == 1) {
             bdd = Cudd_ReadOne(gbm);
             Cudd_Ref(bdd);
@@ -97,6 +99,10 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
         }
         else {
             bdd = variableNodes[index-2];
+            if (bdd == NULL) {
+                bdd = Cudd_bddNewVar(gbm);
+                variableNodes[index-2] = bdd;
+            }
             Cudd_Ref(bdd);
         }
     }
@@ -110,7 +116,8 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
 DdNode** initVars(unsigned int numVars, DdManager* gbm) {
     DdNode** variableNodes = malloc(sizeof(DdNode*)*numVars);
     for (unsigned int i = 0; i < numVars; i++) {
-        variableNodes[i] = Cudd_bddNewVar(gbm);
+        variableNodes[i] = NULL; // we initialize variables as we encounter them
+        // variableNodes[i] = Cudd_bddNewVar(gbm);
         // Cudd_Ref(variableNodes[i]);
     }
     return variableNodes;
@@ -119,7 +126,11 @@ DdNode** initVars(unsigned int numVars, DdManager* gbm) {
 DdNode* convertToBDD(DdManager* gbm, char* condition, unsigned int numVars, DdNode** variableNodes) {
     int* i = malloc(sizeof(int));
     *i = 0;
-    DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars);
+    FILE *outfile; // output file for logging
+    outfile = fopen("log_c.txt","w");
+    fprintf(outfile, "Condition: %s", condition);
+    DdNode* bdd = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars, outfile);
+    fclose (outfile);
     free(i); 
     return bdd;
 } 

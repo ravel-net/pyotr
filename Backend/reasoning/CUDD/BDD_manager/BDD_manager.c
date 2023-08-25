@@ -4,7 +4,7 @@
 #include "BDD_utils.c"
 #include "BDD_array.c"
 
-#define INITIALSIZE 16 // Initial Size of the array
+#define INITIALSIZE 20000 // Initial Size of the array
 
 // Global variables for state management
 BDD_array BDDs; // Data structure to store BDDs
@@ -27,8 +27,9 @@ void Cinitialize(unsigned int numberOfBDDVariables) {
     initializeBDD(&BDDs, INITIALSIZE);
     numVars = numberOfBDDVariables;
     gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-    Cudd_AutodynEnable(gbm, CUDD_REORDER_SYMM_SIFT); // enables automatic reordering of BDD through SYMM_SIFT method
-    // Cudd_ReduceHeap(gbm, CUDD_REORDER_SYMM_SIFT, 30000); // Uses dynamic ordering using SYMM_SIFT method to reduce heap size. Last para
+    // Cudd_SetSiftMaxVar(gbm, 1000000);
+    Cudd_AutodynEnable(gbm, CUDD_REORDER_SIFT); // enables automatic reordering of BDD through SYMM_SIFT method
+    // Cudd_ReduceHeap(gbm, CUDD_REORDER_SIFT, 1); // Uses dynamic ordering using SYMM_SIFT method to reduce heap size. Last para
     variableNodes = initVars(numVars, gbm);
 }
   

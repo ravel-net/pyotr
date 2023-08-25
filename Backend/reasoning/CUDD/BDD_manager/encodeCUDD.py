@@ -75,7 +75,7 @@ def binaryRepresentation(var1, numBinDigits, binary_rep, expectedBinDigits):
 		iterator += 1
 	return newItems
 
-def processCon(var1, var2, updatedDomains, is_ip=False):
+def processCon(var1, var2, updatedDomains, is_ip=False, bits = 32):
 	# print("var1", var1, "var2", var2)
 	newItems = []
 	processedCond = ""
@@ -133,10 +133,11 @@ def processCon(var1, var2, updatedDomains, is_ip=False):
 	# print("processedCond", processedCond)
 	return processedCond
 
-def getUpdatedVariables(variables, input_domain, is_ip=False):
+
+def getUpdatedVariables(variables, input_domain, is_ip=False, numIntBits = 32):
 	newVariables = []
 	for var in variables:
-		numVars = 32
+		numVars = numIntBits
 		if not is_ip and var in input_domain and len(input_domain[var]) != 0:
 			numVars = math.ceil(math.log(len(input_domain[var]),2))
 		for i in range(numVars):
@@ -177,7 +178,7 @@ def findVariables(conditions):
 	return variables
 
 
-def convertToCUDD(conditions, input_domain, variables, is_ip=False):
+def convertToCUDD(conditions, input_domain, variables, is_ip=False, bits = 32):
 	if (len(conditions) <= 1): # Empty condition
 		return TRUE, [] 
 	# variables = findVariables(conditions)
@@ -203,7 +204,7 @@ def convertToCUDD(conditions, input_domain, variables, is_ip=False):
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, is_ip)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, is_ip, bits)
 			stack.append(encodedCond)
 			i+=length		
 		elif conditions[i:i+2] == "!=":
@@ -212,7 +213,7 @@ def convertToCUDD(conditions, input_domain, variables, is_ip=False):
 			splitConditions[0] = splitConditions[0].strip()
 			splitConditions[1] = splitConditions[1].strip()
 			length = len(condition)
-			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, is_ip)
+			encodedCond = processCon(splitConditions[0], splitConditions[1], input_domain, is_ip, bits)
 			encodedCond = "~(" + encodedCond + ")"
 			stack.append(encodedCond)
 			i+=length
@@ -222,7 +223,7 @@ def convertToCUDD(conditions, input_domain, variables, is_ip=False):
 		exit()
 	cuddFormCond = stack.pop()
 
-	variables = getUpdatedVariables(variables, input_domain, is_ip)
+	variables = getUpdatedVariables(variables, input_domain, is_ip, bits)
 	count = 2 # starting from 2 since 0 and 1 are reserved for true and false
 	for var in variables:
 		replacingVar = f'{var})' 
