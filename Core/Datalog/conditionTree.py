@@ -2,7 +2,6 @@ import sys
 from os.path import dirname, abspath
 root = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root)
-from utils.logging import timeit
 from utils import parsing_utils
 from copy import deepcopy
 
@@ -17,7 +16,9 @@ class ConditionLeaf:
         self.var1 = conditionSplit[0].strip()
         self.var2 = conditionSplit[1].strip()
         self.isTrue = False
-        if "=" in operator and str(self.var1) == str(self.var2):
+        if "==" in operator and str(self.var1) == str(self.var2):
+            self.isTrue = True
+        if "!=" in operator and str(self.var1) != str(self.var2):
             self.isTrue = True
 
     def __str__(self):
@@ -118,12 +119,19 @@ class ConditionTree:
             else:
                 var1Arr.append(var1)
             var2Arr = conditionSplit[1].strip()[1:-1].split(",") # we assume that var2 is an array always when there is any array involved
-            for var1 in var1Arr:
-                var1 = var1.strip()
-                for var2 in var2Arr:
-                    var2 = var2.strip()
-                    conditionLeaf = "{} {} {}".format(var1, operator, var2)
-                    self.children.append(ConditionLeaf(currCond=conditionLeaf, operator=operator))
+            if len(var1Arr) == 1 and len(var2Arr) == 1:
+                self.isLeaf = True
+                currCond = "{} {} {}".format(var1Arr[0], operator, var2Arr[0])
+                self.value = ConditionLeaf(currCond, operator)
+                if self.value.getIsTrue():
+                    self.isTrue = True
+            else:
+                for var1 in var1Arr:
+                    var1 = var1.strip()
+                    for var2 in var2Arr:
+                        var2 = var2.strip()
+                        conditionLeaf = "{} {} {}".format(var1, operator, var2)
+                        self.children.append(ConditionLeaf(currCond=conditionLeaf, operator=operator))
         else:
             self.isLeaf = True
             self.value = ConditionLeaf(currCond, operator)
@@ -153,6 +161,7 @@ class ConditionTree:
                 return ""
     
     def toString(self, mode, replacementDict={}, atomTables=[], reasoningType={}, bits = 32):
+        bddMapping = {"And":"&","Or":"^","Not":"~"}
         if self.isEmpty:
             return ""
         if self.isLeaf:
@@ -164,14 +173,16 @@ class ConditionTree:
             if len(childrenStr) > 0:
                 if mode == "SQL":
                     return "(" + " {} ".format(self.value).join(childrenStr) + ")"   
+                elif mode == "BDD":
+                    return parsing_utils._combineItems(childrenStr, bddMapping[self.value])
                 else:
                     return self.value + "(" + ", ".join(childrenStr) + ")" 
             else:
                 return ""
 
 if __name__ == '__main__':
-    condition1 = "Or(  And  ( x == 1, y ==          '10.0.0.1'), And(  x==     2   , y ==    '10.0.0.2' )    )"
-    condition1 = ""
+    condition1 = "And(And(1500007 == 1500007, -1 != {" + "1500000}, -10000036 == -20, 1500000 == 1500000))"
+    print("asd")
     # condition1 = "x == 1"
     # condition1 = "And( x ==1   , y    == '10.0.0.1'   )"
     # condition2 = "And( x == 1, y == '10.0.0.1')"
