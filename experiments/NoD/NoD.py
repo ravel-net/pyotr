@@ -33,10 +33,13 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 
 def initializeDatabase(nodes, numRules, indexing_on, topology, cVarMapping):
     cvars = {}
-    for i in range(numRules):
+    # for i in range(1,33):
+    for i in range(1,49):
+    # for i in range(numRules):
+    # for i in nodes:
         cvars["i"+str(i)] = "pkt_in" 
         cvars["o"+str(i)] = "pkt_out" 
-        
+
     R = DT_Table(name="R_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars=cvars, domain={"source":nodes,"last_node":nodes})
 
     F = DT_Table(name="F_"+topology, columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","condition":"text[]"}, cvars=cvars, domain={"next_hop":nodes,"node":nodes})    
@@ -90,6 +93,7 @@ def storeTable(tableName, inputs):
     # cursor.execute("INSERT INTO {} VALUES {}".format(tableName, ",".join(inputs)))
     jump = 10000000
     startPoint = 0
+
     while startPoint+jump < len(inputs):
         cursor.execute("INSERT INTO {} VALUES {}".format(tableName, ",".join(inputs[startPoint:startPoint+jump])))
         print("adding {} to {}".format(startPoint, startPoint+jump))
@@ -201,7 +205,6 @@ def getTFRule(line, ruleNo, cVarMapping, links):
         port = port.strip()
         if port in links:
             for outer_port in links[port]:
-                print("mapping {} = {}".format(port, outer_port))
                 out_ports.append(outer_port)
         else:
             out_ports.append(port)
@@ -228,8 +231,6 @@ def getTFRule(line, ruleNo, cVarMapping, links):
 
     newRules = []
     newNodes = []
-    if len(not_rules) > 10:
-        print("Notrules num: ", len(not_rules))
     if action != "fwd" and action != "rw":
         print("Unknown action {} found. Exiting".format(action))
         exit()
@@ -240,15 +241,28 @@ def getTFRule(line, ruleNo, cVarMapping, links):
         out_ports.append("-1")
         newNodes.append("-1")
     for in_port in in_ports:
+        nodeNum = int(int(in_port)/100000)
+        if int(in_port) % 100000 == 0:
+            nodeNum += 16
+        elif in_port in links:
+            nodeNum += 32
         if in_port not in newNodes:
             newNodes.append(in_port)
         for out_port in out_ports:
             if out_port not in newNodes:
                 newNodes.append(out_port)
-            i_var = "i"+str(ruleNo)
-            o_var = "o"+str(ruleNo)
-            i_var_numeric = str(-1*ruleNo-5)
-            o_var_numeric = str(-1*DIFF-ruleNo-5)
+            # i_var = "i"+str(ruleNo)
+            # o_var = "o"+str(ruleNo)
+            # i_var_numeric = str(-1*ruleNo-5)
+            # o_var_numeric = str(-1*DIFF-ruleNo-5)
+            # i_var = "i"+str(in_port)
+            # o_var = "o"+str(in_port)
+            # i_var_numeric = str(-1*int(in_port)-5)
+            # o_var_numeric = str(-1*DIFF-int(in_port)-5)
+            i_var = "i"+str(nodeNum)
+            o_var = "o"+str(nodeNum)
+            i_var_numeric = str(-1*nodeNum-5)
+            o_var_numeric = str(-1*DIFF-nodeNum-5)
             if i_var_numeric in cVarMapping and cVarMapping[i_var_numeric] != i_var:
                 print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(i_var_numeric, i_var, cVarMapping[i_var_numeric]))
                 exit()
@@ -298,8 +312,8 @@ def initializeForwardingTable(topology="Stanford", links={}):
                 for node in newNodes:
                     if node not in nodes:
                         nodes.append(node)
-    print(len(rules))
-    print(len(nodes))
+    print("Number of rules", len(rules))
+    print("Number of nodes", len(nodes))
     if len(rules) >= DIFF:
         print("Please increase the difference between the mapping of input and output variables. Current difference is {} whereas the number of rules are {}. Exiting".format(DIFF, len(rules)))
         exit()
