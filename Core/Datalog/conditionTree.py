@@ -16,10 +16,10 @@ class ConditionLeaf:
         self.var1 = conditionSplit[0].strip()
         self.var2 = conditionSplit[1].strip()
         self.isTrue = False
-        if "==" in operator and str(self.var1) == str(self.var2):
-            self.isTrue = True
-        if "!=" in operator and str(self.var1) != str(self.var2):
-            self.isTrue = True
+        # if "==" in operator and str(self.var1) == str(self.var2):
+        #     self.isTrue = True
+        # if "!=" in operator and str(self.var1) != str(self.var2):
+        #     self.isTrue = True
 
     def __str__(self):
         return parsing_utils.condToStringDefault(self.var1, self.operator, self.var2)
