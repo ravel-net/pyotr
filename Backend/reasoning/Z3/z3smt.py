@@ -1,7 +1,6 @@
 import sys
 from os.path import dirname, abspath, join
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
-print(root)
 sys.path.append(root)
 
 import z3
@@ -260,9 +259,10 @@ class z3SMTTools:
         """
         Check if condition1 implies condition2
         """
+        if (str(self.simplify_condition(condition2)) == "True"):
+            return True
         prcd_condition1 = self.condition_parser(condition1)
         prcd_condition2 = self.condition_parser(condition2)
-        
         P = eval(prcd_condition1)
         Q = eval(prcd_condition2)
 
@@ -298,10 +298,8 @@ class z3SMTTools:
         simplified_condition = str(z3.simplify(eval(prcd_condition)))
 
         if simplified_condition == 'True':
-            return ""
-        else:
-            simplified_condition
-        
+            return True
+
         return simplified_condition
 
     @timeit

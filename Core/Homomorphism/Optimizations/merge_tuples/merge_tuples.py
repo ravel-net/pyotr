@@ -2,7 +2,7 @@ import sys
 from os.path import dirname, abspath, join
 
 root = dirname(dirname(dirname(abspath(__file__))))
-print(root)
+
 sys.path.append(root)
 
 from tqdm import tqdm

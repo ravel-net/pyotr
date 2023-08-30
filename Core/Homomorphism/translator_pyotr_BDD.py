@@ -3,7 +3,6 @@ import os
 from os.path import dirname, abspath, join
 
 root = dirname(dirname(dirname(dirname(abspath(__file__)))))
-print(root)
 sys.path.append(root)
 
 import re

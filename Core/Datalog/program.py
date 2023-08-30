@@ -88,8 +88,10 @@ class DT_Program:
             self.rules.append(program_str)
         else:
             rules_str = program_str.split("\n")
+            i = 0
             for rule in rules_str:
-                    self.rules.append(DT_Rule(rule_str=rule, operators=self.__OPERATORS, reasoning_tool=self.reasoning_tool, optimizations=self._optimizations, database=self.db))
+                    i += 1
+                    self.rules.append(DT_Rule(rule_str=rule, operators=self.__OPERATORS, reasoning_tool=self.reasoning_tool, optimizations=self._optimizations, database=self.db, ruleNo=i))
         self.idb_predicates = []
         idb_predicate_names = []
         for rule in self.rules:
@@ -179,6 +181,10 @@ class DT_Program:
             IDBNamesChanges[idb_predicate.name] = idb_predicate_delta
         P_prime.changeIDBNames(IDBNamesChanges)
         P_prime.executeonce(conn)
+        if self._reasoning_engine.lower() == "bdd":
+            print("before",self.reasoning_tool.variables_mapping)
+            self.reasoning_tool.variables_mapping = deepcopy(P_prime.reasoning_tool.variables_mapping) #TODO: Fix hacky method
+            print("after",self.reasoning_tool.variables_mapping)
         i = 1
         changed = True
         iterationEndMapping = {} # stores the last iteration of each idb_predicate. The last iteration contains the final result
@@ -198,6 +204,8 @@ class DT_Program:
                 P_temp, P_temp_name = self.getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
                 idb_predicate.initiateNewTable(conn=conn, newName=P_temp_name)
                 P_temp.executeonce(conn)
+                if self._reasoning_engine.lower() == "bdd":
+                    self.reasoning_tool.variables_mapping = deepcopy(P_temp.reasoning_tool.variables_mapping) #TODO: Fix hacky method
                 conn.commit()
                 pred_delta_next = idb_predicate.initiateNewTable(conn=conn, newName="{}_delta_{}".format(pred_name,str(i+1)))
                 tuplesAdded = pred_delta_next.setDifference(conn=conn, table1Name = P_temp_name, table2Name = output_pred.name) # tuples added is a boolean which is true when new tuples are generated
@@ -283,11 +291,11 @@ class DT_Program:
             
     # minimize. Does minimization in place. Make sure to make a copy if you want the original program
     #TODO IMPORTANT: Program only rule should be entire program. Method: Delete contained rule and then add a rule without atom
-    def minimize(self, minimizeAtomsOn = True, minimizeRulesOn = True, enhancedMinimizationOn = "Off"):
+    def minimize(self, minimizeAtomsOn = True, minimizeRulesOn = True, enhancedMinimizationOn = "Off", informationOn = False):
         if minimizeAtomsOn:
             self.__minimizeAtoms()
         if minimizeRulesOn:
-            self.__minimizeRules()
+            self.__minimizeRules(informationOn)
         if enhancedMinimizationOn != "Off": # enhancedMinimizationOn can either be "Off", "Const", or "No-Const". "No-Const" disables constant unification
             if enhancedMinimizationOn == "No-Const":
                 self.__enhancedMinimization(False)
@@ -336,7 +344,7 @@ class DT_Program:
 
     # given an atom string, creates a table
     def __createTable(self, atom_str):
-        tableName = atom_str[0]
+        tableName = atom_str.split("(")[0].strip()
         numParameters = atom_str.count(",")+1 # hacky method to know the number of parameters. This will not work when there are arrays. TODO: Fix when there are arrays
         columns = {}
         for param in range(numParameters):
@@ -372,20 +380,25 @@ class DT_Program:
                     atomNum += 1   
 
     @timeit
-    def __minimizeRules(self):
+    def __minimizeRules(self, informationOn = False):
         ruleNum = 0
         while ruleNum < self.__numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
             if self.__numRules == 1: # if only one rule left in program, stop minimizing
                 return
             rule = self.__getRule(ruleNum)
-            print("rule", rule)
             newProgram = self.__copyWithDeletedRule(ruleNum)
-            print("program", newProgram)
-
+            if informationOn:
+                print("\n\nChecking rule: ", rule)
+                print("Program:\n" + str(newProgram))
             if newProgram.contains_rule(rule, self.db.cVarMappingReverse):
-                print("Rule contained!")
+                if informationOn:
+                    print("The minimized program contains rule {}. Removing rule.".format(rule.ruleNo))
+                    input()
                 self.__deleteRule(ruleNum)
             else:
+                if informationOn:
+                    print("Rule is not redundant")
+                    input()
                 ruleNum += 1   
 
 

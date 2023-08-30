@@ -58,10 +58,11 @@ class DT_Rule:
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
     @timeit
-    def __init__(self, rule_str="", operators=[], reasoning_tool=None, headAtom=None, bodyAtoms=[], additional_constraints=[], database=None, optimizations={}):
+    def __init__(self, rule_str="", operators=[], reasoning_tool=None, headAtom=None, bodyAtoms=[], additional_constraints=[], database=None, optimizations={}, ruleNo=0):
         self._additional_constraints = []
         self.db = database
         self.isRecursive = False
+        self.ruleNo = ruleNo
         if (len(additional_constraints) > 0 and additional_constraints[0] != ''):
             self._additional_constraints = deepcopy(additional_constraints) 
         self.reasoning_tool = reasoning_tool
@@ -109,7 +110,7 @@ class DT_Rule:
             newBody = []
             newBody = self._getAtomOnIteration(idb_preds_in_body[:atomNum], i) + [atom.getChangedName(newName=atom.table.name+"_delta_"+str(i))] + self._getAtomOnIteration(idb_preds_in_body[atomNum+1:], i-1) + sharedBody
             newHead = self._head.getChangedName(newName=newHeadName)
-            newRule = DT_Rule(operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newHead, bodyAtoms=newBody, additional_constraints=self._additional_constraints, database=self.db, optimizations=self.optimizations)
+            newRule = DT_Rule(operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newHead, bodyAtoms=newBody, additional_constraints=self._additional_constraints, database=self.db, optimizations=self.optimizations, ruleNo=self.ruleNo)
             tempRules.append(newRule)
         return tempRules, newHeadName
 
@@ -141,13 +142,15 @@ class DT_Rule:
         self._body = body
         self._mapping = {}
         self._operators = operators
-        self._reasoning_engine = self.reasoning_tool.name # TODO: Change this to have a member of reasoning tool that identifies the engine
+        if not self.reasoning_tool:
+            self._reasoning_engine = ""
+        else:
+            self._reasoning_engine = self.reasoning_tool.name # TODO: Change this to have a member of reasoning tool that identifies the engine
         self._simplication_on = self.optimizations["simplification_on"]
         if self.db:
             self._c_tables = self.db.c_tables
         self._reverseMapping = {}
         self._recursive_rules = self.optimizations["recursive_rules"]
-        
         #TODO: Function to add c-vars and vars 
         for currAtom in self._body:
             atomVars = currAtom.variables
@@ -170,10 +173,10 @@ class DT_Rule:
         if self.safe():
             self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
             self.sql = self.convertRuleToSQL()
-        else:
-            print("\n------------------------")
-            print("Unsafe rule: {}!".format(self)) 
-            print("------------------------\n")
+        # else:
+        #     print("\n------------------------")
+        #     print("Unsafe rule: {}!".format(self)) 
+        #     print("------------------------\n")
 
         self.selectColumns = self.calculateSelect() # store a sql query corresponding to the rule
 
@@ -245,7 +248,7 @@ class DT_Rule:
             else:
                 newRule_body.append(atom)
 
-        newRule = DT_Rule(rule_str="", database=self.db, operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints, optimizations=self.optimizations)
+        newRule = DT_Rule(rule_str="", database=self.db, operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints, optimizations=self.optimizations, ruleNo=self.ruleNo)
         return newRule
 
     @timeit
@@ -596,12 +599,12 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=False, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
+        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
         conn.commit()
         return faure_query.rowsAffected != 0
 
     def __str__(self):
-        string = str(self._head) + " :- "
+        string = str(self.ruleNo) + ": " +  str(self._head) + " :- "
         for atom in self._body:
             string += str(atom) + ","
         if self._additional_constraints:

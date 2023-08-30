@@ -163,7 +163,7 @@ class DT_Table:
         # for colm in self.columns:
         #     if "condition" not in colm: # we ignore the condition column for a unique index. TODO: Might not be correct
         #         all_unique_colms.append(colm)
-        # table_creation_query += ", UNIQUE (" + ",".join(all_unique_colms) + ")"
+        table_creation_query += ", UNIQUE (" + ",".join(self.columns) + ")"
         table_creation_query += ");"
         cursor.execute(table_creation_query)
 
