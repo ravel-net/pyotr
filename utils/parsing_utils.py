@@ -172,6 +172,7 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 		newVar2 = var2        
 		if operator == "=":
 			newOp = "=="
+		var1_type = ""
 		if not _isConstant(var1) and "." in var1:
 			var1_table = var1.split(".")[0]
 			var1_colm = var1.split(".")[1]
@@ -180,6 +181,7 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 				newVar1 = var1 + "::text"
 		elif newVar1[0] != "'": # takes care of situations when it's just a variable to append (e.g. in additional constraints when the c-var does not appear in the body)
 			newVar1 = "'{}'".format(newVar1)
+		var2_type = ""
 		if not _isConstant(var2) and "." in var1:
 			var2_table = var2.split(".")[0]
 			var2_colm = var2.split(".")[1]
@@ -188,6 +190,8 @@ def condToStringModes(var1, operator, var2, mode, replacementDict = {}, atomTabl
 				newVar2 = var2 + "::text"
 		elif newVar2[0] != "'":
 			newVar2 = "'{}'".format(newVar2)
+		if "faure" not in var1_type and "faure" not in var2_type:
+			return ""
 		return condToStringDefault(newVar1, newOp, newVar2)
 	elif mode == "Negative Int":
 		conditions = []
