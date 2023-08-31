@@ -8,13 +8,13 @@ from Core.Datalog.rule import DT_Rule
 from Core.Datalog.database import DT_Database
 from Core.Datalog.table import DT_Table
 from Backend.reasoning.Z3.z3smt import z3SMTTools
-# from Backend.reasoning.CUDD.BDDTools import BDDTools
+from Backend.reasoning.DoC.DoCSolver import DoCSolver
+from Backend.reasoning.CUDD.BDDTools import BDDTools
 from utils import parsing_utils
 from utils import sql_operations
 from utils.converter.recursion_converter import RecursiveConverter
 import databaseconfig as cfg
 from utils.logging import timeit
-from Backend.reasoning.CUDD.BDDTools import BDDTools
 
 class DT_Program:
     """
@@ -73,10 +73,12 @@ class DT_Program:
             self._isFaureEval = True
             if self._reasoning_engine == 'z3':
                 self.reasoning_tool = z3SMTTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_type=self.db.reasoning_types, mapping=self.db.cVarMapping, bits=bits)
-            else:
-                # self.reasoning_tool = BDDTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_types=self.db.reasoning_types, mapping=self.db.cVarMapping, bits=bits)
+            elif self._reasoning_engine == 'bdd':
                 self.reasoning_tool = BDDTools(variables=self.db.c_variables, domains=self.db.cvar_domain, reasoning_types=self.db.reasoning_types, mapping=self.db.cVarMapping, bits=bits)
+            elif self._reasoning_engine == "DoCSolver":
+                self.reasoning_tool = DoCSolver(variables=self.db.c_variables, mapping=self.db.cVarMapping, bits=bits)
 
+                
         if "simplification_on" not in self._optimizations:
             self._optimizations["simplification_on"] = False # default value
         if "pg_native_recursion" not in self._optimizations:

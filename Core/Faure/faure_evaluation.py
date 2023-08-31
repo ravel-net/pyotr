@@ -130,37 +130,35 @@ class FaureEvaluation:
             #conn.commit()
 
             if simplication_on:
-                self._reasoning_tool.simplification(self.output_table)
+                self.simplification(self.headerTable.name)
         else:
-            # self._SQL_parser = SQL_Parser(conn, self._SQL, True, reasoning_engine, databases)
             self._additional_condition = additional_condition
             self._empty_condition_idx = None # the reference of the empty condition with BDD
             
             if self._reasoning_engine.lower() == 'z3':
-                # integration of step 1 and step 2
                 if self._faure_evaluation_mode == 'contradiction':
                     self.rowsAffected = self._integrationZ3()
                     
                 elif self._faure_evaluation_mode == 'implication':
                     self._integration_implication_mode()
-
                     self.rowsAffected = self._reserve_tuples_by_checking_implication_z3()
                 else:
                     print("Please input correct mode! 'contradiction' or 'implication'")
                 if simplication_on:
-                    # Step 3: simplication
                     self.simplification(self.headerTable.name)
 
             elif self._reasoning_engine.lower() == 'bdd':
-                # step 1: data
                 self.rowsAffected = self._integrationBDD()
-
-                # Step 2: update
                 self._upd_condition_BDD()
 
                 if simplication_on:
-                    # Step 3: simplication
                     self.simplification(self.output_table)
+            
+            elif self._reasoning_engine.lower() == 'docsolver':
+                self.rowsAffected = self._integrationZ3()
+                if simplication_on:
+                    self.simplification_DoC(self.headerTable.name)
+
             else:
                 print("Unsupported reasoning engine", self._reasoning_engine)
                 exit()
@@ -212,13 +210,20 @@ class FaureEvaluation:
     def _integrationZ3(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition****************************")
-        
+        self._conn.commit()
         cursor = self._conn.cursor()
-        begin_data = time.time()
         select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode)
-
         if self._information_on:
             print(select_sql)
+        
+        # select_sql = select_sql.replace(" distinct ", " ")
+        # begin_data = time.time()
+        # cursor.execute(select_sql)
+        # end_data = time.time()
+        # print("Selection took {} seconds".format(end_data-begin_data))
+
+        if self._information_on:
+            print("INSERT INTO {} {}".format(self.headerTable.name, select_sql))
         
         begin_data = time.time()
         cursor.execute("INSERT INTO {} {}".format(self.headerTable.name, select_sql))
@@ -412,7 +417,6 @@ class FaureEvaluation:
         self._conn.commit()
         return b
 
-    #TODO: Simplification should be a function in faure evaluation that uses contradiction checking
     @timeit
     def simplification(self, target_table):
         cursor = self._conn.cursor()
@@ -442,6 +446,50 @@ class FaureEvaluation:
         contrd_end = time.time()
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
         cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
+        self._conn.commit()
+
+
+    @timeit
+    def simplification_DoC(self, target_table):
+        cursor = self._conn.cursor()
+        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
+
+        '''
+        delete contradiction
+        '''
+        contrd_begin = time.time()
+        cursor.execute("select id, condition from {}".format(target_table))
+        contrad_count = cursor.rowcount
+        del_tuple = []
+        update_tuple = {}
+        
+        for i in tqdm(range(contrad_count)):
+            row = cursor.fetchone()
+            simplifiedCond = self._reasoning_tool.simplifyCondition(row[1])
+            if simplifiedCond == None:
+                del_tuple.append(row[0])
+            else:
+                update_tuple[row[0]] = simplifiedCond
+                
+        if self._information_on:
+            print("Deleting {} tuples".format(str(len(del_tuple))))
+        if len(del_tuple) == 0:
+            pass
+        elif len(del_tuple) == 1:
+            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
+        else:
+            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
+        if self._information_on:
+            print("Deleting done")
+            print("Updating {} tuples".format(str(len(update_tuple))))
+                  
+        #TODO: Update columns, possibly in bulk?
+        for id in update_tuple:
+            cursor.execute("UPDATE {} SET condition = Array['{}'] WHERE id = {}".format(target_table, update_tuple[id], id))
+        if self._information_on:
+            print("Update done")
+        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
+
         self._conn.commit()
 
 if __name__ == '__main__':

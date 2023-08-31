@@ -3,6 +3,7 @@ from os.path import dirname, abspath
 root = dirname(dirname(dirname(abspath(__file__))))
 sys.path.append(root)
 from utils import parsing_utils
+from utils.logging import timeit
 from copy import deepcopy
 
 class ConditionLeaf:
@@ -10,23 +11,27 @@ class ConditionLeaf:
     A class used to represent a single condition of the form 'var1 op var2'
     """
     # Leafs are conditions of the form var1 op var2
+    #@timeit
     def __init__(self, currCond, operator):
         self.operator = operator
         conditionSplit = currCond.split(self.operator)
         self.var1 = conditionSplit[0].strip()
         self.var2 = conditionSplit[1].strip()
         self.isTrue = False
-        if "==" in operator and str(self.var1) == str(self.var2):
-            self.isTrue = True
-        if "!=" in operator and str(self.var1) != str(self.var2):
-            self.isTrue = True
+        # if "==" in operator and str(self.var1) == str(self.var2):
+        #     self.isTrue = True
+        # if "!=" in operator and str(self.var1) != str(self.var2):
+        #     self.isTrue = True
 
+    #@timeit
     def __str__(self):
         return parsing_utils.condToStringDefault(self.var1, self.operator, self.var2)
     
+    #@timeit
     def getIsTrue(self):
         return self.isTrue
 
+    #@timeit
     def toString(self, mode, replacementDict = {}, atomTables = [], reasoningType={}, bits = 32):
         return parsing_utils.condToStringModes(var1=self.var1, operator=self.operator, var2=self.var2, mode=mode, replacementDict=replacementDict, atomTables=atomTables, reasoningType=reasoningType, bits = bits)
 
@@ -37,6 +42,7 @@ class ConditionTree:
     """
     A class used to represent a condition using a tree. Each node is either a logical operator or a leaf node (that represents a single condition)
     """
+    #@timeit
     def __init__(self, condition, pos = 0):
         self.condition_string = condition
         self.children = []
@@ -97,9 +103,11 @@ class ConditionTree:
             self.isEmpty = True
             self.isTrue = True
 
+    #@timeit
     def getIsTrue(self):
         return self.isTrue
 
+    #@timeit
     def processLeaf(self, condition, pos):
         endPos = parsing_utils.findCondEnd(condition, pos)
         operator = parsing_utils.findOperator(condition, pos, endPos)
@@ -143,9 +151,11 @@ class ConditionTree:
             self.endPos += 1
 
     # @property
+    #@timeit
     def getEndPos(self):
         return self.endPos
     
+    #@timeit
     def __str__(self):
         if self.isEmpty:
             return ""
@@ -160,6 +170,20 @@ class ConditionTree:
             else:
                 return ""
     
+    # loops over all children and gets leaves
+    #@timeit
+    def getLeaves(self):
+        if self.isEmpty:
+            return []
+        if self.isLeaf:
+            return [self.value]
+        else:
+            leaves = []
+            for child in self.children:
+                leaves += child.getLeaves()
+            return leaves
+
+    #@timeit
     def toString(self, mode, replacementDict={}, atomTables=[], reasoningType={}, bits = 32):
         bddMapping = {"And":"&","Or":"^","Not":"~"}
         if self.isEmpty:
@@ -169,7 +193,9 @@ class ConditionTree:
         else:
             childrenStr = []
             for child in self.children:
-                childrenStr.append(child.toString(mode = mode, atomTables=atomTables, replacementDict=replacementDict, reasoningType=reasoningType, bits = bits))
+                result = child.toString(mode = mode, atomTables=atomTables, replacementDict=replacementDict, reasoningType=reasoningType, bits = bits)
+                if len(result) > 0:
+                    childrenStr.append(result)
             if len(childrenStr) > 0:
                 if mode == "SQL":
                     return "(" + " {} ".format(self.value).join(childrenStr) + ")"   

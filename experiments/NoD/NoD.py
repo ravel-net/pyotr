@@ -34,11 +34,11 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 def initializeDatabase(nodes, numRules, indexing_on, topology, cVarMapping):
     cvars = {}
     # for i in range(1,33):
-    for i in range(1,49):
-    # for i in range(numRules):
+    # for i in range(1,49):
+    for i in range(numRules):
     # for i in nodes:
-        cvars["i"+str(i)] = "pkt_in" 
-        cvars["o"+str(i)] = "pkt_out" 
+        cvars["i_"+str(i)] = "pkt_in" 
+        cvars["o_"+str(i)] = "pkt_out" 
 
     R = DT_Table(name="R_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars=cvars, domain={"source":nodes,"last_node":nodes})
 
@@ -164,14 +164,14 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
 
 def runDatalogSimple(db, topology = "Stanford"):
     # p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
-    p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx10101011010000000000001011001000xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)".format(topology)
+    p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx10101100000110110000101000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)".format(topology)
     # p2 = "R_nod(pkt_in, new_pktout, 1500007, p1 || p2, n3) :- R_nod(pkt_in, pkt_out, 1500007, p1, n), R_nod(pkt_out, new_pktout, n, p2, n3)[p1 != p2]"
     # p1 = "R_nod(pkt_in, pkt_out, 1500007, [1500007, n], n) :- F_Stanford(pkt_in, pkt_out, 1500007, n)[n != 1500007]"
     p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 
     program1 = DT_Program(p1, database=db, optimizations={"simplification_on":True}, bits = 128)
     program2 = DT_Program(p2, database=db, optimizations={"simplification_on":True}, bits = 128)
-    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="bdd")
+    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="DoCSolver")
     conn.commit()
     start = time()
     # program1.executeonce(conn)
@@ -181,7 +181,7 @@ def runDatalogSimple(db, topology = "Stanford"):
     end = time()
     conn.commit()
     print("Total Time =", end-start)
-    db.getTable("R_nod").printTable(conn=conn, cVarMapping=db.cVarMapping)
+    # db.getTable("R_nod").printTable(conn=conn, cVarMapping=db.cVarMapping)
     # program1.reasoning_tool.simplification("R", conn)
     return (end-start)  
 
@@ -251,18 +251,18 @@ def getTFRule(line, ruleNo, cVarMapping, links):
         for out_port in out_ports:
             if out_port not in newNodes:
                 newNodes.append(out_port)
-            # i_var = "i"+str(ruleNo)
-            # o_var = "o"+str(ruleNo)
-            # i_var_numeric = str(-1*ruleNo-5)
-            # o_var_numeric = str(-1*DIFF-ruleNo-5)
+            i_var = "i_"+str(ruleNo)
+            o_var = "o_"+str(ruleNo)
+            i_var_numeric = str(-1*ruleNo-5)
+            o_var_numeric = str(-1*DIFF-ruleNo-5)
             # i_var = "i"+str(in_port)
             # o_var = "o"+str(in_port)
             # i_var_numeric = str(-1*int(in_port)-5)
             # o_var_numeric = str(-1*DIFF-int(in_port)-5)
-            i_var = "i"+str(nodeNum)
-            o_var = "o"+str(nodeNum)
-            i_var_numeric = str(-1*nodeNum-5)
-            o_var_numeric = str(-1*DIFF-nodeNum-5)
+            # i_var = "i_"+str(nodeNum)
+            # o_var = "o_"+str(nodeNum)
+            # i_var_numeric = str(-1*nodeNum-5)
+            # o_var_numeric = str(-1*DIFF-nodeNum-5)
             if i_var_numeric in cVarMapping and cVarMapping[i_var_numeric] != i_var:
                 print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(i_var_numeric, i_var, cVarMapping[i_var_numeric]))
                 exit()
