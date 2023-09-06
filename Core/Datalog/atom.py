@@ -6,6 +6,7 @@ sys.path.append(root)
 from utils import parsing_utils
 from Core.Datalog.conditionTree import ConditionTree
 from copy import deepcopy
+from utils.logging import timeit
 
 class DT_Atom:
     """
@@ -52,7 +53,7 @@ class DT_Atom:
         self.db = database
         self.variables = []
         
-        self.condition = ConditionTree(condition)
+        self.condition = ConditionTree(list(condition))
 
         self.parameters =  []
 
@@ -65,7 +66,12 @@ class DT_Atom:
             exit()
         self._isCTable = self.table.isCTable
 
-        self.c_variables = self.table.cvars # this shouldnt be the case. It should be computed for each atom (e.g. any non-digit that is in self.table.cvars) 
+        self.c_variables = [] # this shouldnt be the case. It should be computed for each atom (e.g. any non-digit that is in self.table.cvars)
+        for param in self.parameters:
+            if type(param) == list: #todo: we loop over list
+                continue
+            if param in self.table.cvars: 
+                self.c_variables.append(param)
         self.variables = parsing_utils.getAtomVariables(self.parameters, self.c_variables, operators)
         
     def __str__(self):

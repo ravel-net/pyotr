@@ -15,6 +15,7 @@ from utils import sql_operations
 from utils.converter.recursion_converter import RecursiveConverter
 import databaseconfig as cfg
 from utils.logging import timeit
+from tqdm import tqdm
 
 class DT_Program:
     """
@@ -338,12 +339,47 @@ class DT_Program:
 
     # given an atom string, creates a table
     def __createTable(self, atom_str):
-        tableName = atom_str[0]
+        tableName = atom_str.split("(")[0].strip()
         numParameters = atom_str.count(",")+1 # hacky method to know the number of parameters. This will not work when there are arrays. TODO: Fix when there are arrays
         columns = {}
         for param in range(numParameters):
             columns['c'+str(param)] = "integer"
         return DT_Table(name=tableName, columns=columns)
+    
+    @timeit
+    def simplifyInitial(self, conn, target_table):
+        cursor = conn.cursor()
+        print("Doing initial simplification")
+        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
+        '''
+        delete contradiction
+        '''
+        cursor.execute("select id, condition from {}".format(target_table))
+        contrad_count = cursor.rowcount
+        del_tuple = []
+        update_tuple = {}
+
+        for i in tqdm(range(contrad_count)):
+            row = cursor.fetchone()
+            simplifiedCond = self.reasoning_tool.simplifyConditionInitial(row[1])
+            if simplifiedCond == None:
+                del_tuple.append(row[0])
+            else:
+                update_tuple[row[0]] = simplifiedCond
+                
+        if len(del_tuple) == 0:
+            pass
+        elif len(del_tuple) == 1:
+            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
+        else:
+            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
+                  
+        #TODO: Update columns, possibly in bulk?
+        for id in update_tuple:
+            cursor.execute("UPDATE {} SET condition = Array['{}'] WHERE id = {}".format(target_table, update_tuple[id], id))
+        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
+
+        conn.commit()
 
 
     @property

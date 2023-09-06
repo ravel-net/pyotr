@@ -38,12 +38,12 @@ class DT_Database:
         if (len(cVarMapping) == 0):
             self.cVarMapping = self.getCVarMapping()
         self.cVarMappingReverse = {}
-        for negInt in self.cVarMapping:
-            currCvar = self.cVarMapping[negInt]
-            if currCvar not in self.cVarMappingReverse:
-                self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
-            elif currCvar in self.cVarMappingReverse and "'" in negInt: # This is done because reverseMapping is used by sql and it requires quotation marks for ip addresses
-                self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
+        # for negInt in self.cVarMapping:
+        #     currCvar = self.cVarMapping[negInt]
+        #     if currCvar not in self.cVarMappingReverse:
+        #         self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
+        #     elif currCvar in self.cVarMappingReverse and "'" in negInt: # This is done because reverseMapping is used by sql and it requires quotation marks for ip addresses
+        #         self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
 
 
     # Maps cvariable integers to negative integers and maps cvariable inets to 0.0.0.1 to 0.0.255.0

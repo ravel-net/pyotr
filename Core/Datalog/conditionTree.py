@@ -14,9 +14,7 @@ class ConditionLeaf:
     #@timeit
     def __init__(self, currCond, operator):
         self.operator = operator
-        conditionSplit = currCond.split(self.operator)
-        self.var1 = conditionSplit[0].strip()
-        self.var2 = conditionSplit[1].strip()
+        self.var1, self.var2 = parsing_utils.getVars(currCond, operator)
         self.isTrue = False
         # if "==" in operator and str(self.var1) == str(self.var2):
         #     self.isTrue = True
@@ -60,17 +58,17 @@ class ConditionTree:
         elif len(condition)-pos < 4: # must be a leaf
             self.processLeaf(condition=condition, pos=pos)
             isProcessed = True
-        elif condition[pos:pos+2] == "Or":
+        elif condition[pos] == "O" and condition[pos+1] == "r":
             while pos < len(condition) and condition[pos] != "(":
                 pos += 1
             pos += 1
             self.value = "Or"
-        elif condition[pos:pos+3] == "And":
+        elif condition[pos] == "A" and condition[pos+1] == "n" and condition[pos+2] == "d":
             while pos < len(condition) and condition[pos] != "(":
                 pos += 1
             pos += 1
             self.value = "And"
-        elif condition[pos:pos+3] == "Not":
+        elif condition[pos] == "N" and condition[pos+1] == "o" and condition[pos+2] == "t":
             while pos < len(condition) and condition[pos] != "(":
                 pos += 1
             pos += 1
@@ -111,7 +109,10 @@ class ConditionTree:
     def processLeaf(self, condition, pos):
         endPos = parsing_utils.findCondEnd(condition, pos)
         operator = parsing_utils.findOperator(condition, pos, endPos)
-        currCond = deepcopy(condition[pos:endPos])
+        # currCond = str(condition[pos:endPos])
+        currCond = ""
+        for i in range(pos, endPos):
+            currCond += condition[i]
         self.endPos = endPos
         if "{" in currCond: # it is an array
             self.isLeaf = False
@@ -119,14 +120,13 @@ class ConditionTree:
                 self.value = "And"
             else:
                 self.value = "Or"
-            conditionSplit = currCond.split(operator)
             var1Arr = []
-            var1 = conditionSplit[0].strip()
+            var1, var2 = parsing_utils.getVars(currCond, operator)
             if "{" in var1: # var1 also an array!
-                var1Arr = conditionSplit[0].strip()[1:-1].split(",") # var1 could also be an array
+                var1Arr = var1[1:-1].split(",") # var1 could also be an array
             else:
                 var1Arr.append(var1)
-            var2Arr = conditionSplit[1].strip()[1:-1].split(",") # we assume that var2 is an array always when there is any array involved
+            var2Arr = var2[1:-1].split(",") # we assume that var2 is an array always when there is any array involved
             if len(var1Arr) == 1 and len(var2Arr) == 1:
                 self.isLeaf = True
                 currCond = "{} {} {}".format(var1Arr[0], operator, var2Arr[0])

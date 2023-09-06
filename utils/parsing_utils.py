@@ -31,14 +31,42 @@ def findCondEnd(condition, startPos):
 def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">=", "<", "<="]):
 	i = startPos
 	while i+2 < endPos:
-		if condition[i:i+2].strip() in operators:
-			if i+3 < endPos and condition[i:i+3].strip() in operators:
-				return condition[i:i+3].strip()
-			else:
-				return condition[i:i+2].strip()
+		posCondition = condition[i] + condition[i+1]
+		if condition[i] in operators:
+			return condition[i]
+		elif posCondition in operators:
+			return posCondition
 		i += 1
-	print("Could not find any operator in condition {}".format(condition[startPos, endPos]))
+	print("Could not find any operator in condition {}".format(condition[startPos: endPos]))
 	exit()
+
+# given a list of chars, returns variable1 and variable2
+def getVars(currCond, operator):
+	var1 = ""
+	var2 = ""
+	var1Done = False
+	for char in currCond:
+		if not var1Done:
+			if char == " " and len(var1) == 0: # leading space
+				continue
+			elif char == " ":
+				var1Done = True
+			elif char in operator:
+				var1Done = True
+			else:
+				var1 += char
+		else:
+			if char == " " and len(var2) == 0: # leading space
+				continue
+			elif char in operator:
+				continue
+			elif char == " ":
+				return var1, var2
+			else:
+				var2 += char
+	return var1, var2
+		
+
 
 def condToStringDefault(var1, operator, var2):
 	return var1 + " " + operator + " " + var2

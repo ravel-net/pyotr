@@ -132,6 +132,20 @@ class DT_Rule:
             if var not in self._variables:
                 return False        
         return True
+    
+    @timeit
+    def _addVars(self):
+        #TODO: Function to add c-vars and vars 
+        for currAtom in self._body:
+            atomVars = currAtom.variables
+            for var in atomVars:
+                if var not in self._variables:
+                    self._variables.append(var)
+
+            atomCVars = currAtom.c_variables
+            for var in atomCVars:
+                if var not in self._c_variables:
+                    self._c_variables.append(var)
 
     @timeit
     def generateRule(self, head, body, operators=[], optimizations={}, database=None):
@@ -141,31 +155,21 @@ class DT_Rule:
         self._body = body
         self._mapping = {}
         self._operators = operators
-        self._reasoning_engine = self.reasoning_tool.name # TODO: Change this to have a member of reasoning tool that identifies the engine
+        self._reasoning_engine = self.reasoning_tool.name
         self._simplication_on = self.optimizations["simplification_on"]
         if self.db:
             self._c_tables = self.db.c_tables
         self._reverseMapping = {}
         self._recursive_rules = self.optimizations["recursive_rules"]
         
-        #TODO: Function to add c-vars and vars 
-        for currAtom in self._body:
-            atomVars = currAtom.variables
-            for var in atomVars:
-                if var not in self._variables:
-                    self._variables.append(var)
-            
-            atomCVars = currAtom.c_variables
-            for var in atomCVars:
-                if var not in self._c_variables:
-                    self._c_variables.append(var)
+        self._addVars()
                             
         # corner case, relation of atom in head does not appear in the body, e.g.,  R(n1, n2): link(n1, n2)
         # if self._head.table.name not in db_names:
         #     self._DBs.append(self._head.db)
         #     db_names.append(self._head.table.name)
 
-        self._createVariableMapping() # creates a mapping for variables to distinct constants
+        # self._createVariableMapping() # creates a mapping for variables to distinct constants
     
         if self.safe():
             self._summary_nodes, self._tables, self._constraints, self._constraintsZ3Format = self.convertRuleToSQLPartitioned()
@@ -216,6 +220,7 @@ class DT_Rule:
 
     @timeit
     # Includes the select part of query including datatype
+    @timeit
     def calculateSelect(self):
         selectColumns = []
         for i, colName in enumerate(self._head.table.columns):
@@ -307,19 +312,18 @@ class DT_Rule:
                 sqlConstraints.append("{} == {}".format(varOccurances[i], varOccurances[i+1]))
                 i += 1
         
-        generalConditions = ConditionTree("And(" + ", ".join(sqlConstraints) + ")")
-        negativeIntegerConstraints = ConditionTree(generalConditions.toString(mode = "Negative Int", atomTables=atomTables)) # same tree as general conditions but leafs expanded to include negative integers
+        generalConditions = ConditionTree(list("And(" + ", ".join(sqlConstraints) + ")"))
+        negativeIntegerConstraints = ConditionTree(list(generalConditions.toString(mode = "Negative Int", atomTables=atomTables))) # same tree as general conditions but leafs expanded to include negative integers
 
         constraints = negativeIntegerConstraints.toString(mode="SQL", atomTables=atomTables)
 
         # Adding additional constraints to SQL. Note that we replace the c-variable if it exists in the varListMapping for the rule (e.g. it also appears in the body). Otherwise, we keep the variable as is. Both are valid additional constraints.
         if self._additional_constraints: # no need to compute general conditions again if there are no additional constraints
             for additional_constraint in self._additional_constraints:
-                sqlConstraints.append(ConditionTree(additional_constraint).toString(mode="Replace String", replacementDict=varListMapping))
-            generalConditions = ConditionTree("And(" + ", ".join(sqlConstraints) + ")")
+                sqlConstraints.append(ConditionTree(list(additional_constraint)).toString(mode="Replace String", replacementDict=varListMapping))
+            generalConditions = ConditionTree(list("And(" + ", ".join(sqlConstraints) + ")"))
         constraintsZ3Format = generalConditions.toString(mode="Array Integration", atomTables=atomTables)
         summary_nodes = self.getSummaryNodes(variableList)
-
         constraintsArray = []
         constraintsZ3FormatArray = []
         if constraints != "":
@@ -596,7 +600,7 @@ class DT_Rule:
         '''
         generate new facts
         '''
-        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=False, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
+        faure_query = FaureEvaluation(conn, program_sql, reasoning_tool=self.reasoning_tool, additional_condition=",".join(self._additional_constraints), output_table="output", domains=self.db.cvar_domain, reasoning_engine=self._reasoning_engine, reasoning_sort=self.db.reasoning_types, simplication_on=self._simplication_on, information_on=True, faure_evaluation_mode=faure_evaluation_mode, sqlPartitioned = {"summary_nodes": self._summary_nodes, "tables":self._tables, "constraints":self._constraints, "constraintsZ3Format":self._constraintsZ3Format}, headerTable=header_table)
         conn.commit()
         return faure_query.rowsAffected != 0
 

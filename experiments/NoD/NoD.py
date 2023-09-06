@@ -165,15 +165,17 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
 def runDatalogSimple(db, topology = "Stanford"):
     # p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
     p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx10101100000110110000101000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)".format(topology)
-    # p2 = "R_nod(pkt_in, new_pktout, 1500007, p1 || p2, n3) :- R_nod(pkt_in, pkt_out, 1500007, p1, n), R_nod(pkt_out, new_pktout, n, p2, n3)[p1 != p2]"
-    # p1 = "R_nod(pkt_in, pkt_out, 1500007, [1500007, n], n) :- F_Stanford(pkt_in, pkt_out, 1500007, n)[n != 1500007]"
+    # p1 = "R_nod(pkt_in, pkt_out, S, [n], n) :- F_{}(pkt_in, pkt_out, S, n)[n != S],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
+    # p2 = "R_nod(pkt_in, new_pktout, S, p || [n2], n2) :- R_nod(pkt_in, pkt_out, S, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
     p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 
     program1 = DT_Program(p1, database=db, optimizations={"simplification_on":True}, bits = 128)
     program2 = DT_Program(p2, database=db, optimizations={"simplification_on":True}, bits = 128)
     program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="DoCSolver")
     conn.commit()
+
     start = time()
+    # program_naive.simplifyInitial(conn=conn, target_table="F_Stanford")
     # program1.executeonce(conn)
     # conn.commit()
     # program2.execute(conn)

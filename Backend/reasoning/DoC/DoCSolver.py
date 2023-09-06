@@ -78,7 +78,8 @@ class DoCSolver:
 
     # Given a condition with three variables: o_j, i_k, and o_k, returns None if it is a contradiction
     # Returns a simplified version in terms of o_j if it's not a contradiction
-    # Need to be careful about wildcard entries and 
+    # Need to be careful about wildcard entries 
+    # If the condition is in terms of just o_j and i_j, then converts it into o_j
     @timeit
     def simplifyCondition(self, conditions):
         """
@@ -98,7 +99,7 @@ class DoCSolver:
             condition = "And("+", ".join(conditions)+")"
         
         start = time.time()
-        conditionParsed = ConditionTree(condition)
+        conditionParsed = ConditionTree(list(condition))
         end = time.time()
         total_time = end-start
         logging.info(f'Time: simplifyCondition_parsing took {total_time:.4f}')
@@ -147,6 +148,67 @@ class DoCSolver:
                 output_doc.mergeWildcards(and_doc)
                 output_doc.removeContradictions() # this is done in place
                 return str(output_doc)
+        return None
+    
+    @timeit
+    def simplifyConditionInitial(self, conditions):
+        """
+        Parameters:
+        -----------
+        conditions: list
+            A list of conditions
+
+        Returns:
+        --------
+        True or False
+        """
+        # print(conditions)
+        start = time.time()
+        condition = conditions[0]
+        if len(conditions) > 1:
+            condition = "And("+", ".join(conditions)+")"
+        
+        start = time.time()
+        conditionParsed = ConditionTree(list(condition))
+        end = time.time()
+        total_time = end-start
+        logging.info(f'Time: simplifyCondition_parsing took {total_time:.4f}')
+        leaves = conditionParsed.getLeaves()
+        variableConditions, variables = self._getVariableConditions(leaves)
+        DoCs = {}
+        input_doc = None
+        output_doc = None
+        output_prev_doc = None
+        for var in variableConditions:
+            if "neg" in variableConditions[var]:
+                DoCs[var] = DoC(name=var, posStrings=variableConditions[var]["pos"], negStrings=variableConditions[var]["neg"], bits=self.bits)
+            else:
+                DoCs[var] = DoC(name=var, posStrings=variableConditions[var]["pos"], negStrings=[], bits=self.bits)
+            if "i" in var:
+                input_doc = DoCs[var]
+                if input_doc.hasContradiction():
+                    return None
+        if input_doc == None: # no changes made
+            return condition
+        for var in DoCs:
+            if "o" in var and var.split("_")[1] == input_doc.name.split("_")[1]:
+                output_doc = DoCs[var]
+            elif "o" in var:
+                output_prev_doc = DoCs[var]
+
+        # note that when output_doc is none, we assume that there is no rewriting
+        if output_prev_doc == None: # case when there are only two variables (e.g. condition directly from the forwarding table)
+            if output_doc == None: # no rewriting
+                output_name = input_doc.name.replace("i","o")
+                if input_doc.hasContradiction():
+                    return None
+                return "And(" + str(input_doc) + ", " + "{} == {})".format(output_name, input_doc.name)
+            else:
+                if input_doc.hasContradiction():
+                    return None
+                if output_doc.hasContradiction():
+                    return None
+                return "And(" + str(input_doc) + ", " + str(output_doc) + ")"
         return None
     
     
