@@ -48,7 +48,7 @@ class FaureEvaluation:
     _process_condition_on_ctable(tablename, variables, domains)
         convert a c-table with text condition to a c-table with BDD reference
     """
-    @timeit
+    ########@timeit
     def __init__(self, conn, SQL, reasoning_tool=None, additional_condition=None, output_table='output', databases={}, domains={}, reasoning_engine='z3', reasoning_sort={}, simplication_on=True, information_on=False, faure_evaluation_mode='contradiction', sqlPartitioned={}, headerTable = None) -> None:
         """
         Parameters:
@@ -127,7 +127,6 @@ class FaureEvaluation:
         if self._SQL.lower().startswith('with'):
             cursor = conn.cursor()
             cursor.execute(self._SQL)
-            #conn.commit()
 
             if simplication_on:
                 self.simplification(self.headerTable.name)
@@ -147,28 +146,25 @@ class FaureEvaluation:
                 if simplication_on:
                     self.simplification(self.headerTable.name)
 
-            elif self._reasoning_engine.lower() == 'bdd':
+            elif self._reasoning_engine.lower() == 'bdd' or self._reasoning_engine.lower() == 'docsolver':
                 self.rowsAffected = self._integrationBDD()
                 self._upd_condition_BDD()
 
-                if simplication_on:
-                    self.simplification(self.output_table)
-            
-            elif self._reasoning_engine.lower() == 'docsolver':
-                self.rowsAffected = self._integrationZ3()
-                if simplication_on:
-                    self.simplification_DoC(self.headerTable.name)
+                # if simplication_on:
+                #     if self._reasoning_engine.lower() == 'bdd':
+                #         self.simplification(self.output_table)
+                #     else:
+                #         self.simplification_DoC(self.output_table)
 
             else:
                 print("Unsupported reasoning engine", self._reasoning_engine)
                 exit()
 
-            if self._reasoning_engine.lower() == 'bdd':
+            if self._reasoning_engine.lower() == 'bdd' or self._reasoning_engine.lower() == 'docsolver':
                 cursor = self._conn.cursor()
                 cursor.execute("INSERT INTO {} SELECT * FROM {}".format(self.headerTable.name, self.output_table))
-                self._conn.commit()
 
-    @timeit
+    ########@timeit
     def getSelectSQL(self, mode = "contradiction", engine = "Z3"):
         arrayPart = parsing_utils.getArrayPart(self._constraintsZ3Format)
         tablesAsConditions = parsing_utils.getTablesAsConditions(self._tables)
@@ -180,7 +176,7 @@ class FaureEvaluation:
                     conditionPart = tablesAsConditions + " || Array[" + arrayPart + "]"
             else:
                 if engine == "BDD":
-                    conditionPart = tablesAsConditions + "::text[] as old_conditions, []"
+                    conditionPart = tablesAsConditions + "::text[] as old_conditions, Array[]"
                 else:
                     conditionPart = tablesAsConditions
             if engine == "BDD":
@@ -206,11 +202,10 @@ class FaureEvaluation:
             print("implication mode not supported yet", mode)
             exit()    
 
-    @timeit
+    ########@timeit
     def _integrationZ3(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition****************************")
-        self._conn.commit()
         cursor = self._conn.cursor()
         select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode)
         if self._information_on:
@@ -234,6 +229,7 @@ class FaureEvaluation:
             print("\ncombined executing time: ", self.data_time)
         return cursor.rowcount
     
+    @timeit
     def _integrationBDD(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition for BDD****************************")
@@ -245,7 +241,6 @@ class FaureEvaluation:
         data_sql = "create table {} as {}".format(self.output_table, select_sql)
         cursor.execute(data_sql)
         end_data = time.time()
-        self._conn.commit()
         if self._information_on:
             print(select_sql)
         
@@ -253,7 +248,7 @@ class FaureEvaluation:
             print("\ncombined executing time: ", end_data-begin_data)
         return cursor.rowcount
     
-    @timeit
+    ########@timeit
     def _integration_implication_mode(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition****************************")
@@ -275,15 +270,13 @@ class FaureEvaluation:
         if self._information_on:
             print("\ncombined executing time: ", self.data_time)
         # start = time.time()
-        self._conn.commit()
         # end = time.time()
         # logging.info("Time: Commit took {}".format(end-start))
 
-    @timeit
+    ########@timeit
     def _append_additional_condition(self):
         cursor = self._conn.cursor()
         cursor.execute("update {} set condition = condition || Array['{}']".format(self.output_table, self._additional_condition))
-        # conn.commit()
 
     @timeit
     def _upd_condition_BDD(self):
@@ -293,7 +286,6 @@ class FaureEvaluation:
 
         # if 'id' not in self.column_datatype_mapping:
         cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
-        #self._conn.commit()
 
         select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
         if self._information_on:
@@ -305,11 +297,13 @@ class FaureEvaluation:
 
         count_num = cursor.rowcount
         data_tuples = cursor.fetchall()
-        self._conn.commit()
-        #self._conn.commit()
         new_reference_mapping = {}
+        del_tuple = []
+        update_tuple = {}
+        parsing_time = 0
+        simplification_time = 0
         for i in tqdm(range(count_num)):
-            
+            start = time.time()
             (old_conditions, conjunction_conditions, id) = data_tuples[i]
             
             '''
@@ -322,9 +316,8 @@ class FaureEvaluation:
                 conjunction_condition = "And({})".format(",".join(conjunction_conditions))
             if len(conjunction_conditions) != 0:
                 # conjunction_str = "And({})".format(", ".join(conjunction_conditions))
-                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunction_condition)
+                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunction_condition)                
             
-
             '''
             Logical AND all original conditions for all tables
             '''
@@ -337,6 +330,26 @@ class FaureEvaluation:
                 new_reference_mapping[id] = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
             else:
                 new_reference_mapping[id] = old_bdd
+            end = time.time()
+            parsing_time += (end-start)
+            if self._simplification_on:
+                row = cursor.fetchone()
+                if self._reasoning_engine.lower() == "docsolver":
+                    simplifiedCond = self._reasoning_tool.simplifyCondition(new_reference_mapping[id])
+                    if simplifiedCond == None:
+                        del_tuple.append(id)
+                    else:
+                        update_tuple[id] = simplifiedCond
+                else:
+                    simplifiedCond = self._reasoning_tool.simplifyCondition(new_reference_mapping[id])
+                    is_contrad = self._reasoning_tool.iscontradiction(row[1])
+                    if is_contrad:
+                        del_tuple.append(row[0])
+            end2 = time.time()
+            simplification_time += (end2-end)
+
+        logging.info(f'Time: updbdd_parsing took {parsing_time:.4f}')
+        logging.info(f'Time: updbdd_simplification took {simplification_time:.4f}')
 
         '''
         add condition column of text[] type
@@ -344,22 +357,31 @@ class FaureEvaluation:
         '''
         sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, add column condition text[]".format(self.output_table)
         cursor.execute(sql)
-        #self._conn.commit()
 
-        begin_upd = time.time()
-        for key in new_reference_mapping.keys():
-            sql = "update {} set condition = Array[{}] where id = {}".format(self.output_table, new_reference_mapping[key], key)
-            cursor.execute(sql)
-        end_upd = time.time()
-
-        self.update_condition_time['update_condition'] = end_upd - begin_upd
-        #self._conn.commit()
+        # delete contradictions
+        if self._information_on:
+            print("Deleting {} tuples".format(str(len(del_tuple))))
+        if len(del_tuple) == 0:
+            pass
+        elif len(del_tuple) == 1:
+            cursor.execute("delete from {} where id = {}".format(self.output_table, del_tuple[0]))
+        else:
+            cursor.execute("delete from {} where id in {}".format(self.output_table, tuple(del_tuple)))
+        if self._information_on:
+            print("Deleting done")
+            print("Updating {} tuples".format(str(len(update_tuple))))
+                  
+        #TODO: Update columns, possibly in bulk?
+        for id in update_tuple:
+            cursor.execute("UPDATE {} SET condition = Array['{}'] WHERE id = {}".format(self.output_table, update_tuple[id], id))
+        if self._information_on:
+            print("Update done")
+        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(self.output_table))
 
         sql = "alter table if exists {} drop column if exists id".format(self.output_table)
         cursor.execute(sql)
-        self._conn.commit()
 
-    @timeit
+    ########@timeit
     def _reserve_tuples_by_checking_implication_z3(self):
         if self._information_on:
             print("\n************************Step 2: reserve tuples by checking implication****************************")
@@ -367,7 +389,6 @@ class FaureEvaluation:
 
         # if 'id' not in self.column_datatype_mapping:
         cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
-        #self._conn.commit()
 
         select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
         if self._information_on:
@@ -377,8 +398,6 @@ class FaureEvaluation:
 
         count_num = cursor.rowcount
         data_tuples = cursor.fetchall()
-        #self._conn.commit()
-
         
         update_tuples = []
         for i in range(count_num):
@@ -411,13 +430,11 @@ class FaureEvaluation:
 
         cursor.execute("drop table if exists {}".format(self.output_table))
         cursor.execute("alter table temp_{output} rename to {output}".format(output=self.output_table))
-        self._conn.commit()
         cursor.execute("insert into {head} select distinct * from {output} on conflict DO NOTHING".format(head=self.headerTable.name,output=self.output_table))
         b = cursor.rowcount
-        self._conn.commit()
         return b
 
-    @timeit
+    ########@timeit
     def simplification(self, target_table):
         cursor = self._conn.cursor()
         cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
@@ -446,51 +463,6 @@ class FaureEvaluation:
         contrd_end = time.time()
         self.simplication_time['contradiction'] = contrd_end - contrd_begin
         cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
-        self._conn.commit()
-
-
-    @timeit
-    def simplification_DoC(self, target_table):
-        cursor = self._conn.cursor()
-        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
-
-        '''
-        delete contradiction
-        '''
-        contrd_begin = time.time()
-        cursor.execute("select id, condition from {}".format(target_table))
-        contrad_count = cursor.rowcount
-        del_tuple = []
-        update_tuple = {}
-        
-        for i in tqdm(range(contrad_count)):
-            row = cursor.fetchone()
-            simplifiedCond = self._reasoning_tool.simplifyCondition(row[1])
-            if simplifiedCond == None:
-                del_tuple.append(row[0])
-            else:
-                update_tuple[row[0]] = simplifiedCond
-                
-        if self._information_on:
-            print("Deleting {} tuples".format(str(len(del_tuple))))
-        if len(del_tuple) == 0:
-            pass
-        elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
-        else:
-            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
-        if self._information_on:
-            print("Deleting done")
-            print("Updating {} tuples".format(str(len(update_tuple))))
-                  
-        #TODO: Update columns, possibly in bulk?
-        for id in update_tuple:
-            cursor.execute("UPDATE {} SET condition = Array['{}'] WHERE id = {}".format(target_table, update_tuple[id], id))
-        if self._information_on:
-            print("Update done")
-        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
-
-        self._conn.commit()
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"

@@ -11,7 +11,7 @@ from utils.logging import timeit
 
 ############################################ Condition Tree Parsing ##################################
 # conditions end in either a comma or a bracket. A comma in array is not counted
-@timeit 
+########@timeit 
 def findCondEnd(condition, startPos):
 	inSquareBrackets = False
 	index = startPos
@@ -27,7 +27,7 @@ def findCondEnd(condition, startPos):
 	return index
 
 # conditions end in either a comma or a bracket. A comma in array is not counted
-@timeit 
+########@timeit 
 def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">=", "<", "<="]):
 	i = startPos
 	while i+2 < endPos:
@@ -314,7 +314,7 @@ def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 
 # Input: Tables for joining (e.g. ['C t0', 'C t1', 'C t2', 'B t3'])
 # Output Example: t0.condition || t1.condition || t2.condition || t3.condition
-@timeit
+########@timeit
 def getTablesAsConditions(tables = [], colmName = "condition"):
 	tableRefs = []
 	for table in tables:
@@ -325,7 +325,7 @@ def getTablesAsConditions(tables = [], colmName = "condition"):
 ############################################ Helper Parsing ##################################
 # given a variable and its type, returns the negative integer condition
 # not adding any or all here. Need to keep track of this when doiing sql conversion. ALL only when != used.
-@timeit
+########@timeit
 def _negativeIntCondition(var, var_type):
 	if "inet_faure" in var_type: # inet list
 		return "'0.0.255.0' > " + var
@@ -333,7 +333,7 @@ def _negativeIntCondition(var, var_type):
 		return "0 > " + var
 	
 # Returns true if the var is a digit or an IP
-@timeit
+########@timeit
 def _isConstant(var):
 	if _isInt(var) or isIP(var) or isTernary(var):
 		return True
@@ -404,7 +404,7 @@ def _convertToZ3Var(var, reasoningType, bits = 32):
 		return "z3.IntVal('{}')".format(var)
 
 ############################################ Atom Parsing ##################################
-@timeit
+########@timeit
 def split_atoms(bodystr):
 	i = 0
 	in_cond = False
@@ -437,7 +437,7 @@ def split_atoms(bodystr):
 	
 	return atom_strs
 
-@timeit
+########@timeit
 # paramstring is anything in an atom after the table name and initial bracket
 def getAtomParameters(paramString):
 	parameters = []

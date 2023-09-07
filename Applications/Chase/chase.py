@@ -25,7 +25,7 @@ STR_RELATED_TYPES = ['char', 'text']
 # conn = psycopg2.connect(host=cfg.postgres['host'], database=cfg.postgres['db'], user=cfg.postgres['user'], password=cfg.postgres['password'])
 # cursor = conn.cursor()
 
-@timeit
+########@timeit
 def load_table(conn, attributes, datatypes, tablename, data_instance):
     """
     Load data instance into database
@@ -54,7 +54,7 @@ def load_table(conn, attributes, datatypes, tablename, data_instance):
     execute_values(cursor, "insert into {} values %s".format(tablename), data_instance)
     conn.commit()
 
-@timeit
+########@timeit
 def gen_inverse_image(conn, E_tuples, gamma_tablename):
     """
     generate inverse image of gamma table over end-to-end connectivity view
@@ -188,7 +188,7 @@ def print_dependency(dependency):
     print(dependency['dependency_summary_condition'])
     print("*************************")
 
-# @timeit
+# ########@timeit
 def apply_policy(conn, policy, inverse_image_tablename):
     # print("\n=====================policy begin============================")
 
@@ -214,7 +214,7 @@ def print_table(conn, intial_T_tablename='t_random'):
 
     conn.commit()
 
-# @timeit
+# ########@timeit
 def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
     # print("\n=====================policy begin============================")
 
@@ -237,7 +237,7 @@ def apply_policy_as_atomic_unit(conn, policy, inverse_image_tablename):
     # print("=====================policy end============================\n")
     return atomic_unit_update, count_application
 
-# @timeit
+# ########@timeit
 def apply_dependency(conn, dependency, inverse_image_tablename):
     """
     Main function of chase to apply dependencies. Calls apply_tgd and apply_egd.
@@ -325,7 +325,7 @@ def apply_dependency_as_atomic(conn, dependency, inverse_image_tablename):
 
     return atomic_unit_updated, count_applications
 
-@timeit
+########@timeit
 def apply_edg_for_firewall(conn, dependency, inverse_image_tablename):
     """
     If the dependency_summary of dependency is empty, it is a firewall, i.e., deletion
@@ -366,7 +366,7 @@ def apply_edg_for_firewall(conn, dependency, inverse_image_tablename):
 
     return does_updated
 
-@timeit
+########@timeit
 def apply_sigma_new_atomically_toy(conn, sqls, inverse_image_tablename):
     '''
     forward propogation forwarding
@@ -468,7 +468,7 @@ def apply_sigma_new_atomically(conn, inverse_image_tablename, subpath_tablename)
     conn.commit()
     return does_updated
 
-# @timeit
+# ########@timeit
 def apply_tgd(conn, dependency, inverse_image_tablename):
     """
     Apply tgd dependency, calls by apply_dependency()
@@ -544,7 +544,7 @@ def apply_tgd(conn, dependency, inverse_image_tablename):
     # conn.commit()
     return does_updated
 
-@timeit
+########@timeit
 def getCurrentTable(conn, tablename):
     """
     Returns the table tuples from postgres of the table given as a parameter
@@ -555,7 +555,7 @@ def getCurrentTable(conn, tablename):
     conn.commit()
     return table
 
-@timeit
+########@timeit
 def replace_z_table(conn, tablename, new_table):
     """
     Replaces a given table with a new one (new_table given as tuples)
@@ -567,7 +567,7 @@ def replace_z_table(conn, tablename, new_table):
     Z_attributes_datatypes = ['text', 'text', 'text', 'text', 'text']
     load_table(conn, Z_attributes, Z_attributes_datatypes, tablename, new_table)
 
-@timeit
+########@timeit
 def applySourceDestPolicy_new(conn, Z_tablename):
     """
     Apply dest-based forwarding policy in Postgres
@@ -620,7 +620,7 @@ def applySourceDestPolicy_new(conn, Z_tablename):
 
     return does_updated
 
-@timeit
+########@timeit
 def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
 
     forwarding_sql = "select f, array_agg(src) as src, array_agg(dst) as dst from {Z_tablename} group by f".format(Z_tablename=Z_tablename)
@@ -667,7 +667,7 @@ def gen_update_SQLs_for_dest_based_forwarding(conn, Z_tablename):
     upd_sql = "update {} set src = updated_src, dst = updated_dst from ( values %s) as updatedvalues (flowid, updated_src, updated_dst) where f = flowid".format(Z_tablename)
     return upd_sql, upd_tuples
 
-@timeit
+########@timeit
 def applySourceDestPolicy(conn, Z_tablename):
     """
     Apply dest-based forwarding policy in main memory with python
@@ -708,7 +708,7 @@ def applySourceDestPolicy(conn, Z_tablename):
 
     return True
 
-@timeit
+########@timeit
 def applyRewritePolicy(conn, dependency, Z_tablename):
     """
     # For rewrite policy (equalizing flow ids).
@@ -781,7 +781,7 @@ def applyRewritePolicy(conn, dependency, Z_tablename):
 
     return does_update
 
-# @timeit
+# ########@timeit
 def analyze_egd(dependency):
     dependency_summary = dependency['dependency_summary']
     dependency_tuples = dependency['dependency_tuples']
@@ -812,7 +812,7 @@ def analyze_egd(dependency):
                         break
     return replaced_symbol_idxs, replacing_symbol_idxs, replacing_constant
 
-# @timeit
+# ########@timeit
 def get_update_sqls_for_egd(conn, dependency, Z_tablename):
     dependency_sql = convert_dependency_to_sql(dependency, Z_tablename)
     # print("dependency_sql", dependency_sql)
@@ -1103,7 +1103,7 @@ def get_update_sqls_for_egd_old(conn, dependency, Z_tablename):
                         update_sqls.append(sql)
         return update_sqls
 
-# @timeit
+# ########@timeit
 def apply_egd(conn, dependency, inverse_image_tablename):
     """
     Apply egd dependency, calls by apply_dependency()
@@ -1142,7 +1142,7 @@ def apply_egd(conn, dependency, inverse_image_tablename):
         return True
     return False
 
-# @timeit
+# ########@timeit
 def analyze_dependency(dependency_tuples, dependency_attributes, Z):
     """
     Returns the position of each variable/constant in the dependency. Useful to check for equivalent variables/constants when converting to sql
@@ -1181,7 +1181,7 @@ def analyze_dependency(dependency_tuples, dependency_attributes, Z):
                     node_dict[var][idx].append(i)
     return node_dict, tables
 
-# @timeit
+# ########@timeit
 def convert_dependency_to_sql(dependency, Z):
     """
     Convert dependency to SQL 
@@ -1520,7 +1520,7 @@ def convert_dependency_to_sql_old(dependency, Z):
     
     return sql
 
-# @timeit
+# ########@timeit
 def get_summary_condition(dependency_attributes, dependency_summary_conditions, node_dict):
     """
     generate summary condition
@@ -1601,7 +1601,7 @@ def get_summary_condition(dependency_attributes, dependency_summary_conditions, 
             # print("conditions", conditions)
     return conditions
 
-# @timeit
+# ########@timeit
 def apply_E(conn, sql):
     """
     sql query is the tableau E in query form. 
@@ -1683,7 +1683,7 @@ def apply_E(conn, sql):
     
     return answer
 
-# @timeit
+# ########@timeit
 def gen_E_query(E, E_attributes, E_summary, Z, gamma_summary=None):
     """
     generate SQL of end-to-end connectivity view(tableau query of topology)

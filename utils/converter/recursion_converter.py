@@ -97,7 +97,7 @@ class RecursiveConverter:
         EDB relations
     
     """
-    @timeit
+    ########@timeit
     def __init__(self, program) -> None:
         self._program = program
         
@@ -105,7 +105,7 @@ class RecursiveConverter:
 
         # self.program_sqls = self.recursion_converter()
 
-    @timeit
+    ########@timeit
     def recursion_converter(self):
         rules = self._program._rules
 
@@ -122,7 +122,7 @@ class RecursiveConverter:
         # print("program_sqls", program_sqls)
         return program_sqls
 
-    @timeit
+    ########@timeit
     def _identify_relations(self):
         self.IDB_relations = []
         self.EDB_relations = []
@@ -142,7 +142,7 @@ class RecursiveConverter:
             if b_atom not in self.IDB_relations:
                 self.EDB_relations.append(b_atom)
 
-    @timeit
+    ########@timeit
     def _find_rules_for_IDB(self, IDB_relation, rules):
         base_rules = []
         recursive_rules = []
@@ -166,7 +166,7 @@ class RecursiveConverter:
                 remaining_rules.append(rule)
         return base_rules, recursive_rules, non_recursive_rules, remaining_rules
 
-    @timeit
+    ########@timeit
     def _generate_sql_for_each_IDB(self, IDB_relation, base_rules, recursive_rules, non_recursive_rules):
         
         # if no base rules, add a new base rule
@@ -246,7 +246,7 @@ class RecursiveConverter:
         # print("program_sql", program_sql)
         return program_sql
 
-    @timeit
+    ########@timeit
     def _add_base_rules(self, IDB_relation, recursive_rule):
         new_body = []
         head_atom = None

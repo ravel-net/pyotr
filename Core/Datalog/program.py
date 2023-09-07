@@ -60,6 +60,7 @@ class DT_Program:
     # Default values: "simplification_on"=False, "pg_native_recursion"=False, "recursive_rules"=True
     def __init__(self, program_str, database=None, reasoning_engine='z3', optimizations={}, bits = 32):
         self.rules = []
+        self.tempRules = [] # stores temporary rules for semi-naive
         # TODO IMPORTANT: The assignment of variables cannot be random. They have to be assigned based on the domain of any c variable involved
         self._program_str = program_str
         self.db = database
@@ -107,7 +108,7 @@ class DT_Program:
         return DT_Program_str[:-1] # removing the last \n
     
     # Uniform containment. self C dt_program2 (i.e. self program uniformly contains dt_program2)
-    @timeit
+    ########@timeit
     def contains(self, dt_program2):
         # consider rules in dt_program2 one by one, i.e., self contains rule1 of dt_program2, self contains rule2 of dt_program2, ...
         for rule in dt_program2.rules:
@@ -116,7 +117,7 @@ class DT_Program:
         return True
 
     # Execute this program
-    @timeit
+    ########@timeit
     def executeonce(self, conn, faure_evaluation_mode="contradiction"):
         if self._optimizations["pg_native_recursion"] and self._isFaureEval: # pg_recursion is only used to Datalog
             program_sqls = RecursiveConverter(self).recursion_converter()
@@ -133,7 +134,7 @@ class DT_Program:
             # conn.commit()
             return changed    
 
-    @timeit
+    ########@timeit
     def execute(self, conn, faure_evaluation_mode="contradiction", violationTables=[]):
         iterations = 0
         changed = True
@@ -166,9 +167,17 @@ class DT_Program:
         for rule in self.rules:
             rule.changeHeaderTable(IDBNamesChanges[rule._head.table.name])
 
+    # instead of self.rules, executes self.tempRules. Resets self.tempRules to an emptry array
+    def _executeoncetemp(self, conn):
+        rulesCopy = self.rules
+        self.rules = self.tempRules
+        self.executeonce(conn)
+        self.rules = rulesCopy
+        self.tempRules = []
+
     @timeit
     def execute_semi_naive(self, conn, faure_evaluation_mode="contradiction"):
-        if self._reasoning_engine.lower() == "bdd":
+        if self._reasoning_engine.lower() != "z3":
             for table in self.db.tables:
                 if not table.isEmpty(conn):
                     self.reasoning_tool.process_condition_on_ctable(conn, tablename=table.name)
@@ -182,6 +191,7 @@ class DT_Program:
             IDBNamesChanges[idb_predicate.name] = idb_predicate_delta
         P_prime.changeIDBNames(IDBNamesChanges)
         P_prime.executeonce(conn)
+        self.reasoning_tool.conditionTrees = P_prime.reasoning_tool.conditionTrees # TODO: Hacky method to copy state. Need a better fix
         i = 1
         changed = True
         iterationEndMapping = {} # stores the last iteration of each idb_predicate. The last iteration contains the final result
@@ -198,10 +208,9 @@ class DT_Program:
                     iterationEndMapping[idb_predicate.name] = idb_predicate.name+"_"+str(i-1)
                     continue
                 output_pred.unionDifference(conn, tableNames=[output_pred_previous_name, pred_delta_i.name]) # Computes S_i := S_(i-1) U S_delta_i and returns S_i
-                P_temp, P_temp_name = self.getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
+                P_temp_name = self.getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
                 idb_predicate.initiateNewTable(conn=conn, newName=P_temp_name)
-                P_temp.executeonce(conn)
-                conn.commit()
+                self._executeoncetemp(conn)
                 pred_delta_next = idb_predicate.initiateNewTable(conn=conn, newName="{}_delta_{}".format(pred_name,str(i+1)))
                 tuplesAdded = pred_delta_next.setDifference(conn=conn, table1Name = P_temp_name, table2Name = output_pred.name) # tuples added is a boolean which is true when new tuples are generated
                 if tuplesAdded != 0:
@@ -215,31 +224,35 @@ class DT_Program:
             if idb_predicate.name in iterationEndMapping:
                 idb_predicate.delete(conn)
                 idb_predicate.rename(conn, iterationEndMapping[idb_predicate.name])
+    
+    def restoreStringConditions(self, conn):
+        for table in self.db.tables:
+            print(table.name)
+            self.reasoning_tool.restoreStringConditions(conn, table.name)
+        conn.commit()
 
     # given an idb predicate with name=name on iteration number i, return rules that compute the temporary IDBs for iteration i+1
     # TODO: Change the iteration variable 'i' to something else, since i is confusing
+    @timeit
     def getTempRules(self, IDB_name, i):
-        tempProgram = deepcopy(self)
         idb_predicate_names = []
         newHeadName = ""
         allTempRules = []
         for predicate in self.idb_predicates:
             idb_predicate_names.append(predicate.name)
-        for rule in tempProgram.rules:
+        for rule in self.rules:
             if not rule.isRecursive:
                 continue
             if rule._head.table.name == IDB_name:
                 tempRules, newHeadName = rule.getTempRules(i=i, idb_predicates_names=idb_predicate_names) # return list of temp rules generated from that one rule
                 allTempRules += tempRules
-        numRules = len(tempProgram.rules)
-        for j in range(numRules):
-            tempProgram.__deleteRule(0)
+        numRules = len(self.rules)
         for tempRule in allTempRules:
-            tempProgram.rules.append(tempRule)
-        return tempProgram, newHeadName
+            self.tempRules.append(tempRule)
+        return newHeadName
 
 
-    @timeit
+    ########@timeit
     def executeonce_and_check_containment(self, conn, rule2):
         changedLocal = False
         for rule in self.rules:
@@ -251,7 +264,7 @@ class DT_Program:
         # conn.commit()
         # return changed
 
-    @timeit
+    ########@timeit
     def stats(self):
         numAtoms = 0
         for rule in self.rules:
@@ -345,42 +358,6 @@ class DT_Program:
         for param in range(numParameters):
             columns['c'+str(param)] = "integer"
         return DT_Table(name=tableName, columns=columns)
-    
-    @timeit
-    def simplifyInitial(self, conn, target_table):
-        cursor = conn.cursor()
-        print("Doing initial simplification")
-        cursor.execute("ALTER TABLE {} ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;".format(target_table))
-        '''
-        delete contradiction
-        '''
-        cursor.execute("select id, condition from {}".format(target_table))
-        contrad_count = cursor.rowcount
-        del_tuple = []
-        update_tuple = {}
-
-        for i in tqdm(range(contrad_count)):
-            row = cursor.fetchone()
-            simplifiedCond = self.reasoning_tool.simplifyConditionInitial(row[1])
-            if simplifiedCond == None:
-                del_tuple.append(row[0])
-            else:
-                update_tuple[row[0]] = simplifiedCond
-                
-        if len(del_tuple) == 0:
-            pass
-        elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(target_table, del_tuple[0]))
-        else:
-            cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
-                  
-        #TODO: Update columns, possibly in bulk?
-        for id in update_tuple:
-            cursor.execute("UPDATE {} SET condition = Array['{}'] WHERE id = {}".format(target_table, update_tuple[id], id))
-        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
-
-        conn.commit()
-
 
     @property
     def __numRules(self):
@@ -389,7 +366,7 @@ class DT_Program:
     def __getRule(self, ruleNum):
         return self.rules[ruleNum]
 
-    @timeit
+    ########@timeit
     def __minimizeAtoms(self):        
         for ruleNum in range(self.__numRules):
             rule = self.__getRule(ruleNum)
@@ -409,7 +386,7 @@ class DT_Program:
                 else:
                     atomNum += 1   
 
-    @timeit
+    ########@timeit
     def __minimizeRules(self):
         ruleNum = 0
         while ruleNum < self.__numRules: # replace for loop to while loop to avoid ruleNum out of list after deleting a rule
@@ -427,7 +404,7 @@ class DT_Program:
                 ruleNum += 1   
 
 
-    # @timeit
+    # ########@timeit
     # def __enhancedMinimization(self, constantUnificationOn = True):
     #     signatureBuckets = {}
     #     ruleName = {}

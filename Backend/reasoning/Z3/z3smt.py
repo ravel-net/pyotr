@@ -40,7 +40,7 @@ class z3SMTTools:
     _get_domain_str()
         get the domain condition with z3 datatype
     """
-    @timeit
+    ########@timeit
     def __init__(self, variables, domains={}, reasoning_type={}, mapping={}, bits = 32) -> None:
         """
         Parameters:
@@ -71,7 +71,7 @@ class z3SMTTools:
         if len((domain_str)) != 0:
             self.solver.add(eval(domain_str))
 
-    @timeit
+    ########@timeit
     def iscontradiction(self, conditions):
         """
         Parameters:
@@ -106,7 +106,7 @@ class z3SMTTools:
             self.solver.pop()
             return False
     
-    @timeit
+    ########@timeit
     def istauto(self, conditions):
         """
         Parameters:
@@ -138,7 +138,7 @@ class z3SMTTools:
         else:
             return False
     
-    @timeit
+    ########@timeit
     def has_redundancy(self, conditions):
         """
         Parameters:
@@ -246,7 +246,7 @@ class z3SMTTools:
         
         return has_redundant, final_result
 
-    @timeit
+    ########@timeit
     def condition_parser(self, condition):
         conditionTree = ConditionTree(condition).toString(mode = "Replace String", replacementDict=self._mapping)
         conditionTreeNegative = ConditionTree(conditionTree)
@@ -255,7 +255,7 @@ class z3SMTTools:
         else:
             return conditionTreeNegative.toString(mode = "Z3", reasoningType=self._reasoning_type, bits = self.bits)
     
-    @timeit
+    ########@timeit
     def is_implication(self, condition1, condition2):
         """
         Check if condition1 implies condition2
@@ -280,7 +280,7 @@ class z3SMTTools:
             self.solver.pop()
             return False
 
-    @timeit
+    ########@timeit
     def simplify_condition(self, condition):
         """
         Simplify a single condition
@@ -304,7 +304,7 @@ class z3SMTTools:
         
         return simplified_condition
 
-    @timeit
+    ########@timeit
     def _get_domain_str(self):
         domain_conditions = []
         

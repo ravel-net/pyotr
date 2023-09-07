@@ -19,7 +19,7 @@ import logging
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database="routeview", user=cfg.postgres["user"], password=cfg.postgres["password"])
 
-@timeit
+########@timeit
 def q4q5(f_table):
     F = DT_Table(name=f_table, columns={"fid":"text", "nid1":"integer_faure", "nid2":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
     R = DT_Table(name="{}_r".format(f_table), columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
@@ -34,7 +34,7 @@ def q4q5(f_table):
     program1.execute(conn)
     end = time.time()
 
-@timeit
+########@timeit
 def q6(r_table):
     T1 = DT_Table(name="T1", columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
     R = DT_Table(name=r_table, columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
@@ -52,7 +52,7 @@ def q6(r_table):
     program1.execute(conn)
     end = time.time()
 
-@timeit
+########@timeit
 def q7():
     T2 = DT_Table(name="T2", columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
     T1 = DT_Table(name="T1", columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
@@ -70,7 +70,7 @@ def q7():
     program1.execute(conn)
     end = time.time()
 
-@timeit
+########@timeit
 def q8(r_table):
     R = DT_Table(name=r_table, columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})
     T3 = DT_Table(name="T3", columns={"fid":"text", "source":"integer_faure", "dest":"integer_faure", "condition":"text[]"}, domain={"condition":['0', '1']}, cvars={"x":"condition", "y":"condition", "z":"condition", "u":"condition", "v":"condition"})

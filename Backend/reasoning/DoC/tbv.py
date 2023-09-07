@@ -20,7 +20,7 @@ class tbv:
     Functions:
     ----------
     """
-    @timeit
+    ########@timeit
     def __init__(self, tbvString="", bits = 32) -> None:
         """
         Parameters:
@@ -34,24 +34,6 @@ class tbv:
             self.value = tbvString
         self.bits = bits
         self.isUndefined = False
-
-    # calculates the intersection between two tbvs. If the intersection is not possible, makes the current tbv undefined
-    def intersectInplace(self, tbv2):
-        if len(self.value) != self.bits or len(tbv2.value) != self.bits:
-            print("Number of bits do not match. Cannot calculate intersection in place")
-            exit()
-        newBit = ""
-        for bit in range(self.bits):
-            if self.value[bit] == "x":
-                newBit += tbv2.value[bit]
-            elif tbv2.value[bit] == "x":
-                newBit += self.value[bit]
-            elif tbv2.value[bit] != self.value[bit]:
-                newBit += "z"
-                self.isUndefined = True
-            else:
-                newBit += self.value[bit]
-        self.value = newBit
     
     # calculates the intersection between two tbvs. If the intersection is not possible, makes the current tbv undefined
     def intersect(self, tbv2):
@@ -121,4 +103,4 @@ class tbv:
         return count, index
 
     def __str__(self):
-        return "#"+self.value
+        return "#"+str(self.value)

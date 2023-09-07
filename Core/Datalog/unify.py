@@ -14,7 +14,7 @@ N = 2
 
 
 # Note: We do not take into account cases where a c-variable appears in the head but not in the body
-@timeit
+########@timeit
 def unify(rule1, rule2, rule1Name, constantUnificationOn = True):
 	rule3, C1_head, C1_body = getEquivalentRule(rule1, rule1Name, constantUnificationOn)
 	rule2_without_Faure = rule2.getRuleWithoutFaure()
@@ -25,7 +25,7 @@ def unify(rule1, rule2, rule1Name, constantUnificationOn = True):
 	finalRule = getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn)
 	return finalRule
 
-@timeit
+########@timeit
 # Performs simplification of conditions and returns a new rule
 def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn):
 	# Delete repeated conditions
@@ -59,7 +59,7 @@ def getNewRule(C1_head, C1_body, C2_head, C2_body, rule3, constantUnificationOn)
 	newRule = DT_Rule(rule3Str, databaseTypes=rule3._databaseTypes, operators=rule3._operators, domains=rule3._domains, c_variables=rule3._c_variables, reasoning_engine=rule3._reasoning_engine, reasoning_type=rule3._reasoning_type, datatype=rule3._datatype, simplification_on=rule3._simplication_on, c_tables = rule3._c_tables, headAtom="", bodyAtoms = [], additional_constraints=[newBodyCondition]) #todo: additional_constraints=rule3._additional_constraints+newCondition
 	return newRule
 
-@timeit
+########@timeit
 def getSimplifiedCondition(operator, condList):
 	if "" in condList:
 		condList.remove("")
@@ -72,7 +72,7 @@ def getSimplifiedCondition(operator, condList):
 
 
 # Takes two list of conditions involving c-variables. If any condition is common in both lists, the c-variable is replaced by a constant. e.g. getCVarReplacements([a == 3, b == 2], [a == 3, b ==4]) results in {a: 3} 
-@timeit
+########@timeit
 def getCVarReplacements(conditions1, conditions2):
 	cVarReplacements = {}
 	for cond1 in conditions1.copy():
@@ -93,7 +93,7 @@ def getCVarReplacements(conditions1, conditions2):
 # Constants is equality
 # C-variables is replacement of conditions from rule 2
 # Variable is ignoring
-@timeit
+########@timeit
 def getConditions(substitution, rule, rule2, r2_without_faure, ruleName, constantUnificationOn):
 	conditions = []
 	for atom in rule2._body:
@@ -165,7 +165,7 @@ def getConditions(substitution, rule, rule2, r2_without_faure, ruleName, constan
 	return replacedHeadConditions, replacedBodyConditions
 
 # takes in a tuple and removes the last column
-@timeit
+########@timeit
 def removeCondition(strTuple):
 	i = len(strTuple)-1
 	inBracketCount = 0
@@ -181,7 +181,7 @@ def removeCondition(strTuple):
 # takes a particular substitution and returns the corresponding atoms
 # e.g. given getAtomSubstitutions((100,1,{})', '(2,100,3,{})', '(100,1,{})'), ["l t0", "k t1", "l t2"] 
 # returns {l(100,1),l(2,100,3),l(100,1) 
-@timeit
+########@timeit
 def getAtomSubstitutions(substitution, tables_r2):
 	substitutedAtoms = []
 	for i in range(len(substitution)):
@@ -194,7 +194,7 @@ def getAtomSubstitutions(substitution, tables_r2):
 
 # Get substitutions for which there is equivalence between rule and rule2
 # The intuition is that the correct substitutions should contain all constants and c-variables that the data instance rule (rule2) had
-@timeit
+########@timeit
 def getEquivalentSubstitutionsDB(rule3, r2_without_faure):
 	substitutions_r3_to_r2, tables_r2 = getSubstitutions(rule3, r2_without_faure) 
 	if len(substitutions_r3_to_r2) == 0: # no substitutions found so no way to align atoms
@@ -233,7 +233,7 @@ def getEquivalentSubstitutionsDB(rule3, r2_without_faure):
 			return tuple(substitution)
 	return None # if we reach this point without returning substitutions, that means we didn't find the correct substitution and need to return
 
-@timeit
+########@timeit
 # Checks if two parameters match given the mapping
 def matchParams(param1, param2, mappings):
 	if isinstance(param1, list):
@@ -250,7 +250,7 @@ def matchParams(param1, param2, mappings):
 		mappings[param1] = param2
 	return True
 
-@timeit
+########@timeit
 # returns substitutions in the same format as the DB version: e.g. ('(1,2)', '(1,3)', '(1,4)', '(3,10000)')
 def getSubstitutionsMapping(rule3, r2_without_faure, mappings):
 	completeSubstitutions = []
@@ -276,7 +276,7 @@ def getSubstitutionsMapping(rule3, r2_without_faure, mappings):
 	return tuple(completeSubstitutions)
 
 
-@timeit
+########@timeit
 # Attempts to try all possible cominations of pattern matching rule3 with r2_without_faure
 def getEquivalentSubstitutionsBruteForce(rule3, r2_without_faure):
 	all_combinations = list(permutations(rule3._body))
@@ -330,7 +330,7 @@ def getEquivalentSubstitutions(rule3, r2_without_faure):
 
 
 # Treats rule as program and rule2 as data and finds substitutions that enable homomorphism between rule and rule2
-@timeit
+########@timeit
 def getSubstitutions(rule, rule2_without_Faure):
 	conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 	conn.set_session()
@@ -350,7 +350,7 @@ def getSubstitutions(rule, rule2_without_Faure):
 	return result, tables
 
 # Takes a rule as input and returns a new rule that has all parameters replaced with c-variables. 
-@timeit
+########@timeit
 def getEquivalentRule(rule, ruleName, constantUnificationOn):
 	newAtoms = []
 	newConditions = []
@@ -401,7 +401,7 @@ def isConstant(param):
 # Function assumes that atom1 and atom2 can be combined together
 # Takes two atoms and returns a combined atom
 # Atom number means atomName 
-@timeit
+########@timeit
 def getEquivalentAtom(atom, rule, atomName, constantUnificationOn):
 		table = atom.db["name"]
 		conditions = []

@@ -23,7 +23,7 @@ logging.basicConfig(filename='program.log', level=logging.DEBUG)
 logging.debug('[run_script] Start Logging ...')
 
 
-@timeit
+########@timeit
 def run_ordering_strategies_new(conn, runs=10,  num_hosts_list=[2], inverse=False, random_path=True, ordering_strategy='random', orderings=None, mode='all'):
     AS_num = 7018
 
@@ -83,7 +83,7 @@ def run_ordering_strategies_new(conn, runs=10,  num_hosts_list=[2], inverse=Fals
         if os.path.isfile('program.log'):
             os.rename('program.log', 'host{}_{}Order_{}Mode_{}.log'.format(num_hosts, ordering_strategy, mode, datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
-@timeit
+########@timeit
 def run_ordering_strategies_single_gamma_allpairshosts(conn, runs=10,  num_hosts_list=[2], inverse=False, random_path=True, ordering_strategy='random', orderings=None):
     AS_num = 7018
 
@@ -155,7 +155,7 @@ def run_ordering_strategies_single_gamma_allpairshosts(conn, runs=10,  num_hosts
         if os.path.isfile('program.log'):
             os.rename('program.log', 'host{}_{}Order_{}.log'.format(num_hosts, ordering_strategy, datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
-@timeit
+########@timeit
 def run_ordering_strategies_single_gamma(conn, runs=10, num_policies_list=[14], is_aggresive=False, random_path=True, ordering_strategy='random', orderings=None, num_related_policies = 4):
     AS_num = 7018
 
@@ -231,7 +231,7 @@ def run_ordering_strategies_single_gamma(conn, runs=10, num_policies_list=[14], 
         if os.path.isfile('program.log'):
             os.rename('program.log', 'NumPolicies{}_Order{}_Is{}Aggr_{}.log'.format(num_policies, ordering_strategy, "Not" if not is_aggresive else "", datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
-@timeit
+########@timeit
 def run_ordering_strategies_single_gamma_with_atomic_policy(conn, runs=10, num_policies_list=[14], is_aggresive=False, random_path=True, ordering_strategy='random', orderings=None):
     AS_num = 7018
 
@@ -307,7 +307,7 @@ def run_ordering_strategies_single_gamma_with_atomic_policy(conn, runs=10, num_p
         if os.path.isfile('program.log'):
             os.rename('program.log', 'NumPolicies{}_Order{}_Is{}Aggr_{}.log'.format(num_policies, ordering_strategy, "Not" if not is_aggresive else "", datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
-@timeit
+########@timeit
 def run_ordering_strategies_single_gamma_per_atomic_policy(conn, runs=10, num_policies_list=[14], is_aggresive=False, random_path=True, ordering_strategy='random', orderings=None, num_related_policies = 4, exists_security_hole=True):
     AS_num = 7018
 
@@ -386,7 +386,7 @@ def run_ordering_strategies_single_gamma_per_atomic_policy(conn, runs=10, num_po
             os.rename('program.log', 'NumPolicies{}_Order{}_Is{}Aggr_{}.log'.format(num_policies, ordering_strategy, "Not" if not is_aggresive else "", datetime.datetime.now().strftime('%Y%m%d%H%M%S')))
 
 
-@timeit
+########@timeit
 def run_experiments(conn, runs=1, num_hosts=3, random_path=True, unit="policy", order_strategy="random", num_policies_list=[2], num_related_policies=2):
     AS_num = 7018
 

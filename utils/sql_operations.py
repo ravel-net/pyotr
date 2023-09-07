@@ -8,7 +8,7 @@ from utils.logging import timeit
 import psycopg2 
 
 # check if the table given is empty or not
-@timeit 
+# @timeit 
 def isEmpty(conn, name):
 	cursor = conn.cursor()
 	cursor.execute("SELECT count(*) from {}".format(name)) # check if empty

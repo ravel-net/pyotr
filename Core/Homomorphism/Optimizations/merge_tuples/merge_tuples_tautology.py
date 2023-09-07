@@ -19,7 +19,7 @@ cursor = conn.cursor()
 
 OPEN_OUTPUT = False
 
-@timeit
+########@timeit
 def merge_tuples(tablename, out_tablename, z3tools, simplification_on=True, information_on=False):
     """
     merge rows which are the same data portion:

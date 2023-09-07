@@ -168,7 +168,7 @@ class DT_Table:
         cursor.execute(table_creation_query)
 
     # Given a colm index, return the colm type
-    @timeit
+    ########@timeit
     def getColmType(self, i):
         j = 0
         for colmName in self.columns:

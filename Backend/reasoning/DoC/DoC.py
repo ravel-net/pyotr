@@ -22,7 +22,6 @@ class DoC:
     Functions:
     ----------
     """
-    @timeit
     def __init__(self, name, posStrings, negStrings=[], bits = 32) -> None:
         """
         Parameters:
@@ -50,7 +49,7 @@ class DoC:
         pos = tbv(tbvString=posStrings[0], bits=self.bits)
         for tbvString in posStrings:
             currTbv = tbv(tbvString=tbvString, bits=self.bits)
-            pos.intersectInplace(currTbv)
+            pos = pos.intersect(currTbv)
             # if pos.isUndefined:
                 # print("Issue in intersection between {} and {}".format(str(pos), tbvString))
                 # print(pos)
@@ -60,7 +59,6 @@ class DoC:
     # Contradiction if positive is undefined or if any negative value contains the positive value
     # TODO: We do not check if collectively the negative conditions lead to a contradiction
     # For example, i = 1**, i != 1*0, i != 1*1 will not show up as a contradiction here
-    # Might be useful to implement fold to fix this issue
     def hasContradiction(self):
         if self.pos.isUndefined:
             return True

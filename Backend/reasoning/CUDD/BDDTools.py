@@ -10,7 +10,7 @@ from Core.Datalog.conditionTree import ConditionTree
 
 class BDDTools:
 
-    @timeit
+    ########@timeit
     def __init__(self, variables, domains={}, reasoning_types={}, mapping = {}, bits = 32) -> None:
         # assume all variables have the same domain
         # if len(domains.keys()) == 0:
@@ -38,7 +38,7 @@ class BDDTools:
         for var in upd_variables:
             self.varToIntMapping[var] = str(count)
             count += 1
-    @timeit
+    ########@timeit
     def str_to_BDD(self, condition):
         # print("condition", condition)
         conditionTree = ConditionTree(condition).toString(mode = "Replace String", replacementDict=self._mapping)
@@ -52,24 +52,24 @@ class BDDTools:
         bdd_condition_idx = bddmm.str_to_BDD(encoded_c)
         return bdd_condition_idx
 
-    @timeit
+    ########@timeit
     def operate_BDDs(self, bdd_idx1, bdd_idx2, operator):
         result_idx = bddmm.operate_BDDs(int(bdd_idx1), int(bdd_idx2), operator)
 
         return result_idx
     
-    @timeit
+    ########@timeit
     def is_implication(self, bdd_idx1, bdd_idx2):
         if bddmm.is_implication(bdd_idx1, bdd_idx2) == 1:
             return True
         else:
             return False
 
-    @timeit
+    ########@timeit
     def evaluate(self, bdd_idx):
         return bddmm.evaluate(bdd_idx)
 
-    @timeit
+    ########@timeit
     def is_equivalent(self, bdd_idx1, bdd_idx2):
         return self.is_implication(bdd_idx1, bdd_idx2) and self.is_implication(bdd_idx2, bdd_idx1)
 
@@ -83,7 +83,7 @@ class BDDTools:
         else:
             return False
 
-    @timeit
+    ########@timeit
     def process_condition_on_ctable(self, conn, tablename):
         """
         convert text condition to BDD reference in a c-table

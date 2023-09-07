@@ -57,7 +57,7 @@ class DT_Rule:
     isHeadContained(conn)
         run sql query to check if the head of the rule is contained or not in the output. This is useful to terminate program execution when checking for containment. Conversion to sql and execution of sql occurs here
     """
-    @timeit
+    ########@timeit
     def __init__(self, rule_str="", operators=[], reasoning_tool=None, headAtom=None, bodyAtoms=[], additional_constraints=[], database=None, optimizations={}):
         self._additional_constraints = []
         self.db = database
@@ -92,9 +92,10 @@ class DT_Rule:
                     self.isRecursive = True
             self.generateRule(head=head, body=body, operators=operators, optimizations=self.optimizations, database=self.db)
 
-    @timeit
+    ########@timeit
     #temp_S_(i+1)←R1(v1),...,Rn(vn), Ti 1(w1),...,Ti j−1(wj−1),i Tj (wj),Ti−1 j+1(wj+1),...,Ti−1 m (wm)
     # Where T_i are IDB predicates
+    ###@timeit
     def getTempRules(self, i, idb_predicates_names):
         tempRules = [] # number of temp rules correspond to the number of IDB predicates in rule
         sharedBody = []
@@ -114,7 +115,7 @@ class DT_Rule:
         return tempRules, newHeadName
 
     # Given a list of atoms and an iteration level, returns atoms with that particular iteration level
-    @timeit
+    ########@timeit
     def _getAtomOnIteration(self, idb_preds_in_body, i):
         body = []
         for atom in idb_preds_in_body:
@@ -122,7 +123,7 @@ class DT_Rule:
         return body
 
     # newTable is of type DT_Table
-    @timeit
+    ########@timeit
     def changeHeaderTable(self, newTable):
         self._head.table = newTable
 
@@ -133,7 +134,7 @@ class DT_Rule:
                 return False        
         return True
     
-    @timeit
+    ###@timeit
     def _addVars(self):
         #TODO: Function to add c-vars and vars 
         for currAtom in self._body:
@@ -147,7 +148,7 @@ class DT_Rule:
                 if var not in self._c_variables:
                     self._c_variables.append(var)
 
-    @timeit
+    ########@timeit
     def generateRule(self, head, body, operators=[], optimizations={}, database=None):
         self._variables = [] 
         self._c_variables = [] 
@@ -218,9 +219,9 @@ class DT_Rule:
                     self._reverseMapping[100000+i] = var
                     i += 1
 
-    @timeit
+    ########@timeit
     # Includes the select part of query including datatype
-    @timeit
+    ########@timeit
     def calculateSelect(self):
         selectColumns = []
         for i, colName in enumerate(self._head.table.columns):
@@ -238,7 +239,7 @@ class DT_Rule:
     def deleteAtom(self, atomNum):
         del self._body[atomNum]
 
-    @timeit
+    ########@timeit
     def copyWithDeletedAtom(self, atomNum):
         newRule_head = self._head
         newRule_body = []
@@ -253,7 +254,7 @@ class DT_Rule:
         newRule = DT_Rule(rule_str="", database=self.db, operators=self._operators, reasoning_tool=self.reasoning_tool, headAtom=newRule_head, bodyAtoms = newRule_body, additional_constraints=self._additional_constraints, optimizations=self.optimizations)
         return newRule
 
-    @timeit
+    ########@timeit
     def addConstants(self, conn, cVarMappingReverse):
         self.initiateDB(conn)
         for atom in self._body:
@@ -264,7 +265,7 @@ class DT_Rule:
             for ctablename in self._c_tables:
                 self.reasoning_tool.process_condition_on_ctable(conn, ctablename)
 
-    @timeit
+    ########@timeit
     def convertRuleToSQL(self):
         sql = "select " + ", ".join(self._summary_nodes) + " from " + ", ".join(self._tables)
         if len(self._constraints) > 0:
@@ -272,12 +273,12 @@ class DT_Rule:
         return sql
 
     # initiates database of rule
-    @timeit
+    ########@timeit
     def initiateDB(self, conn):
         for atom in self._body:
             atom.table.initiateTable(conn)
 
-    @timeit
+    ########@timeit
     def convertRuleToSQLPartitioned(self):
         patternMatchingVars = self._variables + self._c_variables
         variableList = {} # stores variable to table.column mapping. etc: {'x': ['F.c0'], 'w': ['F.c1', 'R.c0'], 'z': ['R.c2', 'F.c1'])
@@ -335,7 +336,7 @@ class DT_Rule:
 
     # TODO: simplify this code. This should be easier
     # TODO: Move to atom
-    @timeit 
+    ########@timeit 
     def getSummaryNodes(self, variableList):
         summary_nodes = []
         for idx, param in enumerate(self._head.parameters):
@@ -384,7 +385,7 @@ class DT_Rule:
                             summary_nodes.append("{}::{} as {}".format(variableList[param][0], self._head.table.getColmType(idx), self._head.table.getColmName(idx)))
         return summary_nodes
 
-    @timeit
+    ########@timeit
     def execute(self, conn, faure_evaluation_mode="contradiction"):
         if len(self._c_tables) == 0:
             cursor = conn.cursor()
@@ -406,7 +407,7 @@ class DT_Rule:
             return self.run_with_faure(conn, self.sql, faure_evaluation_mode)
         return changed
 
-    @timeit
+    ########@timeit
     def isHeadContained(self, conn):
         if len(self._c_variables) != 0:
             return self.is_head_contained_faure(conn)
@@ -453,7 +454,7 @@ class DT_Rule:
         return contained
     
     # Check if two variables/constants/c_variables are the same
-    @timeit
+    ########@timeit
     def _equal_faure(self, elem1, elem2):
         elem1 = elem1.strip().replace("'","")
         elem2 = elem2.strip().replace("'","")
@@ -463,7 +464,7 @@ class DT_Rule:
             return (str(elem1) == str(elem2))
 
     # Check if two lists have the same data portion
-    @timeit
+    ########@timeit
     def _sameDataPortion(self, list1, list2):
         for i, elem in enumerate(list1):
             elem2 = list2[i]
@@ -485,7 +486,7 @@ class DT_Rule:
     # 2. Finds out the target head tuple (by mapping the variables to assigned constants)
     # 3. Loops over all tuples to see if target tuple is found
     # 4. Checks if the condition of the head implies the condition in the found tuple 
-    @timeit
+    ########@timeit
     def is_head_contained_faure(self, conn):
         cursor = conn.cursor()
         contains = False
@@ -594,7 +595,7 @@ class DT_Rule:
                     exit()
         return contains
 
-    @timeit
+    ########@timeit
     def run_with_faure(self, conn, program_sql, faure_evaluation_mode="contradiction"):
         header_table = self._head.table
         '''

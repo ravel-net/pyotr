@@ -49,7 +49,7 @@ def print_table(conn, intial_T_tablename='t_random', intital_T_attributes=['F', 
 
     conn.commit()
 
-@timeit
+########@timeit
 def gen_gamma_table(conn, block_list, in_hosts, out_hosts, gamma_tablename, gamma_attributes, gamma_datatypes, case):
     """ 
     generate whitelists for 'relevant' case
@@ -91,7 +91,7 @@ def gen_gamma_table(conn, block_list, in_hosts, out_hosts, gamma_tablename, gamm
 
     return gamma_summary
 
-@timeit
+########@timeit
 def update_table(conn, tuples, tablename):
     """
     change the data instance of table `tablename`
@@ -113,7 +113,7 @@ def update_table(conn, tuples, tablename):
     execute_values(cursor, "insert into {} values %s".format(tablename), tuples)
     conn.commit()
 
-# @timeit
+# ########@timeit
 def gen_distributed_invariants_information(file_dir, filename, as_tablename, topo_tablename, num_hosts):
     path_nodes, source, dest = gen_tableau_script.gen_a_chain(file_dir, filename, as_tablename, topo_tablename)
     symbolic_IP_mapping, sourceHosts_interface_mapping, destHosts_interface_mapping, source_hosts, dest_hosts = assign_IPAddresses_to_interface_of_path_nodes(path_nodes, num_hosts)
@@ -135,7 +135,7 @@ def gen_distributed_invariants_information(file_dir, filename, as_tablename, top
 
     return E_tuples, policies, security_hole, related_policies_position, gamma_headers
 
-# @timeit
+# ########@timeit
 def assign_IPAddresses_to_interface_of_path_nodes(path_nodes, num_hosts, IP_address_begin='11.0.0.1'):
     symbolic_IP_mapping = {}
     interface_sourceHosts_mapping = {}
@@ -183,7 +183,7 @@ def assign_IPAddresses_to_interface_of_path_nodes(path_nodes, num_hosts, IP_addr
 
     return symbolic_IP_mapping, sourceHosts_interface_mapping, destHosts_interface_mapping, source_hosts, dest_hosts
 
-# @timeit
+# ########@timeit
 def gen_E_tuples(path_nodes, symbolic_IP_mapping):
     E_tuples = []
     j = 0
@@ -245,7 +245,7 @@ def gen_E_tuples(path_nodes, symbolic_IP_mapping):
         
     return E_tuples, E_summary
 
-# @timeit
+# ########@timeit
 def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, dest_hosts):
     nodeIdx_policies_mapping = {}
 
@@ -382,7 +382,7 @@ def random_pick(total_policies, num_related_policies, path_nodes, source_hosts, 
     # print("nodeIdx_policies_mapping", nodeIdx_policies_mapping)
     return nodeIdx_policies_mapping, security_hole, related_position, gamma_headers, related_source_hosts, related_dest_hosts
 
-# @timeit
+# ########@timeit
 def gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping, source_hosts, dest_hosts, sourceHosts_interface_mapping):
     policies = {}
     nodeIdxs = sorted(list(nodeIdx_policies_mapping.keys()))
@@ -426,7 +426,7 @@ def gen_rwfw_policies_after_random_pick(nodeIdx_policies_mapping, path_nodes, sy
 
     return policies, related_policy_idxs
 
-# @timeit
+# ########@timeit
 def convert_to_rwfw_dependency(header, rw_header, loc, path_nodes, symbolic_IP_mapping, sourceHosts_interface_mapping):
     tuples = None
 
@@ -461,7 +461,7 @@ def convert_to_rwfw_dependency(header, rw_header, loc, path_nodes, symbolic_IP_m
 
     return edg_dependency
 
-# @timeit
+# ########@timeit
 def gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping):
     nodeIdxs = sorted(list(nodeIdx_policies_mapping.keys()))
 
@@ -523,7 +523,7 @@ def gen_p12_policy(nodeIdx_policies_mapping, path_nodes, symbolic_IP_mapping):
     print("num_dependency", len(policy))
     return policy
 
-# @timeit
+# ########@timeit
 def gen_additional_policy(destHosts_interface_mapping, related_dest_hosts):
 
     policy = []
@@ -544,7 +544,7 @@ def gen_additional_policy(destHosts_interface_mapping, related_dest_hosts):
     print("num_dependency", len(policy))
     return policy
 
-@timeit
+########@timeit
 def chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strategy="random", orderings=None):
     count_application = 0 # count the number of the application of the chase
     count_iterations = 0 # count the number of iterations
@@ -579,7 +579,7 @@ def chase_dependency_as_unit(conn, chasing_tablename, dependencies, order_strate
         # print("#applications", count_application)
     return count_application, count_iterations
 
-@timeit
+########@timeit
 def chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy="random", orderings=None):
     count_application = 0 # count the number of the application of the chase
     count_iterations = 0 # count the number of iterations
@@ -621,7 +621,7 @@ def chase_policy_as_unit(conn, chasing_tablename, policies, order_strategy="rand
         # input()
     return count_application, count_iterations
 
-# @timeit
+# ########@timeit
 def gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping):
     inverse_image_tuples = []
     for g_idx, gamma_tup in enumerate(gamma_tuples):
@@ -647,7 +647,7 @@ def gen_inverse_image(E_tuples, gamma_tuples, sourceHosts_interface_mapping):
     return inverse_image_tuples
 
 
-@timeit
+########@timeit
 def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, dependencies, Z_tablename, gamma_summary, order_strategy='random', orderings=None):
     """
     Parameters:
@@ -718,7 +718,7 @@ def run_chase_distributed_invariants(conn, E_tuples, E_attributes, E_summary, de
 
     return answer, count_application
 
-@timeit
+########@timeit
 def run_chase_policy_distributed_invariants(conn, E_tuples, E_attributes, E_summary, policies, Z_tablename, gamma_summary, is_aggresive=False, order_strategy='random_random_permutation', orderings=None):
     """
     Parameters:
@@ -798,7 +798,7 @@ def run_chase_policy_distributed_invariants(conn, E_tuples, E_attributes, E_summ
 
     return answer, count_application, count_iterations
 
-@timeit
+########@timeit
 def run_chase_policy_atomic_distributed_invariants(conn, E_tuples, E_attributes, E_summary, policies, Z_tablename, gamma_summary, is_aggresive=False, order_strategy='random_random_permutation', orderings=None):
     """
     Parameters:
@@ -882,7 +882,7 @@ def run_chase_policy_atomic_distributed_invariants(conn, E_tuples, E_attributes,
     return answer, count_application, count_iterations, count_E_query
 
 
-@timeit
+########@timeit
 def run_chase_policy_atomic_per_policy(conn, E_tuples, E_attributes, E_summary, policies, Z_tablename, gamma_summary, is_aggresive=False, order_strategy='random_random_permutation', orderings=None):
     """
     Parameters:
@@ -974,7 +974,7 @@ def run_chase_policy_atomic_per_policy(conn, E_tuples, E_attributes, E_summary, 
 
     return answer, count_application, count_iterations, count_E_query
 
-@timeit
+########@timeit
 def the_chase(conn, initial_T, policies):
     """
     Parameters:

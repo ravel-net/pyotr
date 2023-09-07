@@ -26,7 +26,7 @@ def set_variables(variables):
     global VARIABLES
     VARIABLES = variables
 
-@timeit
+########@timeit
 def merge_tuples(tablename, out_tablename):
     conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
     conn.set_session(readonly=False, autocommit=True)

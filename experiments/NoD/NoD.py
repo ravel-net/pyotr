@@ -164,8 +164,8 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
 
 def runDatalogSimple(db, topology = "Stanford"):
     # p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
-    p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx10101100000110110000101000100xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)".format(topology)
-    # p1 = "R_nod(pkt_in, pkt_out, S, [n], n) :- F_{}(pkt_in, pkt_out, S, n)[n != S],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
+    p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx01001010)".format(topology)
+    # p1 = "R_nod(pkt_in, pkt_out, 1100004, [n], n) :- F_{}(pkt_in, pkt_out, 1100004, n)[n != 1100004]".format(topology)#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
     # p2 = "R_nod(pkt_in, new_pktout, S, p || [n2], n2) :- R_nod(pkt_in, pkt_out, S, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
     p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 
@@ -182,6 +182,7 @@ def runDatalogSimple(db, topology = "Stanford"):
     program_naive.execute_semi_naive(conn)
     end = time()
     conn.commit()
+    program_naive.restoreStringConditions(conn)
     print("Total Time =", end-start)
     # db.getTable("R_nod").printTable(conn=conn, cVarMapping=db.cVarMapping)
     # program1.reasoning_tool.simplification("R", conn)
