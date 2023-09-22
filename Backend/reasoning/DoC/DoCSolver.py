@@ -93,10 +93,14 @@ class DoCSolver:
         --------
         None or simplified condition
         """
-        # print(conditions)
+        # start = time.time()
         conditionParsed = self.conditionTrees[int(index)]
         leaves = conditionParsed.getLeaves()
         variableConditions, variables = self._getVariableConditions(leaves)
+        # end = time.time()
+        # parsing_time = end-start
+        # logging.info(f'Time: simplifyCondition_parsing took {parsing_time:.6f}')
+
         
         DoCs = {}
         input_doc = None
@@ -132,8 +136,8 @@ class DoCSolver:
             else:
                 if input_doc.hasContradiction():
                     return None
-                output_doc.mergeWildcards(input_doc) # merges wildcard of input and output and makes sure that there are no contradictions. Done in place
-                output_doc.removeContradictions() # this is done in place
+                rewritingTBV = output_doc.mergeWildcards(input_doc) # merges wildcard of input and output and makes sure that there are no contradictions. Done in place
+                output_doc.removeContradictions(rewritingTBV) # this is done in place
                 return_string = str(output_doc)
         elif len(variables) == 3: # case when there are three variables (e.g. condition of the form: [output_prev_doc = ..., output_prev_doc = input_doc, output_doc = ... / output_doc = input_doc, input_doc = ...])
             and_doc = input_doc.intersect(output_prev_doc)
@@ -143,8 +147,8 @@ class DoCSolver:
                 and_doc.name = and_doc.name.replace("i","o")
                 return_string = str(and_doc)
             else:
-                output_doc.mergeWildcards(and_doc)
-                output_doc.removeContradictions() # this is done in place
+                rewritingTBV = output_doc.mergeWildcards(and_doc)
+                output_doc.removeContradictions(rewritingTBV) # this is done in place
                 return_string = str(output_doc)
         if return_string == None:
             return None

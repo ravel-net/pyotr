@@ -75,9 +75,25 @@ class tbv:
             print("Number of bits do not match. Cannot mergeWildcards")
             exit()
         newBit = ""
+        rewritingTBV = ""
         for bit in range(self.bits):
             if self.value[bit] == "x" and tbv2.value[bit] != "x":
                 newBit += tbv2.value[bit]
+            else:
+                newBit += self.value[bit]
+            if self.value[bit] != tbv2.value[bit]:
+                rewritingTBV += self.value[bit]
+            else:
+                rewritingTBV += "x"
+        self.value = newBit
+        return rewritingTBV
+    
+    # changes the non-wildcard bits according to rewritingTBV
+    def rewrite(self, rewritingTBV):
+        newBit = ""
+        for bit in range(self.bits):
+            if rewritingTBV[bit] != 'x':
+                newBit += rewritingTBV[bit]
             else:
                 newBit += self.value[bit]
         self.value = newBit

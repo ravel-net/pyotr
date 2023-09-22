@@ -88,18 +88,20 @@ class DoC:
         self.neg = newNeg
         return False
     
-    def removeContradictions(self):
-        newNeg = []
+    def removeContradictions(self, rewritingTBV):
+        # newNeg = []
         for tbv in self.neg:
-            if not tbv.contains(self.pos):
-                newNeg.append(tbv)
-        self.neg = newNeg
+            tbv.rewrite(rewritingTBV) # hoping that changes the class also changes the reference
+        #     if not tbv.contains(self.pos):
+        #         newNeg.append(tbv)
+        # self.neg = newNeg
 
     # if at any position self has a wildcard but doc2 doesnt, make that bit a non-wildcard
     # done in place
     def mergeWildcards(self, doc2):
-        self.pos.mergeWildCards(doc2.pos) 
+        rewritingTBV = self.pos.mergeWildCards(doc2.pos) 
         self.neg += doc2.neg
+        return rewritingTBV
 
     # calculates the intersection between two docs
     # this is not done in place
