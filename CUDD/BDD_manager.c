@@ -27,7 +27,7 @@ void initialize(int numberOfVariables, int domainCardinality) {
   gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
   variableNodes = initVars(numVars, gbm);
   // gbm = Cudd_Init(numVars,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
-  // Cudd_AutodynEnable(gbm, CUDD_REORDER_SYMM_SIFT);
+  Cudd_AutodynEnable(gbm, CUDD_REORDER_SYMM_SIFT);
   // Cudd_ReduceHeap(gbm, CUDD_REORDER_SYMM_SIFT, 3000);
 }
 
@@ -48,7 +48,14 @@ int operate_BDDs(int bdd_reference1, int bdd_reference2, char operation) {
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
     DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
     DdNode* bdd = logicalOpBDD(operation, gbm, bdd_1, bdd_2);
-    return insertBDD(&BDDs, bdd);
+    return insertBDD(&BDDs, bdd);  
+}     
+
+int transform_BDDs(int bdd_reference1, int bdd_reference2) {
+    DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
+    DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
+    DdNode* bdd = transform(gbm, bdd_1, bdd_2); // TODO: Maybe we should be smart about dereferencing BDDs
+    return insertBDD(&BDDs, bdd); 
 }   
 
 bool is_implcation(int bdd_reference1, int bdd_reference2) {
@@ -74,14 +81,20 @@ void freeBDD(int bdd_reference) {
 }    
  
 int main (int argc, char *argv[])  
-{
-    evaluateFromFile(argc, argv);  
-    // initialize(2,2);
-    // // int OR = str_to_BDD("^(~(^(&(~(3),~(2)),&(~(3),2))),&(~(3),~(3)))");
-    // int p = str_to_BDD("^(&(~(3),~(2)),&(~(3),2))");
-    // int q = str_to_BDD("&(~(3),~(3))");
-    // bool OR = is_implcation(p, q);
-    // printf("%d\n", OR);
+{  
+    // evaluateFromFile(argc, argv);  
+    initialize(4,2);
+    // int OR = str_to_BDD("^(~(^(&(~(3),~(2)),&(~(3),2))),&(~(3),~(3)))");
+    int p = str_to_BDD("&(&(4,~(2)),~(&(4,&(~(2),&(3,5)))))");
+    // int q = str_to_BDD("&(4,&(2,&(3,5)))");
+    int q = str_to_BDD("&(4,2)");
+    int r = str_to_BDD("(2)");
+    // int r = str_to_BDD("&(&(~(4),&(3,&(~(5),~(2)))),~(&(~(4),&(3,&(~(5),~(2))))))");
+    int sat = transform_BDDs(p, r); 
+    // int sat2 = operate_BDDs(q, sat, '&');
+    int sat3 = operate_BDDs(q, p, '&');
+    printf("%d\n", evaluate(sat3));  
+    // printf("%d\n", evaluate(r)); 
 
     // int q = str_to_BDD("&(~(2),~(2))");
     // bool imp = is_implcation(p,q);

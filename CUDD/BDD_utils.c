@@ -8,6 +8,9 @@
 #include <math.h>
 #include <unistd.h>
 #include <sys/time.h>
+#include <stdlib.h>
+#include <assert.h>
+#include <ctype.h>
 
 #define MAX_DIGITS_FOR_VARS 5 // The number of digits required to store the variable indexes. This should be one more than the log base 10 of the number of variables
 
@@ -42,7 +45,17 @@ DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* b
         tmp = Cudd_bddXnor(gbm, bdd_left, bdd_right);
     else
         assert(false);
+    Cudd_Ref(tmp);
+    Cudd_RecursiveDeref(gbm,bdd_right);
+    Cudd_RecursiveDeref(gbm,bdd_left);
     return tmp;
+}
+
+DdNode* transform(DdManager* gbm, DdNode* f, DdNode* c) {
+    DdNode* tmp = Cudd_bddExistAbstract(gbm, f, c);
+    DdNode* transformed = Cudd_bddAnd(gbm, tmp, c);
+    Cudd_RecursiveDeref(gbm, tmp);
+    return transformed;
 }
 
 DdNode* logicalNotBDD(DdNode* bdd) {
@@ -55,6 +68,8 @@ bool isLogicalNot(char curr_char) {
     return (curr_char == '~');
 }
 
+
+
 // Returns a BDD from a string condition
 DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** variableNodes, int numVars) {
     DdNode *bdd;
@@ -64,13 +79,7 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
         DdNode* bdd_left = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
         DdNode* bdd_right = convertToBDDRecursive(condition, i, gbm, variableNodes, numVars); // i passed as reference to remember where we are in encoding
         bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
-        Cudd_Ref(bdd);
-        // printf("\n1\n");
-        // Cudd_DebugCheck(gbm);
-        Cudd_RecursiveDeref(gbm,bdd_right);
-        Cudd_RecursiveDeref(gbm,bdd_left);
-        // printf("\n2\n");
-        // Cudd_DebugCheck(gbm);
+
     }
     else if (isLogicalNot(curr_char)) {
         *i = *i + 2; // Skipping bracket
