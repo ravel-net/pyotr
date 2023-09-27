@@ -72,7 +72,6 @@ class DoC:
     def hasContradiction(self):
         if self.pos.isUndefined:
             return True
-        newNeg = []
         i = 0
         while i < len(self.neg):
             tbv = self.neg[i]
@@ -83,20 +82,27 @@ class DoC:
                 if count == 0:
                     return True
                 elif count == 3:
+                    self.neg.pop(i)
                     i += 1
                 else: # count == 1
                     newPos = self.pos.value[:index]+neg(tbv.value[index])+self.pos.value[index+1:]
                     self.pos.value = newPos
-                    currNeg = tbv.intersect(self.pos)
-                    newNeg.append(currNeg)
-                    newNeg += self.neg[i+1:]
-                    self.neg = newNeg
+                    self.negativeIntersections()
                     i = 0
             else:
-                newNeg.append(tbv)
                 i += 1
-        self.neg = newNeg
         return False
+    
+    # loops over negs and rewrites them as intersections with the pos value. Removes contradictions
+    def negativeIntersections(self):
+        newNeg = []
+        j = 0
+        for oldTbv in self.neg:
+            tmp = self.neg[j].intersect(self.pos)
+            if not tmp.isUndefined:
+                newNeg.append(tmp)
+            j += 1
+        self.neg = newNeg
     
     def removeContradictions(self, rewritingTBV):
         # newNeg = []

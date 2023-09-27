@@ -138,6 +138,7 @@ class DoCSolver:
                     return None
                 rewritingTBV = output_doc.mergeWildcards(input_doc) # merges wildcard of input and output and makes sure that there are no contradictions. Done in place
                 output_doc.removeContradictions(rewritingTBV) # this is done in place
+                output_doc.negativeIntersections() # this is done in place
                 return_string = str(output_doc)
         elif len(variables) == 3: # case when there are three variables (e.g. condition of the form: [output_prev_doc = ..., output_prev_doc = input_doc, output_doc = ... / output_doc = input_doc, input_doc = ...])
             and_doc = input_doc.intersect(output_prev_doc)
@@ -149,6 +150,7 @@ class DoCSolver:
             else:
                 rewritingTBV = output_doc.mergeWildcards(and_doc)
                 output_doc.removeContradictions(rewritingTBV) # this is done in place
+                output_doc.negativeIntersections() # this is done in place
                 return_string = str(output_doc)
         if return_string == None:
             return None
