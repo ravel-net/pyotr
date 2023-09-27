@@ -15,6 +15,16 @@ from Core.Datalog.conditionTree import ConditionTree
 from Backend.reasoning.DoC.tbv import tbv
 import logging
 
+# returns the negation of a value (e.g. if it's 0, we return 1. If it's 1, we return 0)
+def neg(value):
+    if str(value) == '0':
+        return '1'
+    elif str(value) == '1':
+        return '0'
+    else:
+        print("Illegal value provided to function neg: ", value)
+        exit()
+
 class DoC:
     """
     Implements difference of cube
@@ -75,7 +85,7 @@ class DoC:
                 elif count == 3:
                     i += 1
                 else: # count == 1
-                    newPos = self.pos.value[:index]+tbv.value[index]+self.pos.value[index+1:]
+                    newPos = self.pos.value[:index]+neg(tbv.value[index])+self.pos.value[index+1:]
                     self.pos.value = newPos
                     currNeg = tbv.intersect(self.pos)
                     newNeg.append(currNeg)
