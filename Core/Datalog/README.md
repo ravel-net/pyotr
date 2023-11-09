@@ -17,7 +17,8 @@ When domain is not provided, the domain of all columns is considered to be -infi
 Supported column types are integer, integer_faure (i.e. a c-variable type), inet (for IP addresses), inet_faure (i.e. a c-variable type), and text[] for the condition column. If a table does not contain a condition column but has c-variable types (i.e. _faure), a condition column is automatically added.
 
 ## Installation:
-Installation instructions can be found here: https://github.com/ravel-net/pyotr/blob/FaureOptimization/Installation_instructions.txt
+Installation instructions can be found here: https://github.com/ravel-net/pyotr/blob/BDD-integration/Installation_instructions.txt
+Installation instructions for BDD can be found here: https://github.com/ravel-net/pyotr/blob/BDD-integration/Backend/reasoning/CUDD/BDD_manager/README.md
 
 ### Configuration
 You must have a database created in PostgreSQL. You must also create a configuration file in the root directory of pyotr called databaseconfig.py. An example configuration file:
@@ -37,8 +38,11 @@ CREATE DATABASE [dbname]
 ```
 You can then fill the user, password, and db fields in databaseconfig.py with the created username, password and db name. If postgreSQL is installed locally, then the value of the host field must be the localhost ip. To get it on a Mac, run `sudo open -a TextEdit /etc/hosts`.
 
-## Usage examples:
-Some usage examples can be found in examples.py to make it easier to test the installation. 
+## Usage examples: Datalog
+Some usage examples can be found in examples_datalog.py to make it easier to test the installation. Just run `python3 examples_datalog.py` to make sure that both Difference of Cube and BDD reasoning engines are working. 
+
+## Usage examples: Minimization
+Some usage examples can be found in examples_minimization.py to make it easier to test the installation. 
 
 ### Example 1: Containment with default database
 ````
