@@ -63,17 +63,17 @@ class BDDTools:
         return bddmm.print_dd(bdd_idx1)
 
     # @timeit
-    def str_to_BDD(self, condition):
+    def str_to_engine(self, condition):
         encoded_c = self.encodeCond(condition)
         bdd_condition_idx = bddmm.str_to_BDD(encoded_c)
         return bdd_condition_idx
 
     ########@timeit
-    def operate_BDDs(self, bdd_idx1, bdd_idx2, operator):
+    def operate(self, bdd_idx1, bdd_idx2, operator):
         result_idx = bddmm.operate_BDDs(int(bdd_idx1), int(bdd_idx2), operator)
         return result_idx
     
-    def transform_BDDs(self, bdd_idx1, bdd_idx2, bdd_idx3):
+    def transform(self, bdd_idx1, bdd_idx2, bdd_idx3):
         # print("Transformer called. Exiting")
         # exit()
         result_idx = bddmm.transform_BDDs(int(bdd_idx1), int(bdd_idx2), int(bdd_idx3))
@@ -157,23 +157,23 @@ class BDDTools:
                 # list_row[cond_idx] = None
                 if self._empty_condition_idx is None:
                     condition = ""
-                    empty_condition_idx = self.str_to_BDD(condition)
+                    empty_condition_idx = self.str_to_engine(condition)
                     self._empty_condition_idx = empty_condition_idx
                 list_row[cond_idx] = "{" + str(self._empty_condition_idx) + "}"
             else:
                 condition = ", ".join(list_row[cond_idx])
                 # Call BDD module 
-                bdd_idx = self.str_to_BDD(condition)
+                bdd_idx = self.str_to_engine(condition)
                 list_row[cond_idx] = "{" + str(bdd_idx) + "}"
 
             if len(list_row[trans_idx]) != 0: # for transformer, each condition will have two bdds. (1) actual rewriting BDD, (2) Same BDD but with all ones where we need to rewrite. Note that the user has to make sure to provide both conditions, because bdd backend is agnostic to how the conditions are provided
                 transformerConditions = list_row[trans_idx]
                 transformerBDDIdxes = []
                 for condition in transformerConditions:
-                    bdd_idx = self.str_to_BDD(condition)
+                    bdd_idx = self.str_to_engine(condition)
                     transformerBDDIdxes.append(str(bdd_idx))
                     onesCondition = parsing_utils.convertToAllOnes(condition) # e.g. *1001*0 is converted to *1111*1
-                    bdd_idx2 = self.str_to_BDD(onesCondition)
+                    bdd_idx2 = self.str_to_engine(onesCondition)
                     transformerBDDIdxes.append(str(bdd_idx2))
                 list_row[trans_idx] = "{" + ",".join(transformerBDDIdxes) + "}"
             row = tuple(list_row)

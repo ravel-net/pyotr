@@ -88,6 +88,18 @@ int Cstr_to_BDD(char* C) {
     return insertBDD(&BDDs, bdd);
 }
 
+void Cquit() {  
+    freeBDD(&BDDs);
+    Cudd_Quit(gbm);
+    return;
+}
+
+static PyObject* quit(PyObject* self, PyObject* args)
+{
+    Cquit();
+    return Py_None;
+}
+
 static PyObject* str_to_BDD(PyObject* self, PyObject* args)
 {
     // instantiate our `n` value 
@@ -113,7 +125,7 @@ int Ctransform_BDDs(int bdd_reference1, int bdd_reference2, int bdd_reference3) 
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
     DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
     DdNode* bdd_3 = getBDD(&BDDs, bdd_reference3);
-    DdNode* bdd = transform(gbm, bdd_1, bdd_2, bdd_3); // TODO: Maybe we should be smart about dereferencing BDDs
+    DdNode* bdd = transform_to_BDD(gbm, bdd_1, bdd_2, bdd_3); // TODO: Maybe we should be smart about dereferencing BDDs
     return insertBDD(&BDDs, bdd); 
 }   
 
@@ -173,6 +185,7 @@ static PyObject* operate_BDDs(PyObject* self, PyObject* args)
 // Our Module's function Definition struct
 static PyMethodDef BDD_Methods[] = {
     {"initialize", initialize, METH_VARARGS, "Initialize BDD array with the number of variables."},
+    {"quit", quit, METH_VARARGS, "Gracefully shuts down cudd"},
     {"evaluate", evaluate, METH_VARARGS, "Evaluate a BDD given by a reference. Returns 2 for satisfiable, 1 for tautology, and 0 for contradiction"},
     {"str_to_BDD", str_to_BDD, METH_VARARGS, "Constrcut BDD for string condition."},
     {"operate_BDDs", operate_BDDs, METH_VARARGS, "Do logical operation between two BDDs."},

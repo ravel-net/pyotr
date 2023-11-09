@@ -60,7 +60,7 @@ class FaureEvaluation:
             SQL for faure evaluation
 
         reasoning_tool: object
-            Object of z3 Solver or BDDManagerMondule
+            Object of z3 Solver or BDDManagerMondule or DoCSolver
         
         additional_condition: string
             None by default. If not None, it is an additional condition that would be appended to condition column of the output table before doing simplication.
@@ -340,7 +340,7 @@ class FaureEvaluation:
                 conjunction_condition = "And({})".format(",".join(conjunction_conditions))
             if len(conjunction_conditions) != 0:
                 # conjunction_str = "And({})".format(", ".join(conjunction_conditions))
-                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunction_condition)            
+                conjunction_ref = self._reasoning_tool.str_to_engine(conjunction_condition)            
             
             '''
             Logical AND all original conditions for all tables
@@ -348,15 +348,15 @@ class FaureEvaluation:
             old_bdd = old_conditions[0]
             for cond_idx in range(1, len(old_conditions)):
                 bdd1 = old_conditions[cond_idx]
-                old_bdd = self._reasoning_tool.operate_BDDs(int(bdd1), int(old_bdd), "&")
+                old_bdd = self._reasoning_tool.operate(int(bdd1), int(old_bdd), "&")
             if conjunction_ref != None: 
-                old_bdd = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
+                old_bdd = self._reasoning_tool.operate(old_bdd, conjunction_ref, "&")
             
             t = 0
             while transformerOn and t < len(transformer): # loop over transformer conditions
                 cond = transformer[t]
                 bdd_rewrite_vars = transformer[t+1]
-                old_bdd = self._reasoning_tool.transform_BDDs(int(old_bdd), int(cond), int(bdd_rewrite_vars))
+                old_bdd = self._reasoning_tool.transform(int(old_bdd), int(cond), int(bdd_rewrite_vars))
                 t += 2
             end = time.time()
             parsing_time += (end-start)

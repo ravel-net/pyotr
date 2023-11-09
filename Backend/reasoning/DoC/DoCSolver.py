@@ -16,6 +16,15 @@ from Backend.reasoning.DoC.DoC import DoC
 
 import logging
 
+def singleton(cls, *args, **kw):
+    instances = {}
+    def _singleton(*args, **kw):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kw)
+        return instances[cls]
+    return _singleton
+
+@singleton
 class DoCSolver:
     """
     Implements methods over difference of cube
@@ -155,7 +164,7 @@ class DoCSolver:
         if return_string == None:
             return None
         else:
-            return self.str_to_BDD(return_string)
+            return self.str_to_engine(return_string)
     
     @timeit
     def process_condition_on_ctable(self, conn, tablename):
@@ -176,7 +185,7 @@ class DoCSolver:
             if simplifiedCond == None:
                 del_tuple.append(row[0])
             else:
-                index = self.str_to_BDD(simplifiedCond)
+                index = self.str_to_engine(simplifiedCond)
                 update_tuple[row[0]] = index
         end = time.time()
         simplification_time += (end-start)
@@ -286,13 +295,13 @@ class DoCSolver:
         return None
     
     ###@timeit
-    def str_to_BDD(self, condition):
+    def str_to_engine(self, condition):
         newTree = ConditionTree(condition=condition)
         self.conditionTrees.append(newTree)
         return len(self.conditionTrees)-1
     
     ###@timeit
-    def operate_BDDs(self, conditionTreeIndex1, conditionTreeIndex2, logicalOP):
+    def operate(self, conditionTreeIndex1, conditionTreeIndex2, logicalOP):
         newCT = ConditionTree("")
         newCT.getCombinedConditionTree(self.conditionTrees[int(conditionTreeIndex1)], self.conditionTrees[int(conditionTreeIndex2)], logicalOp=logicalOP)
         self.conditionTrees.append(newCT)

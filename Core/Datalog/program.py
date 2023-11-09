@@ -31,8 +31,13 @@ class DT_Program:
         array of datalog rules
     db : DT_Database
         Database over which this program is run
-    reasoning_tool : z3SMTTools or BDDTools
-        Reasoning tool (z3 or BDD) used for processing conditions (checking implication, contradiction etc.)
+    reasoning_tool : z3SMTTools, BDDTools, or DoCSolver
+        Reasoning tool (z3, BDD, or DoCSolver) used for processing conditions (checking implication, contradiction etc.)
+    optimizations : dictionary
+        dictionary containing different optimizations used:
+            simplification_on => If true, removes tuples with unsatisfactory conditions. Default value is False
+            pg_native_recursion => If true, uses postgreSQL's native recursion for computation. Default value is False
+            recursive_rules => If False, runs each rule only once. Default value is True
 
     Methods
     -------
@@ -46,6 +51,10 @@ class DT_Program:
         run this datalog program once on database pointed by psycopg2 connection "conn". If we are dealing with an incomplete database, the faure_evaluation_mode is used to determine if the semantics of the required evaluation (exact answer vs certain answer)
     executeonce_and_check_containment(conn, rule2)
         run this datalog program once on database pointed by psycopg2 connection "conn" and return true if rule2 is uniformly contained by this program
+    execute_semi_naive(conn, faure_evaluation_mode="contradiction")
+        executes this datalog program using semi-naive evaluation
+    restoreStringConditions(conn)
+        This function is used to convert conditions represented by integer indexes into string conditions. Currently only supports DoC
     initiateDB(conn)
         initiate tables in this datalog program on database pointed by psycopg2 connection "conn"
     contains_rule(rule2)
@@ -152,36 +161,13 @@ class DT_Program:
             exit()
         conn.commit()
 
-    # returns a program in which there are only non-recursive rules
-    @timeit
-    def getNonRecursiveRules(self):
-        non_recursive_program = deepcopy(self)
-        for i, rule in enumerate(non_recursive_program.rules):
-            if rule.isRecursive:
-                non_recursive_program.__deleteRule(ruleNum=i)
-        return non_recursive_program
-
-    # Given a mapping from old table names to new table names, changes the names of headers in the program
-    @timeit 
-    def changeIDBNames(self, IDBNamesChanges):
-        for rule in self.rules:
-            rule.changeHeaderTable(IDBNamesChanges[rule._head.table.name])
-
-    # instead of self.rules, executes self.tempRules. Resets self.tempRules to an emptry array
-    def _executeoncetemp(self, conn):
-        rulesCopy = self.rules
-        self.rules = self.tempRules
-        self.executeonce(conn)
-        self.rules = rulesCopy
-        self.tempRules = []
-
     @timeit
     def execute_semi_naive(self, conn, faure_evaluation_mode="contradiction"):
         if self._reasoning_engine.lower() != "z3":
             for table in self.db.tables:
                 if not table.isEmpty(conn):
                     self.reasoning_tool.process_condition_on_ctable(conn, tablename=table.name) # converts DoC and BDD conditions into integer indexes
-        P_prime = self.getNonRecursiveRules()
+        P_prime = self._getNonRecursiveRules()
         IDBNamesChanges = {}
         for idb_predicate in self.idb_predicates: # idb_predicate is of type DT_Table
             idb_predicate_0_name = idb_predicate.name+"_0"
@@ -191,9 +177,8 @@ class DT_Program:
             self.db.addTable(idb_predicate_0)
             self.db.addTable(idb_predicate_delta)
             IDBNamesChanges[idb_predicate.name] = idb_predicate_delta
-        P_prime.changeIDBNames(IDBNamesChanges)
+        P_prime._changeIDBNames(IDBNamesChanges)
         P_prime.executeonce(conn)
-        # self.reasoning_tool.conditionTrees = P_prime.reasoning_tool.conditionTrees # TODO: Hacky method to copy state. Need a better fix
         i = 1
         changed = True
         iterationEndMapping = {} # stores the last iteration of each idb_predicate. The last iteration contains the final result
@@ -211,7 +196,7 @@ class DT_Program:
                     iterationEndMapping[idb_predicate.name] = idb_predicate.name+"_"+str(i-1)
                     continue
                 output_pred.unionDifference(conn, tableNames=[output_pred_previous_name, pred_delta_i.name]) # Computes S_i := S_(i-1) U S_delta_i and returns S_i
-                P_temp_name = self.getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
+                P_temp_name = self._getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
                 idb_predicate.initiateNewTable(conn=conn, newName=P_temp_name)
                 self._executeoncetemp(conn)
                 pred_delta_next = idb_predicate.initiateNewTable(conn=conn, newName="{}_delta_{}".format(pred_name,str(i+1)))
@@ -238,27 +223,6 @@ class DT_Program:
             if table.exists(conn):
                 self.reasoning_tool.restoreStringConditions(conn, table.name)
         conn.commit()
-
-    # given an idb predicate with name=name on iteration number i, return rules that compute the temporary IDBs for iteration i+1
-    # TODO: Change the iteration variable 'i' to something else, since i is confusing
-    @timeit
-    def getTempRules(self, IDB_name, i):
-        idb_predicate_names = []
-        newHeadName = ""
-        allTempRules = []
-        for predicate in self.idb_predicates:
-            idb_predicate_names.append(predicate.name)
-        for rule in self.rules:
-            if not rule.isRecursive:
-                continue
-            if rule._head.table.name == IDB_name:
-                tempRules, newHeadName = rule.getTempRules(i=i, idb_predicates_names=idb_predicate_names) # return list of temp rules generated from that one rule
-                allTempRules += tempRules
-        numRules = len(self.rules)
-        for tempRule in allTempRules:
-            self.tempRules.append(tempRule)
-        return newHeadName
-
 
     ########@timeit
     def executeonce_and_check_containment(self, conn, rule2):
@@ -411,7 +375,48 @@ class DT_Program:
             else:
                 ruleNum += 1   
 
+    # returns a program in which there are only non-recursive rules
+    @timeit
+    def _getNonRecursiveRules(self):
+        non_recursive_program = deepcopy(self)
+        for i, rule in enumerate(non_recursive_program.rules):
+            if rule.isRecursive:
+                non_recursive_program.__deleteRule(ruleNum=i)
+        return non_recursive_program
 
+    # Given a mapping from old table names to new table names, changes the names of headers in the program
+    @timeit 
+    def _changeIDBNames(self, IDBNamesChanges):
+        for rule in self.rules:
+            rule.changeHeaderTable(IDBNamesChanges[rule._head.table.name])
+
+    # instead of self.rules, executes self.tempRules. Resets self.tempRules to an emptry array
+    def _executeoncetemp(self, conn):
+        rulesCopy = self.rules
+        self.rules = self.tempRules
+        self.executeonce(conn)
+        self.rules = rulesCopy
+        self.tempRules = []
+
+    # given an idb predicate with name=name on iteration number i, return rules that compute the temporary IDBs for iteration i+1
+    # TODO: Change the iteration variable 'i' to something else, since i is confusing
+    @timeit
+    def _getTempRules(self, IDB_name, i):
+        idb_predicate_names = []
+        newHeadName = ""
+        allTempRules = []
+        for predicate in self.idb_predicates:
+            idb_predicate_names.append(predicate.name)
+        for rule in self.rules:
+            if not rule.isRecursive:
+                continue
+            if rule._head.table.name == IDB_name:
+                tempRules, newHeadName = rule.getTempRules(i=i, idb_predicates_names=idb_predicate_names) # return list of temp rules generated from that one rule
+                allTempRules += tempRules
+        numRules = len(self.rules)
+        for tempRule in allTempRules:
+            self.tempRules.append(tempRule)
+        return newHeadName
     # ########@timeit
     # def __enhancedMinimization(self, constantUnificationOn = True):
     #     signatureBuckets = {}

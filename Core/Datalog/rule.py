@@ -577,13 +577,13 @@ class DT_Rule:
                     if not self.reasoning_tool.iscontradiction([str_tup_cond]):
                         contains = True
                         return contains                    
-                elif self._reasoning_engine == 'bdd':
+                elif self._reasoning_engine != 'z3':
                     # convert list of conditions to a string of condition
                     extra_conditions = "And({})".format(", ".join(extra_conditions))
-                    extra_condition_idx = self.reasoning_tool.str_to_BDD(extra_conditions)
+                    extra_condition_idx = self.reasoning_tool.str_to_engine(extra_conditions)
                     if header_condition is None:
                         header_condition=""
-                    header_condition_idx = self.reasoning_tool.str_to_BDD(header_condition)
+                    header_condition_idx = self.reasoning_tool.str_to_engine(header_condition)
 
                     if self.reasoning_tool.evaluate(tup_cond) != 0 and \
                         self.reasoning_tool.is_implication(tup_cond, extra_condition_idx) and \

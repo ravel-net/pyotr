@@ -145,7 +145,7 @@ int evaluateBDD(DdNode* bdd) {
 
 // d is the same as c but all ones
 // TODO: Have more descriptive names
-DdNode* transform(DdManager* gbm, DdNode* f, DdNode* c, DdNode* d) {
+DdNode* transform_to_BDD(DdManager* gbm, DdNode* f, DdNode* c, DdNode* d) {
     DdNode* tmp = Cudd_bddExistAbstract(gbm, f, d);
     DdNode* transformed = Cudd_bddAnd(gbm, tmp, c);
     Cudd_Ref(transformed);
