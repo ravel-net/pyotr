@@ -33,16 +33,12 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 
 def initializeDatabase(nodes, numRules, indexing_on, topology, cVarMapping):
     cvars = {}
-    # for i in range(1,33):
-    # for i in range(1,49):
-    for i in range(numRules):
-    # for i in nodes:
-        cvars["i_"+str(i)] = "pkt_in" 
-        cvars["o_"+str(i)] = "pkt_out" 
+    cvars["i_1"] = "pkt_in"
+    cvars["i_1"] = "pkt_out"
 
     R = DT_Table(name="R_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars=cvars, domain={"source":nodes,"last_node":nodes})
 
-    F = DT_Table(name="F_"+topology, columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","condition":"text[]"}, cvars=cvars, domain={"next_hop":nodes,"node":nodes})    
+    F = DT_Table(name="F_"+topology, columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","transformer":"text[]","condition":"text[]"}, cvars=cvars, domain={"next_hop":nodes,"node":nodes})    
 
     database = DT_Database(tables=[F,R], cVarMapping=cVarMapping)
     R.delete(conn)
@@ -165,13 +161,13 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
 def runDatalogSimple(db, topology = "Stanford"):
     # p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
     p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx01001010)".format(topology)
+    p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
     # p1 = "R_nod(pkt_in, pkt_out, 1100004, [n], n) :- F_{}(pkt_in, pkt_out, 1100004, n)[n != 1100004]".format(topology)#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
     # p2 = "R_nod(pkt_in, new_pktout, S, p || [n2], n2) :- R_nod(pkt_in, pkt_out, S, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
-    p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 
     program1 = DT_Program(p1, database=db, optimizations={"simplification_on":True}, bits = 128)
     program2 = DT_Program(p2, database=db, optimizations={"simplification_on":True}, bits = 128)
-    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="DoCSolver")
+    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="bdd")
     conn.commit()
 
     start = time()
@@ -182,11 +178,27 @@ def runDatalogSimple(db, topology = "Stanford"):
     program_naive.execute_semi_naive(conn)
     end = time()
     conn.commit()
-    program_naive.restoreStringConditions(conn)
+    # program_naive.restoreStringConditions(conn)
     print("Total Time =", end-start)
     # db.getTable("R_nod").printTable(conn=conn, cVarMapping=db.cVarMapping)
     # program1.reasoning_tool.simplification("R", conn)
     return (end-start)  
+
+# Gets the input match and the output and returns the bits that were rewritten
+def getRewriteBits(match, inverse_match):
+    numBits = len(match)
+    i = 0 
+    answer = ""
+    while i < numBits:
+        matchBit = match[i]
+        inverseBit = inverse_match[i]
+        if matchBit != inverseBit:
+            answer += inverseBit
+        else:
+            answer += 'x'
+        i += 1
+    return answer
+
 
 def getTFRule(line, ruleNo, cVarMapping, links):
     separatedLine = line.split("$")
@@ -254,10 +266,8 @@ def getTFRule(line, ruleNo, cVarMapping, links):
         for out_port in out_ports:
             if out_port not in newNodes:
                 newNodes.append(out_port)
-            i_var = "i_"+str(ruleNo)
-            o_var = "o_"+str(ruleNo)
-            i_var_numeric = str(-1*ruleNo-5)
-            o_var_numeric = str(-1*DIFF-ruleNo-5)
+            i_var = "i_1"
+            i_var_numeric = str(-1*1-5)
             # i_var = "i"+str(in_port)
             # o_var = "o"+str(in_port)
             # i_var_numeric = str(-1*int(in_port)-5)
@@ -269,30 +279,31 @@ def getTFRule(line, ruleNo, cVarMapping, links):
             if i_var_numeric in cVarMapping and cVarMapping[i_var_numeric] != i_var:
                 print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(i_var_numeric, i_var, cVarMapping[i_var_numeric]))
                 exit()
-            if o_var_numeric in cVarMapping and cVarMapping[o_var_numeric] != o_var:
-                print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(o_var_numeric, o_var,  cVarMapping[o_var_numeric]))
-                exit()
             cVarMapping[i_var_numeric] = i_var
-            cVarMapping[o_var_numeric] = o_var
             condition_arr = []
+            transformer_arr = []
             condition_arr.append("{i_var} == #{match}".format(i_var=i_var, match=match))
             if in_port in not_rules:
                 for tbv in not_rules[in_port]:
                     condition_arr.append("{i_var} != #{tbv}".format(i_var=i_var, tbv=tbv))
-
+        
             if action == "rw":
-                condition_arr.append("{o_var} == #{inverse_match}".format(o_var=o_var, inverse_match=inverse_match))
+                rewriteBits = getRewriteBits(match, inverse_match)
+                transformer_arr.append("{i_var} == #{rewriteBits}".format(i_var=i_var, rewriteBits=rewriteBits))
+
+            condition = "'{\"And(" + ", ".join(condition_arr) + ")\"}'" 
+            if len(transformer_arr) == 1:
+                transformer =  '\'{\"' + transformer_arr[0] + "\"}\'"
             else:
-                condition_arr.append("{o_var} == {i_var}".format(o_var=o_var, i_var=i_var))
-            condition = "'{\"And(" + ", ".join(condition_arr) + ")\"}'"
-            newRules.append("('{i_var_numeric}','{o_var_numeric}',{in_port},{out_port},{condition})".format(i_var_numeric=i_var_numeric,o_var_numeric=o_var_numeric,in_port=in_port,out_port=out_port,condition=condition))
+                transformer = "'{}'"
+            newRules.append("('{i_var_numeric}','{i_var_numeric}',{in_port},{out_port},{transformer},{condition})".format(i_var_numeric=i_var_numeric,in_port=in_port,out_port=out_port,condition=condition, transformer=transformer))
             ruleNo += 1
     return newRules, newNodes
 
 def initializeForwardingTable(topology="Stanford", links={}):
     nodes = []
     directory = topology+"_tf"
-    indexing_on = True
+    indexing_on = False
     rules = []
     cVarMapping = {}
     for file in os.scandir(directory):
@@ -317,6 +328,9 @@ def initializeForwardingTable(topology="Stanford", links={}):
                         nodes.append(node)
     print("Number of rules", len(rules))
     print("Number of nodes", len(nodes))
+    # for node in nodes:
+    #     print("(query (R_{} ip_src ip_dst tcp_src tcp_dst vlan ip_proto tcp_ctrl))".format(node))
+    # exit()
     if len(rules) >= DIFF:
         print("Please increase the difference between the mapping of input and output variables. Current difference is {} whereas the number of rules are {}. Exiting".format(DIFF, len(rules)))
         exit()

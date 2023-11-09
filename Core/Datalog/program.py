@@ -180,18 +180,20 @@ class DT_Program:
         if self._reasoning_engine.lower() != "z3":
             for table in self.db.tables:
                 if not table.isEmpty(conn):
-                    self.reasoning_tool.process_condition_on_ctable(conn, tablename=table.name)
+                    self.reasoning_tool.process_condition_on_ctable(conn, tablename=table.name) # converts DoC and BDD conditions into integer indexes
         P_prime = self.getNonRecursiveRules()
         IDBNamesChanges = {}
         for idb_predicate in self.idb_predicates: # idb_predicate is of type DT_Table
             idb_predicate_0_name = idb_predicate.name+"_0"
             idb_predicate_delta_1_name = idb_predicate.name+"_delta_1"
-            idb_predicate.initiateNewTable(conn=conn, newName=idb_predicate_0_name)
+            idb_predicate_0 = idb_predicate.initiateNewTable(conn=conn, newName=idb_predicate_0_name)
             idb_predicate_delta = idb_predicate.initiateNewTable(conn=conn, newName=idb_predicate_delta_1_name)
+            self.db.addTable(idb_predicate_0)
+            self.db.addTable(idb_predicate_delta)
             IDBNamesChanges[idb_predicate.name] = idb_predicate_delta
         P_prime.changeIDBNames(IDBNamesChanges)
         P_prime.executeonce(conn)
-        self.reasoning_tool.conditionTrees = P_prime.reasoning_tool.conditionTrees # TODO: Hacky method to copy state. Need a better fix
+        # self.reasoning_tool.conditionTrees = P_prime.reasoning_tool.conditionTrees # TODO: Hacky method to copy state. Need a better fix
         i = 1
         changed = True
         iterationEndMapping = {} # stores the last iteration of each idb_predicate. The last iteration contains the final result
@@ -202,6 +204,7 @@ class DT_Program:
                     continue
                 pred_name = idb_predicate.name
                 output_pred = idb_predicate.initiateNewTable(conn=conn, newName=pred_name+"_"+str(i))
+                self.db.addTable(output_pred)
                 output_pred_previous_name =  pred_name+"_"+str(i-1)
                 pred_delta_i = idb_predicate.duplicateWithNewName("{}_delta_{}".format(pred_name,str(i)))
                 if pred_delta_i.isEmpty(conn):
@@ -213,6 +216,7 @@ class DT_Program:
                 self._executeoncetemp(conn)
                 pred_delta_next = idb_predicate.initiateNewTable(conn=conn, newName="{}_delta_{}".format(pred_name,str(i+1)))
                 tuplesAdded = pred_delta_next.setDifference(conn=conn, table1Name = P_temp_name, table2Name = output_pred.name) # tuples added is a boolean which is true when new tuples are generated
+                self.db.addTable(pred_delta_next)
                 if tuplesAdded != 0:
                     changed = True
                 else:
@@ -225,10 +229,14 @@ class DT_Program:
                 idb_predicate.delete(conn)
                 idb_predicate.rename(conn, iterationEndMapping[idb_predicate.name])
     
+    # Converts DoC indexes back to DoC strings so that the result can be understood. Does not support BDD
     def restoreStringConditions(self, conn):
+        if self.reasoning_tool.name.lower() != "docsolver":
+            print("Error. Restore conditions only supports DoC")
+            exit()
         for table in self.db.tables:
-            print(table.name)
-            self.reasoning_tool.restoreStringConditions(conn, table.name)
+            if table.exists(conn):
+                self.reasoning_tool.restoreStringConditions(conn, table.name)
         conn.commit()
 
     # given an idb predicate with name=name on iteration number i, return rules that compute the temporary IDBs for iteration i+1

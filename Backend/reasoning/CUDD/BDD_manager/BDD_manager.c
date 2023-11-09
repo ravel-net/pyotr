@@ -12,18 +12,24 @@ DdManager* gbm; //
 DdNode** variableNodes; // stores variables
 int numVars; // Number of variables in program
 
-void write_dd (DdManager *gbm, DdNode *dd, char* filename)
+int Cprint_dd (int bdd_reference1)
 {
-    FILE *outfile; // output file pointer for .dot file
-    outfile = fopen(filename,"w");
-    DdNode **ddnodearray = (DdNode**)malloc(sizeof(DdNode*)); // initialize the function array
-    ddnodearray[0] = dd;
-    Cudd_DumpDot(gbm, 1, ddnodearray, NULL, NULL, outfile); // dump the function to .dot file
-    free(ddnodearray);
-    fclose (outfile); // close the file */
-}
+    DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
+    Cudd_PrintDebug(gbm, bdd_1, 1, 4);
+    return 0;
+}  
 
-void Cinitialize(unsigned int numberOfBDDVariables) { 
+static PyObject* print_dd(PyObject* self, PyObject* args)
+{
+    int bdd_reference1;
+    
+    if(!PyArg_ParseTuple(args, "i", &bdd_reference1))
+        return NULL;
+    int result = Cprint_dd(bdd_reference1);
+    return Py_BuildValue("i", result);
+}
+  
+void Cinitialize(unsigned int numberOfBDDVariables) {  
     initializeBDD(&BDDs, INITIALSIZE);
     numVars = numberOfBDDVariables;
     gbm = Cudd_Init(0,0,CUDD_UNIQUE_SLOTS,CUDD_CACHE_SLOTS,0); /* Initialize a new BDD manager. */
@@ -84,7 +90,7 @@ int Cstr_to_BDD(char* C) {
 
 static PyObject* str_to_BDD(PyObject* self, PyObject* args)
 {
-    // instantiate our `n` value
+    // instantiate our `n` value 
     char* C;
     // if our `n` value
     if(!PyArg_ParseTuple(args, "s", &C))
@@ -95,13 +101,35 @@ static PyObject* str_to_BDD(PyObject* self, PyObject* args)
 
 bool Cis_implication(int bdd_reference1, int bdd_reference2) {
     DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
-    DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
+    DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2); 
     DdNode* bdd_1_not = logicalNotBDD(bdd_1);
-    DdNode* bdd_ans = logicalOpBDD('^', gbm, bdd_1_not, bdd_2);
+    DdNode* bdd_ans = logicalOpBDD('^', gbm, bdd_1_not, bdd_2); 
     // TODO: Might be a good idea to see if bdd_ans and bdd_1_not can be derefrenced
     int answer = evaluateBDD(bdd_ans);
     return (answer == 1); // If answer is 1, that means it's a tautology
-}    
+}     
+
+int Ctransform_BDDs(int bdd_reference1, int bdd_reference2, int bdd_reference3) {
+    DdNode* bdd_1 = getBDD(&BDDs, bdd_reference1);
+    DdNode* bdd_2 = getBDD(&BDDs, bdd_reference2);
+    DdNode* bdd_3 = getBDD(&BDDs, bdd_reference3);
+    DdNode* bdd = transform(gbm, bdd_1, bdd_2, bdd_3); // TODO: Maybe we should be smart about dereferencing BDDs
+    return insertBDD(&BDDs, bdd); 
+}   
+
+static PyObject* transform_BDDs(PyObject* self, PyObject* args)
+{
+    // instantiate our `n` value
+    int bdd_reference1; 
+    int bdd_reference2;
+    int bdd_reference3;
+    
+    // if our `n` value
+    if(!PyArg_ParseTuple(args, "iii", &bdd_reference1, &bdd_reference2, &bdd_reference3))
+        return NULL;
+    int result = Ctransform_BDDs(bdd_reference1, bdd_reference2, bdd_reference3);
+    return Py_BuildValue("i", result);
+}
 
 static PyObject* is_implication(PyObject* self, PyObject* args)
 {
@@ -150,6 +178,8 @@ static PyMethodDef BDD_Methods[] = {
     {"operate_BDDs", operate_BDDs, METH_VARARGS, "Do logical operation between two BDDs."},
     {"readMemoryInUse", readMemoryInUse, METH_VARARGS, "Get memory of gbm"},
     {"is_implication", is_implication, METH_VARARGS, "Check if BDD1 implies BDD2."},
+    {"transform_BDDs", transform_BDDs, METH_VARARGS, "Rewrites BDD1 with BDD2"},
+    {"print_dd", print_dd, METH_VARARGS, "Prints a given decision diagram in default stdout"},
     {NULL, NULL, 0, NULL}
 };
 

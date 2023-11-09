@@ -2,32 +2,33 @@
 
 ## Compilation and linkage
 
-- Compile and install CUDD with option `./configure --enable-shared`
+- Compile and install CUDD (https://github.com/ivmai/cudd) with option `./configure --enable-shared`
     ```bash
     ./configure --enable-shared
     make
     make check
     ```
-    Note: If appears `'aclocal-1.14' is missing on your system` error when run command `make`, then run `autoreconf` and again `./configure`.
+    Note: If CUDD gives  `'aclocal-1.14' is missing on your system` error when running `make`, then run `autoreconf` and again `./configure`.
 
 
 
-- run following command to compile and link it with Python system. 
+- run following commands to compile and link it with Python system. 
     ```bash
     python setup.py build
     python setup.py install
     ```
 
     Notes: 
-    1. if cannot find 'Python.h', install python-dev which includes header `"Python.h"`
+    1. Installation of library might require sudo privileges (e.g. sudo python setup.py install)
+    2. if system cannot find 'Python.h', install python-dev which includes header `"Python.h"`
         ```bash
         sudo apt-get install python-dev
         ```
-    2. If cannot find related CUDD headers, export path of CUDD headers to `CPATH`.
+    3. If system cannot find related CUDD headers, export path of CUDD headers to `CPATH`.
         ```bash
         export CPATH=/path/to/cudd/:/path/to/cudd/cudd/:/path/to/cudd/util
         ```
-    3.  If cannot find cudd library, copy `libcudd.so`, `libcudd-3.0.0.so.0` and `libcudd-3.0.0.so.0.0.0` to `/usr/lib/x86_64-linux-gnu/`. In some processors, you might need to copy to `/usr/local/lib` instead. In addition, add `extra_link_args=['-L/usr/lib/x86_64-linux-gnu/']` to `setup.py`.
+    4.  If system cannot find cudd library, copy `libcudd.so`, `libcudd-3.0.0.so.0` and `libcudd-3.0.0.so.0.0.0` to `/usr/lib/x86_64-linux-gnu/`. In some processors, you might need to copy to `/usr/local/lib` instead. In addition, add `extra_link_args=['-L/usr/lib/x86_64-linux-gnu/']` to `setup.py`.
 
         ```bash
         cp path/to/cudd/cudd/.libs/libcudd.so /usr/lib/x86_64-linux-gnu/

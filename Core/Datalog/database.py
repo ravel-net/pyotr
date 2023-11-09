@@ -45,6 +45,9 @@ class DT_Database:
         #     elif currCvar in self.cVarMappingReverse and "'" in negInt: # This is done because reverseMapping is used by sql and it requires quotation marks for ip addresses
         #         self.cVarMappingReverse[self.cVarMapping[negInt]] = negInt
 
+    # TODO: ALSO UPDATE OTHER MEMBERS OF THE CLASS
+    def addTable(self, table):
+        self.tables.append(table)
 
     # Maps cvariable integers to negative integers and maps cvariable inets to 0.0.0.1 to 0.0.255.0
     def getCVarMapping(self):

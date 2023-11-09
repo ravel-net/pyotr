@@ -146,9 +146,11 @@ class FaureEvaluation:
                 if simplication_on:
                     self.simplification(self.headerTable.name)
 
-            elif self._reasoning_engine.lower() == 'bdd' or self._reasoning_engine.lower() == 'docsolver':
-                self.rowsAffected = self._integrationBDD()
-                self._upd_condition_BDD()
+            elif self._reasoning_engine.lower() == 'docsolver' or self._reasoning_engine.lower() == 'bdd':
+                self.rowsAffected = self._integration()
+                self._upd_condition()
+                cursor = self._conn.cursor()
+                cursor.execute("INSERT INTO {} SELECT * FROM {}".format(self.headerTable.name, self.output_table))
 
                 # if simplication_on:
                 #     if self._reasoning_engine.lower() == 'bdd':
@@ -160,26 +162,29 @@ class FaureEvaluation:
                 print("Unsupported reasoning engine", self._reasoning_engine)
                 exit()
 
-            if self._reasoning_engine.lower() == 'bdd' or self._reasoning_engine.lower() == 'docsolver':
-                cursor = self._conn.cursor()
-                cursor.execute("INSERT INTO {} SELECT * FROM {}".format(self.headerTable.name, self.output_table))
-
     ########@timeit
     def getSelectSQL(self, mode = "contradiction", engine = "Z3"):
         arrayPart = parsing_utils.getArrayPart(self._constraintsZ3Format)
-        tablesAsConditions = parsing_utils.getTablesAsConditions(self._tables)
+        tablesAsConditions = parsing_utils.getAppendedColumns(tables=self._tables, db=self._databases, colmName="condition")
+        tablesAsTransformers = parsing_utils.getAppendedColumns(tables=self._tables, db=self._databases, colmName="transformer")
         if mode == "contradiction":
             if arrayPart:
-                if engine == "BDD":
-                     conditionPart = tablesAsConditions + "::text[] as old_conditions, Array[" + arrayPart + "]"
+                if engine.lower() != "z3":
+                    if tablesAsTransformers:
+                        conditionPart = tablesAsTransformers + "::text[] as transformer, " + tablesAsConditions + "::text[] as old_conditions, Array[" + arrayPart + "]"
+                    else:
+                        conditionPart = tablesAsConditions + "::text[] as old_conditions, Array[" + arrayPart + "]"
                 else:
                     conditionPart = tablesAsConditions + " || Array[" + arrayPart + "]"
             else:
-                if engine == "BDD":
-                    conditionPart = tablesAsConditions + "::text[] as old_conditions, Array[]"
+                if engine.lower() != "z3":
+                    if tablesAsTransformers:
+                        conditionPart = tablesAsTransformers + "::text[] as transformer, " + tablesAsConditions + "::text[] as old_conditions, Array[]"
+                    else:
+                        conditionPart = tablesAsConditions + "::text[] as old_conditions, Array[]"
                 else:
                     conditionPart = tablesAsConditions
-            if engine == "BDD":
+            if engine.lower() != "z3":
                 conditionPart += "::text[] as conjunction_condition"
             else:
                 conditionPart += "::text[] as condition"
@@ -230,14 +235,14 @@ class FaureEvaluation:
         return cursor.rowcount
     
     @timeit
-    def _integrationBDD(self):
+    def _integration(self):
         if self._information_on:
-            print("\n************************Step 1: data with complete condition for BDD****************************")
+            print("\n************************Step 1: data with complete condition ****************************")
         
         cursor = self._conn.cursor()
         begin_data = time.time()
         cursor.execute("drop table if exists {}".format(self.output_table))
-        select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode, engine = "BDD")
+        select_sql = self.getSelectSQL(mode = self._faure_evaluation_mode, engine = self._reasoning_engine)
         data_sql = "create table {} as {}".format(self.output_table, select_sql)
         cursor.execute(data_sql)
         end_data = time.time()
@@ -279,44 +284,63 @@ class FaureEvaluation:
         cursor.execute("update {} set condition = condition || Array['{}']".format(self.output_table, self._additional_condition))
 
     @timeit
-    def _upd_condition_BDD(self):
+    def _upd_condition(self):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
         cursor = self._conn.cursor()
-
+        
         # if 'id' not in self.column_datatype_mapping:
         cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
+        
+        # get column names
+        cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table.lower())) # this SQL needs lowercase of tablename
+        columns = []
+        for (column_name, ) in cursor.fetchall():
+            columns.append(column_name.lower())
 
-        select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
+        transformerOn = False
+        if 'transformer' in columns:
+            transformerOn = True
+
+        if transformerOn:
+            select_sql = "select transformer, old_conditions, conjunction_condition, id from {}".format(self.output_table) 
+        else:
+            select_sql = "select old_conditions, conjunction_condition, id from {}".format(self.output_table) 
         if self._information_on:
             print(select_sql)
         
         begin_upd = time.time()
         cursor.execute(select_sql)
         end_upd = time.time()
+        tableSelect = end_upd-begin_upd
+        logging.info(f'Time: updbdd_select took {tableSelect:.4f}')
 
         count_num = cursor.rowcount
         data_tuples = cursor.fetchall()
         new_reference_mapping = {}
         del_tuple = []
-        update_tuple = {}
         parsing_time = 0
         simplification_time = 0
         for i in tqdm(range(count_num)):
             start = time.time()
-            (old_conditions, conjunction_conditions, id) = data_tuples[i]
+            if transformerOn:
+                (transformer, old_conditions, conjunction_conditions, id) = data_tuples[i] 
+            else:
+                (old_conditions, conjunction_conditions, id) = data_tuples[i]
             
             '''
-            get BDD reference number for conjunction condition
+            get reference number for conjunction condition
             '''
+            conjunction_ref = None
             conjunction_condition = ""
-            if len(conjunction_conditions) == 1:
+            # if len(conjunction_conditions) == 1:
+            if len(conjunction_conditions) == 1 and "x" in conjunction_conditions[0]: # the second condition is hacky. Works only for DoC type
                 conjunction_condition = conjunction_conditions[0]
             elif len(conjunction_conditions) > 1:
                 conjunction_condition = "And({})".format(",".join(conjunction_conditions))
             if len(conjunction_conditions) != 0:
                 # conjunction_str = "And({})".format(", ".join(conjunction_conditions))
-                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunction_condition)                
+                conjunction_ref = self._reasoning_tool.str_to_BDD(conjunction_condition)            
             
             '''
             Logical AND all original conditions for all tables
@@ -325,37 +349,45 @@ class FaureEvaluation:
             for cond_idx in range(1, len(old_conditions)):
                 bdd1 = old_conditions[cond_idx]
                 old_bdd = self._reasoning_tool.operate_BDDs(int(bdd1), int(old_bdd), "&")
-            if len(conjunction_conditions) != 0:
-                # Logical AND original BDD and conjunction BDD
-                new_reference_mapping[id] = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
-            else:
-                new_reference_mapping[id] = old_bdd
+            if conjunction_ref != None: 
+                old_bdd = self._reasoning_tool.operate_BDDs(old_bdd, conjunction_ref, "&")
+            
+            t = 0
+            while transformerOn and t < len(transformer): # loop over transformer conditions
+                cond = transformer[t]
+                bdd_rewrite_vars = transformer[t+1]
+                old_bdd = self._reasoning_tool.transform_BDDs(int(old_bdd), int(cond), int(bdd_rewrite_vars))
+                t += 2
             end = time.time()
             parsing_time += (end-start)
             if self._simplification_on:
-                row = cursor.fetchone()
-                if self._reasoning_engine.lower() == "docsolver":
-                    simplifiedCond = self._reasoning_tool.simplifyCondition(new_reference_mapping[id])
+                if self._reasoning_engine.lower() == "docsolver": # TODO: cleanup to make the same function for all reasoning engines 
+                    simplifiedCond = self._reasoning_tool.simplifyCondition(old_bdd)
                     if simplifiedCond == None:
                         del_tuple.append(id)
                     else:
-                        update_tuple[id] = simplifiedCond
+                        new_reference_mapping[id] = simplifiedCond
                 else:
-                    simplifiedCond = self._reasoning_tool.simplifyCondition(new_reference_mapping[id])
-                    is_contrad = self._reasoning_tool.iscontradiction(row[1])
+                    is_contrad = self._reasoning_tool.iscontradiction(old_bdd)
                     if is_contrad:
-                        del_tuple.append(row[0])
+                        del_tuple.append(id)
+                    else:
+                        new_reference_mapping[id] = old_bdd
             end2 = time.time()
             simplification_time += (end2-end)
 
         logging.info(f'Time: updbdd_parsing took {parsing_time:.4f}')
         logging.info(f'Time: updbdd_simplification took {simplification_time:.4f}')
 
+        start_upd = time.time()
         '''
-        add condition column of text[] type
+        add condition/transformer column of text[] type
         update bdd reference number on condition column
         '''
-        sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, add column condition text[]".format(self.output_table)
+        if transformerOn:
+            sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, drop column if exists transformer, drop column if exists condition, add column condition text[];".format(self.output_table)
+        else:
+            sql = "alter table if exists {} drop column if exists old_conditions, drop column if exists conjunction_condition, drop column if exists condition, add column condition text[];".format(self.output_table)
         cursor.execute(sql)
 
         # delete contradictions
@@ -364,22 +396,25 @@ class FaureEvaluation:
         if len(del_tuple) == 0:
             pass
         elif len(del_tuple) == 1:
-            cursor.execute("delete from {} where id = {}".format(self.output_table, del_tuple[0]))
+            sql += "delete from {} where id = {};".format(self.output_table, del_tuple[0])
         else:
-            cursor.execute("delete from {} where id in {}".format(self.output_table, tuple(del_tuple)))
+            sql += "delete from {} where id in {};".format(self.output_table, tuple(del_tuple))
         if self._information_on:
             print("Deleting done")
-            print("Updating {} tuples".format(str(len(update_tuple))))
+            print("Updating {} tuples".format(str(len(new_reference_mapping))))
                   
         #TODO: Update columns, possibly in bulk?
-        for id in update_tuple:
-            cursor.execute("UPDATE {} SET condition = Array['{}'] WHERE id = {}".format(self.output_table, update_tuple[id], id))
+        for id in new_reference_mapping:
+            sql += "UPDATE {} SET condition = Array['{}'] WHERE id = {};".format(self.output_table, new_reference_mapping[id], id)
         if self._information_on:
             print("Update done")
-        cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(self.output_table))
 
-        sql = "alter table if exists {} drop column if exists id".format(self.output_table)
-        cursor.execute(sql)
+        sql += "alter table if exists {} drop column if exists id;".format(self.output_table)
+        if sql != "":
+            cursor.execute(sql)
+        end_upd = time.time()
+        upt_time = end_upd-start_upd
+        logging.info(f'Time: faure_update took {upt_time:.4f}')
 
     ########@timeit
     def _reserve_tuples_by_checking_implication_z3(self):

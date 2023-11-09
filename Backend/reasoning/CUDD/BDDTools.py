@@ -7,9 +7,18 @@ from copy import deepcopy
 from psycopg2.extras import execute_values
 from utils.logging import timeit
 from Core.Datalog.conditionTree import ConditionTree
+from utils import parsing_utils
 
+def singleton(cls, *args, **kw):
+    instances = {}
+    def _singleton(*args, **kw):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kw)
+        return instances[cls]
+    return _singleton
+
+@singleton
 class BDDTools:
-
     ########@timeit
     def __init__(self, variables, domains={}, reasoning_types={}, mapping = {}, bits = 32) -> None:
         # assume all variables have the same domain
@@ -38,9 +47,9 @@ class BDDTools:
         for var in upd_variables:
             self.varToIntMapping[var] = str(count)
             count += 1
-    ########@timeit
-    def str_to_BDD(self, condition):
-        # print("condition", condition)
+
+    # @timeit
+    def encodeCond(self, condition):
         conditionTree = ConditionTree(condition).toString(mode = "Replace String", replacementDict=self._mapping)
         conditionTreeReplaced = ConditionTree(conditionTree)
         if conditionTreeReplaced.getIsTrue():
@@ -48,14 +57,26 @@ class BDDTools:
         else:
             encoded_c = conditionTreeReplaced.toString(mode = "BDD", replacementDict = self.varToIntMapping, bits = self.bits)
         encoded_c = encoded_c.replace(" ","")
-        # print(encoded_c)
+        return encoded_c
+    
+    def print_dd(self, bdd_idx1):
+        return bddmm.print_dd(bdd_idx1)
+
+    # @timeit
+    def str_to_BDD(self, condition):
+        encoded_c = self.encodeCond(condition)
         bdd_condition_idx = bddmm.str_to_BDD(encoded_c)
         return bdd_condition_idx
 
     ########@timeit
     def operate_BDDs(self, bdd_idx1, bdd_idx2, operator):
         result_idx = bddmm.operate_BDDs(int(bdd_idx1), int(bdd_idx2), operator)
-
+        return result_idx
+    
+    def transform_BDDs(self, bdd_idx1, bdd_idx2, bdd_idx3):
+        # print("Transformer called. Exiting")
+        # exit()
+        result_idx = bddmm.transform_BDDs(int(bdd_idx1), int(bdd_idx2), int(bdd_idx3))
         return result_idx
     
     ########@timeit
@@ -74,41 +95,38 @@ class BDDTools:
         return self.is_implication(bdd_idx1, bdd_idx2) and self.is_implication(bdd_idx2, bdd_idx1)
 
     def iscontradiction(self, condition):
-        if len(condition) != 1:
-            print("Is contradiction with bdd should only be called with one condition. Condition {} is not acceptable. Exiting".format(condition))
-            exit()
-        result = self.evaluate(int(condition[0]))
+        # if len(condition) != 1:
+        #     print("Is contradiction with bdd should only be called with one condition. Condition {} is not acceptable. Exiting".format(condition))
+        #     exit()
+        result = self.evaluate(int(condition))
         if str(result) == '0':
             return True
         else:
             return False
-
-    ########@timeit
+    
+    @timeit
     def process_condition_on_ctable(self, conn, tablename):
         """
         convert text condition to BDD reference in a c-table
 
         Parameters:
         -----------
+        conn:
+            psycopg2 connection to database
+
         tablename: string
             the tablename of c-table
-        
-        variables: list
-            A list of c-variables
-        
-        domains: list
-            A list of values for c-variables. All c-varaibles have the same domain. 
         """
         cursor = conn.cursor()
 
+        # get column names
         cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = '{}';".format(tablename.lower())) # this SQL needs lowercase of tablename
         columns = []
         for (column_name, ) in cursor.fetchall():
             columns.append(column_name.lower())
-        conn.commit()
 
         '''
-        locate condition
+        locate column index of condition and transformer
         '''
         cond_idx = -1
         
@@ -118,54 +136,65 @@ class BDDTools:
             print("No condition column! Check if the target table is correct!")
             exit()
 
+        if 'transformer' in columns:
+            trans_idx = columns.index('transformer')
+        else:
+            print("No transformer column! Check if the target table is correct!")
+            exit()
+
+        # loads table in memory. TODO: We only need to load condition and transformer columns. This could be made more efficient
         cursor.execute("select {attributes} from {tablename}".format(attributes=", ".join(columns), tablename=tablename))
 
+        '''
+        Loop over table and converts conditions into indexes
+        '''
         count_num = cursor.rowcount
-
         new_tuples = []
         for i in tqdm(range(count_num)):
             row = cursor.fetchone()
             list_row = list(row)
-            if type(list_row[cond_idx]) == int: # if the condition is int datatype, return
-                return
             if len(list_row[cond_idx]) == 0:
                 # list_row[cond_idx] = None
                 if self._empty_condition_idx is None:
                     condition = ""
-                    begin_process = time.time()
                     empty_condition_idx = self.str_to_BDD(condition)
-                    end_process_strToBDD = time.time()
-                    # if self._information_on:
-                    #     print("Time to str_to_BDD in condition {}: {} s".format(empty_condition_idx, end_process_strToBDD-begin_process))
                     self._empty_condition_idx = empty_condition_idx
-                list_row[cond_idx] = self._empty_condition_idx
+                list_row[cond_idx] = "{" + str(self._empty_condition_idx) + "}"
             else:
                 condition = ", ".join(list_row[cond_idx])
-
                 # Call BDD module 
-                begin_process = time.time()
                 bdd_idx = self.str_to_BDD(condition)
-                end_process_strToBDD = time.time()
-                # if self._information_on:
-                #     print("Time to str_to_BDD in condition {}: {} s".format(bdd_idx, end_process_strToBDD-begin_process))
                 list_row[cond_idx] = "{" + str(bdd_idx) + "}"
 
+            if len(list_row[trans_idx]) != 0: # for transformer, each condition will have two bdds. (1) actual rewriting BDD, (2) Same BDD but with all ones where we need to rewrite. Note that the user has to make sure to provide both conditions, because bdd backend is agnostic to how the conditions are provided
+                transformerConditions = list_row[trans_idx]
+                transformerBDDIdxes = []
+                for condition in transformerConditions:
+                    bdd_idx = self.str_to_BDD(condition)
+                    transformerBDDIdxes.append(str(bdd_idx))
+                    onesCondition = parsing_utils.convertToAllOnes(condition) # e.g. *1001*0 is converted to *1111*1
+                    bdd_idx2 = self.str_to_BDD(onesCondition)
+                    transformerBDDIdxes.append(str(bdd_idx2))
+                list_row[trans_idx] = "{" + ",".join(transformerBDDIdxes) + "}"
             row = tuple(list_row)
             new_tuples.append(deepcopy(row))
         
         # truncate content in target table
-        sql = "truncate table {tablename}".format(tablename=tablename)
+        sql = "truncate table {tablename};".format(tablename=tablename)
+
+        # drop condition column
+        sql += "alter table if exists {tablename} drop column if exists condition;".format(tablename=tablename)
+
+        # drop transformer column
+        sql += "alter table if exists {tablename} drop column if exists transformer;".format(tablename=tablename)
+
+        sql += "alter table if exists {tablename} add column IF NOT EXISTS transformer text[];".format(tablename=tablename)
+
+        sql += "alter table if exists {tablename} add column IF NOT EXISTS condition text[];".format(tablename=tablename)
         cursor.execute(sql)
 
-        # alter table condition column's datatype from text[] to integer
-        sql = "alter table if exists {tablename} drop column if exists condition".format(tablename=tablename)
-        cursor.execute(sql)
-
-        sql = "alter table if exists {tablename} add column IF NOT EXISTS condition text[]".format(tablename=tablename)
-        cursor.execute(sql)
 
         sql = "insert into {tablename} values %s".format(tablename=tablename)
         execute_values(cursor, sql, new_tuples)
         # cursor.executemany(new_tuples)
-        conn.commit()
-
+        # conn.commit()

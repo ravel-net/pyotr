@@ -312,7 +312,26 @@ def getArrayPart(conditions, operators = ["==", "!=", ">", ">=", "<", "<="]):
 		# print("array length is zero")
 		return ""
 
-# Input: Tables for joining (e.g. ['C t0', 'C t1', 'C t2', 'B t3'])
+# Input: (1) Tables for joining (e.g. ['C t0', 'C t1', 'C t2', 'B t3']), (2) Database that contains a list of table objects, (3) colmName that needs to be combined (e.g. "condition")
+# Output Example: t0.condition || t1.condition || t2.condition || t3.condition
+########@timeit
+def getAppendedColumns(tables = [], db = None, colmName = "condition"):
+	tableRefs = []
+	for table in tables:
+		tableName, tableReference = table.split()
+		tableObject = db.getTable(tableName)
+		if not tableObject:
+			print("None table found")
+			exit()
+		if colmName in tableObject.columns:
+			tableRefs.append(tableReference + "." + colmName)
+	if len(tableRefs) == 0:
+		return None
+	else:
+		return " || ".join(tableRefs)
+
+
+# Input: (1) Tables for joining (e.g. ['C t0', 'C t1', 'C t2', 'B t3']), (2) Database that contains a list of table objects
 # Output Example: t0.condition || t1.condition || t2.condition || t3.condition
 ########@timeit
 def getTablesAsConditions(tables = [], colmName = "condition"):
@@ -575,3 +594,9 @@ def _convertBDDInt(var, operator, constant, varToIntMapping):
 	binary_rep = bin(int(constant))[2:]
 	newItems = _binaryRepresentation(var, numBinDigits, binary_rep, numBinDigits, varToIntMapping)
 	return _combineItems(newItems, "&")
+
+# Converts the condition into a format where all zeroes are one. This is useful for BDDs when rewriting condition
+# e.g. *1001*0 is converted to *1111*1
+# Note that this is currently only applicable for DoC format
+def convertToAllOnes(condition):
+	return condition.replace('0','1')
