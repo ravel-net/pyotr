@@ -49,7 +49,7 @@ def DoC_example1():
     conn.commit()
 
     '''
-    The sql below creates the table below:
+    The sql below creates the following table:
     pkt_in    pkt_out    node    next_hop    condition
     --------  ---------  ------  ----------  --------------------------------------------------------
     i_1       o_1        R1      R2          ['And(i_1 == #10x01x, o_1 == i_1)']
@@ -93,7 +93,7 @@ def BDD_example1():
     nodeMapping = {'10':"R1",'20':"R2",'30':"R3",'123':"B",'245':"D"}
 
     '''
-    The sql below creates the table below:
+    The sql below creates the following table:
     pkt_in    pkt_out    node    next_hop    transformer                condition
     --------  ---------  ------  ----------  ---------------------      --------------------------------------------------------
     i_1       i_1        R1      R2                                     ['i_1 == #10x01x']
