@@ -35,10 +35,6 @@ conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], 
 def DoC_example1():
     cVarMapping = {"-16":"i_1","-26":"i_2","-36":"i_3","-46":"i_4","-56":"i_5","-11":"o_1","-22":"o_2","-33":"o_3","-44":"o_4","-55":"o_5"}
 
-    variables = []
-    for i in cVarMapping:
-        variables.append(cVarMapping[i])
-
     R_nod = DT_Table(name="R_ordering", columns={"pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars={"o_1":"pkt_out","o_2":"pkt_out","o_3":"pkt_out","o_4":"pkt_out","o_5":"pkt_out"}, domain={"source":[10,20,30,40,123,245],"dest":[10,20,30,40,123,245],"last_node":[10,20,30,40,123,245]})
 
     F_nod = DT_Table(name="F_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","condition":"text[]"}, cvars={"i_1":"pkt_in","i_2":"pkt_in","i_3":"pkt_in","i_4":"pkt_in","i_5":"pkt_in", "o_1":"pkt_out","o_2":"pkt_out","o_3":"pkt_out","o_4":"pkt_out","o_5":"pkt_out"}, domain={"next_hop":[10,20,30,40,123,245],"node":[10,20,30,40,123,245]})
@@ -73,8 +69,6 @@ def DoC_example1():
     conn.commit()
     printTable("R_ordering", database, nodeMapping)
     printTable("F_nod", database, nodeMapping)
-    exit()
-    print(end-start)
     database.delete(conn)
 
 # Example taken from NoD (Checking beliefs in networks) Figure 1
@@ -84,10 +78,6 @@ def DoC_example1():
 # i1 = -16
 def BDD_example1():
     cVarMapping = {"-16":"i_1"}
-
-    variables = []
-    for i in cVarMapping:
-        variables.append(cVarMapping[i])
 
     R_nod = DT_Table(name="R_ordering", columns={"pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars={"i_1":"pkt_out"}, domain={"source":[10,20,30,40,123,245],"dest":[10,20,30,40,123,245],"last_node":[10,20,30,40,123,245]})
 
@@ -122,6 +112,7 @@ def BDD_example1():
     conn.commit()
     printTable("R_ordering", database, nodeMapping)
     printTable("F_nod", database, nodeMapping)
+    database.delete(conn)
     
 # move this to table class
 def printTable(tableName, db, nodeIntMappingReverse, condition = None):
