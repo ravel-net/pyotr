@@ -70,6 +70,11 @@ class DT_Database:
             table.delete(conn)
         conn.commit()
 
+    def deleteAllTables(self, conn): # destructor - delete tuples in tables
+        for table in self.tables:
+            table.deleteAllTuples(conn)
+        conn.commit()
+
     # creates an empty DB
     def initiateDB(self, conn):
         for table in self.tables:

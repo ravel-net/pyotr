@@ -137,7 +137,6 @@ class FaureEvaluation:
             if self._reasoning_engine.lower() == 'z3':
                 if self._faure_evaluation_mode == 'contradiction':
                     self.rowsAffected = self._integrationZ3()
-                    
                 elif self._faure_evaluation_mode == 'implication':
                     self._integration_implication_mode()
                     self.rowsAffected = self._reserve_tuples_by_checking_implication_z3()
@@ -150,7 +149,7 @@ class FaureEvaluation:
                 self.rowsAffected = self._integration()
                 self._upd_condition()
                 cursor = self._conn.cursor()
-                cursor.execute("INSERT INTO {} SELECT * FROM {}".format(self.headerTable.name, self.output_table))
+                cursor.execute("INSERT INTO {} SELECT * FROM {} ON CONFLICT DO NOTHING".format(self.headerTable.name, self.output_table))
 
                 # if simplication_on:
                 #     if self._reasoning_engine.lower() == 'bdd':
@@ -223,18 +222,16 @@ class FaureEvaluation:
         # print("Selection took {} seconds".format(end_data-begin_data))
 
         if self._information_on:
-            print("INSERT INTO {} {}".format(self.headerTable.name, select_sql))
+            print("INSERT INTO {} {} ON CONFLICT DO NOTHING ".format(self.headerTable.name, select_sql))
         
         begin_data = time.time()
-        cursor.execute("INSERT INTO {} {}".format(self.headerTable.name, select_sql))
+        cursor.execute("INSERT INTO {} {} ON CONFLICT DO NOTHING ".format(self.headerTable.name, select_sql))
         end_data = time.time()
         self.data_time += (end_data - begin_data)
-       
-        if self._information_on:
-            print("\ncombined executing time: ", self.data_time)
+        logging.info(f'Time: db_z3 took {self.data_time:.4f}')
         return cursor.rowcount
     
-    @timeit
+    # @timeit
     def _integration(self):
         if self._information_on:
             print("\n************************Step 1: data with complete condition ****************************")
@@ -251,6 +248,7 @@ class FaureEvaluation:
         
         if self._information_on:
             print("\ncombined executing time: ", end_data-begin_data)
+        logging.info(f'Time: db_engine took {(end_data-begin_data):.4f}')
         return cursor.rowcount
     
     ########@timeit
@@ -283,20 +281,23 @@ class FaureEvaluation:
         cursor = self._conn.cursor()
         cursor.execute("update {} set condition = condition || Array['{}']".format(self.output_table, self._additional_condition))
 
-    @timeit
+    # @timeit
     def _upd_condition(self):
         if self._information_on:
             print("\n************************Step 2: update condition****************************")
         cursor = self._conn.cursor()
         
         # if 'id' not in self.column_datatype_mapping:
+        start_id = time.time()
         cursor.execute("ALTER TABLE {} ADD COLUMN if not exists id SERIAL PRIMARY KEY;".format(self.output_table))
-        
+
         # get column names
         cursor.execute("SELECT column_name FROM information_schema.columns WHERE table_name = '{}';".format(self.output_table.lower())) # this SQL needs lowercase of tablename
         columns = []
         for (column_name, ) in cursor.fetchall():
             columns.append(column_name.lower())
+        end_id = time.time()
+        logging.info(f'Time: db_engine took {(end_id-start_id):.4f}')
 
         transformerOn = False
         if 'transformer' in columns:
@@ -309,20 +310,15 @@ class FaureEvaluation:
         if self._information_on:
             print(select_sql)
         
-        begin_upd = time.time()
         cursor.execute(select_sql)
-        end_upd = time.time()
-        tableSelect = end_upd-begin_upd
-        logging.info(f'Time: updbdd_select took {tableSelect:.4f}')
 
         count_num = cursor.rowcount
         data_tuples = cursor.fetchall()
         new_reference_mapping = {}
         del_tuple = []
-        parsing_time = 0
         simplification_time = 0
+        start = time.time()
         for i in tqdm(range(count_num)):
-            start = time.time()
             if transformerOn:
                 (transformer, old_conditions, conjunction_conditions, id) = data_tuples[i] 
             else:
@@ -358,8 +354,6 @@ class FaureEvaluation:
                 bdd_rewrite_vars = transformer[t+1]
                 old_bdd = self._reasoning_tool.transform(int(old_bdd), int(cond), int(bdd_rewrite_vars))
                 t += 2
-            end = time.time()
-            parsing_time += (end-start)
             if self._simplification_on:
                 if self._reasoning_engine.lower() == "docsolver": # TODO: cleanup to make the same function for all reasoning engines 
                     simplifiedCond = self._reasoning_tool.simplifyCondition(old_bdd)
@@ -373,13 +367,11 @@ class FaureEvaluation:
                         del_tuple.append(id)
                     else:
                         new_reference_mapping[id] = old_bdd
-            end2 = time.time()
-            simplification_time += (end2-end)
+        end = time.time()
+        simplification_time = (end-start)
 
-        logging.info(f'Time: updbdd_parsing took {parsing_time:.4f}')
-        logging.info(f'Time: updbdd_simplification took {simplification_time:.4f}')
+        logging.info(f'Time: reasoning_engine took {simplification_time:.4f}')
 
-        start_upd = time.time()
         '''
         add condition/transformer column of text[] type
         update bdd reference number on condition column
@@ -404,7 +396,9 @@ class FaureEvaluation:
             print("Updating {} tuples".format(str(len(new_reference_mapping))))
                   
         #TODO: Update columns, possibly in bulk?
+
         for id in new_reference_mapping:
+
             sql += "UPDATE {} SET condition = Array['{}'] WHERE id = {};".format(self.output_table, new_reference_mapping[id], id)
         if self._information_on:
             print("Update done")
@@ -412,9 +406,6 @@ class FaureEvaluation:
         sql += "alter table if exists {} drop column if exists id;".format(self.output_table)
         if sql != "":
             cursor.execute(sql)
-        end_upd = time.time()
-        upt_time = end_upd-start_upd
-        logging.info(f'Time: faure_update took {upt_time:.4f}')
 
     ########@timeit
     def _reserve_tuples_by_checking_implication_z3(self):
@@ -453,7 +444,7 @@ class FaureEvaluation:
         
         cursor.execute("create temp table if not exists temp_update(uid integer, condition text[])")
         cursor.execute("truncate temp_update") # if exists, truncate temp_update table
-        execute_values(cursor, "insert into temp_update values %s", update_tuples)
+        execute_values(cursor, "insert into temp_update values %s ON CONFLICT DO NOTHING", update_tuples)
 
         
         columns_without_condition = deepcopy(self.headerTable.columns)
@@ -477,13 +468,17 @@ class FaureEvaluation:
         '''
         delete contradiction
         '''
-        contrd_begin = time.time()
         cursor.execute("select id, condition from {}".format(target_table))
         contrad_count = cursor.rowcount
         del_tuple = []
+        simpTime = 0
         for i in tqdm(range(contrad_count)):
             row = cursor.fetchone()
+            start_simp = time.time()
             is_contrad = self._reasoning_tool.iscontradiction(row[1])
+            end_simp = time.time()
+            simpTime = (end_simp-start_simp)
+            logging.info(f'Time: reasoning_z3 took {simpTime:.4f}')
 
             if is_contrad:
                 del_tuple.append(row[0])
@@ -495,9 +490,8 @@ class FaureEvaluation:
         else:
             cursor.execute("delete from {} where id in {}".format(target_table, tuple(del_tuple)))
 
-        contrd_end = time.time()
-        self.simplication_time['contradiction'] = contrd_end - contrd_begin
         cursor.execute("ALTER TABLE {} DROP COLUMN IF EXISTS id".format(target_table))
+        self.rowsAffected -= len(del_tuple)
 
 if __name__ == '__main__':
     # sql = "select t1.c0 as c0, t0.c1 as c1, t0.c2 as c2, ARRAY[t1.c0, t0.c0] as c3, 1 as c4 from R t0, l t1, pod t2, pod t3 where t0.c4 = 0 and t0.c0 = t1.c1 and t0.c1 = t2.c0 and t0.c2 = t3.c0 and t2.c1 = t3.c1 and t0.c0 = ANY(ARRAY[t1.c0, t0.c0])"

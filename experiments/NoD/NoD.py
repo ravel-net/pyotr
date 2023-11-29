@@ -31,14 +31,21 @@ PASSWORD = cfg.postgres['password']
 
 conn = psycopg2.connect(host=cfg.postgres["host"], database=cfg.postgres["db"], user=cfg.postgres["user"], password=cfg.postgres["password"])
 
-def initializeDatabase(nodes, numRules, indexing_on, topology, cVarMapping):
+def initializeDatabase(nodes, numRules, indexing_on, topology, cVarMapping, engine="bdd"):
     cvars = {}
-    cvars["i_1"] = "pkt_in"
-    cvars["i_1"] = "pkt_out"
+    if engine == "bdd":
+        cvars["i_1"] = "pkt_in"
+        cvars["i_1"] = "pkt_out"
+        F = DT_Table(name="F_"+topology, columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","transformer":"text[]","condition":"text[]"}, cvars=cvars, domain={"next_hop":nodes,"node":nodes})   
+    elif engine == "DoCSolver":
+        for i in range(numRules):
+            cvars["i_"+str(i)] = "pkt_in" 
+            cvars["o_"+str(i)] = "pkt_out" 
+        F = DT_Table(name="F_"+topology, columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","condition":"text[]"}, cvars=cvars, domain={"next_hop":nodes,"node":nodes})    
+
 
     R = DT_Table(name="R_nod", columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "source":"integer","path":"integer[]","last_node":"integer","condition":"text[]"}, cvars=cvars, domain={"source":nodes,"last_node":nodes})
 
-    F = DT_Table(name="F_"+topology, columns={"pkt_in":"bit_faure", "pkt_out":"bit_faure", "node":"integer", "next_hop":"integer","transformer":"text[]","condition":"text[]"}, cvars=cvars, domain={"next_hop":nodes,"node":nodes})    
 
     database = DT_Database(tables=[F,R], cVarMapping=cVarMapping)
     R.delete(conn)
@@ -98,44 +105,6 @@ def storeTable(tableName, inputs):
         cursor.execute("INSERT INTO {} VALUES {}".format(tableName, ",".join(inputs[startPoint:])))
     conn.commit()
 
-def runDatalog(db, nodeIntMappingReverse, nodeIntMapping, sourceNode = "atla", header = '1', simplification_on = True, F_name = "F"):
-    source = nodeIntMapping[sourceNode]
-
-    p1 = "R({header}, {source}, n, [{source}, n], {source}, n) :- {F_name}({header}, {source}, n)[n != {source}]".format(source=source, header=header, F_name=F_name)
-
-    # p2 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n == p]\nR({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != second_laster]".format(source=source, header=header, F_name=F_name)
-    # p2 = "R({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != second_laster]".format(source=source, header=header, F_name=F_name)
-    p2 = "R({header}, {source}, n, p || [n], last_node, n) :- R({header}, {source}, n2, p, second_laster, last_node), {F_name}({header}, n2, n)[n != p]".format(source=source, header=header, F_name=F_name)
-    # p2 = "V({header}, p) :- R({header}, {source}, n2, p, second_laster,last_node), F({header}, n2, n)[And(n == p, n != second_laster)]".format(source=source, header=header)
-    program1 = DT_Program(p1, database=db, optimizations={"simplification_on":simplification_on})
-    program2 = DT_Program(p2, database=db, optimizations={"simplification_on":simplification_on})
-    start = time()
-    program1.executeonce(conn)
-    # program2.executeonce(conn)
-    # printTable('F_I2', db, nodeIntMappingReverse)
-    # input()
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    # program2.executeonce(conn)
-    # printTable('R', db, nodeIntMappingReverse)
-    # input()
-    program2.execute(conn, violationTables=[db.getTable("V")])
-    end = time()
-    conn.commit()
-    # print("Total Time =", end-start)
-    printTable('V', db, nodeIntMappingReverse)
-    # program1.reasoning_tool.simplification("R", conn)
-    return (end-start)  
-
 def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
     try:
         lines = []
@@ -158,16 +127,14 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
             links[node2].append(node1)
         return links
 
-def runDatalogSimple(db, topology = "Stanford"):
-    # p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
+# p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007]".format(topology)
+# p1 = "R_nod(pkt_in, pkt_out, 1100004, [n], n) :- F_{}(pkt_in, pkt_out, 1100004, n)[n != 1100004]".format(topology)#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
+# p2 = "R_nod(pkt_in, new_pktout, S, p || [n2], n2) :- R_nod(pkt_in, pkt_out, S, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
+def runDatalogSimple(db, topology = "Stanford", engine="bdd"):
     p1 = "R_nod(pkt_in, pkt_out, 1500007, [n], n) :- F_{}(pkt_in, pkt_out, 1500007, n)[n != 1500007],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx01001010)".format(topology)
     p2 = "R_nod(pkt_in, new_pktout, 1500007, p || [n2], n2) :- R_nod(pkt_in, pkt_out, 1500007, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
-    # p1 = "R_nod(pkt_in, pkt_out, 1100004, [n], n) :- F_{}(pkt_in, pkt_out, 1100004, n)[n != 1100004]".format(topology)#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
-    # p2 = "R_nod(pkt_in, new_pktout, S, p || [n2], n2) :- R_nod(pkt_in, pkt_out, S, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 
-    program1 = DT_Program(p1, database=db, optimizations={"simplification_on":True}, bits = 128)
-    program2 = DT_Program(p2, database=db, optimizations={"simplification_on":True}, bits = 128)
-    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine="bdd")
+    program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine=engine)
     conn.commit()
 
     start = time()
@@ -178,7 +145,8 @@ def runDatalogSimple(db, topology = "Stanford"):
     program_naive.execute_semi_naive(conn)
     end = time()
     conn.commit()
-    # program_naive.restoreStringConditions(conn)
+    if engine == "DoCSolver":
+        program_naive.restoreStringConditions(conn)
     print("Total Time =", end-start)
     # db.getTable("R_nod").printTable(conn=conn, cVarMapping=db.cVarMapping)
     # program1.reasoning_tool.simplification("R", conn)
@@ -200,7 +168,7 @@ def getRewriteBits(match, inverse_match):
     return answer
 
 
-def getTFRule(line, ruleNo, cVarMapping, links):
+def getTFRule(line, ruleNo, cVarMapping, links, engine="bdd"):
     separatedLine = line.split("$")
     action = separatedLine[0]
     in_ports = []
@@ -263,44 +231,66 @@ def getTFRule(line, ruleNo, cVarMapping, links):
             nodeNum += 32
         if in_port not in newNodes:
             newNodes.append(in_port)
-        for out_port in out_ports:
-            if out_port not in newNodes:
-                newNodes.append(out_port)
-            i_var = "i_1"
-            i_var_numeric = str(-1*1-5)
-            # i_var = "i"+str(in_port)
-            # o_var = "o"+str(in_port)
-            # i_var_numeric = str(-1*int(in_port)-5)
-            # o_var_numeric = str(-1*DIFF-int(in_port)-5)
-            # i_var = "i_"+str(nodeNum)
-            # o_var = "o_"+str(nodeNum)
-            # i_var_numeric = str(-1*nodeNum-5)
-            # o_var_numeric = str(-1*DIFF-nodeNum-5)
-            if i_var_numeric in cVarMapping and cVarMapping[i_var_numeric] != i_var:
-                print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(i_var_numeric, i_var, cVarMapping[i_var_numeric]))
-                exit()
-            cVarMapping[i_var_numeric] = i_var
-            condition_arr = []
-            transformer_arr = []
-            condition_arr.append("{i_var} == #{match}".format(i_var=i_var, match=match))
-            if in_port in not_rules:
-                for tbv in not_rules[in_port]:
-                    condition_arr.append("{i_var} != #{tbv}".format(i_var=i_var, tbv=tbv))
-        
-            if action == "rw":
-                rewriteBits = getRewriteBits(match, inverse_match)
-                transformer_arr.append("{i_var} == #{rewriteBits}".format(i_var=i_var, rewriteBits=rewriteBits))
+        if engine == "bdd":
+            for out_port in out_ports:
+                if out_port not in newNodes:
+                    newNodes.append(out_port)
+                i_var = "i_1"
+                i_var_numeric = str(-1*1-5)
+                if i_var_numeric in cVarMapping and cVarMapping[i_var_numeric] != i_var:
+                    print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(i_var_numeric, i_var, cVarMapping[i_var_numeric]))
+                    exit()
+                cVarMapping[i_var_numeric] = i_var
+                condition_arr = []
+                transformer_arr = []
+                condition_arr.append("{i_var} == #{match}".format(i_var=i_var, match=match))
+                if in_port in not_rules:
+                    for tbv in not_rules[in_port]:
+                        condition_arr.append("{i_var} != #{tbv}".format(i_var=i_var, tbv=tbv))
+            
+                if action == "rw":
+                    rewriteBits = getRewriteBits(match, inverse_match)
+                    transformer_arr.append("{i_var} == #{rewriteBits}".format(i_var=i_var, rewriteBits=rewriteBits))
 
-            condition = "'{\"And(" + ", ".join(condition_arr) + ")\"}'" 
-            if len(transformer_arr) == 1:
-                transformer =  '\'{\"' + transformer_arr[0] + "\"}\'"
-            else:
-                transformer = "'{}'"
-            newRules.append("('{i_var_numeric}','{i_var_numeric}',{in_port},{out_port},{transformer},{condition})".format(i_var_numeric=i_var_numeric,in_port=in_port,out_port=out_port,condition=condition, transformer=transformer))
-            ruleNo += 1
+                condition = "'{\"And(" + ", ".join(condition_arr) + ")\"}'" 
+                if len(transformer_arr) == 1:
+                    transformer =  '\'{\"' + transformer_arr[0] + "\"}\'"
+                else:
+                    transformer = "'{}'"
+                newRules.append("('{i_var_numeric}','{i_var_numeric}',{in_port},{out_port},{transformer},{condition})".format(i_var_numeric=i_var_numeric,in_port=in_port,out_port=out_port,condition=condition, transformer=transformer))
+                ruleNo += 1
+        elif engine == "DoCSolver":
+            for out_port in out_ports:
+                if out_port not in newNodes:
+                    newNodes.append(out_port)
+                i_var = "i_"+str(ruleNo)
+                o_var = "o_"+str(ruleNo)
+                i_var_numeric = str(-1*ruleNo-5)
+                o_var_numeric = str(-1*DIFF-ruleNo-5)
+                if i_var_numeric in cVarMapping and cVarMapping[i_var_numeric] != i_var:
+                    print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(i_var_numeric, i_var, cVarMapping[i_var_numeric]))
+                    exit()
+                if o_var_numeric in cVarMapping and cVarMapping[o_var_numeric] != o_var:
+                    print("Conflicting mapping of input numeric {} found: {} and {}. Exiting".format(o_var_numeric, o_var,  cVarMapping[o_var_numeric]))
+                    exit()
+                cVarMapping[i_var_numeric] = i_var
+                cVarMapping[o_var_numeric] = o_var
+                condition_arr = []
+                condition_arr.append("{i_var} == #{match}".format(i_var=i_var, match=match))
+                if in_port in not_rules:
+                    for tbv in not_rules[in_port]:
+                        condition_arr.append("{i_var} != #{tbv}".format(i_var=i_var, tbv=tbv))
+
+                if action == "rw":
+                    condition_arr.append("{o_var} == #{inverse_match}".format(o_var=o_var, inverse_match=inverse_match))
+                else:
+                    condition_arr.append("{o_var} == {i_var}".format(o_var=o_var, i_var=i_var))
+                condition = "'{\"And(" + ", ".join(condition_arr) + ")\"}'"
+                newRules.append("('{i_var_numeric}','{o_var_numeric}',{in_port},{out_port},{condition})".format(i_var_numeric=i_var_numeric,o_var_numeric=o_var_numeric,in_port=in_port,out_port=out_port,condition=condition))
+                ruleNo += 1            
     return newRules, newNodes
 
-def initializeForwardingTable(topology="Stanford", links={}):
+def initializeForwardingTable(topology="Stanford", links={}, engine="bdd"):
     nodes = []
     directory = topology+"_tf"
     indexing_on = False
@@ -320,7 +310,7 @@ def initializeForwardingTable(topology="Stanford", links={}):
         finally:
             ruleNo = 0
             for line in lines[2:]: # skipping first two lines
-                newRules, newNodes = getTFRule(line, ruleNo, cVarMapping, links)
+                newRules, newNodes = getTFRule(line, ruleNo, cVarMapping, links, engine=engine)
                 ruleNo += len(newRules)
                 rules += newRules
                 for node in newNodes:
@@ -328,13 +318,10 @@ def initializeForwardingTable(topology="Stanford", links={}):
                         nodes.append(node)
     print("Number of rules", len(rules))
     print("Number of nodes", len(nodes))
-    # for node in nodes:
-    #     print("(query (R_{} ip_src ip_dst tcp_src tcp_dst vlan ip_proto tcp_ctrl))".format(node))
-    # exit()
     if len(rules) >= DIFF:
         print("Please increase the difference between the mapping of input and output variables. Current difference is {} whereas the number of rules are {}. Exiting".format(DIFF, len(rules)))
         exit()
-    db = initializeDatabase(nodes=nodes, numRules=len(rules), indexing_on=indexing_on, topology=topology, cVarMapping=cVarMapping)
+    db = initializeDatabase(nodes=nodes, numRules=len(rules), indexing_on=indexing_on, topology=topology, cVarMapping=cVarMapping, engine=engine)
     storeTable(tableName = "F_"+topology, inputs=rules)
     F_table = db.getTable("F_"+topology)
     conn.commit()
@@ -347,9 +334,10 @@ def initializeForwardingTable(topology="Stanford", links={}):
     # time_taken_arr.append(timeTaken)
 
 if __name__ == '__main__':
+    engine = "DoCSolver"
     links = getLinks(topology="Stanford", backbonefile="backbone_topology.tf")
-    db = initializeForwardingTable(topology="Stanford", links=links)
-    runDatalogSimple(db=db, topology="Stanford")
+    db = initializeForwardingTable(topology="Stanford", links=links, engine=engine)
+    runDatalogSimple(db=db, topology="Stanford",engine=engine)
     # if len(sys.argv) < 3 or (sys.argv[1] != "verify" and sys.argv[1] != "generate"):
     #     print("Program requires at least 1 parameter with the first parameter either 'verify' or 'generate'. Exiting")
     #     exit()

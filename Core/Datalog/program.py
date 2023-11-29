@@ -14,8 +14,10 @@ from utils import parsing_utils
 from utils import sql_operations
 from utils.converter.recursion_converter import RecursiveConverter
 import databaseconfig as cfg
+import logging
 from utils.logging import timeit
 from tqdm import tqdm
+import time
 
 class DT_Program:
     """
@@ -143,13 +145,19 @@ class DT_Program:
             # conn.commit()
             return changed    
 
-    ########@timeit
+    @timeit
     def execute(self, conn, faure_evaluation_mode="contradiction", violationTables=[]):
+        if self._reasoning_engine.lower() != "z3":
+            for table in self.db.tables:
+                if not table.isEmpty(conn):
+                    self.reasoning_tool.process_condition_on_ctable(conn, tablename=table.name) # converts DoC and BDD conditions into integer indexes
         iterations = 0
         changed = True
         while (changed and iterations < self.__MAX_ITERATIONS): # run until a fixed point reached or MAX_ITERATION reached
             iterations += 1
             changed = self.executeonce(conn, faure_evaluation_mode=faure_evaluation_mode)
+            if not self._optimizations["recursive_rules"]:
+                changed = False
             # for table in violationTables:
             #     if self._optimizations["simplification_on"] == False: # we always simplify the violation tables since we are early exiting
             #         self.reasoning_tool.simplification(table.name, conn)
@@ -178,7 +186,13 @@ class DT_Program:
             self.db.addTable(idb_predicate_delta)
             IDBNamesChanges[idb_predicate.name] = idb_predicate_delta
         P_prime._changeIDBNames(IDBNamesChanges)
+        start_execute = time.time()
         P_prime.executeonce(conn)
+        end_execute = time.time()
+        executeTime = end_execute-start_execute
+        if self._reasoning_engine.lower() == "docsolver":
+            self.reasoning_tool.conditionTrees = P_prime.reasoning_tool.conditionTrees # TODO: Hacky method to copy state. Need a better fix
+
         i = 1
         changed = True
         iterationEndMapping = {} # stores the last iteration of each idb_predicate. The last iteration contains the final result
@@ -198,7 +212,10 @@ class DT_Program:
                 output_pred.unionDifference(conn, tableNames=[output_pred_previous_name, pred_delta_i.name]) # Computes S_i := S_(i-1) U S_delta_i and returns S_i
                 P_temp_name = self._getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
                 idb_predicate.initiateNewTable(conn=conn, newName=P_temp_name)
+                start = time.time()
                 self._executeoncetemp(conn)
+                end = time.time()
+                executeTime += (end-start)
                 pred_delta_next = idb_predicate.initiateNewTable(conn=conn, newName="{}_delta_{}".format(pred_name,str(i+1)))
                 tuplesAdded = pred_delta_next.setDifference(conn=conn, table1Name = P_temp_name, table2Name = output_pred.name) # tuples added is a boolean which is true when new tuples are generated
                 self.db.addTable(pred_delta_next)
@@ -209,11 +226,15 @@ class DT_Program:
                     print(iterationEndMapping)
             i += 1
         conn.commit()
+        start = time.time()
         for idb_predicate in self.idb_predicates: # idb_predicate is of type DT_Table
             if idb_predicate.name in iterationEndMapping:
                 idb_predicate.delete(conn)
                 idb_predicate.rename(conn, iterationEndMapping[idb_predicate.name])
-    
+        end = time.time()
+        logging.info(f'Time: semi_idbend took {(end-start):.4f}')
+        logging.info(f'Time: semi_executeTime took {executeTime:.4f}')
+
     # Converts DoC indexes back to DoC strings so that the result can be understood. Does not support BDD
     def restoreStringConditions(self, conn):
         if self.reasoning_tool.name.lower() != "docsolver":

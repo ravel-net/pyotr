@@ -91,13 +91,9 @@ class z3SMTTools:
             prcd_cond = self.condition_parser(c)
             all_cond.append(prcd_cond)
 
-        start = time.time()
         for cond in all_cond:
             self.solver.add(eval(cond))
         result = self.solver.check()
-        end = time.time()
-        total_time = end-start
-        logging.info(f'Time: z3smt_contracheck took {total_time:.4f}')
 
         if result == z3.unsat:
             self.solver.pop()

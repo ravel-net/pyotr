@@ -104,7 +104,7 @@ class BDDTools:
         else:
             return False
     
-    @timeit
+    # @timeit
     def process_condition_on_ctable(self, conn, tablename):
         """
         convert text condition to BDD reference in a c-table
@@ -139,8 +139,7 @@ class BDDTools:
         if 'transformer' in columns:
             trans_idx = columns.index('transformer')
         else:
-            print("No transformer column! Check if the target table is correct!")
-            exit()
+            trans_idx = -1
 
         # loads table in memory. TODO: We only need to load condition and transformer columns. This could be made more efficient
         cursor.execute("select {attributes} from {tablename}".format(attributes=", ".join(columns), tablename=tablename))
@@ -166,7 +165,7 @@ class BDDTools:
                 bdd_idx = self.str_to_engine(condition)
                 list_row[cond_idx] = "{" + str(bdd_idx) + "}"
 
-            if len(list_row[trans_idx]) != 0: # for transformer, each condition will have two bdds. (1) actual rewriting BDD, (2) Same BDD but with all ones where we need to rewrite. Note that the user has to make sure to provide both conditions, because bdd backend is agnostic to how the conditions are provided
+            if trans_idx != -1 and len(list_row[trans_idx]) != 0: # for transformer, each condition will have two bdds. (1) actual rewriting BDD, (2) Same BDD but with all ones where we need to rewrite. Note that the user has to make sure to provide both conditions, because bdd backend is agnostic to how the conditions are provided
                 transformerConditions = list_row[trans_idx]
                 transformerBDDIdxes = []
                 for condition in transformerConditions:
@@ -186,9 +185,10 @@ class BDDTools:
         sql += "alter table if exists {tablename} drop column if exists condition;".format(tablename=tablename)
 
         # drop transformer column
-        sql += "alter table if exists {tablename} drop column if exists transformer;".format(tablename=tablename)
+        if trans_idx != -1:
+            sql += "alter table if exists {tablename} drop column if exists transformer;".format(tablename=tablename)
 
-        sql += "alter table if exists {tablename} add column IF NOT EXISTS transformer text[];".format(tablename=tablename)
+            sql += "alter table if exists {tablename} add column IF NOT EXISTS transformer text[];".format(tablename=tablename)
 
         sql += "alter table if exists {tablename} add column IF NOT EXISTS condition text[];".format(tablename=tablename)
         cursor.execute(sql)
