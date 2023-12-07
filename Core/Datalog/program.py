@@ -206,10 +206,13 @@ class DT_Program:
                 self.db.addTable(output_pred)
                 output_pred_previous_name =  pred_name+"_"+str(i-1)
                 pred_delta_i = idb_predicate.duplicateWithNewName("{}_delta_{}".format(pred_name,str(i)))
+                start = time.time()
                 if pred_delta_i.isEmpty(conn):
                     iterationEndMapping[idb_predicate.name] = idb_predicate.name+"_"+str(i-1)
                     continue
                 output_pred.unionDifference(conn, tableNames=[output_pred_previous_name, pred_delta_i.name]) # Computes S_i := S_(i-1) U S_delta_i and returns S_i
+                end = time.time()
+                executeTime += (end-start)
                 P_temp_name = self._getTempRules(IDB_name = idb_predicate.name, i = i) # for each rule with idb_predicate, for each idb, create temp rules
                 idb_predicate.initiateNewTable(conn=conn, newName=P_temp_name)
                 start = time.time()
@@ -217,7 +220,10 @@ class DT_Program:
                 end = time.time()
                 executeTime += (end-start)
                 pred_delta_next = idb_predicate.initiateNewTable(conn=conn, newName="{}_delta_{}".format(pred_name,str(i+1)))
+                start = time.time()
                 tuplesAdded = pred_delta_next.setDifference(conn=conn, table1Name = P_temp_name, table2Name = output_pred.name) # tuples added is a boolean which is true when new tuples are generated
+                end = time.time()
+                executeTime += (end-start)
                 self.db.addTable(pred_delta_next)
                 if tuplesAdded != 0:
                     changed = True
@@ -234,6 +240,7 @@ class DT_Program:
         end = time.time()
         logging.info(f'Time: semi_idbend took {(end-start):.4f}')
         logging.info(f'Time: semi_executeTime took {executeTime:.4f}')
+        return iterationEndMapping
 
     # Converts DoC indexes back to DoC strings so that the result can be understood. Does not support BDD
     def restoreStringConditions(self, conn):

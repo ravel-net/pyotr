@@ -37,8 +37,7 @@ def findOperator(condition, startPos, endPos, operators = ["==", "!=", ">", ">="
 		elif posCondition in operators:
 			return posCondition
 		i += 1
-	print("Could not find any operator in condition {}".format(condition[startPos: endPos]))
-	exit()
+	raise Exception("Could not find any operator in condition {}".format(condition[startPos: endPos]))
 
 # given a list of chars, returns variable1 and variable2
 def getVars(currCond, operator):

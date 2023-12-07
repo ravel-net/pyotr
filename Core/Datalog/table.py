@@ -159,10 +159,10 @@ class DT_Table:
             colmType = self.columns[colmName]
             table_creation_query += '{} {},'.format(colmName, self.getColmTypeWithoutFaure(colmType))
         table_creation_query = table_creation_query[:-1]
-        # all_unique_colms = []
-        # for colm in self.columns:
-        #     if "condition" not in colm: # we ignore the condition column for a unique index. TODO: Might not be correct
-        #         all_unique_colms.append(colm)
+        all_unique_colms = []
+        for colm in self.columns:
+            if "condition" not in colm: # we ignore the condition column for a unique index. TODO: Might not be correct
+                all_unique_colms.append(colm)
         # table_creation_query += ", UNIQUE (" + ",".join(all_unique_colms) + ")"
         table_creation_query += ");"
         cursor.execute(table_creation_query)

@@ -89,6 +89,9 @@ class BDDTools:
     ########@timeit
     def evaluate(self, bdd_idx):
         return bddmm.evaluate(bdd_idx)
+    
+    def quit(self):
+        bddmm.quit()
 
     ########@timeit
     def is_equivalent(self, bdd_idx1, bdd_idx2):

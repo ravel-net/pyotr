@@ -42,8 +42,7 @@ DdNode* logicalOpBDD(char curr_char, DdManager* gbm, DdNode* bdd_left, DdNode* b
     else
         assert(false);
     Cudd_Ref(tmp);
-    Cudd_RecursiveDeref(gbm,bdd_right);
-    Cudd_RecursiveDeref(gbm,bdd_left);
+
     return tmp;
 }
 
@@ -71,7 +70,8 @@ DdNode* convertToBDDRecursive(char* condition, int* i, DdManager* gbm, DdNode** 
         // clock_t t;
         // t = clock();
         bdd = logicalOpBDD(curr_char, gbm, bdd_left, bdd_right);
- 
+        Cudd_RecursiveDeref(gbm,bdd_right);
+        Cudd_RecursiveDeref(gbm,bdd_left);
         // t = clock() - t;
         // double time_taken = ((double)t)/CLOCKS_PER_SEC; // in seconds
     }

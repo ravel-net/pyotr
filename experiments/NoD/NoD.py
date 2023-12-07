@@ -15,7 +15,7 @@ from Core.Datalog.database import DT_Database
 from Core.Datalog.table import DT_Table
 from tabulate import tabulate
 from copy import deepcopy
-from time import time
+import time
 from utils import parsing_utils
 import random
 import ipaddress
@@ -132,26 +132,28 @@ def getLinks(topology="Stanford", backbonefile="backbone_topology.tf"):
 # p1 = "R_nod(pkt_in, pkt_out, 1100004, [n], n) :- F_{}(pkt_in, pkt_out, 1100004, n)[n != 1100004]".format(topology)#xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx0000000000000010)".format(topology)
 # p2 = "R_nod(pkt_in, new_pktout, S, p || [n2], n2) :- R_nod(pkt_in, pkt_out, S, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)"
 def runDatalogSimple(db, topology = "Stanford", sourceNode="1500007", engine="bdd"):
-    p1 = "R_nod(pkt_in, pkt_out, {sourceNode}, [n], n) :- F_Stanford(pkt_in, pkt_out, {sourceNode}, n)[n != {sourceNode}],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx01001010)".format(sourceNode=sourceNode)
+    # p1 = "R_nod(pkt_in, pkt_out, {sourceNode}, [n], n) :- F_Stanford(pkt_in, pkt_out, {sourceNode}, n)[n != {sourceNode}],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx01001010)".format(sourceNode=sourceNode)
+    p1 = "R_nod(pkt_in, pkt_out, {sourceNode}, [n], n) :- F_Stanford(pkt_in, pkt_out, {sourceNode}, n)[n != {sourceNode}],(pkt_in == #xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx)".format(sourceNode=sourceNode)
     p2 = "R_nod(pkt_in, new_pktout, {sourceNode}, p || [n2], n2) :- R_nod(pkt_in, pkt_out, {sourceNode}, p, n)[n2 != p], F_Stanford(pkt_out, new_pktout, n, n2)".format(sourceNode=sourceNode)
 
     program_naive = DT_Program(p1+"\n"+p2, database=db, optimizations={"simplification_on":True}, bits = 128, reasoning_engine=engine)
     conn.commit()
 
-    start = time()
+    start = time.time()
     # program_naive.simplifyInitial(conn=conn, target_table="F_Stanford")
     # program1.executeonce(conn)
     # conn.commit()
     # program2.execute(conn)
-    program_naive.execute_semi_naive(conn)
-    end = time()
+    iterationEndMapping = program_naive.execute_semi_naive(conn)
+    end = time.time()
     conn.commit()
-    if engine == "DoCSolver":
-        program_naive.restoreStringConditions(conn)
+    if engine == "bdd":
+        program_naive.reasoning_tool.quit()
     print("Total Time =", end-start)
     # db.getTable("R_nod").printTable(conn=conn, cVarMapping=db.cVarMapping)
     # program1.reasoning_tool.simplification("R", conn)
-    return (end-start)  
+    length = iterationEndMapping["R_nod"].split("_")[2]
+    return length  
 
 # Gets the input match and the output and returns the bits that were rewritten
 def getRewriteBits(match, inverse_match):
@@ -291,7 +293,7 @@ def getTFRule(line, ruleNo, cVarMapping, links, engine="bdd"):
                 ruleNo += 1            
     return newRules, newNodes
 
-def initializeForwardingTable(topology="Stanford", links={}, size = 16, engine="bdd"):
+def initializeForwardingTable(topology="Stanford", links={}, randomRuleIndex=[], engine="bdd"):
     nodes = []
     directory = topology+"_tf"
     indexing_on = False
@@ -334,18 +336,26 @@ def initializeForwardingTable(topology="Stanford", links={}, size = 16, engine="
     if len(rules) >= DIFF:
         print("Please increase the difference between the mapping of input and output variables. Current difference is {} whereas the number of rules are {}. Exiting".format(DIFF, len(rules)))
         exit()
-    db = initializeDatabase(nodes=nodes, numRules=len(rules), indexing_on=indexing_on, topology=topology, cVarMapping=cVarMapping, engine=engine)
-    storeTable(tableName = "F_"+topology, inputs=rules)
+
+    newRules = []
+    for i in randomRuleIndex:
+        newRules.append(rules[i])
+    pickedNodes = []
+    for rule in newRules:
+        pickedNodes.append(rule.split(",")[2].strip())
+
+    db = initializeDatabase(nodes=nodes, numRules=len(newRules), indexing_on=indexing_on, topology=topology, cVarMapping=cVarMapping, engine=engine)
+    storeTable(tableName = "F_"+topology, inputs=newRules)
     F_table = db.getTable("F_"+topology)
     conn.commit()
     print("Added rules to F_"+topology)
     if indexing_on:
         F_table.enableIndexing(conn, "node")
         F_table.enableIndexing(conn, "next_hop")
-    return db, nodes, pickedFiles
+    return db, pickedNodes, pickedFiles
     # timeTaken = runDatalog(db=db, nodeIntMappingReverse=nodeIntMappingReverse, nodeIntMapping=nodeIntMapping, sourceNode=source, header=header, simplification_on=simplification_on, F_name="F_"+topology)
     # time_taken_arr.append(timeTaken)
-def analyze(size, filename="program.log", outputfile="LoRa.dat"):
+def analyze(size, pathlength, filename="program.log", outputfile="LoRa.dat"):
     sums = {}
     with open(filename) as f:
         lines = f.readlines()
@@ -363,42 +373,48 @@ def analyze(size, filename="program.log", outputfile="LoRa.dat"):
         dbTime = sum(sums["db_engine"])
         reasoningTime = sum(sums["reasoning_engine"])
         executeTimeRemaining = executeTime-dbTime-reasoningTime
-        f.write("{}\t{}\t{}\t{}\n".format(str(size), str(dbTime), str(reasoningTime), str(executeTimeRemaining)))
+        if executeTimeRemaining < 0:
+            return -1
+        f.write("{}\t{}\t{}\t{}\t{}\n".format(str(size), str(dbTime), str(reasoningTime), str(executeTimeRemaining), str(pathlength)))
+    return 0
 
 if __name__ == '__main__':
-    engine = "bdd"
+    engines = ["bdd", "DoCSolver"]
+    # engines = ["bdd"]
     logfile = "program.log"
     connectedNodes = []
+    numRules = 17180
     links = getLinks(topology="Stanford", backbonefile="backbone_topology.tf")
     for node in links:
         connectedNodes.append(node)
-    runs = 1
-    # sizes = [16]
-    sizes = [16]
-    nodesPerSize = {} # Key is size, values are nodes
-    for size in sizes:
-        db, nodes, _ = initializeForwardingTable(topology="Stanford", links=links, size=size, engine=engine)
-        pickedNodes = []
-        while len(pickedNodes) < runs:
-            pickedNode = random.sample(nodes, 1)[0]
-            if pickedNode in connectedNodes:
-                pickedNodes.append(pickedNode)
-        nodesPerSize[size] = pickedNodes
-        db.delete(conn)  
-        # for each node, run experiment for 
+    size = int(sys.argv[1]) # take input
+    print(size)
+    randomRuleIndex = random.sample(range(0,numRules), size)
+    if size == numRules:
+        randomRuleIndex = range(0,numRules)
+    db, nodes, _ = initializeForwardingTable(topology="Stanford", links=links, randomRuleIndex=randomRuleIndex, engine="bdd")
+    pickedNode = ""
+    while pickedNode == "":
+        pickedNode = random.sample(nodes, 1)[0]
+        if pickedNode not in connectedNodes:
+            pickedNode = ""
+    db.delete(conn)  
 
-    for size in sizes:
-        db, _, _ = initializeForwardingTable(topology="Stanford", links=links, size=size, engine=engine)
+    for engine in engines:
+        db, _, _ = initializeForwardingTable(topology="Stanford", links=links, randomRuleIndex=randomRuleIndex, engine=engine)
         outputFile = engine+"_"+str(size)+".txt"
-        with open(outputFile,"w") as f:
-            f.write("Size\tDB\tReasoning\tSystem\n")
-        for sourceNode in nodesPerSize:
-            # runDatalogSimple(db=db, topology="Stanford", sourceNode=sourceNode, engine=engine)
-            runDatalogSimple(db=db, topology="Stanford", sourceNode="1500007", engine=engine)
-            logging.shutdown()
-            analyze(size, logfile, outputFile)
+        # with open(outputFile,"a") as f:
+        #     f.write("Size\tDB\tReasoning\tSystem\n")
+        # runDatalogSimple(db=db, topology="Stanford", sourceNode=sourceNode, engine=engine)
+        pathlength = runDatalogSimple(db=db, topology="Stanford", sourceNode=pickedNode, engine=engine)
+        db.delete(conn)
+        logging.shutdown()
+        returnVal = analyze(size, pathlength, logfile, outputFile)
+        time.sleep(2)
+        if returnVal < 0 or pathlength == 0:
             os.remove(logfile)
-            exit()
+            break
+        os.remove(logfile)
 
     # if len(sys.argv) < 3 or (sys.argv[1] != "verify" and sys.argv[1] != "generate"):
     #     print("Program requires at least 1 parameter with the first parameter either 'verify' or 'generate'. Exiting")
